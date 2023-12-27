@@ -6,7 +6,7 @@ plugins {
 }
 
 version = mod_version
-group = "com.MrOrnithorynque.bmh"
+group = "github.mrornithorynque.bmh"
 
 base {
     archivesName = mod_id
