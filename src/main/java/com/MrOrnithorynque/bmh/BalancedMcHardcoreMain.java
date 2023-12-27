@@ -1,5 +1,6 @@
 package com.MrOrnithorynque.bmh;
 
+import com.MrOrnithorynque.bmh.init.ItemInit;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.Registries;
@@ -44,6 +45,9 @@ public class BalancedMcHardcoreMain
 
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
+
+        // Register the ItemLoader to the mod event bus
+        ItemInit.ITEMS.register(modEventBus);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event)
