@@ -11,16 +11,17 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
-public class BlockInit
-{
+public class BlockInit {
+
     public static final DeferredRegister<Block> BLOCKS =
-            DeferredRegister.create(ForgeRegistries.BLOCKS, BalancedMcHardcoreMain.MODID);
+        DeferredRegister.create(ForgeRegistries.BLOCKS, BalancedMcHardcoreMain.MODID);
 
     public static final RegistryObject<Block> TEST_BLOCK =
         BLOCKS.register("test_block", () -> new Block(BlockBehaviour.Properties.of()
-            .mapColor(MapColor.CLAY)
+            .mapColor(MapColor.COLOR_BLACK)
             .strength(5.0f, 17.0f)
             .instrument(NoteBlockInstrument.BANJO)
+            .requiresCorrectToolForDrops()
             .lightLevel(state -> 10))
         );
 }

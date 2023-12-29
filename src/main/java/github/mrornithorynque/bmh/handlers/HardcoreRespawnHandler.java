@@ -26,7 +26,6 @@ public class HardcoreRespawnHandler {
 
         LOGGER.info("HELLO FROM PLAYER RESPAWN");
 
-        // Ensure we're dealing with a server player (as respawn locations are server-side logic)
         if (event.getEntity() instanceof ServerPlayer) {
 
             LOGGER.info("Player is a server player");
@@ -39,11 +38,11 @@ public class HardcoreRespawnHandler {
 
             // If the bedLocation is null or the respawn is not forced by a bed, use the world spawn
             if (bedLocation == null || !isRespawnForced) {
+
                 bedLocation = serverLevel.getSharedSpawnPos();
                 LOGGER.info("Respawn is not forced by a bed");
             }
 
-            // Calculate a new random position based on the bed's location or world spawn
             BlockPos respawnPosition = calculateRandomPosition(serverLevel, bedLocation);
 
             float respawnAngle = 0.0f;
@@ -54,8 +53,6 @@ public class HardcoreRespawnHandler {
     private BlockPos calculateRandomPosition(ServerLevel serverLevel, BlockPos bedPosition) {
 
         Random RANDOM = new Random();
-
-        // Ensure the bounds for Random.nextInt() are positive
         int distanceBound = MAX_DISTANCE - MIN_DISTANCE + 1;
 
         if (distanceBound <= 0) {

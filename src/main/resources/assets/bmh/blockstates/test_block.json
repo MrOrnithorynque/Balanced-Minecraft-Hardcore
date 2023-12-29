@@ -1,5 +1,5 @@
 {
-    "variable": {
+    "variants": {
         "": {
             "model": "bmh:block/test_block"
         }
