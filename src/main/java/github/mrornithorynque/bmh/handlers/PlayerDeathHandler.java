@@ -3,18 +3,17 @@ package github.mrornithorynque.bmh.handlers;
 import java.util.Random;
 import org.slf4j.Logger;
 
-import net.minecraftforge.event.entity.player.PlayerEvent.PlayerRespawnEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-
 import com.mojang.logging.LogUtils;
-
-import net.minecraft.core.BlockPos;
 
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.core.BlockPos;
 
-public class HardcoreRespawnHandler {
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+
+public class PlayerDeathHandler {
 
     private static final int MIN_DISTANCE = 50000;
     private static final int MAX_DISTANCE = 70000;
@@ -22,7 +21,7 @@ public class HardcoreRespawnHandler {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @SubscribeEvent
-    public void onPlayerRespawn(PlayerRespawnEvent event) {
+    public void onPlayerDeath(LivingDeathEvent event) {
 
         LOGGER.info("HELLO FROM PLAYER RESPAWN");
 
@@ -66,7 +65,10 @@ public class HardcoreRespawnHandler {
 
         int newX = bedPosition.getX() + (RANDOM.nextBoolean() ? randomX : -randomX);
         int newZ = bedPosition.getZ() + (RANDOM.nextBoolean() ? randomZ : -randomZ);
-        int newY = 200;//serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ);
+        int newY = 200;//serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, newX, newZ);
+        // if (newY <= serverLevel.getMinBuildHeight()) {
+        //     newY = serverLevel.getSeaLevel();
+        // }
 
         LOGGER.info("New respawn position: X=" + newX + ", Y=" + newY + ", Z=" + newZ);
         LOGGER.info("dimension: " + serverLevel.dimension());

@@ -1,7 +1,7 @@
 package github.mrornithorynque.bmh;
 
 import github.mrornithorynque.bmh.init.ItemInit;
-import github.mrornithorynque.bmh.handlers.HardcoreRespawnHandler;
+import github.mrornithorynque.bmh.handlers.PlayerDeathHandler;
 import github.mrornithorynque.bmh.handlers.RespawnMessageOverlay;
 import github.mrornithorynque.bmh.init.BlockInit;
 
@@ -43,7 +43,7 @@ public class BalancedMcHardcoreMain {
 
     private void setup(final FMLCommonSetupEvent event) {
 
-        MinecraftForge.EVENT_BUS.register(new HardcoreRespawnHandler());
+        MinecraftForge.EVENT_BUS.register(new PlayerDeathHandler());
         MinecraftForge.EVENT_BUS.register(new RespawnMessageOverlay());
     }
 }
