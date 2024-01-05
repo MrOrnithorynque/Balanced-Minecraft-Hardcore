@@ -1,49 +1,64 @@
 package github.mrornithorynque.bmh.handlers;
 
-import github.mrornithorynque.bmh.BalancedMcHardcoreMain;
+import org.slf4j.Logger;
 
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import com.mojang.logging.LogUtils;
+
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.client.Minecraft;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 
-@Mod(BalancedMcHardcoreMain.MODID)
+@EventBusSubscriber(value = Dist.CLIENT)
 public class RespawnMessageOverlay {
 
-    private boolean showRespawnMessage = false;
+    private static boolean showRespawnMessage = false;
+
+    private static final Logger LOGGER = LogUtils.getLogger();
+
+    private static long messageEndTime;
+    private static int delay = 5000;
+    private static Player player;
 
     @SubscribeEvent
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
 
-        // When the player respawns, set the flag to show the message
         if (event.getEntity().equals(Minecraft.getInstance().player)) {
+
             showRespawnMessage = true;
+            messageEndTime = System.currentTimeMillis() + delay;
+            player = (Player) event.getEntity();
         }
     }
 
-    // @SubscribeEvent
-    // public void onRenderGameOverlay(RenderGameOverlayEvent.Post event) {
+    @SubscribeEvent
+    public static void onRenderGuiOverlay(RenderGuiOverlayEvent.Post event) {
 
-    //     // Check if we're rendering the type of overlay where we want our message to appear
-    //     if (event.getType() == RenderGameOverlayEvent.ElementType.ALL) {
+        if (showRespawnMessage && System.currentTimeMillis() < messageEndTime) {
 
-    //         Minecraft mc = Minecraft.getInstance();
+            Minecraft mc   = Minecraft.getInstance();
+            String message = "A new journey begin for you, " + player.getName().getString() + ".";
 
-    //         // Check if we should show the respawn message
-    //         if (showRespawnMessage) {
+            int width  = event.getWindow().getGuiScaledWidth();
+            int height = event.getWindow().getGuiScaledHeight();
 
-    //             // Reset the flag so the message doesn't show continuously
-    //             showRespawnMessage = false;
+            // Calculate position to render (e.g., centered on screen)
+            int x     = (width - mc.font.width(message)) / 2;
+            int y     = height / 2;
+            int color = 0xFFFFFF; // White color
 
-    //             // Set the message and its position
-    //             String message = "You have respawned!";
-    //             int x = mc.getWindow().getGuiScaledWidth() / 2;
-    //             int y = mc.getWindow().getGuiScaledHeight() / 2;
+            LOGGER.info("x: " + x + ", y: " + y);
+            LOGGER.info("width: " + width + ", height: " + height);
+            LOGGER.info("message: " + message);
 
-    //             // Draw the message on the screen
-    //             mc.font.draw(event.getMatrixStack(), message, x, y, 0xFFFFFF);
-    //         }
-    //     }
-    // }
+            // Use GuiGraphics for rendering
+            event.getGuiGraphics().drawString(mc.font, message, x, y, color);
+        } else {
+
+            showRespawnMessage = false;
+        }
+    }
 }

@@ -23,7 +23,7 @@ public class PlayerDeathHandler {
     @SubscribeEvent
     public void onPlayerDeath(LivingDeathEvent event) {
 
-        LOGGER.info("HELLO FROM PLAYER RESPAWN");
+        LOGGER.info("HELLO FROM PLAYER DEATH");
 
         if (event.getEntity() instanceof ServerPlayer) {
 
@@ -65,7 +65,9 @@ public class PlayerDeathHandler {
 
         int newX = bedPosition.getX() + (RANDOM.nextBoolean() ? randomX : -randomX);
         int newZ = bedPosition.getZ() + (RANDOM.nextBoolean() ? randomZ : -randomZ);
-        int newY = 200;//serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, newX, newZ);
+        int newY = 200;
+
+        // int newY = serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, newX, newZ);
         // if (newY <= serverLevel.getMinBuildHeight()) {
         //     newY = serverLevel.getSeaLevel();
         // }
