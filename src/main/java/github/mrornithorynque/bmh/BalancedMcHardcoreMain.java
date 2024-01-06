@@ -1,9 +1,8 @@
 package github.mrornithorynque.bmh;
 
-import github.mrornithorynque.bmh.init.ItemInit;
-import github.mrornithorynque.bmh.handlers.PlayerDeathHandler;
-import github.mrornithorynque.bmh.handlers.RespawnMessageOverlay;
-import github.mrornithorynque.bmh.init.BlockInit;
+import github.mrornithorynque.bmh.init.*;
+import github.mrornithorynque.bmh.handlers.*;
+import github.mrornithorynque.bmh.utilities.TextDrawer;
 
 import com.mojang.logging.LogUtils;
 
@@ -45,5 +44,6 @@ public class BalancedMcHardcoreMain {
 
         MinecraftForge.EVENT_BUS.register(new PlayerDeathHandler());
         MinecraftForge.EVENT_BUS.register(new RespawnMessageOverlay());
+        MinecraftForge.EVENT_BUS.register(TextDrawer.getInstance());
     }
 }

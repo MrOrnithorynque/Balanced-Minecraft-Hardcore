@@ -65,12 +65,11 @@ public class PlayerDeathHandler {
 
         int newX = bedPosition.getX() + (RANDOM.nextBoolean() ? randomX : -randomX);
         int newZ = bedPosition.getZ() + (RANDOM.nextBoolean() ? randomZ : -randomZ);
-        int newY = 200;
 
-        // int newY = serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, newX, newZ);
-        // if (newY <= serverLevel.getMinBuildHeight()) {
-        //     newY = serverLevel.getSeaLevel();
-        // }
+        int newY = serverLevel.getHeight(Heightmap.Types.WORLD_SURFACE, newX, newZ);
+        if (newY <= serverLevel.getMinBuildHeight()) {
+            newY = serverLevel.getSeaLevel();
+        }
 
         LOGGER.info("New respawn position: X=" + newX + ", Y=" + newY + ", Z=" + newZ);
         LOGGER.info("dimension: " + serverLevel.dimension());
