@@ -3,6 +3,7 @@ package github.mrornithorynque.bmh;
 import github.mrornithorynque.bmh.init.*;
 import github.mrornithorynque.bmh.handlers.*;
 import github.mrornithorynque.utilities.TextDrawer;
+import github.mrornithorynque.bmh.utilities.BMHGameRules;
 
 import com.mojang.logging.LogUtils;
 
@@ -30,6 +31,7 @@ public class BalancedMcHardcoreMain {
         ItemInit.ITEMS.register(modEventBus);
         BlockInit.BLOCKS.register(modEventBus);
         SoundInit.SOUND_EVENT.register(modEventBus);
+        BMHGameRules.init();
 
         // Register the setup method for mod loading
         modEventBus.addListener(this::setup);

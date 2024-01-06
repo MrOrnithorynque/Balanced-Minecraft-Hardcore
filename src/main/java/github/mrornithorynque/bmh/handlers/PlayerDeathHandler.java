@@ -5,12 +5,14 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.GameRules;
 
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -25,17 +27,21 @@ public class PlayerDeathHandler {
     @SubscribeEvent
     public void onPlayerDeath(LivingDeathEvent event) {
 
-        LOGGER.info("HELLO FROM PLAYER DEATH");
-
         if (event.getEntity() instanceof ServerPlayer) {
-
-            LOGGER.info("Player is a server player");
 
             ServerPlayer player = (ServerPlayer) event.getEntity();
             ServerLevel serverLevel = player.serverLevel();
 
             BlockPos bedLocation = player.getRespawnPosition();
             boolean isRespawnForced = player.isRespawnForced();
+
+            GameRules gameRules = serverLevel.getGameRules();
+            if(!gameRules.getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)) {
+
+                LOGGER.info("RULE_RANDOM_DEATH_SPAWN_POINT: " + gameRules.getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT));
+                LOGGER.info("Game rule randomDeathSpawnPoint is false, using default respawn position");
+                return;
+            }
 
             // If the bedLocation is null or the respawn is not forced by a bed, use the world spawn
             if (bedLocation == null || !isRespawnForced) {
@@ -91,7 +97,7 @@ public class PlayerDeathHandler {
 
                 LOGGER.info("New respawn position: X=" + newX + ", Y=" + newY + ", Z=" + newZ);
                 // Set the respawn position here
-                bedPosition = new BlockPos(newX, newY, newZ);
+                bedPosition = new BlockPos(newX, 200, newZ);
                 break;
             }
 

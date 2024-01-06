@@ -37,6 +37,7 @@ public class TextDrawer {
         int      x;
         int      y;
         int      color;
+        float    scale;
         long     messageEndTime;
         int      timeFadeIn;
         int      timeFadeOut;
@@ -48,6 +49,7 @@ public class TextDrawer {
             this.x              = 0;
             this.y              = 0;
             this.color          = 0xFFFFFF;
+            this.scale          = 1.0f;
             this.messageEndTime = 0;
             this.timeFadeIn     = 0;
             this.timeFadeOut    = 0;
@@ -127,6 +129,19 @@ public class TextDrawer {
         text.position       = position;
         text.color          = color;
         text.messageEndTime = System.currentTimeMillis() + delay;
+
+        textList.add(text);
+    }
+
+    public void drawString(String message, int x, int y, int color, int delay, float scale) {
+
+        Text text = new Text();
+        text.message = message;
+        text.x = x;
+        text.y = y;
+        text.color = color;
+        text.messageEndTime = System.currentTimeMillis() + delay;
+        text.scale = scale;
 
         textList.add(text);
     }
