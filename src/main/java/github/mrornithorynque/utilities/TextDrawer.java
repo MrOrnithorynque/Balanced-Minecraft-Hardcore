@@ -1,10 +1,8 @@
-package github.mrornithorynque.bmh.utilities;
+package github.mrornithorynque.utilities;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-
-import org.slf4j.Logger;
 
 import net.minecraft.client.Minecraft;
 
@@ -12,16 +10,12 @@ import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.api.distmarker.Dist;
-import com.mojang.blaze3d.platform.Window;
-
-import com.mojang.logging.LogUtils;
 
 @EventBusSubscriber(value = Dist.CLIENT)
 public class TextDrawer {
 
     private static TextDrawer instance;
     private Minecraft mc;
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     public enum ScreenPosition {
 
@@ -60,13 +54,20 @@ public class TextDrawer {
             this.position       = ScreenPosition.UNDEFINED;
         }
 
-        String log() {
+        @Override
+        public String toString() {
 
-            return "message: " + message
-                 + ", x: "     + x
-                 + ", y: "     + y
-                 + ", color: " + color
-                 + ", messageEndTime: " + messageEndTime;
+            return
+            "Text{" +
+                "message='" + message + '\'' +
+                ", x="      + x +
+                ", y="      + y +
+                ", color="  + color +
+                ", messageEndTime=" + messageEndTime +
+                ", timeFadeIn="     + timeFadeIn +
+                ", timeFadeOut="    + timeFadeOut +
+                ", position="       + position +
+            '}';
         }
     }
 
@@ -159,20 +160,7 @@ public class TextDrawer {
 
     private void drawText(Text text, RenderGuiOverlayEvent.Post event) {
 
-        long currentTime = System.currentTimeMillis();
-        long elapsedTime = currentTime - (text.messageEndTime - text.timeFadeIn - text.timeFadeOut);
-
-        int alpha = 255; // Default alpha value (opaque)
-
-        if (elapsedTime < text.timeFadeIn) {
-            alpha = (int) (255 * (elapsedTime / (float) text.timeFadeIn));
-        } else if (currentTime > text.messageEndTime - text.timeFadeOut) {
-            alpha = (int) (255 * ((text.messageEndTime - currentTime) / (float) text.timeFadeOut));
-        }
-
-        alpha = Math.max(0, Math.min(255, alpha));
-
-        int finalColor = (text.color & 0x00FFFFFF) | (alpha << 24);
+        //handleFadeInOut(text);
 
         int width  = event.getWindow().getGuiScaledWidth();
         int height = event.getWindow().getGuiScaledHeight();
@@ -221,6 +209,39 @@ public class TextDrawer {
             default: break;
         }
 
-        event.getGuiGraphics().drawString(mc.font, text.message, x, y, finalColor);
+        event.getGuiGraphics().drawString(mc.font, text.message, x, y, text.color);
+    }
+
+    private void handleFadeInOut(Text text) {
+
+        long currentTime      = System.currentTimeMillis();
+        long fadeInEndTime    = text.messageEndTime - text.timeFadeOut - text.timeFadeIn;
+        long fadeOutStartTime = text.messageEndTime - text.timeFadeOut;
+
+        int originalAlpha = (text.color >> 24) & 0xff;
+        int alpha = originalAlpha;
+
+        // Fade in logic
+        if (currentTime < fadeInEndTime) {
+            long fadeInProgress = currentTime - (fadeInEndTime - text.timeFadeIn);
+            alpha = (int) (originalAlpha * (fadeInProgress / (float) text.timeFadeIn));
+        }
+        // Fade out logic
+        else if (currentTime > fadeOutStartTime) {
+            long fadeOutProgress = text.messageEndTime - currentTime;
+            alpha = (int) (originalAlpha * (fadeOutProgress / (float) text.timeFadeOut));
+        }
+
+        alpha = Math.max(0, Math.min(255, alpha)); // Clamp alpha between 0 and 255
+        text.color = setAlpha(text.color, alpha); // Use setAlpha method to apply the new alpha
+    }
+
+    public int setAlpha(int color, int alpha) {
+
+        if (alpha < 0 || alpha > 255) {
+            throw new IllegalArgumentException("Transparency percentage must be between 0 and 100");
+        }
+
+        return (color & 0x00FFFFFF) | (alpha << 24);
     }
 }

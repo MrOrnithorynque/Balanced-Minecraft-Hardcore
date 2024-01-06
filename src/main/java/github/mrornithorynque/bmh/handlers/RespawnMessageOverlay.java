@@ -1,11 +1,12 @@
 package github.mrornithorynque.bmh.handlers;
 
+import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 
-import com.ibm.icu.impl.RuleCharacterIterator.Position;
 import com.mojang.logging.LogUtils;
 
-import github.mrornithorynque.bmh.utilities.TextDrawer;
+import github.mrornithorynque.utilities.TextDrawer;
+import github.mrornithorynque.utilities.HexColor;
 
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.client.Minecraft;
@@ -29,13 +30,11 @@ public class RespawnMessageOverlay {
 
             player = (Player) event.getEntity();
 
-            TextDrawer.getInstance().drawStringFadeInOut(
+            TextDrawer.getInstance().drawString(
                 "A new journey begin for you, " + player.getName().getString() + ".",
                 TextDrawer.ScreenPosition.CENTER,
-                0xFFFFFF,
-                500,
-                500,
-                2000
+                HexColor.WHITE.getValue(),
+                10000
             );
         }
     }
