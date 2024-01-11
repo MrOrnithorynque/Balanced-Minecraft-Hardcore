@@ -47,6 +47,7 @@ public class BalancedMcHardcoreMain {
 
         MinecraftForge.EVENT_BUS.register(new PlayerDeathHandler());
         MinecraftForge.EVENT_BUS.register(new RespawnMessageOverlay());
+        MinecraftForge.EVENT_BUS.register(new SleepHandler());
         MinecraftForge.EVENT_BUS.register(TextDrawer.getInstance());
     }
 }
