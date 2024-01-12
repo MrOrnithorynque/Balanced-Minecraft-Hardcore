@@ -2,10 +2,11 @@ package github.mrornithorynque.bmh.handlers;
 
 import net.minecraftforge.event.entity.player.PlayerWakeUpEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-
-import net.minecraft.client.renderer.EffectInstance;
+import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.food.FoodData;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -17,18 +18,23 @@ public class SleepHandler {
 
         if (event.getEntity() instanceof ServerPlayer) {
 
-            ServerPlayer player = (ServerPlayer) event.getEntity();
-            healthAndFoodRegen(player);
+            ServerPlayer player     = (ServerPlayer) event.getEntity();
+            ServerLevel serverLevel = player.serverLevel();
+
+            if(!serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_FOOD_AND_HEALTH_REGEN_ON_WAKE_UP)) {
+
+                healthAndFoodRegen(player);
+            }
         }
     }
 
     void healthAndFoodRegen(ServerPlayer player) {
 
-        FoodData foodData = player.getFoodData();
-        float playerHealth = player.getHealth();
+        FoodData foodData  = player.getFoodData();
 
+        float playerHealth       = player.getHealth();
         float amountOfExhaustion = 4f;
-        int foodLevel = foodData.getFoodLevel();
+        int foodLevel            = foodData.getFoodLevel();
 
         if (foodLevel >= 15 /* 75% */) {
 
@@ -37,8 +43,11 @@ public class SleepHandler {
 
             if (playerHealth >= 20f /* 100% */) {
 
-                player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 180, 1));
-                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 180, 1));
+                MobEffectInstance digSpeed   = new MobEffectInstance(MobEffects.DIG_SPEED, 3600, 1);
+                MobEffectInstance resistance = new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 3600, 1);
+
+                player.addEffect(digSpeed);
+                player.addEffect(resistance);
             }
 
             foodData.setFoodLevel(foodLevel - 4);
@@ -58,7 +67,7 @@ public class SleepHandler {
         } else if (foodLevel > 1 /* 5% */) {
 
             player.heal(1);
-            foodData.addExhaustion(amountOfExhaustion);
+            foodData.addExhaustion(amountOfExhaustion / 4);
             foodData.setFoodLevel(foodLevel - 1);
         }
     }

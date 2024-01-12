@@ -33,27 +33,39 @@ public class TextDrawer {
 
     private class Text {
 
-        String   message;
-        int      x;
-        int      y;
-        int      color;
-        float    scale;
-        long     messageEndTime;
-        int      timeFadeIn;
-        int      timeFadeOut;
+        String message;
+
+        int x;
+        int y;
+
+        int color;
+
+        int timeFadeIn;
+        int timeFadeOut;
+
+        long messageEndTime;
+
+        float scale;
+
         ScreenPosition position;
 
         Text() {
 
-            this.message        = "";
-            this.x              = 0;
-            this.y              = 0;
-            this.color          = 0xFFFFFF;
-            this.scale          = 1.0f;
+            this.message = "";
+
+            this.x = 0;
+            this.y = 0;
+
+            this.color = 0xFFFFFF;
+
+            this.timeFadeIn  = 0;
+            this.timeFadeOut = 0;
+
             this.messageEndTime = 0;
-            this.timeFadeIn     = 0;
-            this.timeFadeOut    = 0;
-            this.position       = ScreenPosition.UNDEFINED;
+
+            this.scale = 1.0f;
+
+            this.position = ScreenPosition.UNDEFINED;
         }
 
         @Override

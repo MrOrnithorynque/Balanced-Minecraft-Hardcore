@@ -1,15 +1,17 @@
 package github.mrornithorynque.bmh.handlers;
 
-import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.utilities.TextDrawer;
+import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import github.mrornithorynque.utilities.HexColor;
 
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -30,12 +32,17 @@ public class RespawnMessageOverlay {
 
             player = (Player) event.getEntity();
 
-            TextDrawer.getInstance().drawString(
-                "A new journey begin for you, " + player.getName().getString() + ".",
-                TextDrawer.ScreenPosition.CENTER,
-                HexColor.WHITE.getValue(),
-                10000
-            );
+            Level level = player.level();
+
+            if(!level.getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN)) {
+
+                TextDrawer.getInstance().drawString(
+                    "A new journey begin for you, " + player.getName().getString() + ".",
+                    TextDrawer.ScreenPosition.CENTER,
+                    HexColor.WHITE.getValue(),
+                    delay
+                );
+            }
         }
     }
 }
