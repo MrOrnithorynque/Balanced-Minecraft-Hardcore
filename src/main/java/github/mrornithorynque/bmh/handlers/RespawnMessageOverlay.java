@@ -8,7 +8,6 @@ import github.mrornithorynque.utilities.TextDrawer;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import github.mrornithorynque.utilities.HexColor;
 
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.Level;
@@ -34,7 +33,7 @@ public class RespawnMessageOverlay {
 
             Level level = player.level();
 
-            if(!level.getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN)) {
+            if(level.getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN)) {
 
                 TextDrawer.getInstance().drawString(
                     "A new journey begin for you, " + player.getName().getString() + ".",

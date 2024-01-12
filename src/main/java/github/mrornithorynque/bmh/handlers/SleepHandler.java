@@ -21,7 +21,7 @@ public class SleepHandler {
             ServerPlayer player     = (ServerPlayer) event.getEntity();
             ServerLevel serverLevel = player.serverLevel();
 
-            if(!serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_FOOD_AND_HEALTH_REGEN_ON_WAKE_UP)) {
+            if(serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_FOOD_AND_HEALTH_REGEN_ON_WAKE_UP)) {
 
                 healthAndFoodRegen(player);
             }
