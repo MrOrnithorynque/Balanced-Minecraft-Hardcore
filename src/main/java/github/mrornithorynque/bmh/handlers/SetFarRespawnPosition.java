@@ -7,9 +7,12 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
+
 import net.minecraft.core.BlockPos;
+
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
@@ -17,7 +20,9 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
+
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public class SetFarRespawnPosition {
@@ -29,9 +34,7 @@ public class SetFarRespawnPosition {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    // bad idea because no new pos on firdt death because called after tp
-
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
 
         setNewRespawnPosition(event);
@@ -69,7 +72,8 @@ public class SetFarRespawnPosition {
             float respawnAngle       = 0.0f;
 
             player.setRespawnPosition(serverLevel.dimension(), respawnPosition, respawnAngle, true, false);
-            // tp player to new pos ??
+
+            //player.teleportTo(respawnPosition.getX(), respawnPosition.getY(), respawnPosition.getZ());
         }
     }
 
