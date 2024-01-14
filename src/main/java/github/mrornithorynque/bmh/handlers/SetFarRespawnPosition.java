@@ -1,29 +1,26 @@
 package github.mrornithorynque.bmh.handlers;
 
 import java.util.Random;
+
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
-
-import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.Biomes;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.world.level.GameRules;
-
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-
-import net.minecraft.core.BlockPos;
-
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
-public class PlayerDeathHandler {
+public class SetFarRespawnPosition {
 
     private static final int MIN_DISTANCE = 50000;
     private static final int MAX_DISTANCE = 70000;
@@ -32,13 +29,15 @@ public class PlayerDeathHandler {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    @SubscribeEvent
-    public void onPlayerDeath(LivingDeathEvent event) {
+    // bad idea because no new pos on firdt death because called after tp
 
-        //setNewRespawnPosition(event);
+    @SubscribeEvent
+    public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+
+        setNewRespawnPosition(event);
     }
 
-    private void setNewRespawnPosition(LivingDeathEvent event) {
+    private void setNewRespawnPosition(PlayerEvent.PlayerRespawnEvent event) {
 
         // move this on respawn handler because huge lag
         if (event.getEntity() instanceof ServerPlayer) {
@@ -70,6 +69,7 @@ public class PlayerDeathHandler {
             float respawnAngle       = 0.0f;
 
             player.setRespawnPosition(serverLevel.dimension(), respawnPosition, respawnAngle, true, false);
+            // tp player to new pos ??
         }
     }
 
