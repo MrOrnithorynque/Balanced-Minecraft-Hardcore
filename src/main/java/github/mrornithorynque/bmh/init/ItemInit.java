@@ -28,12 +28,12 @@ public class ItemInit {
             .rarity(Rarity.EPIC))
         );
 
-    // public static final RegistryObject<Item> LIFE_TOTEM =
-    //     ITEMS.register("life totem", () -> new Item(new Item.Properties()
-    //         .stacksTo(1)
-    //         .fireResistant()
-    //         .rarity(Rarity.EPIC))
-    //     );
+    public static final RegistryObject<Item> LIFE_TOTEM =
+        ITEMS.register("life_totem", () -> new Item(new Item.Properties()
+            .stacksTo(1)
+            .fireResistant()
+            .rarity(Rarity.EPIC))
+        );
 
     public static final RegistryObject<BlockItem> TEST_BLOCK_ITEM =
         ITEMS.register("test_block", () -> new BlockItem(BlockInit.TEST_BLOCK.get(),

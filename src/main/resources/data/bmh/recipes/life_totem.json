@@ -1,0 +1,29 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "nAn",
+        "DET",
+        " n "
+    ],
+    "key": {
+        "n": {
+            "item": "minecraft:netherite_ingot"
+        },
+        "A": {
+            "item": "minecraft:amethyst_block"
+        },
+        "D": {
+            "item": "minecraft:diamond_block"
+        },
+        "E": {
+            "item": "minecraft:ender_chest"
+        },
+        "T": {
+            "item": "minecraft:emerald_block"
+        }
+    },
+    "result": {
+        "item": "bmh:life_totem",
+        "count": 1
+    }
+}

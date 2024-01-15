@@ -1,0 +1,15 @@
+{
+    "type": "minecraft:smithing_trim",
+    "template": {
+        "item": "minecraft:netherite_axe"
+    },
+    "base": {
+        "item": "minecraft:nether_star"
+    },
+    "addition": {
+        "item": "bmh:life_totem"
+    },
+    "result": {
+        "item": "bmh:netherite_axe"
+    }
+}

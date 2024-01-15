@@ -1,0 +1,17 @@
+{
+    "type": "minecraft:smithing_trim",
+    "template": {
+        "item": "minecraft:netherite_axe"
+    },
+
+    
+    "base": {
+        "item": "minecraft:dragon_egg"
+    },
+    "addition": {
+        "item": "bmh:life_totem"
+    },
+    "result": {
+        "item": "minecraft:netherite_axe"
+    }
+}

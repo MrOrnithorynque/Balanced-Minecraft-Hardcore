@@ -1,0 +1,9 @@
+{
+    "type": "minecraft:blasting",
+    "ingredient": {
+        "item": "bmh:life_totem"
+    },
+    "result": "bmh:life_totem",
+    "experience": 0,
+    "cookingtime": 600
+}
