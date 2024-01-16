@@ -6,12 +6,20 @@ import java.util.function.Supplier;
 import java.util.List;
 import java.util.ArrayList;
 
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.RegistryObject;
+
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+
 import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 
 public class CreativeTabInit {
 
@@ -28,4 +36,24 @@ public class CreativeTabInit {
                 CREATIVE_MODE_TAB_ITEMS.forEach(itemLike -> output.accept(itemLike.get())))
             .build()
         );
+
+    public static <T extends Item> RegistryObject<T> addToTab(RegistryObject<T> itemLike) {
+
+        CREATIVE_MODE_TAB_ITEMS.add(itemLike);
+        return itemLike;
+    }
+
+    @SubscribeEvent
+    public static void buildContents(BuildCreativeModeTabContentsEvent event) {
+
+        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
+
+            event.accept(ItemInit.TEST_BLOCK_ITEM);
+        }
+
+        if (event.getTab() == BMH_CREATIVE_TAB.get()) {
+
+            event.accept(Items.CROSSBOW);
+        }
+    }
 }

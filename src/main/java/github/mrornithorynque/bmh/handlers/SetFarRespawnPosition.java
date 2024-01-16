@@ -14,6 +14,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
@@ -61,6 +62,12 @@ public class SetFarRespawnPosition {
                 return;
             }
 
+            if (player.gameMode.getGameModeForPlayer() != GameType.SURVIVAL) {
+
+                LOGGER.info("Player is not in survival mode, using default respawn position");
+                return;
+            }
+
             // If the bedLocation is null or the respawn is not forced by a bed, use the world spawn
             if (bedLocation == null || !isRespawnForced) {
 
@@ -72,8 +79,6 @@ public class SetFarRespawnPosition {
             float respawnAngle       = 0.0f;
 
             player.setRespawnPosition(serverLevel.dimension(), respawnPosition, respawnAngle, true, false);
-
-            //player.teleportTo(respawnPosition.getX(), respawnPosition.getY(), respawnPosition.getZ());
         }
     }
 

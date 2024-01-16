@@ -31,6 +31,7 @@ public class BalancedMcHardcoreMain {
         ItemInit.ITEMS.register(modEventBus);
         BlockInit.BLOCKS.register(modEventBus);
         SoundInit.SOUND_EVENT.register(modEventBus);
+        CreativeTabInit.CREATIVE_MODE_TABS.register(modEventBus);
         BMHGameRules.init();
 
         // Register the setup method for mod loading
@@ -50,5 +51,6 @@ public class BalancedMcHardcoreMain {
         MinecraftForge.EVENT_BUS.register(new SleepHandler());
         MinecraftForge.EVENT_BUS.register(new SetFarRespawnPosition());
         MinecraftForge.EVENT_BUS.register(TextDrawer.getInstance());
+
     }
 }
