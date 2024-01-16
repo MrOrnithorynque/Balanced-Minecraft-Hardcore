@@ -22,9 +22,6 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
-
-
 
 @Mod.EventBusSubscriber(modid = BalancedMcHardcoreMain.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class CreativeTabInit {
@@ -59,7 +56,7 @@ public class CreativeTabInit {
 
         if (event.getTab() == BMH_CREATIVE_TAB.get()) {
 
-            event.accept(Items.CROSSBOW);
+            event.accept(ItemInit.LIFE_TOTEM);
         }
     }
 }

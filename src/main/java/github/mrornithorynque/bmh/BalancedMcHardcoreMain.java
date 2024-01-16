@@ -46,7 +46,6 @@ public class BalancedMcHardcoreMain {
 
     private void setup(final FMLCommonSetupEvent event) {
 
-        //MinecraftForge.EVENT_BUS.register(new PlayerDeathHandler());
         MinecraftForge.EVENT_BUS.register(new RespawnMessageOverlay());
         MinecraftForge.EVENT_BUS.register(new SleepHandler());
         MinecraftForge.EVENT_BUS.register(new SetFarRespawnPosition());
