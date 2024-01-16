@@ -68,7 +68,6 @@ public class SetFarRespawnPosition {
                 return;
             }
 
-            // If the bedLocation is null or the respawn is not forced by a bed, use the world spawn
             if (bedLocation == null || !isRespawnForced) {
 
                 bedLocation = serverLevel.getSharedSpawnPos();
@@ -76,9 +75,8 @@ public class SetFarRespawnPosition {
             }
 
             BlockPos respawnPosition = calculateRandomPosition(serverLevel, bedLocation);
-            float respawnAngle       = 0.0f;
 
-            player.setRespawnPosition(serverLevel.dimension(), respawnPosition, respawnAngle, true, false);
+            player.setRespawnPosition(serverLevel.dimension(), respawnPosition, 0.0f, true, false);
         }
     }
 

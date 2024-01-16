@@ -12,6 +12,9 @@ import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.RegistryObject;
 
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.common.Mod;
+
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 
@@ -21,6 +24,9 @@ import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
+
+
+@Mod.EventBusSubscriber(modid = BalancedMcHardcoreMain.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class CreativeTabInit {
 
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
@@ -31,7 +37,7 @@ public class CreativeTabInit {
     public static final RegistryObject<CreativeModeTab> BMH_CREATIVE_TAB =
         CREATIVE_MODE_TABS.register("bmh_creative_tab", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.BMH_tab"))
-            .icon(ItemInit.TEST_ITEM.get()::getDefaultInstance)
+            .icon(ItemInit.LIFE_TOTEM.get()::getDefaultInstance)
             .displayItems((displayParams, output) ->
                 CREATIVE_MODE_TAB_ITEMS.forEach(itemLike -> output.accept(itemLike.get())))
             .build()
