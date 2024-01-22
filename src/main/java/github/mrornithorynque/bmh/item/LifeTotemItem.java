@@ -23,26 +23,26 @@ public class LifeTotemItem extends Item {
     //     TotemInventory inventory = new TotemInventory(totemStack);
     // }
 
-    private static class TotemInventory {
-        private ItemStack[] inventory;
-        private ItemStack totemStack;
+    // private static class TotemInventory {
+    //     private ItemStack[] inventory;
+    //     private ItemStack totemStack;
 
-        public TotemInventory(ItemStack totemStack) {
-            this.totemStack = totemStack;
-            this.inventory = new ItemStack[3]; // 3 emplacements
-            // loadFromNBT();
-        }
+    //     public TotemInventory(ItemStack totemStack) {
+    //         this.totemStack = totemStack;
+    //         this.inventory = new ItemStack[3]; // 3 emplacements
+    //         // loadFromNBT();
+    //     }
 
-        // private void loadFromNBT() {
-        //     CompoundNBT nbt = totemStack.getOrCreateTag();
-        //     // Charger l'inventaire à partir de NBT
-        // }
+    //     // private void loadFromNBT() {
+    //     //     CompoundNBT nbt = totemStack.getOrCreateTag();
+    //     //     // Charger l'inventaire à partir de NBT
+    //     // }
 
-        // public void saveToNBT() {
-        //     CompoundNBT nbt = totemStack.getOrCreateTag();
-        //     // Enregistrer l'inventaire dans NBT
-        // }
+    //     // public void saveToNBT() {
+    //     //     CompoundNBT nbt = totemStack.getOrCreateTag();
+    //     //     // Enregistrer l'inventaire dans NBT
+    //     // }
 
-    }
+    // }
 }
 

@@ -26,19 +26,18 @@ import net.minecraft.world.item.Item;
 @Mod.EventBusSubscriber(modid = BalancedMcHardcoreMain.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class CreativeTabInit {
 
-    public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
-        DeferredRegister.create(Registries.CREATIVE_MODE_TAB, BalancedMcHardcoreMain.MODID);
+    public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister
+            .create(Registries.CREATIVE_MODE_TAB, BalancedMcHardcoreMain.MODID);
 
     public static final List<Supplier<? extends ItemLike>> CREATIVE_MODE_TAB_ITEMS = new ArrayList<>();
 
-    public static final RegistryObject<CreativeModeTab> BMH_CREATIVE_TAB =
-        CREATIVE_MODE_TABS.register("bmh_creative_tab", () -> CreativeModeTab.builder()
-            .title(Component.translatable("itemGroup.BMH_tab"))
-            .icon(ItemInit.LIFE_TOTEM.get()::getDefaultInstance)
-            .displayItems((displayParams, output) ->
-                CREATIVE_MODE_TAB_ITEMS.forEach(itemLike -> output.accept(itemLike.get())))
-            .build()
-        );
+    public static final RegistryObject<CreativeModeTab> BMH_CREATIVE_TAB = CREATIVE_MODE_TABS
+            .register("bmh_creative_tab", () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.BMH_tab"))
+                    .icon(ItemInit.LIFE_TOTEM.get()::getDefaultInstance)
+                    .displayItems((displayParams, output) -> CREATIVE_MODE_TAB_ITEMS
+                            .forEach(itemLike -> output.accept(itemLike.get())))
+                    .build());
 
     public static <T extends Item> RegistryObject<T> addToTab(RegistryObject<T> itemLike) {
 
@@ -57,6 +56,7 @@ public class CreativeTabInit {
         if (event.getTab() == BMH_CREATIVE_TAB.get()) {
 
             event.accept(ItemInit.LIFE_TOTEM);
+            event.accept(ItemInit.ETERNAL_AXE);
         }
     }
 }
