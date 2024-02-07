@@ -4,11 +4,12 @@ import github.mrornithorynque.bmh.utilities.IEternalItem;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.Rarity;
 
-public class EternalAxeItem extends AxeItem implements IEternalItem {
+public class EternalPickaxeItem extends PickaxeItem implements IEternalItem {
 
-    public EternalAxeItem(Tier tier, float attackDamage, float attackSpeed, Properties properties) {
+    public EternalPickaxeItem(Tier tier, int attackDamage, float attackSpeed, Properties properties) {
         super(tier, attackDamage, attackSpeed, properties);
     }
 }

@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.bmh.init.BMHModTierInit;
+import github.mrornithorynque.bmh.utilities.IEternalItem;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tier;
@@ -84,6 +85,10 @@ public class KeepItemAfterDeath {
             LOGGER.info("Item tier: " + tier);
 
             return tier == BMHModTierInit.ETERNAL;
+        }
+
+        if (item instanceof IEternalItem) {
+            return true;
         }
 
         return false;

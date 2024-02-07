@@ -1,7 +1,9 @@
 {
-    "item.bmh.test_item": "Item de Test",
+    "item.bmh.test_item": "Article de Test",
     "item.bmh.test_block": "Bloc de Test",
-    "item.bmh.life_totem": "Totem de Vie",
-    "item.bmh.eternal_axe": "La Hache de l'Éternelle",
+    "item.bmh.eternal_bundle": "Sac Éternel",
+    "item.bmh.eternal_axe": "La Hache Éternelle",
+    "item.bmh.eternal_pickaxe": "La Pioche Éternelle",
+    "item.bmh.totem_of_eternity": "Le Totem de la Vie Éternelle",
     "itemGroup.bmh_creative_tab": "Onglet BMH"
 }

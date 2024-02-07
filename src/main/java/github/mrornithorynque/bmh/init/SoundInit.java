@@ -10,16 +10,15 @@ import net.minecraftforge.registries.RegistryObject;
 
 public class SoundInit {
 
-    public static final DeferredRegister<SoundEvent> SOUND_EVENT =
-        DeferredRegister.create(ForgeRegistries.SOUND_EVENTS, BalancedMcHardcoreMain.MODID);
+    public static final DeferredRegister<SoundEvent> SOUND_EVENT = DeferredRegister.create(ForgeRegistries.SOUND_EVENTS,
+            BalancedMcHardcoreMain.MODID);
 
-    public static final RegistryObject<SoundEvent> TEST_SOUND =
-        registerSoundEvents("test_sound");
+    public static final RegistryObject<SoundEvent> TEST_SOUND = registerSoundEvents("test_sound");
 
     private static RegistryObject<SoundEvent> registerSoundEvents(String string) {
 
         return SOUND_EVENT.register(
-            string,
-            () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(BalancedMcHardcoreMain.MODID, string)));
+                string,
+                () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(BalancedMcHardcoreMain.MODID, string)));
     }
 }

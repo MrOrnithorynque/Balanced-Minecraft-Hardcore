@@ -18,10 +18,10 @@ public class SleepHandler {
 
         if (event.getEntity() instanceof ServerPlayer) {
 
-            ServerPlayer player     = (ServerPlayer) event.getEntity();
+            ServerPlayer player = (ServerPlayer) event.getEntity();
             ServerLevel serverLevel = player.serverLevel();
 
-            if(serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_FOOD_AND_HEALTH_REGEN_ON_WAKE_UP)) {
+            if (serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_FOOD_AND_HEALTH_REGEN_ON_WAKE_UP)) {
 
                 healthAndFoodRegen(player);
             }
@@ -30,11 +30,11 @@ public class SleepHandler {
 
     void healthAndFoodRegen(ServerPlayer player) {
 
-        FoodData foodData  = player.getFoodData();
+        FoodData foodData = player.getFoodData();
 
-        float playerHealth       = player.getHealth();
+        float playerHealth = player.getHealth();
         float amountOfExhaustion = 4f;
-        int foodLevel            = foodData.getFoodLevel();
+        int foodLevel = foodData.getFoodLevel();
 
         if (foodLevel >= 15 /* 75% */) {
 
@@ -43,7 +43,7 @@ public class SleepHandler {
 
             if (playerHealth >= 20f /* 100% */) {
 
-                MobEffectInstance digSpeed   = new MobEffectInstance(MobEffects.DIG_SPEED, 3600, 1);
+                MobEffectInstance digSpeed = new MobEffectInstance(MobEffects.DIG_SPEED, 3600, 1);
                 MobEffectInstance resistance = new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 3600, 1);
 
                 player.addEffect(digSpeed);
@@ -75,6 +75,6 @@ public class SleepHandler {
     // You can also handle the event when the player starts sleeping if needed
     // @SubscribeEvent
     // public void onPlayerStartSleep(PlayerSleepInBedEvent event) {
-    //     // ...
+    // // ...
     // }
 }

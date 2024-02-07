@@ -34,7 +34,7 @@ public class CreativeTabInit {
     public static final RegistryObject<CreativeModeTab> BMH_CREATIVE_TAB = CREATIVE_MODE_TABS
             .register("bmh_creative_tab", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.BMH_tab"))
-                    .icon(ItemInit.LIFE_TOTEM.get()::getDefaultInstance)
+                    .icon(ItemInit.TOTEM_OF_ETERNITY.get()::getDefaultInstance)
                     .displayItems((displayParams, output) -> CREATIVE_MODE_TAB_ITEMS
                             .forEach(itemLike -> output.accept(itemLike.get())))
                     .build());
@@ -49,14 +49,14 @@ public class CreativeTabInit {
     public static void buildContents(BuildCreativeModeTabContentsEvent event) {
 
         if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
-
-            event.accept(ItemInit.TEST_BLOCK_ITEM);
         }
 
         if (event.getTab() == BMH_CREATIVE_TAB.get()) {
 
-            event.accept(ItemInit.LIFE_TOTEM);
+            event.accept(ItemInit.ETERNAL_BUNDLE);
             event.accept(ItemInit.ETERNAL_AXE);
+            event.accept(ItemInit.ETERNAL_PICKAXE);
+            event.accept(ItemInit.TOTEM_OF_ETERNITY);
         }
     }
 }

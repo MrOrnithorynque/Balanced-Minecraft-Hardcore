@@ -1,17 +1,15 @@
 {
     "type": "minecraft:smithing_trim",
     "template": {
-        "item": "minecraft:netherite_axe"
+        "item": "minecraft:netherite_pickaxe"
     },
-
-    
     "base": {
         "item": "minecraft:dragon_egg"
     },
     "addition": {
-        "item": "bmh:life_totem"
+        "item": "bmh:totem_of_eternity"
     },
     "result": {
-        "item": "minecraft:netherite_axe"
+        "item": "bmh:eternal_pickaxe"
     }
 }

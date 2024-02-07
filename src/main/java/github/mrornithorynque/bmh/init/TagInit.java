@@ -9,7 +9,7 @@ import net.minecraft.world.level.block.Block;
 
 public class TagInit {
 
-    public static final TagKey<Block> LIFE_TOTEM = tag("life_totem");
+    public static final TagKey<Block> TOTEM_OF_ETERNITY = tag("totem_of_eternity");
 
     private static TagKey<Block> tag(String name) {
 

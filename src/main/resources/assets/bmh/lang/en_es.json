@@ -1,7 +1,9 @@
 {
     "item.bmh.test_item": "Ítem de Prueba",
     "item.bmh.test_block": "Bloque de Prueba",
-    "item.bmh.life_totem": "Tótem de la Vida",
-    "item.bmh.eternal_axe": "Hacha de la Eternidad",
+    "item.bmh.eternal_bundle": "Paquete Eterno",
+    "item.bmh.eternal_axe": "El Hacha Eterna",
+    "item.bmh.eternal_pickaxe": "El Pico Eterno",
+    "item.bmh.totem_of_eternity": "El Tótem de la Vida Eterna",
     "itemGroup.bmh_creative_tab": "Pestaña BMH"
 }

@@ -1,15 +1,15 @@
 {
     "type": "minecraft:smithing_trim",
     "template": {
-        "item": "minecraft:netherite_axe"
+        "item": "minecraft:dragon_egg"
     },
     "base": {
-        "item": "minecraft:nether_star"
+        "item": "minecraft:dragon_egg"
     },
     "addition": {
         "item": "bmh:totem_of_eternity"
     },
     "result": {
-        "item": "bmh:eternal_axe"
+        "item": "bmh:eternal_bundle"
     }
 }

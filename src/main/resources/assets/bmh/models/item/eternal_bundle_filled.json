@@ -1,0 +1,6 @@
+{
+  "parent": "bmh:item/eternal_bundle",
+  "textures": {
+    "layer0": "bmh:item/eternal_bundle_filled"
+  }
+}

@@ -33,14 +33,13 @@ public class RespawnMessageOverlay {
 
             Level level = player.level();
 
-            if(level.getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN)) {
+            if (level.getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN)) {
 
                 TextDrawer.getInstance().drawString(
-                    "A new journey begin for you, " + player.getName().getString() + ".",
-                    TextDrawer.ScreenPosition.CENTER,
-                    HexColor.WHITE.getValue(),
-                    delay
-                );
+                        "A new journey begin for you, " + player.getName().getString() + ".",
+                        TextDrawer.ScreenPosition.CENTER,
+                        HexColor.WHITE.getValue(),
+                        delay);
             }
         }
     }

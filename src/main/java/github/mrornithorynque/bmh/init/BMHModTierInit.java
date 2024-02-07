@@ -6,12 +6,11 @@ import net.minecraftforge.common.ForgeTier;
 public class BMHModTierInit {
 
     public static final ForgeTier ETERNAL = new ForgeTier(
-        5,
-        10000,
-        5.0f,
-        0.0f,
-        80,
-        TagInit.LIFE_TOTEM,
-        () -> Ingredient.of(ItemInit.LIFE_TOTEM::get)
-    );
+            5,
+            10000,
+            1.0f,
+            0.0f,
+            80,
+            TagInit.TOTEM_OF_ETERNITY,
+            () -> Ingredient.of(ItemInit.TOTEM_OF_ETERNITY::get));
 }

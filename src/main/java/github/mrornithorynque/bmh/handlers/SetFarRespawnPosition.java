@@ -46,17 +46,18 @@ public class SetFarRespawnPosition {
         // move this on respawn handler because huge lag
         if (event.getEntity() instanceof ServerPlayer) {
 
-            ServerPlayer player     = (ServerPlayer) event.getEntity();
+            ServerPlayer player = (ServerPlayer) event.getEntity();
             ServerLevel serverLevel = player.serverLevel();
 
-            BlockPos bedLocation    = player.getRespawnPosition();
+            BlockPos bedLocation = player.getRespawnPosition();
             boolean isRespawnForced = player.isRespawnForced();
 
             GameRules gameRules = serverLevel.getGameRules();
 
-            if(!serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)) {
+            if (!serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)) {
 
-                LOGGER.info("RULE_RANDOM_DEATH_SPAWN_POINT: " + gameRules.getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT));
+                LOGGER.info("RULE_RANDOM_DEATH_SPAWN_POINT: "
+                        + gameRules.getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT));
                 LOGGER.info("Game rule randomDeathSpawnPoint is false, using default respawn position");
 
                 return;
@@ -84,8 +85,8 @@ public class SetFarRespawnPosition {
 
         Random RANDOM = new Random();
 
-        int distanceBoundX = MAX_DISTANCE - MIN_DISTANCE + 1 /*+ bedPosition.getX()*/;
-        int distanceBoundY = MAX_DISTANCE - MIN_DISTANCE + 1 /*+ bedPosition.getY()*/;
+        int distanceBoundX = MAX_DISTANCE - MIN_DISTANCE + 1 /* + bedPosition.getX() */;
+        int distanceBoundY = MAX_DISTANCE - MIN_DISTANCE + 1 /* + bedPosition.getY() */;
 
         Biome biome;
         do {
@@ -104,20 +105,24 @@ public class SetFarRespawnPosition {
 
                 LOGGER.info("Found a suitable biome that is not an ocean or a river");
                 LOGGER.info("serverLevel.getMinBuildHeight() : " + serverLevel.getMinBuildHeight());
-                LOGGER.info("serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ); : " + serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ));
+                LOGGER.info("serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ); : "
+                        + serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ));
 
                 // Get the highest block at newX, newZ that blocks motion or is a fluid
-                int newY = getYRespawnPosition(newX, newZ, serverLevel); //serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ);
+                int newY = getYRespawnPosition(newX, newZ, serverLevel); // serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING,
+                                                                         // newX, newZ);
 
                 // If newY is below the minimum build height, set it to sea level
-                // newY = (newY <= serverLevel.getMinBuildHeight()) ? serverLevel.getSeaLevel() : newY;
+                // newY = (newY <= serverLevel.getMinBuildHeight()) ? serverLevel.getSeaLevel()
+                // : newY;
 
                 bedPosition = new BlockPos(newX, newY, newZ);
                 break;
             }
         } while (biome.equals(Biomes.OCEAN) || biome.equals(Biomes.RIVER));
 
-        LOGGER.info("New respawn position: X=" + bedPosition.getX() + ", Y=" + bedPosition.getY() + ", Z=" + bedPosition.getZ());
+        LOGGER.info("New respawn position: X=" + bedPosition.getX() + ", Y=" + bedPosition.getY() + ", Z="
+                + bedPosition.getZ());
 
         return bedPosition;
     }
@@ -151,7 +156,8 @@ public class SetFarRespawnPosition {
             }
         } while (biome.equals(Biomes.OCEAN) || biome.equals(Biomes.RIVER));
 
-        LOGGER.info("New respawn position: X=" + bedPosition.getX() + ", Y=" + bedPosition.getY() + ", Z=" + bedPosition.getZ());
+        LOGGER.info("New respawn position: X=" + bedPosition.getX() + ", Y=" + bedPosition.getY() + ", Z="
+                + bedPosition.getZ());
 
         return bedPosition;
     }
