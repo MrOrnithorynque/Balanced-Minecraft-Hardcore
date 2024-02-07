@@ -8,7 +8,7 @@ public class BMHModTierInit {
     public static final ForgeTier ETERNAL = new ForgeTier(
             5,
             10000,
-            1.0f,
+            3.0f,
             0.0f,
             80,
             TagInit.TOTEM_OF_ETERNITY,

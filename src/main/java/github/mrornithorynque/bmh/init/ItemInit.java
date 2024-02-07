@@ -48,8 +48,8 @@ public class ItemInit {
         public static final RegistryObject<Item> ETERNAL_AXE = ITEMS.register("eternal_axe",
                         () -> new EternalAxeItem(
                                         BMHModTierInit.ETERNAL,
-                                        15.0f,
-                                        10f,
+                                        17.0f,
+                                        -3.5f,
                                         new Item.Properties()
                                                         .stacksTo(1)
                                                         .fireResistant()
@@ -59,7 +59,7 @@ public class ItemInit {
                         () -> new github.mrornithorynque.bmh.item.EternalPickaxeItem(
                                         BMHModTierInit.ETERNAL,
                                         8,
-                                        0.007f,
+                                        -3f,
                                         new Item.Properties()
                                                         .stacksTo(1)
                                                         .fireResistant()
