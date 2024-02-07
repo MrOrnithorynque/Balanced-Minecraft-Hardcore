@@ -49,7 +49,7 @@ public class ItemInit {
                         () -> new EternalAxeItem(
                                         BMHModTierInit.ETERNAL,
                                         15.0f,
-                                        0.5f,
+                                        10f,
                                         new Item.Properties()
                                                         .stacksTo(1)
                                                         .fireResistant()
@@ -59,7 +59,7 @@ public class ItemInit {
                         () -> new github.mrornithorynque.bmh.item.EternalPickaxeItem(
                                         BMHModTierInit.ETERNAL,
                                         8,
-                                        0.7f,
+                                        0.007f,
                                         new Item.Properties()
                                                         .stacksTo(1)
                                                         .fireResistant()

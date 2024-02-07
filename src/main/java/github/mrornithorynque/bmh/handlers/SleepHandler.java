@@ -71,10 +71,4 @@ public class SleepHandler {
             foodData.setFoodLevel(foodLevel - 1);
         }
     }
-
-    // You can also handle the event when the player starts sleeping if needed
-    // @SubscribeEvent
-    // public void onPlayerStartSleep(PlayerSleepInBedEvent event) {
-    // // ...
-    // }
 }

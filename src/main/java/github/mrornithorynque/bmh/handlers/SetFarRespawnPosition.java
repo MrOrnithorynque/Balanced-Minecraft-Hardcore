@@ -108,48 +108,7 @@ public class SetFarRespawnPosition {
                 LOGGER.info("serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ); : "
                         + serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ));
 
-                // Get the highest block at newX, newZ that blocks motion or is a fluid
-                int newY = getYRespawnPosition(newX, newZ, serverLevel); // serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING,
-                                                                         // newX, newZ);
-
-                // If newY is below the minimum build height, set it to sea level
-                // newY = (newY <= serverLevel.getMinBuildHeight()) ? serverLevel.getSeaLevel()
-                // : newY;
-
-                bedPosition = new BlockPos(newX, newY, newZ);
-                break;
-            }
-        } while (biome.equals(Biomes.OCEAN) || biome.equals(Biomes.RIVER));
-
-        LOGGER.info("New respawn position: X=" + bedPosition.getX() + ", Y=" + bedPosition.getY() + ", Z="
-                + bedPosition.getZ());
-
-        return bedPosition;
-    }
-
-    private BlockPos calculateRandomPosition_(ServerLevel serverLevel, BlockPos bedPosition) {
-
-        Biome biome;
-        do {
-
-            LOGGER.info("Calculating new respawn position");
-
-            BlockPos randomPosition = generateRandomXZ(MAX_DISTANCE, MAX_DISTANCE, MIN_DISTANCE, MIN_DISTANCE);
-
-            int newX = bedPosition.getX() + randomPosition.getX();
-            int newZ = bedPosition.getZ() + randomPosition.getZ();
-
-            biome = serverLevel.getBiome(new BlockPos(newX, 0, newZ)).get();
-
-            if (!biome.equals(Biomes.OCEAN) && !biome.equals(Biomes.RIVER)) {
-
-                LOGGER.info("Found a suitable biome that is not an ocean or a river");
-
-                // Get the highest block at newX, newZ that blocks motion or is a fluid
-                int newY = serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ);
-
-                // If newY is below the minimum build height, set it to sea level
-                newY = (newY <= serverLevel.getMinBuildHeight()) ? serverLevel.getSeaLevel() : newY;
+                int newY = getYRespawnPosition(newX, newZ, serverLevel);
 
                 bedPosition = new BlockPos(newX, newY, newZ);
                 break;
@@ -179,15 +138,5 @@ public class SetFarRespawnPosition {
         LOGGER.warn("No non-air blocks found, defaulting to MAX_BUILD_HEIGHT");
 
         return MAX_BUILD_HEIGHT;
-    }
-
-    private BlockPos generateRandomXZ(int maxX, int maxZ, int minX, int minZ) {
-
-        Random RANDOM = new Random();
-
-        int randomX = RANDOM.nextInt(maxX - minX + 1) + minX;
-        int randomZ = RANDOM.nextInt(maxZ - minZ + 1) + minZ;
-
-        return new BlockPos(randomX, 0, randomZ);
     }
 }
