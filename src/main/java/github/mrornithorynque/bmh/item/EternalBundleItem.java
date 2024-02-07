@@ -42,14 +42,14 @@ public class EternalBundleItem extends Item implements IEternalItem {
     private static final int BUNDLE_IN_BUNDLE_WEIGHT = 4;
     private static final int BAR_COLOR = Mth.color(0.4F, 0.4F, 1.0F);
 
-    public EternalBundleItem(Item.Properties p_150726_) {
+    public EternalBundleItem(Item.Properties properties) {
 
-        super(p_150726_);
+        super(properties);
     }
 
-    public static float getFullnessDisplay(ItemStack p_150767_) {
+    public static float getFullnessDisplay(ItemStack stack) {
 
-        return (float) getContentWeight(p_150767_) / 64.0F;
+        return (float) getContentWeight(stack) / 64.0F;
     }
 
     public boolean overrideStackedOnOther(
@@ -59,23 +59,22 @@ public class EternalBundleItem extends Item implements IEternalItem {
             @Nonnull Player player) {
 
         if (stack.getCount() != 1 || clickAction != ClickAction.SECONDARY) {
-
             return false;
         } else {
 
-            ItemStack itemstack = slot.getItem();
-            if (itemstack.isEmpty()) {
+            ItemStack itemStack = slot.getItem();
+            if (itemStack.isEmpty()) {
 
                 this.playRemoveOneSound(player);
                 removeOne(stack).ifPresent((p_150740_) -> {
                     add(stack, slot.safeInsert(p_150740_));
                 });
-            } else if (itemstack.getItem().canFitInsideContainerItems()) {
+            } else if (itemStack.getItem().canFitInsideContainerItems()) {
 
-                int i = (64 - getContentWeight(stack)) / getWeight(itemstack);
-                int j = add(stack, slot.safeTake(itemstack.getCount(), i, player));
+                int i = (64 - getContentWeight(stack)) / getWeight(itemStack);
+                int j = add(stack, slot.safeTake(itemStack.getCount(), i, player));
+
                 if (j > 0) {
-
                     this.playInsertSound(player);
                 }
             }
@@ -93,8 +92,8 @@ public class EternalBundleItem extends Item implements IEternalItem {
             @Nonnull SlotAccess slotAccess) {
 
         if (currentStack.getCount() != 1)
-
             return false;
+
         if (clickAction == ClickAction.SECONDARY && slot.allowModification(player)) {
 
             if (otherStack.isEmpty()) {
@@ -115,7 +114,6 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
             return true;
         } else {
-
             return false;
         }
     }
@@ -125,16 +123,16 @@ public class EternalBundleItem extends Item implements IEternalItem {
             @Nonnull Player player,
             @Nonnull InteractionHand interactionHand) {
 
-        ItemStack itemstack = player.getItemInHand(interactionHand);
+        ItemStack stack = player.getItemInHand(interactionHand);
 
-        if (dropContents(itemstack, player)) {
+        if (dropContents(stack, player)) {
 
             this.playDropContentsSound(player);
             player.awardStat(Stats.ITEM_USED.get(this));
-            return InteractionResultHolder.sidedSuccess(itemstack, level.isClientSide());
-        } else {
 
-            return InteractionResultHolder.fail(itemstack);
+            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+        } else {
+            return InteractionResultHolder.fail(stack);
         }
     }
 
@@ -157,11 +155,10 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
         if (!otherStack.isEmpty() && otherStack.getItem().canFitInsideContainerItems()) {
 
-            CompoundTag compoundtag = currentStack.getOrCreateTag();
+            CompoundTag compoundTag = currentStack.getOrCreateTag();
 
-            if (!compoundtag.contains("Items")) {
-
-                compoundtag.put("Items", new ListTag());
+            if (!compoundTag.contains("Items")) {
+                compoundTag.put("Items", new ListTag());
             }
 
             int i = getContentWeight(currentStack);
@@ -169,27 +166,31 @@ public class EternalBundleItem extends Item implements IEternalItem {
             int k = Math.min(otherStack.getCount(), (64 - i) / j);
 
             if (k == 0) {
-
                 return 0;
             } else {
 
-                ListTag listtag = compoundtag.getList("Items", 10);
-                Optional<CompoundTag> optional = getMatchingItem(otherStack, listtag);
+                ListTag listTag = compoundTag.getList("Items", 10);
+                Optional<CompoundTag> optional = getMatchingItem(otherStack, listTag);
 
                 if (optional.isPresent()) {
 
-                    CompoundTag compoundtag1 = optional.get();
-                    ItemStack itemstack = ItemStack.of(compoundtag1);
+                    CompoundTag compoundTag1 = optional.get();
+
+                    if (compoundTag1 == null) {
+                        return 0;
+                    }
+
+                    ItemStack itemstack = ItemStack.of(compoundTag1);
                     itemstack.grow(k);
-                    itemstack.save(compoundtag1);
-                    listtag.remove(compoundtag1);
-                    listtag.add(0, (Tag) compoundtag1);
+                    itemstack.save(compoundTag1);
+                    listTag.remove(compoundTag1);
+                    listTag.add(0, (Tag) compoundTag1);
                 } else {
 
                     ItemStack itemstack1 = otherStack.copyWithCount(k);
-                    CompoundTag compoundtag2 = new CompoundTag();
-                    itemstack1.save(compoundtag2);
-                    listtag.add(0, (Tag) compoundtag2);
+                    CompoundTag compoundTag2 = new CompoundTag();
+                    itemstack1.save(compoundTag2);
+                    listTag.add(0, (Tag) compoundTag2);
                 }
 
                 return k;
@@ -211,12 +212,13 @@ public class EternalBundleItem extends Item implements IEternalItem {
     private static int getWeight(ItemStack stack) {
 
         if (stack.is(Items.BUNDLE)) {
-
             return 4 + getContentWeight(stack);
         } else {
 
             if ((stack.is(Items.BEEHIVE) || stack.is(Items.BEE_NEST)) && stack.hasTag()) {
+
                 CompoundTag compoundtag = BlockItem.getBlockEntityData(stack);
+
                 if (compoundtag != null && !compoundtag.getList("Bees", 10).isEmpty()) {
                     return 64;
                 }
@@ -236,17 +238,21 @@ public class EternalBundleItem extends Item implements IEternalItem {
     private static Optional<ItemStack> removeOne(ItemStack stack) {
 
         CompoundTag compoundtag = stack.getOrCreateTag();
+
         if (!compoundtag.contains("Items")) {
             return Optional.empty();
         } else {
+
             ListTag listtag = compoundtag.getList("Items", 10);
+
             if (listtag.isEmpty()) {
                 return Optional.empty();
             } else {
-                int i = 0;
+
                 CompoundTag compoundtag1 = listtag.getCompound(0);
                 ItemStack itemstack = ItemStack.of(compoundtag1);
                 listtag.remove(0);
+
                 if (listtag.isEmpty()) {
                     stack.removeTagKey("Items");
                 }
@@ -259,10 +265,11 @@ public class EternalBundleItem extends Item implements IEternalItem {
     private static boolean dropContents(ItemStack stack, Player player) {
 
         CompoundTag compoundtag = stack.getOrCreateTag();
-        if (!compoundtag.contains("Items")) {
 
+        if (!compoundtag.contains("Items")) {
             return false;
         } else {
+
             if (player instanceof ServerPlayer) {
 
                 ListTag listtag = compoundtag.getList("Items", 10);
@@ -276,6 +283,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
             }
 
             stack.removeTagKey("Items");
+
             return true;
         }
     }
@@ -283,8 +291,8 @@ public class EternalBundleItem extends Item implements IEternalItem {
     private static Stream<ItemStack> getContents(ItemStack stack) {
 
         CompoundTag compoundtag = stack.getTag();
-        if (compoundtag == null) {
 
+        if (compoundtag == null) {
             return Stream.empty();
         } else {
 
@@ -295,18 +303,18 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
     public Optional<TooltipComponent> getTooltipImage(@Nonnull ItemStack stack) {
 
-        NonNullList<ItemStack> nonnulllist = NonNullList.create();
-        getContents(stack).forEach(nonnulllist::add);
-        return Optional.of(new BundleTooltip(nonnulllist, getContentWeight(stack)));
+        NonNullList<ItemStack> nonNullList = NonNullList.create();
+        getContents(stack).forEach(nonNullList::add);
+        return Optional.of(new BundleTooltip(nonNullList, getContentWeight(stack)));
     }
 
     public void appendHoverText(
             @Nonnull ItemStack stack,
             Level level,
-            @Nonnull List<Component> p_150751_,
-            @Nonnull TooltipFlag p_150752_) {
+            @Nonnull List<Component> componentList,
+            @Nonnull TooltipFlag tooltipFlag) {
 
-        p_150751_.add(Component.translatable("item.minecraft.bundle.fullness", getContentWeight(stack), 64)
+        componentList.add(Component.translatable("item.minecraft.bundle.fullness", getContentWeight(stack), 64)
                 .withStyle(ChatFormatting.GRAY));
     }
 
