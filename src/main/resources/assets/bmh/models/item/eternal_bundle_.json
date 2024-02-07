@@ -1,9 +1,0 @@
-{
-  "parent": "item/generated",
-  "textures": {
-    "layer0": "bmh:item/eternal_bundle"
-  },
-  "overrides": [
-    { "predicate": { "filled": 0.0000001 }, "model": "bmh:item/eternal_bundle_filled" }
-  ]
-}

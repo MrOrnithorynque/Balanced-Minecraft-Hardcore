@@ -35,11 +35,15 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemUtils;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public class EternalBundleItem extends Item implements IEternalItem {
 
     private static final String TAG_ITEMS = "Items";
     public static final int MAX_WEIGHT = 64;
     private static final int BUNDLE_IN_BUNDLE_WEIGHT = 4;
+    private static final Logger LOGGER = LogManager.getLogger();
     private static final int BAR_COLOR = Mth.color(0.4F, 0.4F, 1.0F);
 
     public EternalBundleItem(Item.Properties properties) {
@@ -63,6 +67,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
         } else {
 
             ItemStack itemStack = slot.getItem();
+
             if (itemStack.isEmpty()) {
 
                 this.playRemoveOneSound(player);
@@ -91,8 +96,9 @@ public class EternalBundleItem extends Item implements IEternalItem {
             @Nonnull Player player,
             @Nonnull SlotAccess slotAccess) {
 
-        if (currentStack.getCount() != 1)
+        if (currentStack.getCount() != 1) {
             return false;
+        }
 
         if (clickAction == ClickAction.SECONDARY && slot.allowModification(player)) {
 
@@ -105,6 +111,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
             } else {
 
                 int i = add(currentStack, otherStack);
+
                 if (i > 0) {
 
                     this.playInsertSound(player);
@@ -113,9 +120,9 @@ public class EternalBundleItem extends Item implements IEternalItem {
             }
 
             return true;
-        } else {
-            return false;
         }
+
+        return false;
     }
 
     public InteractionResultHolder<ItemStack> use(
@@ -152,6 +159,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
     }
 
     private static int add(ItemStack currentStack, ItemStack otherStack) {
+        LOGGER.info("Adding items to the stack...");
 
         if (!otherStack.isEmpty() && otherStack.getItem().canFitInsideContainerItems()) {
 
@@ -166,6 +174,8 @@ public class EternalBundleItem extends Item implements IEternalItem {
             int k = Math.min(otherStack.getCount(), (64 - i) / j);
 
             if (k == 0) {
+
+                LOGGER.info("No items added to the stack.");
                 return 0;
             } else {
 
@@ -177,25 +187,29 @@ public class EternalBundleItem extends Item implements IEternalItem {
                     CompoundTag compoundTag1 = optional.get();
 
                     if (compoundTag1 == null) {
+                        LOGGER.info("No matching item found.");
                         return 0;
                     }
 
-                    ItemStack itemstack = ItemStack.of(compoundTag1);
-                    itemstack.grow(k);
-                    itemstack.save(compoundTag1);
+                    ItemStack itemStack = ItemStack.of(compoundTag1);
+                    itemStack.grow(k);
+                    itemStack.save(compoundTag1);
+
                     listTag.remove(compoundTag1);
                     listTag.add(0, (Tag) compoundTag1);
                 } else {
 
-                    ItemStack itemstack1 = otherStack.copyWithCount(k);
+                    ItemStack itemStack1 = otherStack.copyWithCount(k);
                     CompoundTag compoundTag2 = new CompoundTag();
-                    itemstack1.save(compoundTag2);
+                    itemStack1.save(compoundTag2);
                     listTag.add(0, (Tag) compoundTag2);
                 }
 
+                LOGGER.info("Added " + k + " items to the stack.");
                 return k;
             }
         } else {
+            LOGGER.info("No items added to the stack.");
             return 0;
         }
     }
@@ -237,48 +251,51 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
     private static Optional<ItemStack> removeOne(ItemStack stack) {
 
-        CompoundTag compoundtag = stack.getOrCreateTag();
+        LOGGER.info("Removing one item from the stack...");
 
-        if (!compoundtag.contains("Items")) {
+        CompoundTag compoundTag = stack.getOrCreateTag();
+
+        if (!compoundTag.contains("Items")) {
+            LOGGER.info("No items found in the stack.");
             return Optional.empty();
         } else {
+            ListTag listTag = compoundTag.getList("Items", 10);
 
-            ListTag listtag = compoundtag.getList("Items", 10);
-
-            if (listtag.isEmpty()) {
+            if (listTag.isEmpty()) {
+                LOGGER.info("No items found in the list.");
                 return Optional.empty();
             } else {
+                CompoundTag compoundTag1 = listTag.getCompound(0);
+                ItemStack itemStack = ItemStack.of(compoundTag1);
+                listTag.remove(0);
 
-                CompoundTag compoundtag1 = listtag.getCompound(0);
-                ItemStack itemstack = ItemStack.of(compoundtag1);
-                listtag.remove(0);
-
-                if (listtag.isEmpty()) {
+                if (listTag.isEmpty()) {
                     stack.removeTagKey("Items");
                 }
 
-                return Optional.of(itemstack);
+                LOGGER.info("Removed one item from the stack.");
+                return Optional.of(itemStack);
             }
         }
     }
 
     private static boolean dropContents(ItemStack stack, Player player) {
 
-        CompoundTag compoundtag = stack.getOrCreateTag();
+        CompoundTag compoundTag = stack.getOrCreateTag();
 
-        if (!compoundtag.contains("Items")) {
+        if (!compoundTag.contains("Items")) {
             return false;
         } else {
 
             if (player instanceof ServerPlayer) {
 
-                ListTag listtag = compoundtag.getList("Items", 10);
+                ListTag listTag = compoundTag.getList("Items", 10);
 
-                for (int i = 0; i < listtag.size(); ++i) {
+                for (int i = 0; i < listTag.size(); ++i) {
 
-                    CompoundTag compoundtag1 = listtag.getCompound(i);
-                    ItemStack itemstack = ItemStack.of(compoundtag1);
-                    player.drop(itemstack, true);
+                    CompoundTag compoundTag1 = listTag.getCompound(i);
+                    ItemStack itemStack = ItemStack.of(compoundTag1);
+                    player.drop(itemStack, true);
                 }
             }
 
@@ -290,14 +307,14 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
     private static Stream<ItemStack> getContents(ItemStack stack) {
 
-        CompoundTag compoundtag = stack.getTag();
+        CompoundTag compoundTag = stack.getTag();
 
-        if (compoundtag == null) {
+        if (compoundTag == null) {
             return Stream.empty();
         } else {
 
-            ListTag listtag = compoundtag.getList("Items", 10);
-            return listtag.stream().map(CompoundTag.class::cast).map(ItemStack::of);
+            ListTag listTag = compoundTag.getList("Items", 10);
+            return listTag.stream().map(CompoundTag.class::cast).map(ItemStack::of);
         }
     }
 

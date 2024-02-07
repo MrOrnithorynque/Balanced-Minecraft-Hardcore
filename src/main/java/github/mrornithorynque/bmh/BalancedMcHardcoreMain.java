@@ -39,9 +39,6 @@ public class BalancedMcHardcoreMain {
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
-
-        // Some common setup code
-        LOGGER.info("HELLO FROM COMMON SETUP");
     }
 
     private void setup(final FMLCommonSetupEvent event) {

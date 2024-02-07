@@ -1,15 +1,15 @@
 {
     "type": "minecraft:smithing_trim",
     "template": {
-        "item": "minecraft:netherite_axe"
+        "item": "minecraft:netherite_upgrade_smithing_template"
     },
     "base": {
-        "item": "minecraft:nether_star"
+        "item": "minecraft:netherite_axe"
     },
     "addition": {
-        "item": "bmh:totem_of_eternity"
+        "item": "minecraft:nether_star"
     },
     "result": {
-        "item": "bmh:eternal_axe"
+        "item": "minecraft:netherite_axe"
     }
 }
