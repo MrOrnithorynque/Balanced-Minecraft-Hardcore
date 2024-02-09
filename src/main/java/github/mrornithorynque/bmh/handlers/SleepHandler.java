@@ -11,7 +11,16 @@ import net.minecraft.world.food.FoodData;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 
+import net.minecraftforge.event.entity.player.PlayerSleepInBedEvent;
+import net.minecraftforge.fml.common.Mod;
+
+import org.slf4j.Logger;
+
+import com.mojang.logging.LogUtils;
+
 public class SleepHandler {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     @SubscribeEvent
     public void onPlayerWakeUp(PlayerWakeUpEvent event) {
@@ -26,6 +35,10 @@ public class SleepHandler {
                 healthAndFoodRegen(player);
             }
         }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerSleepInBed(PlayerSleepInBedEvent event) {
     }
 
     void healthAndFoodRegen(ServerPlayer player) {
