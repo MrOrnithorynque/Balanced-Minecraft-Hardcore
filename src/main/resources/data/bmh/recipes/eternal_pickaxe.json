@@ -1,0 +1,26 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "nDn",
+        " N ",
+        " B "
+    ],
+    "key": {
+        "n": {
+            "item": "minecraft:netherite_ingot"
+        },
+        "D": {
+            "item": "minecraft:dragon_egg"
+        },
+        "N": {
+            "item": "minecraft:netherite_pickaxe"
+        },
+        "B": {
+            "item": "bmh:totem_of_eternity"
+        }
+    },
+    "result": {
+        "item": "bmh:eternal_pickaxe",
+        "count": 1
+    }
+}

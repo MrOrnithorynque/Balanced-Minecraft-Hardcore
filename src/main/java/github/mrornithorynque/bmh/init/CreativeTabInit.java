@@ -15,7 +15,6 @@ import net.minecraftforge.registries.RegistryObject;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.common.Mod;
 
-
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 

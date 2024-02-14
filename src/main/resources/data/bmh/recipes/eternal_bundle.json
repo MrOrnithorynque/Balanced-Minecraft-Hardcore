@@ -1,0 +1,23 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "nBn",
+        "n n",
+        "nGn"
+    ],
+    "key": {
+        "n": {
+            "item": "minecraft:netherite_ingot"
+        },
+        "B": {
+            "item": "minecraft:bundle"
+        },
+        "G": {
+            "item": "bmh:totem_of_eternity"
+        }
+    },
+    "result": {
+        "item": "bmh:eternal_bundle",
+        "count": 1
+    }
+}
