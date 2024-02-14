@@ -1,7 +1,7 @@
 {
     "type": "minecraft:smithing_trim",
     "template": {
-        "item": "minecraft:dragon_egg"
+        "item": "minecraft:bundle"
     },
     "base": {
         "item": "minecraft:dragon_egg"

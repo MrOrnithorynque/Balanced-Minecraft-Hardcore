@@ -37,10 +37,6 @@ public class SleepHandler {
         }
     }
 
-    @SubscribeEvent
-    public static void onPlayerSleepInBed(PlayerSleepInBedEvent event) {
-    }
-
     void healthAndFoodRegen(ServerPlayer player) {
 
         FoodData foodData = player.getFoodData();
@@ -83,5 +79,10 @@ public class SleepHandler {
             foodData.addExhaustion(amountOfExhaustion / 4);
             foodData.setFoodLevel(foodLevel - 1);
         }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerSleepInBed(PlayerSleepInBedEvent event) {
+        LOGGER.info("PlayerSleepInBedEvent");
     }
 }

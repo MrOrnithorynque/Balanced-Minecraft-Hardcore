@@ -23,8 +23,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 
-import net.minecraftforge.event.ForgeEventFactory;
-
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerSleepInBedEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
@@ -44,12 +42,6 @@ public class SetFarRespawnPosition {
 
         setNewRespawnPosition(event);
     }
-
-    // @SubscribeEvent(priority = EventPriority.HIGHEST)
-    // public static void onPlayerSleepInBed(PlayerSleepInBedEvent event) {
-    //     LOGGER.info("PlayerSleepInBedEvent");
-    // }
-
 
     private void setNewRespawnPosition(PlayerEvent.PlayerRespawnEvent event) {
 

@@ -15,6 +15,7 @@ import net.minecraftforge.registries.RegistryObject;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.common.Mod;
 
+
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 
@@ -22,6 +23,7 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 
 @Mod.EventBusSubscriber(modid = BalancedMcHardcoreMain.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class CreativeTabInit {
@@ -57,6 +59,7 @@ public class CreativeTabInit {
             event.accept(ItemInit.ETERNAL_AXE);
             event.accept(ItemInit.ETERNAL_PICKAXE);
             event.accept(ItemInit.TOTEM_OF_ETERNITY);
+            event.accept(Items.BUNDLE::asItem);
         }
     }
 }
