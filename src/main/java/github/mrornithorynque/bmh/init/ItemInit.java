@@ -3,10 +3,6 @@ package github.mrornithorynque.bmh.init;
 import github.mrornithorynque.bmh.BalancedMcHardcoreMain;
 import github.mrornithorynque.bmh.item.*;
 
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.food.FoodProperties;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
 
@@ -58,6 +54,13 @@ public class ItemInit {
                                                         .stacksTo(1)
                                                         .fireResistant()
                                                         .rarity(Rarity.EPIC)));
+
+        public static final RegistryObject<Item> NAVIGATOR_AMULET = ITEMS.register("navigator_amulet",
+                        () -> new NavigatorAmuletItem(
+                                        new Item.Properties()
+                                                        .stacksTo(1)
+                                                        .durability(10)
+                                                        .rarity(Rarity.COMMON)));
 
         public static final RegistryObject<Item> TOTEM_OF_ETERNITY = ITEMS.register("totem_of_eternity",
                         () -> new TotemOfEternityItem(

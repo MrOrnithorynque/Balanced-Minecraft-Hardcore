@@ -1,0 +1,26 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "###",
+        "EME",
+        " C "
+    ],
+    "key": {
+        "#": {
+            "item": "minecraft:string"
+        },
+        "E": {
+            "item": "minecraft:ender_eye"
+        },
+        "M": {
+            "item": "minecraft:map"
+        },
+        "C": {
+            "item": "minecraft:compass"
+        }
+    },
+    "result": {
+        "item": "bmh:navigator_amulet",
+        "count": 1
+    }
+}

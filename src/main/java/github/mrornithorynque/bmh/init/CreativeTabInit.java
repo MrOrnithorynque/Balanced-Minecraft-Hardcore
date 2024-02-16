@@ -58,6 +58,7 @@ public class CreativeTabInit {
             event.accept(ItemInit.ETERNAL_BUNDLE);
             event.accept(ItemInit.ETERNAL_PICKAXE);
             event.accept(ItemInit.ETERNAL_SWORD);
+            event.accept(ItemInit.NAVIGATOR_AMULET);
             event.accept(ItemInit.TOTEM_OF_ETERNITY);
             event.accept(Items.BUNDLE::asItem);
         }
