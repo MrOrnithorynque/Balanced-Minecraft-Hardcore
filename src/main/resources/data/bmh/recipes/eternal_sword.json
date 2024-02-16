@@ -1,0 +1,26 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "nNn",
+        " H ",
+        " B "
+    ],
+    "key": {
+        "n": {
+            "item": "minecraft:netherite_ingot"
+        },
+        "N": {
+            "item": "minecraft:nether_star"
+        },
+        "H": {
+            "item": "minecraft:netherite_sword"
+        },
+        "B": {
+            "item": "bmh:totem_of_eternity"
+        }
+    },
+    "result": {
+        "item": "bmh:eternal_sword",
+        "count": 1
+    }
+}

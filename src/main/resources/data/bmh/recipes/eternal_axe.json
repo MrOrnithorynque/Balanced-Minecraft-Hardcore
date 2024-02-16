@@ -1,0 +1,26 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "#n",
+        "Nn",
+        "B "
+    ],
+    "key": {
+        "#": {
+            "item": "minecraft:nether_star"
+        },
+        "n": {
+            "item": "minecraft:netherite_ingot"
+        },
+        "N": {
+            "item": "minecraft:netherite_axe"
+        },
+        "B": {
+            "item": "bmh:totem_of_eternity"
+        }
+    },
+    "result": {
+        "item": "minecraft:eternal_axe",
+        "count": 1
+    }
+}

@@ -54,9 +54,10 @@ public class CreativeTabInit {
 
         if (event.getTab() == BMH_CREATIVE_TAB.get()) {
 
-            event.accept(ItemInit.ETERNAL_BUNDLE);
             event.accept(ItemInit.ETERNAL_AXE);
+            event.accept(ItemInit.ETERNAL_BUNDLE);
             event.accept(ItemInit.ETERNAL_PICKAXE);
+            event.accept(ItemInit.ETERNAL_SWORD);
             event.accept(ItemInit.TOTEM_OF_ETERNITY);
             event.accept(Items.BUNDLE::asItem);
         }
