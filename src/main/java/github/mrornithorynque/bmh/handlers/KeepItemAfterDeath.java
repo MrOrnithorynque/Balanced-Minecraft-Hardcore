@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.bmh.init.BMHModTierInit;
-import github.mrornithorynque.bmh.utilities.IEternalItem;
+import github.mrornithorynque.bmh.items.IEternalItem;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tier;

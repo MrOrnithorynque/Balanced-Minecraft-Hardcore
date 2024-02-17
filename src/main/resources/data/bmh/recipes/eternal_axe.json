@@ -1,9 +1,9 @@
 {
     "type": "minecraft:crafting_shaped",
     "pattern": [
-        "#n",
-        "Nn",
-        "B "
+        " #n",
+        " Nn",
+        " B "
     ],
     "key": {
         "#": {
@@ -20,7 +20,7 @@
         }
     },
     "result": {
-        "item": "minecraft:eternal_axe",
+        "item": "bmh:eternal_axe",
         "count": 1
     }
 }

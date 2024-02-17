@@ -1,4 +1,7 @@
-package github.mrornithorynque.bmh.item;
+package github.mrornithorynque.bmh.items;
+
+import github.mrornithorynque.utilities.HexColor;
+import github.mrornithorynque.utilities.TextDrawer;
 
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.InteractionResult;
@@ -22,7 +25,12 @@ public class NavigatorAmuletItem extends Item {
         if (!player.level().isClientSide) {
             itemStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(context.getHand()));
 
-            // Your custom logic when the amulet is used, if any
+            // display current coordinates
+            TextDrawer.getInstance().drawString(
+                        "Current coordinates: " + player.blockPosition().getX() + ", " + player.blockPosition().getY() + ", " + player.blockPosition().getZ() + ".",
+                        TextDrawer.ScreenPosition.CENTER,
+                        HexColor.WHITE.getValue(),
+                        5000);
         }
 
         return InteractionResult.sidedSuccess(player.level().isClientSide);

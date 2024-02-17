@@ -1,4 +1,4 @@
-package github.mrornithorynque.bmh.item;
+package github.mrornithorynque.bmh.items;
 
 import java.util.List;
 import java.util.Optional;
@@ -6,7 +6,6 @@ import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 
-import github.mrornithorynque.bmh.utilities.IEternalItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
@@ -29,6 +28,8 @@ import net.minecraft.world.inventory.tooltip.BundleTooltip;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -37,7 +38,9 @@ import net.minecraft.world.item.ItemUtils;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import net.minecraftforge.fml.common.Mod;
 
+// @Mod.EventBusSubscriber
 public class EternalBundleItem extends Item implements IEternalItem {
 
     private static final String TAG_ITEMS = "Items";
@@ -50,6 +53,21 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
         super(properties);
     }
+
+    // @SubscribeEvent
+    // public static void onItemPickup(EntityItemPickupEvent event) {
+    //     Player player = (Player) event.getEntity();
+    //     ItemStack pickedUpItem = event.getItem().getItem();
+
+    //     if (pickedUpItem.getItem() instanceof EternalBundleItem) {
+    //         for (ItemStack itemStack : player.getInventory().items) {
+    //             if (!itemStack.isEmpty() && itemStack.getItem().getClass() == pickedUpItem.getItem().getClass()) {
+    //                 event.setCanceled(true);
+    //                 return;
+    //             }
+    //         }
+    //     }
+    // }
 
     public static float getFullnessDisplay(ItemStack stack) {
 

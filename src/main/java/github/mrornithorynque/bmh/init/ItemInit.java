@@ -1,8 +1,7 @@
 package github.mrornithorynque.bmh.init;
 
 import github.mrornithorynque.bmh.BalancedMcHardcoreMain;
-import github.mrornithorynque.bmh.item.*;
-
+import github.mrornithorynque.bmh.items.*;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
 
