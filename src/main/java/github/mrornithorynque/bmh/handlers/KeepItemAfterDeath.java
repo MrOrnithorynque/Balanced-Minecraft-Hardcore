@@ -66,7 +66,10 @@ public class KeepItemAfterDeath {
             List<ItemStack> savedItems = itemsToKeep.get(playerId);
 
             for (ItemStack stack : savedItems) {
-                player.getInventory().add(stack); // Add the item back to the player's inventory
+
+                if (stack != null) {
+                    player.getInventory().add(stack); // Add the item back to the player's inventory
+                }
             }
 
             itemsToKeep.remove(playerId);
