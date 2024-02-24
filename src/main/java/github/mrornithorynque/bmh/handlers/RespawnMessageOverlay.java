@@ -13,6 +13,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 
@@ -24,7 +25,7 @@ public class RespawnMessageOverlay {
     private static int delay = 5000;
     private static Player player;
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
 
         if (event.getEntity().equals(Minecraft.getInstance().player)) {

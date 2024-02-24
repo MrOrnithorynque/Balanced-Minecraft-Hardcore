@@ -7,9 +7,7 @@ import org.slf4j.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.List;
-import java.util.ArrayList;
 
 import com.mojang.logging.LogUtils;
 
@@ -68,7 +66,7 @@ public class KeepItemAfterDeath {
             for (ItemStack stack : savedItems) {
 
                 if (stack != null) {
-                    player.getInventory().add(stack); // Add the item back to the player's inventory
+                    player.getInventory().add(stack);
                 }
             }
 

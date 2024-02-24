@@ -18,7 +18,7 @@ public class BlockInit {
 
         public static final RegistryObject<Block> TEST_BLOCK = BLOCKS.register("test_block",
                         () -> new Block(BlockBehaviour.Properties.of()
-                                        .mapColor(MapColor.COLOR_BLACK)
+                                        .mapColor((MapColor)MapColor.COLOR_BLACK)
                                         .strength(5.0f, 17.0f)
                                         .instrument(NoteBlockInstrument.BANJO)
                                         .requiresCorrectToolForDrops()

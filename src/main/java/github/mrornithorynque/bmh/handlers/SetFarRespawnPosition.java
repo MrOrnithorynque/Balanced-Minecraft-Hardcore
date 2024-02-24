@@ -45,14 +45,13 @@ public class SetFarRespawnPosition {
 
     private void setNewRespawnPosition(PlayerEvent.PlayerRespawnEvent event) {
 
-        // move this on respawn handler because huge lag
         if (event.getEntity() instanceof ServerPlayer) {
 
             ServerPlayer player = (ServerPlayer) event.getEntity();
             ServerLevel serverLevel = player.serverLevel();
 
             BlockPos bedLocation = player.getRespawnPosition();
-            boolean isRespawnForced = player.isRespawnForced();
+            LOGGER.info("bedLocation : " + bedLocation);
 
             GameRules gameRules = serverLevel.getGameRules();
 
@@ -71,7 +70,7 @@ public class SetFarRespawnPosition {
                 return;
             }
 
-            if (bedLocation == null || !isRespawnForced) {
+            if (bedLocation == null) {
 
                 bedLocation = serverLevel.getSharedSpawnPos();
                 LOGGER.info("Respawn is not forced by a bed");
@@ -79,45 +78,25 @@ public class SetFarRespawnPosition {
 
             BlockPos respawnPosition = calculateRandomPosition(serverLevel, bedLocation);
 
+            LOGGER.info("new respawn pos and last : " + respawnPosition + ", " + bedLocation);
+
             player.setRespawnPosition(serverLevel.dimension(), respawnPosition, 0.0f, true, false);
             player.teleportTo(respawnPosition.getX(), respawnPosition.getY(), respawnPosition.getZ());
+            player.setRespawnPosition(serverLevel.dimension(), bedLocation, 0.0f, true, false);
         }
     }
 
     private BlockPos calculateRandomPosition(ServerLevel serverLevel, BlockPos bedPosition) {
-
-        Random RANDOM = new Random();
-
-        for (int i = 0; i < 10; i++) {
-            BlockPos randomEdgePoint = findRandomEdgePoint(bedPosition, MAX_DISTANCE);
-            LOGGER.info("Random edge point: X= " + randomEdgePoint.getX() + ", Z= " + randomEdgePoint.getZ());
-            LOGGER.info("Bed position: X= " + bedPosition.getX() + ", Z= " + bedPosition.getZ());
-        }
 
         Biome biome;
         do {
 
             LOGGER.info("Calculating new respawn position");
 
-            // get random number betwen 0 and 360
-            float randomAngle = RANDOM.nextFloat(360);
-            float x = RANDOM.nextFloat() * 2 - 1;
-
             BlockPos randomEdgePoint = findRandomEdgePoint(bedPosition, MAX_DISTANCE);
-            LOGGER.info("Random edge point: X=" + randomEdgePoint.getX() + ", Z=" + randomEdgePoint.getZ());
 
-            LOGGER.info("Random angle: " + randomAngle);
-
-            int newX = (int) (randomAngle * Math.cos(Math.PI * 2 * randomAngle / 360)) + bedPosition.getX() + MIN_DISTANCE;
-            int newZ = (int) (randomAngle * Math.sin(Math.PI * 2 * randomAngle / 360)) + bedPosition.getZ() + MIN_DISTANCE;
-
-            LOGGER.info("New respawn position: X=" + newX + ", Z=" + newZ);
-
-            // int randomX = RANDOM.nextInt(distanceBoundX) + MIN_DISTANCE;
-            // int randomZ = RANDOM.nextInt(distanceBoundY) + MIN_DISTANCE;
-
-            // int newX = bedPosition.getX() + (RANDOM.nextBoolean() ? randomX : -randomX);
-            // int newZ = bedPosition.getZ() + (RANDOM.nextBoolean() ? randomZ : -randomZ);
+            int newX = randomEdgePoint.getX();
+            int newZ = randomEdgePoint.getZ();
 
             biome = serverLevel.getBiome(new BlockPos(newX, 0, newZ)).get();
 
@@ -135,9 +114,6 @@ public class SetFarRespawnPosition {
                 break;
             }
         } while (biome.equals(Biomes.OCEAN) || biome.equals(Biomes.RIVER));
-
-        LOGGER.info("New respawn position: X=" + bedPosition.getX() + ", Y=" + bedPosition.getY() + ", Z="
-                + bedPosition.getZ());
 
         return bedPosition;
     }

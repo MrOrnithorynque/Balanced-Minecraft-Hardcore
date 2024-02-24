@@ -24,17 +24,14 @@ public class BalancedMcHardcoreMain {
 
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // Register the commonSetup method for mod loading
         modEventBus.addListener(this::commonSetup);
 
-        // Register the ItemLoader to the mod event bus
         ItemInit.ITEMS.register(modEventBus);
         BlockInit.BLOCKS.register(modEventBus);
         SoundInit.SOUND_EVENT.register(modEventBus);
         CreativeTabInit.CREATIVE_MODE_TABS.register(modEventBus);
         BMHGameRules.init();
 
-        // Register the setup method for mod loading
         modEventBus.addListener(this::setup);
     }
 

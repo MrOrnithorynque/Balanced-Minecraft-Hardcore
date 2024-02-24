@@ -8,21 +8,19 @@ import net.minecraft.world.level.GameType;
 import net.minecraftforge.event.TickEvent.PlayerTickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.bmh.items.IEternalItem;
+import github.mrornithorynque.bmh.utilities.BMHGameRules;
+
 import java.util.ArrayList;
 import javax.annotation.Nonnull;
 
 @Mod.EventBusSubscriber
 public class EternalItemHandler {
-
-    private static final Map<Player, ItemStack[]> playerInventorySnapshots = new HashMap<>();
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -34,6 +32,11 @@ public class EternalItemHandler {
         if (player instanceof ServerPlayer) {
 
             ServerPlayer serverPlayer = (ServerPlayer) player;
+
+            if (!serverPlayer.serverLevel().getGameRules()
+                    .getBoolean(BMHGameRules.RULE_ONLY_CARRY_ONE_ETERNAL_ITEM_TYPE)) {
+                return;
+            }
 
             if (!(serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL)) {
                 return;
@@ -48,10 +51,10 @@ public class EternalItemHandler {
                 ItemStack newItem = player.getInventory().getItem(i);
 
                 if (newItem.getItem() instanceof IEternalItem) {
+
                     if (containsSameEternalItem(playerEternalItems, newItem)) {
 
                         player.drop(newItem.copy(), false);
-
                         newItem.shrink(1);
 
                         if (newItem.isEmpty()) {

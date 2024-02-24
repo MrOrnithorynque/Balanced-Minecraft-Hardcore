@@ -37,7 +37,6 @@ import net.minecraft.world.item.ItemUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-// @Mod.EventBusSubscriber
 public class EternalBundleItem extends Item implements IEternalItem {
 
     private static final String TAG_ITEMS = "Items";

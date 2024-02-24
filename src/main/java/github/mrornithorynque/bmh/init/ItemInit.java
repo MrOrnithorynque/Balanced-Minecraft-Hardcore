@@ -37,8 +37,8 @@ public class ItemInit {
         public static final RegistryObject<Item> ETERNAL_PICKAXE = ITEMS.register("eternal_pickaxe",
                         () -> new EternalPickaxeItem(
                                         BMHModTierInit.ETERNAL,
-                                        8,
-                                        -3f,
+                                        7,
+                                        -2f,
                                         new Item.Properties()
                                                         .stacksTo(1)
                                                         .fireResistant()
@@ -47,8 +47,8 @@ public class ItemInit {
         public static final RegistryObject<Item> ETERNAL_SWORD = ITEMS.register("eternal_sword",
                         () -> new EternalSwordItem(
                                         BMHModTierInit.ETERNAL,
-                                        17,
-                                        0f,
+                                        10,
+                                        -1f,
                                         new Item.Properties()
                                                         .stacksTo(1)
                                                         .fireResistant()

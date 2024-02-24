@@ -6,13 +6,11 @@ import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.food.FoodData;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 
 import net.minecraftforge.event.entity.player.PlayerSleepInBedEvent;
-import net.minecraftforge.fml.common.Mod;
 
 import org.slf4j.Logger;
 
@@ -52,8 +50,8 @@ public class SleepHandler {
 
             if (playerHealth >= 20f /* 100% */) {
 
-                MobEffectInstance digSpeed = new MobEffectInstance(MobEffects.DIG_SPEED, 3600, 1);
-                MobEffectInstance resistance = new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 3600, 1);
+                MobEffectInstance digSpeed = new MobEffectInstance(MobEffects.DIG_SPEED, 3600, 1, false, true);
+                MobEffectInstance resistance = new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 3600, 1, false, true);
 
                 player.addEffect(digSpeed);
                 player.addEffect(resistance);

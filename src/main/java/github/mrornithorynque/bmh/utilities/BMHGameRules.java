@@ -13,5 +13,8 @@ public class BMHGameRules {
     public static final GameRules.Key<GameRules.BooleanValue> RULE_FOOD_AND_HEALTH_REGEN_ON_WAKE_UP =
         GameRules.register("foodAndHealthRegenOnWakeUp", GameRules.Category.MISC, GameRules.BooleanValue.create(true));
 
+    public static final GameRules.Key<GameRules.BooleanValue> RULE_ONLY_CARRY_ONE_ETERNAL_ITEM_TYPE =
+        GameRules.register("onlyCarryOneEternalItemType", GameRules.Category.MISC, GameRules.BooleanValue.create(true));
+
     public static void init() { /* This method is empty but ensures static fields are initialized. */ }
 }

@@ -25,12 +25,17 @@ public class NavigatorAmuletItem extends Item {
         if (!player.level().isClientSide) {
             itemStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(context.getHand()));
 
-            // display current coordinates
             TextDrawer.getInstance().drawString(
-                        "Current coordinates: " + player.blockPosition().getX() + ", " + player.blockPosition().getY() + ", " + player.blockPosition().getZ() + ".",
-                        TextDrawer.ScreenPosition.CENTER,
-                        HexColor.WHITE.getValue(),
-                        5000);
+                    "Current coordinates: " +
+                            player.blockPosition().getX() +
+                            ", " +
+                            player.blockPosition().getY() +
+                            ", " +
+                            player.blockPosition().getZ() +
+                            ".",
+                    TextDrawer.ScreenPosition.CENTER,
+                    HexColor.WHITE.getValue(),
+                    5000);
         }
 
         return InteractionResult.sidedSuccess(player.level().isClientSide);
