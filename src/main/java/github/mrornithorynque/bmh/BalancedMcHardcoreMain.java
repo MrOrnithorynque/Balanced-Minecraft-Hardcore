@@ -22,6 +22,8 @@ public class BalancedMcHardcoreMain {
 
     public BalancedMcHardcoreMain() {
 
+        LOGGER.info("[BalancedMcHardcoreMain] Loading...");
+
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         modEventBus.addListener(this::commonSetup);
@@ -30,9 +32,12 @@ public class BalancedMcHardcoreMain {
         BlockInit.BLOCKS.register(modEventBus);
         SoundInit.SOUND_EVENT.register(modEventBus);
         CreativeTabInit.CREATIVE_MODE_TABS.register(modEventBus);
+
         BMHGameRules.init();
 
         modEventBus.addListener(this::setup);
+
+        LOGGER.info("[BalancedMcHardcoreMain] Setup complete.");
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
@@ -45,6 +50,5 @@ public class BalancedMcHardcoreMain {
         MinecraftForge.EVENT_BUS.register(new EternalItemHandler());
         MinecraftForge.EVENT_BUS.register(new SetFarRespawnPosition());
         MinecraftForge.EVENT_BUS.register(TextDrawer.getInstance());
-
     }
 }
