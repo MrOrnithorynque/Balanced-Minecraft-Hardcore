@@ -158,6 +158,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
     }
 
     private static int add(ItemStack currentStack, ItemStack otherStack) {
+
         LOGGER.info("Adding items to the stack...");
 
         if (!otherStack.isEmpty()
