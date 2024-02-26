@@ -14,9 +14,11 @@ import com.mojang.logging.LogUtils;
 import github.mrornithorynque.bmh.init.BMHModTierInit;
 import github.mrornithorynque.bmh.items.IEternalItem;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.TieredItem;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.item.Item;
 
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -34,21 +36,25 @@ public class KeepItemAfterDeath {
 
     @SubscribeEvent
     public static void onPlayerDeath(LivingDeathEvent event) {
-        if (event.getEntity() instanceof Player) {
-            Player player = (Player) event.getEntity();
-            UUID playerId = player.getUUID();
+        if (event.getEntity() instanceof ServerPlayer) {
+
+            ServerPlayer serverPlayer = (ServerPlayer) event.getEntity();
+            UUID playerId = serverPlayer.getUUID();
             List<ItemStack> savedItems = new ArrayList<>();
 
-            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-                ItemStack stack = player.getInventory().getItem(i);
+            for (int i = 0; i < serverPlayer.getInventory().getContainerSize(); i++) {
+                ItemStack stack = serverPlayer.getInventory().getItem(i);
 
                 if (isItemToKeep(stack)) {
 
-                    IEternalItem eternalItem = (IEternalItem) stack.getItem();
-                    eternalItem.reduceDurability(stack, 7);
+                    if (serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL) {
+
+                        IEternalItem eternalItem = (IEternalItem) stack.getItem();
+                        eternalItem.reduceDurability(stack, 7);
+                    }
 
                     savedItems.add(stack.copy());
-                    player.getInventory().removeItem(stack);
+                    serverPlayer.getInventory().removeItem(stack);
                 }
             }
 

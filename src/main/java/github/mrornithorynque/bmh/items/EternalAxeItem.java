@@ -21,9 +21,7 @@ public class EternalAxeItem extends AxeItem implements IEternalItem {
 
         stack.setDamageValue(Math.min(stack.getDamageValue() + damage, stack.getMaxDamage()));
 
-        // Check if the item is destroyed and take appropriate action
         if (stack.getDamageValue() >= stack.getMaxDamage()) {
-            // Here you can add code to handle the item breaking if needed
         }
     }
 

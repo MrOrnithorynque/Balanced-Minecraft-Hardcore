@@ -28,7 +28,7 @@ public class ItemInit {
                         () -> new EternalAxeItem(
                                         BMHModTierInit.ETERNAL,
                                         17.0f,
-                                        -3.5f,
+                                        -3.2f,
                                         new Item.Properties()
                                                         .stacksTo(1)
                                                         .fireResistant()
@@ -48,7 +48,7 @@ public class ItemInit {
                         () -> new EternalSwordItem(
                                         BMHModTierInit.ETERNAL,
                                         10,
-                                        -1f,
+                                        -1.4f,
                                         new Item.Properties()
                                                         .stacksTo(1)
                                                         .fireResistant()

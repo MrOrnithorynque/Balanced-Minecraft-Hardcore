@@ -29,8 +29,8 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public class SetFarRespawnPosition {
 
-    private static final int MIN_DISTANCE = 50000;
-    private static final int MAX_DISTANCE = 70000;
+    private static final int MIN_DISTANCE = 30000;
+    private static final int MAX_DISTANCE = 40000;
     private static final int MAX_BUILD_HEIGHT = 320;
     private static final int MIN_BUILD_HEIGHT = -64;
 
