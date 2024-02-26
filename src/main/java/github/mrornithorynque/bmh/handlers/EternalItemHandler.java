@@ -48,6 +48,7 @@ public class EternalItemHandler {
             ArrayList<ItemStack> playerEternalItems = new ArrayList<>();
 
             for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+
                 ItemStack newItem = player.getInventory().getItem(i);
 
                 if (newItem.getItem() instanceof IEternalItem) {
