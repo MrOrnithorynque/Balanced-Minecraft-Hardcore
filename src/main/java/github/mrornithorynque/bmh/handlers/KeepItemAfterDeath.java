@@ -43,6 +43,10 @@ public class KeepItemAfterDeath {
                 ItemStack stack = player.getInventory().getItem(i);
 
                 if (isItemToKeep(stack)) {
+
+                    IEternalItem eternalItem = (IEternalItem) stack.getItem();
+                    eternalItem.reduceDurability(stack, 7);
+
                     savedItems.add(stack.copy());
                     player.getInventory().removeItem(stack);
                 }
@@ -78,20 +82,20 @@ public class KeepItemAfterDeath {
 
         Item item = stack.getItem();
 
-        if (item instanceof TieredItem) {
+        return item instanceof IEternalItem;
 
-            TieredItem tieredItem = (TieredItem) item;
-            Tier tier = tieredItem.getTier();
+        // if (item instanceof TieredItem) {
 
-            LOGGER.info("Item tier: " + tier);
+        //     TieredItem tieredItem = (TieredItem) item;
+        //     Tier tier = tieredItem.getTier();
 
-            return tier == BMHModTierInit.ETERNAL;
-        }
+        //     return tier == BMHModTierInit.ETERNAL;
+        // }
 
-        if (item instanceof IEternalItem) {
-            return true;
-        }
+        // if (item instanceof IEternalItem) {
+        //     return true;
+        // }
 
-        return false;
+        // return false;
     }
 }

@@ -5,11 +5,13 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.utilities.TextDrawer;
+import github.mrornithorynque.bmh.init.SoundInit;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import github.mrornithorynque.utilities.HexColor;
 
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -33,6 +35,28 @@ public class RespawnMessageOverlay {
             player = (Player) event.getEntity();
 
             Level level = player.level();
+
+            level.playSeededSound(
+                null,
+                player.blockPosition().getX(),
+                player.blockPosition().getY(),
+                player.blockPosition().getZ(),
+                SoundInit.BELL_SOUND.get(),
+                SoundSource.PLAYERS,
+                1.0F,
+                1.0F,
+                0);
+
+            level.playSeededSound(
+                null,
+                player.blockPosition().getX(),
+                player.blockPosition().getY(),
+                player.blockPosition().getZ(),
+                SoundInit.RESPAWN_SOUND.get(),
+                SoundSource.PLAYERS,
+                1.0F,
+                1.0F,
+                0);
 
             if (level.getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN)) {
 

@@ -81,6 +81,6 @@ public class SleepHandler {
 
     @SubscribeEvent
     public static void onPlayerSleepInBed(PlayerSleepInBedEvent event) {
-        LOGGER.info("PlayerSleepInBedEvent");
+        LOGGER.info("[BalancedMcHardcoreMain] PlayerSleepInBedEvent");
     }
 }

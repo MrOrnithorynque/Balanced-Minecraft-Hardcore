@@ -15,6 +15,10 @@ public class TotemOfEternityItem extends Item implements IEternalItem {
         super(properties);
     }
 
+    @Override
+    public void reduceDurability(ItemStack stack, int percentage) {
+    }
+
     @SubscribeEvent
     public static void onItemPickup(EntityItemPickupEvent event) {
         Player player = (Player) event.getEntity();

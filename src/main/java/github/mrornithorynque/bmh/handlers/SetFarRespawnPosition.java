@@ -50,34 +50,34 @@ public class SetFarRespawnPosition {
             ServerLevel serverLevel = player.serverLevel();
 
             BlockPos bedLocation = player.getRespawnPosition();
-            LOGGER.info("bedLocation : " + bedLocation);
+            LOGGER.info("[BalancedMcHardcoreMain] bedLocation : " + bedLocation);
 
             GameRules gameRules = serverLevel.getGameRules();
 
             if (!serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)) {
 
-                LOGGER.info("RULE_RANDOM_DEATH_SPAWN_POINT: "
+                LOGGER.info("[BalancedMcHardcoreMain] RULE_RANDOM_DEATH_SPAWN_POINT: "
                         + gameRules.getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT));
-                LOGGER.info("Game rule randomDeathSpawnPoint is false, using default respawn position");
+                LOGGER.info("[BalancedMcHardcoreMain] Game rule randomDeathSpawnPoint is false, using default respawn position");
 
                 return;
             }
 
             if (player.gameMode.getGameModeForPlayer() != GameType.SURVIVAL) {
 
-                LOGGER.info("Player is not in survival mode, using default respawn position");
+                LOGGER.info("[BalancedMcHardcoreMain] Player is not in survival mode, using default respawn position");
                 return;
             }
 
             if (bedLocation == null) {
 
                 bedLocation = serverLevel.getSharedSpawnPos();
-                LOGGER.info("Respawn is not forced by a bed");
+                LOGGER.info("[BalancedMcHardcoreMain] Respawn is not forced by a bed");
             }
 
             BlockPos respawnPosition = calculateRandomPosition(serverLevel, bedLocation);
 
-            LOGGER.info("new respawn pos and last : " + respawnPosition + ", " + bedLocation);
+            LOGGER.info("[BalancedMcHardcoreMain] new respawn pos and last : " + respawnPosition + ", " + bedLocation);
 
             player.setRespawnPosition(serverLevel.dimension(), respawnPosition, 0.0f, true, false);
             player.teleportTo(respawnPosition.getX(), respawnPosition.getY(), respawnPosition.getZ());
@@ -90,7 +90,7 @@ public class SetFarRespawnPosition {
         Biome biome;
         do {
 
-            LOGGER.info("Calculating new respawn position");
+            LOGGER.info("[BalancedMcHardcoreMain] Calculating new respawn position");
 
             BlockPos randomEdgePoint = findRandomEdgePoint(bedPosition, MAX_DISTANCE);
 
@@ -101,9 +101,9 @@ public class SetFarRespawnPosition {
 
             if (!biome.equals(Biomes.OCEAN) && !biome.equals(Biomes.RIVER)) {
 
-                LOGGER.info("Found a suitable biome that is not an ocean or a river");
-                LOGGER.info("serverLevel.getMinBuildHeight() : " + serverLevel.getMinBuildHeight());
-                LOGGER.info("serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ); : "
+                LOGGER.info("[BalancedMcHardcoreMain] Found a suitable biome that is not an ocean or a river");
+                LOGGER.info("[BalancedMcHardcoreMain] serverLevel.getMinBuildHeight() : " + serverLevel.getMinBuildHeight());
+                LOGGER.info("[BalancedMcHardcoreMain] serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ); : "
                         + serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ));
 
                 int newY = getYRespawnPosition(newX, newZ, serverLevel);
@@ -119,19 +119,19 @@ public class SetFarRespawnPosition {
 
     private int getYRespawnPosition(int x, int z, ServerLevel serverLevel) {
 
-        LOGGER.info("Checking respawn position for X=" + x + ", Z=" + z);
+        LOGGER.info("[BalancedMcHardcoreMain] Checking respawn position for X=" + x + ", Z=" + z);
 
         for (int y = MAX_BUILD_HEIGHT; y >= MIN_BUILD_HEIGHT; y--) {
             BlockState blockState = serverLevel.getBlockState(new BlockPos(x, y, z));
             Block block = blockState.getBlock();
 
             if (!block.equals(Blocks.AIR) && !block.equals(Blocks.CAVE_AIR) && !block.equals(Blocks.VOID_AIR)) {
-                LOGGER.info("Found non-air block (" + block + ") at Y=" + y);
+                LOGGER.info("[BalancedMcHardcoreMain] Found non-air block (" + block + ") at Y=" + y);
                 return y + 1;
             }
         }
 
-        LOGGER.warn("No non-air blocks found, defaulting to MAX_BUILD_HEIGHT");
+        LOGGER.warn("[BalancedMcHardcoreMain] No non-air blocks found, defaulting to MAX_BUILD_HEIGHT");
 
         return MAX_BUILD_HEIGHT;
     }

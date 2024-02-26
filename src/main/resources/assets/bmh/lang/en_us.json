@@ -5,5 +5,8 @@
     "item.bmh.totem_of_eternity": "The Totem of Eternal Life",
     "item.bmh.navigator_amulet": "Navigator's Amulet",
     "item.bmh.eternal_sword": "The Sword of Eternity",
-    "itemGroup.bmh_creative_tab": "BMH Tab"
+    "itemGroup.bmh_creative_tab": "BMH Tab",
+
+    "sounds.bmh.bell_sfx": "bell_sfx",
+    "sounds.bmh.end": "end"
 }

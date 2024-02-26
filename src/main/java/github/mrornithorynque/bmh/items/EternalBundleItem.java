@@ -50,6 +50,10 @@ public class EternalBundleItem extends Item implements IEternalItem {
         super(properties);
     }
 
+    @Override
+    public void reduceDurability(ItemStack stack, int percentage) {
+    }
+
     public static float getFullnessDisplay(ItemStack stack) {
 
         return (float) getContentWeight(stack) / 64.0F;
@@ -159,7 +163,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
     private static int add(ItemStack currentStack, ItemStack otherStack) {
 
-        LOGGER.info("Adding items to the stack...");
+        LOGGER.info("[BalancedMcHardcoreMain] Adding items to the stack...");
 
         if (!otherStack.isEmpty()
                 && otherStack.getItem().canFitInsideContainerItems()
@@ -178,7 +182,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
             if (k == 0) {
 
-                LOGGER.info("No items added to the stack.");
+                LOGGER.info("[BalancedMcHardcoreMain] No items added to the stack.");
                 return 0;
             } else {
 
@@ -190,7 +194,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
                     CompoundTag compoundTag1 = optional.get();
 
                     if (compoundTag1 == null) {
-                        LOGGER.info("No matching item found.");
+                        LOGGER.info("[BalancedMcHardcoreMain] No matching item found.");
                         return 0;
                     }
 
@@ -208,11 +212,11 @@ public class EternalBundleItem extends Item implements IEternalItem {
                     listTag.add(0, (Tag) compoundTag2);
                 }
 
-                LOGGER.info("Added " + k + " items to the stack.");
+                LOGGER.info("[BalancedMcHardcoreMain] Added " + k + " items to the stack.");
                 return k;
             }
         } else {
-            LOGGER.info("No items added to the stack.");
+            LOGGER.info("[BalancedMcHardcoreMain] No items added to the stack.");
             return 0;
         }
     }
@@ -254,18 +258,18 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
     private static Optional<ItemStack> removeOne(ItemStack stack) {
 
-        LOGGER.info("Removing one item from the stack...");
+        LOGGER.info("[BalancedMcHardcoreMain] Removing one item from the stack...");
 
         CompoundTag compoundTag = stack.getOrCreateTag();
 
         if (!compoundTag.contains("Items")) {
-            LOGGER.info("No items found in the stack.");
+            LOGGER.info("[BalancedMcHardcoreMain] No items found in the stack.");
             return Optional.empty();
         } else {
             ListTag listTag = compoundTag.getList("Items", 10);
 
             if (listTag.isEmpty()) {
-                LOGGER.info("No items found in the list.");
+                LOGGER.info("[BalancedMcHardcoreMain] No items found in the list.");
                 return Optional.empty();
             } else {
                 CompoundTag compoundTag1 = listTag.getCompound(0);
@@ -276,7 +280,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
                     stack.removeTagKey("Items");
                 }
 
-                LOGGER.info("Removed one item from the stack.");
+                LOGGER.info("[BalancedMcHardcoreMain] Removed one item from the stack.");
                 return Optional.of(itemStack);
             }
         }

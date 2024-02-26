@@ -6,13 +6,19 @@ import javax.annotation.Nonnull;
 
 import github.mrornithorynque.utilities.HexColor;
 import github.mrornithorynque.utilities.TextDrawer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
 
 public class NavigatorAmuletItem extends Item {
 
@@ -22,20 +28,24 @@ public class NavigatorAmuletItem extends Item {
     }
 
     @Override
-    public InteractionResult useOn(@Nonnull UseOnContext context) {
+    public boolean canApplyAtEnchantingTable(ItemStack stack, Enchantment enchantment) {
+        return enchantment == Enchantments.UNBREAKING;
+    }
 
-        Player player = context.getPlayer();
-        ItemStack itemStack = context.getItemInHand();
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand interactionHand) {
+
+        ItemStack itemStack = player.getItemInHand(interactionHand);
 
         if (!player.level().isClientSide) {
-            itemStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(context.getHand()));
+            itemStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(interactionHand));
 
-            context.getLevel().playSeededSound(
+            level.playSeededSound(
                 null,
                 player.blockPosition().getX(),
                 player.blockPosition().getY(),
                 player.blockPosition().getZ(),
-                SoundInit.BELL_SOUND.get(),
+                SoundEvents.ENDER_EYE_DEATH,
                 SoundSource.PLAYERS,
                 1.0F,
                 1.0F,
@@ -54,6 +64,6 @@ public class NavigatorAmuletItem extends Item {
                     5000);
         }
 
-        return InteractionResult.sidedSuccess(player.level().isClientSide);
+        return InteractionResultHolder.pass(player.getItemInHand(interactionHand));
     }
 }
