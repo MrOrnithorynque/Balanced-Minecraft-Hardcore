@@ -30,7 +30,7 @@ public class BalancedMcHardcoreMain {
 
         ItemInit.ITEMS.register(modEventBus);
         BlockInit.BLOCKS.register(modEventBus);
-        SoundInit.SOUND_EVENT.register(modEventBus);
+        SoundInit.SOUND_EVENTS.register(modEventBus);
         CreativeTabInit.CREATIVE_MODE_TABS.register(modEventBus);
 
         BMHGameRules.init();

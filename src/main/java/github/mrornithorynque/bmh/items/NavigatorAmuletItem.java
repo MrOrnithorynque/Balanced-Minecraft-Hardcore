@@ -1,9 +1,14 @@
 package github.mrornithorynque.bmh.items;
 
+import github.mrornithorynque.bmh.init.SoundInit;
+
+import javax.annotation.Nonnull;
+
 import github.mrornithorynque.utilities.HexColor;
 import github.mrornithorynque.utilities.TextDrawer;
 
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -17,13 +22,24 @@ public class NavigatorAmuletItem extends Item {
     }
 
     @Override
-    public InteractionResult useOn(UseOnContext context) {
+    public InteractionResult useOn(@Nonnull UseOnContext context) {
 
         Player player = context.getPlayer();
         ItemStack itemStack = context.getItemInHand();
 
         if (!player.level().isClientSide) {
             itemStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(context.getHand()));
+
+            context.getLevel().playSeededSound(
+                null,
+                player.blockPosition().getX(),
+                player.blockPosition().getY(),
+                player.blockPosition().getZ(),
+                SoundInit.BELL_SOUND.get(),
+                SoundSource.PLAYERS,
+                1.0F,
+                1.0F,
+                0);
 
             TextDrawer.getInstance().drawString(
                     "Current coordinates: " +
