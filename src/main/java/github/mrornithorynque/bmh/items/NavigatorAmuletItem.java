@@ -6,6 +6,7 @@ import javax.annotation.Nonnull;
 
 import github.mrornithorynque.utilities.HexColor;
 import github.mrornithorynque.utilities.TextDrawer;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
@@ -22,6 +23,9 @@ import net.minecraft.world.item.enchantment.Enchantments;
 
 public class NavigatorAmuletItem extends Item {
 
+    private static final String LAST_USE_TAG = "LastUseTime";
+    private static final int COOLDOWN_SECONDS = 5;
+
     public NavigatorAmuletItem(Item.Properties properties) {
 
         super(properties);
@@ -33,37 +37,53 @@ public class NavigatorAmuletItem extends Item {
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand interactionHand) {
+    public InteractionResultHolder<ItemStack> use(@Nonnull Level level, @Nonnull Player player, @Nonnull InteractionHand interactionHand) {
 
         ItemStack itemStack = player.getItemInHand(interactionHand);
 
-        if (!player.level().isClientSide) {
-            itemStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(interactionHand));
+        if (!level.isClientSide) {
+            CompoundTag tag = itemStack.getOrCreateTag();
 
-            level.playSeededSound(
-                null,
-                player.blockPosition().getX(),
-                player.blockPosition().getY(),
-                player.blockPosition().getZ(),
-                SoundEvents.ENDER_EYE_DEATH,
-                SoundSource.PLAYERS,
-                1.0F,
-                1.0F,
-                0);
+            long currentTime = level.getGameTime();
+            long lastUseTime = tag.getLong(LAST_USE_TAG);
 
-            TextDrawer.getInstance().drawString(
-                    "Current coordinates: " +
-                            player.blockPosition().getX() +
-                            ", " +
-                            player.blockPosition().getY() +
-                            ", " +
-                            player.blockPosition().getZ() +
-                            ".",
-                    TextDrawer.ScreenPosition.CENTER,
-                    HexColor.WHITE.getValue(),
-                    5000);
+            if (currentTime >= lastUseTime + COOLDOWN_SECONDS * 20) {
+
+                tag.putLong(LAST_USE_TAG, currentTime);
+                itemStack.setTag(tag);
+
+                if (!player.level().isClientSide) {
+                    itemStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(interactionHand));
+
+                    level.playSeededSound(
+                            null,
+                            player.blockPosition().getX(),
+                            player.blockPosition().getY(),
+                            player.blockPosition().getZ(),
+                            SoundEvents.ENDER_EYE_DEATH,
+                            SoundSource.PLAYERS,
+                            1.0F,
+                            1.0F,
+                            0);
+
+                    TextDrawer.getInstance().drawString(
+                            "Current coordinates: " +
+                                    player.blockPosition().getX() +
+                                    ", " +
+                                    player.blockPosition().getY() +
+                                    ", " +
+                                    player.blockPosition().getZ() +
+                                    ".",
+                            TextDrawer.ScreenPosition.CENTER,
+                            HexColor.WHITE.getValue(),
+                            5000);
+                }
+                return InteractionResultHolder.success(itemStack);
+            } else {
+                return InteractionResultHolder.fail(itemStack);
+            }
         }
 
-        return InteractionResultHolder.pass(player.getItemInHand(interactionHand));
+        return InteractionResultHolder.pass(itemStack);
     }
 }

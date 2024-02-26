@@ -7,13 +7,15 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import github.mrornithorynque.bmh.items.IEternalItem;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 
 import net.minecraft.core.BlockPos;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.biome.Biome;
@@ -22,19 +24,21 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
-
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
-public class SetFarRespawnPosition {
+public class RespawnPositionHandler {
 
-    private static final int MIN_DISTANCE = 30000;
-    private static final int MAX_DISTANCE = 40000;
+    private static final int MIN_DISTANCE = 15000;
+    private static final int MAX_DISTANCE = 60000;
     private static final int MAX_BUILD_HEIGHT = 320;
     private static final int MIN_BUILD_HEIGHT = -64;
 
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    private int distanceFromBed = MAX_DISTANCE;
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
@@ -42,14 +46,22 @@ public class SetFarRespawnPosition {
         setNewRespawnPosition(event);
     }
 
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onPlayerDeath(LivingDeathEvent event) {
+
+        if (event.getEntity() instanceof ServerPlayer) {
+            distanceFromBed = calculateDistanceFromBed((ServerPlayer) event.getEntity());
+        }
+    }
+
     private void setNewRespawnPosition(PlayerEvent.PlayerRespawnEvent event) {
 
         if (event.getEntity() instanceof ServerPlayer) {
 
-            ServerPlayer player = (ServerPlayer) event.getEntity();
-            ServerLevel serverLevel = player.serverLevel();
+            ServerPlayer serverPlayer = (ServerPlayer) event.getEntity();
+            ServerLevel serverLevel = serverPlayer.serverLevel();
+            BlockPos bedLocation = serverPlayer.getRespawnPosition();
 
-            BlockPos bedLocation = player.getRespawnPosition();
             LOGGER.info("[BalancedMcHardcoreMain] bedLocation : " + bedLocation);
 
             GameRules gameRules = serverLevel.getGameRules();
@@ -63,7 +75,7 @@ public class SetFarRespawnPosition {
                 return;
             }
 
-            if (player.gameMode.getGameModeForPlayer() != GameType.SURVIVAL) {
+            if (serverPlayer.gameMode.getGameModeForPlayer() != GameType.SURVIVAL) {
 
                 LOGGER.info("[BalancedMcHardcoreMain] Player is not in survival mode, using default respawn position");
                 return;
@@ -75,24 +87,26 @@ public class SetFarRespawnPosition {
                 LOGGER.info("[BalancedMcHardcoreMain] Respawn is not forced by a bed");
             }
 
-            BlockPos respawnPosition = calculateRandomPosition(serverLevel, bedLocation);
+            BlockPos respawnPosition = calculateRandomPosition(serverPlayer, serverLevel, bedLocation);
 
             LOGGER.info("[BalancedMcHardcoreMain] new respawn pos and last : " + respawnPosition + ", " + bedLocation);
 
-            player.setRespawnPosition(serverLevel.dimension(), respawnPosition, 0.0f, true, false);
-            player.teleportTo(respawnPosition.getX(), respawnPosition.getY(), respawnPosition.getZ());
-            player.setRespawnPosition(serverLevel.dimension(), bedLocation, 0.0f, true, false);
+            serverPlayer.setRespawnPosition(serverLevel.dimension(), respawnPosition, 0.0f, true, false);
+            serverPlayer.teleportTo(respawnPosition.getX(), respawnPosition.getY(), respawnPosition.getZ());
+            serverPlayer.setRespawnPosition(serverLevel.dimension(), bedLocation, 0.0f, true, false);
         }
     }
 
-    private BlockPos calculateRandomPosition(ServerLevel serverLevel, BlockPos bedPosition) {
+    private BlockPos calculateRandomPosition(ServerPlayer serverPlayer, ServerLevel serverLevel, BlockPos bedPosition) {
+
+        //int distanceFromBed = calculateDistanceFromBed(serverPlayer);
 
         Biome biome;
         do {
 
             LOGGER.info("[BalancedMcHardcoreMain] Calculating new respawn position");
 
-            BlockPos randomEdgePoint = findRandomEdgePoint(bedPosition, MAX_DISTANCE);
+            BlockPos randomEdgePoint = findRandomEdgePoint(bedPosition, this.distanceFromBed);
 
             int newX = randomEdgePoint.getX();
             int newZ = randomEdgePoint.getZ();
@@ -115,6 +129,35 @@ public class SetFarRespawnPosition {
         } while (biome.equals(Biomes.OCEAN) || biome.equals(Biomes.RIVER));
 
         return bedPosition;
+    }
+
+    private int calculateDistanceFromBed(ServerPlayer serverPlayer) {
+
+        final int maxEasyLife = 9;
+
+        int easyLife = 1;
+        int distanceFromBed = MAX_DISTANCE;
+
+        int eternalItemCount = 0;
+        for (int i = 0; i < serverPlayer.getInventory().getContainerSize(); i++) {
+            ItemStack stack = serverPlayer.getInventory().getItem(i);
+            if (stack.getItem() instanceof IEternalItem) {
+                eternalItemCount++;
+            }
+        }
+
+        easyLife += eternalItemCount;
+        easyLife += serverPlayer.level().getDifficulty().getId();
+
+        float x = (MAX_DISTANCE - MIN_DISTANCE);
+        float y = (maxEasyLife / easyLife);
+        float z = x / y;
+
+        distanceFromBed = (int)z + MIN_DISTANCE;
+
+        LOGGER.info("[BalancedMcHardcoreMain] Distance from bed: " + distanceFromBed);
+
+        return distanceFromBed;
     }
 
     private int getYRespawnPosition(int x, int z, ServerLevel serverLevel) {

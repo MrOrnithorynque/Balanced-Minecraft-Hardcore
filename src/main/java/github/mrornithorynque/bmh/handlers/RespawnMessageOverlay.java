@@ -54,7 +54,7 @@ public class RespawnMessageOverlay {
                 player.blockPosition().getZ(),
                 SoundInit.RESPAWN_SOUND.get(),
                 SoundSource.PLAYERS,
-                1.0F,
+                0.3F,
                 1.0F,
                 0);
 

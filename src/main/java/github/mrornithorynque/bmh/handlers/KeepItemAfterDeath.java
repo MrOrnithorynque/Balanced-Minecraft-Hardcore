@@ -13,8 +13,11 @@ import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.bmh.init.BMHModTierInit;
 import github.mrornithorynque.bmh.items.IEternalItem;
-import net.minecraft.world.entity.player.Player;
+import github.mrornithorynque.bmh.utilities.BMHGameRules;
+
 import net.minecraft.server.level.ServerPlayer;
+
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.TieredItem;
@@ -24,7 +27,6 @@ import net.minecraft.world.item.Item;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
-
 import net.minecraftforge.fml.common.Mod;
 
 @Mod.EventBusSubscriber
@@ -47,7 +49,9 @@ public class KeepItemAfterDeath {
 
                 if (isItemToKeep(stack)) {
 
-                    if (serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL) {
+                    if ((serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL)
+                            && serverPlayer.serverLevel().getGameRules()
+                                    .getBoolean(BMHGameRules.RULE_DAMAGE_ETERNAL_ITEM_WHEN_DEAD)) {
 
                         IEternalItem eternalItem = (IEternalItem) stack.getItem();
                         eternalItem.reduceDurability(stack, 7);
@@ -86,22 +90,6 @@ public class KeepItemAfterDeath {
 
     private static boolean isItemToKeep(ItemStack stack) {
 
-        Item item = stack.getItem();
-
-        return item instanceof IEternalItem;
-
-        // if (item instanceof TieredItem) {
-
-        //     TieredItem tieredItem = (TieredItem) item;
-        //     Tier tier = tieredItem.getTier();
-
-        //     return tier == BMHModTierInit.ETERNAL;
-        // }
-
-        // if (item instanceof IEternalItem) {
-        //     return true;
-        // }
-
-        // return false;
+        return stack.getItem() instanceof IEternalItem;
     }
 }

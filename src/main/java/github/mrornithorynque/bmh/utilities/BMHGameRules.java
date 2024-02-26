@@ -16,5 +16,8 @@ public class BMHGameRules {
     public static final GameRules.Key<GameRules.BooleanValue> RULE_ONLY_CARRY_ONE_ETERNAL_ITEM_TYPE =
         GameRules.register("onlyCarryOneEternalItemType", GameRules.Category.MISC, GameRules.BooleanValue.create(true));
 
+        public static final GameRules.Key<GameRules.BooleanValue> RULE_DAMAGE_ETERNAL_ITEM_WHEN_DEAD =
+        GameRules.register("damageEternalItemWhenDead", GameRules.Category.MISC, GameRules.BooleanValue.create(true));
+
     public static void init() { /* This method is empty but ensures static fields are initialized. */ }
 }
