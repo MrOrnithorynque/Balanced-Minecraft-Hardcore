@@ -1,4 +1,4 @@
-# Balanced-Minecraft-Hardcore
+# Balanced-Minecraft-Hardcore 1.20.2
 
 Balanced Minecraft Hardcore (BMH) gives you flexibility in difficulty by replacing death by distant respawn based on your difficulty and **Eternal Items** possessed. BMH is the perfect middle ground between normal Minecraft gameplay and hardcore minecraft gameplay.
 
