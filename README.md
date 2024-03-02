@@ -29,7 +29,7 @@ Sleeping is now slightly revamped, it can give you buff if you sleep well.
 The Totem of Eternity is only used to craft other eternal items
 
 <p align="center">
-  <img src="resources/totem_of_eternity_crafting_grid.png" alt="totem_of_eternity_crafting_grid" width="300">
+  <img src="resources/totem_of_eternity_crafting_grid.png" alt="totem_of_eternity_crafting_grid" width="200">
 </p>
 
 #### Eternal Tools
@@ -39,9 +39,9 @@ The Totem of Eternity is only used to craft other eternal items
 - Eternal Sword
 
 <p align="center">
-  <img src="resources/eternal_axe_crafting_grid.png" alt="eternal_axe_crafting_grid" width="300" style="margin-right: 10px;">
-  <img src="resources/eternal_pickaxe_crafting_grid.png" alt="eternal_pickaxe_crafting_grid" width="300" style="margin-right: 10px;">
-  <img src="resources/eternal_sword_crafting_grid.png" alt="eternal_sword_crafting_grid" width="300">
+  <img src="resources/eternal_axe_crafting_grid.png" alt="eternal_axe_crafting_grid" width="200" style="margin-right: 10px;">
+  <img src="resources/eternal_pickaxe_crafting_grid.png" alt="eternal_pickaxe_crafting_grid" width="200" style="margin-right: 10px;">
+  <img src="resources/eternal_sword_crafting_grid.png" alt="eternal_sword_crafting_grid" width="200">
 </p>
 
 
@@ -51,7 +51,7 @@ The Totem of Eternity is only used to craft other eternal items
 Just like the legacy Bundle but keep with you any item inside it even after you die.
 
 <p align="center">
-  <img src="resources/eternal_bundle_crafting_grid.png" alt="eternal_bundle_crafting_grid" width="300">
+  <img src="resources/eternal_bundle_crafting_grid.png" alt="eternal_bundle_crafting_grid" width="200">
 </p>
 
 ### Normal Items
@@ -61,7 +61,7 @@ Just like the legacy Bundle but keep with you any item inside it even after you 
 Your only way of knowing coordinates in your world. Right click and the coordinates is displayed for few seconds on your screen.
 
 <p align="center">
-  <img src="resources/navigator_amulet_crafting_grid.png" alt="navigator_amulet_crafting_grid" width="300">
+  <img src="resources/navigator_amulet_crafting_grid.png" alt="navigator_amulet_crafting_grid" width="200">
 </p>
 
 #### Bundle
@@ -69,7 +69,7 @@ Your only way of knowing coordinates in your world. Right click and the coordina
 Legacy minecraft bundle implementation.
 
 <p align="center">
-  <img src="resources/bundle_crafting_grid.png" alt="bundle_crafting_grid" width="300">
+  <img src="resources/bundle_crafting_grid.png" alt="bundle_crafting_grid" width="200">
 </p>
 
 
