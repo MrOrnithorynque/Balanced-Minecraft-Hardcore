@@ -28,6 +28,7 @@ public class EternalAxeItem extends AxeItem implements IEternalItem {
         stack.setDamageValue(Math.min(stack.getDamageValue() + damage, stack.getMaxDamage()));
 
         if (stack.getDamageValue() >= stack.getMaxDamage()) {
+            
         }
     }
 }

@@ -1,8 +1,8 @@
 {
     "type": "minecraft:crafting_shaped",
     "pattern": [
-        "nNn",
-        " H ",
+        " n ",
+        " N ",
         " B "
     ],
     "key": {
@@ -10,9 +10,6 @@
             "item": "minecraft:netherite_ingot"
         },
         "N": {
-            "item": "minecraft:nether_star"
-        },
-        "H": {
             "item": "minecraft:netherite_sword"
         },
         "B": {

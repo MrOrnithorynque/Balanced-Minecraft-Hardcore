@@ -52,6 +52,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
     @Override
     public void reduceDurability(ItemStack stack, int percentage) {
+        // No need here
     }
 
     public static float getFullnessDisplay(ItemStack stack) {

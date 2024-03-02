@@ -1,6 +1,8 @@
 
 package github.mrornithorynque.bmh.handlers;
 
+import github.mrornithorynque.bmh.utilities.BMHGameRules;
+
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -19,6 +21,8 @@ public class DisableDebugInfo {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    private static boolean reduceDebugInfoSnapshot = false;
+
     @SubscribeEvent
     public static void onPlayerTick(PlayerTickEvent event) {
 
@@ -27,19 +31,24 @@ public class DisableDebugInfo {
         if (player instanceof ServerPlayer) {
 
             ServerPlayer serverPlayer = (ServerPlayer) player;
+            MinecraftServer minecraftServer = serverPlayer.getServer();
+
+            if (minecraftServer == null)
+                return;
+
+            GameRules gameRules = minecraftServer.getGameRules();
+            GameRules.BooleanValue ruleReduceDebugInfo = gameRules.getRule(GameRules.RULE_REDUCEDDEBUGINFO);
+
+            if (!gameRules.getRule(BMHGameRules.RULE_REMOVE_COORDINATES_IN_SURVIVAL).get())
+                return;
 
             if (serverPlayer.gameMode.getGameModeForPlayer() != GameType.SURVIVAL) {
+                reduceDebugInfoSnapshot = ruleReduceDebugInfo.get();
+                ruleReduceDebugInfo.set(reduceDebugInfoSnapshot, minecraftServer);
                 return;
             }
 
-            MinecraftServer minecraftServer = serverPlayer.getServer();
-
-            if (minecraftServer != null) {
-
-                GameRules gameRules = minecraftServer.getGameRules();
-                GameRules.BooleanValue rule = gameRules.getRule(GameRules.RULE_REDUCEDDEBUGINFO);
-                rule.set(true, minecraftServer);
-            }
+            ruleReduceDebugInfo.set(true, minecraftServer);
         }
     }
 }

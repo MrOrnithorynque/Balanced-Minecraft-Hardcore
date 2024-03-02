@@ -1,9 +1,9 @@
 {
     "type": "minecraft:crafting_shaped",
     "pattern": [
+        " n ",
         "nBn",
-        "n n",
-        "nGn"
+        " C "
     ],
     "key": {
         "n": {
@@ -12,7 +12,7 @@
         "B": {
             "item": "minecraft:bundle"
         },
-        "G": {
+        "C": {
             "item": "bmh:totem_of_eternity"
         }
     },

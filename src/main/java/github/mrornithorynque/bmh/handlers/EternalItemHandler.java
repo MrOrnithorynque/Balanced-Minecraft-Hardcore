@@ -34,13 +34,11 @@ public class EternalItemHandler {
             ServerPlayer serverPlayer = (ServerPlayer) player;
 
             if (!serverPlayer.serverLevel().getGameRules()
-                    .getBoolean(BMHGameRules.RULE_ONLY_CARRY_ONE_ETERNAL_ITEM_TYPE)) {
+                    .getBoolean(BMHGameRules.RULE_ONLY_CARRY_ONE_ETERNAL_ITEM_TYPE))
                 return;
-            }
 
-            if (!(serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL)) {
+            if (!(serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL))
                 return;
-            }
         }
 
         if (event.side.isServer() && event.phase == PlayerTickEvent.Phase.END) {
@@ -62,6 +60,7 @@ public class EternalItemHandler {
                             player.getInventory().setItem(i, ItemStack.EMPTY);
                         }
                     } else {
+
                         playerEternalItems.add(newItem.copy());
                     }
                 }

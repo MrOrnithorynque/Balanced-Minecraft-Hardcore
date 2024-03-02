@@ -99,8 +99,6 @@ public class RespawnPositionHandler {
 
     private BlockPos calculateRandomPosition(ServerPlayer serverPlayer, ServerLevel serverLevel, BlockPos bedPosition) {
 
-        //int distanceFromBed = calculateDistanceFromBed(serverPlayer);
-
         Biome biome;
         do {
 
@@ -153,7 +151,7 @@ public class RespawnPositionHandler {
         float y = (maxEasyLife / easyLife);
         float z = x / y;
 
-        distanceFromBed = (int)z + MIN_DISTANCE;
+        distanceFromBed = (int)z + MIN_DISTANCE; // TODO : add randomness
 
         LOGGER.info("[BalancedMcHardcoreMain] Distance from bed: " + distanceFromBed);
 

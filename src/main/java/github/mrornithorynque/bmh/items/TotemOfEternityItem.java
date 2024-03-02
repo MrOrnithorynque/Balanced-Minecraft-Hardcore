@@ -17,16 +17,19 @@ public class TotemOfEternityItem extends Item implements IEternalItem {
 
     @Override
     public void reduceDurability(ItemStack stack, int percentage) {
+        // no need here
     }
 
     @SubscribeEvent
     public static void onItemPickup(EntityItemPickupEvent event) {
+
         Player player = (Player) event.getEntity();
         ItemStack pickedUpItem = event.getItem().getItem();
 
         if (pickedUpItem.getItem() instanceof TotemOfEternityItem) {
             for (ItemStack itemStack : player.getInventory().items) {
-                if (!itemStack.isEmpty() && itemStack.getItem().getClass() == pickedUpItem.getItem().getClass()) {
+                if (!itemStack.isEmpty() && (itemStack.getItem().getClass() == pickedUpItem.getItem().getClass())) {
+
                     event.setCanceled(true);
                     return;
                 }
