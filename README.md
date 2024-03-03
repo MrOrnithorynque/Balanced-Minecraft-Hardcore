@@ -1,4 +1,11 @@
-# Balanced-Minecraft-Hardcore 1.20.2
+https://discord.gg/dDErfdnk
+
+
+<h1>Balanced-Minecraft-Hardcore 1.20.2 <img src="resources/totem_of_eternity.gif" align="center" width="30"> </h1>
+
+[![Discord](https://img.shields.io/discord/1213624965656739912?label=Discord)](https://discord.gg/dDErfdnk)
+
+![bmh title](resources\bmh_title.png)
 
 Balanced Minecraft Hardcore (BMH) gives you flexibility in difficulty by replacing death by distant respawn based on your difficulty and **Eternal Items** possessed. BMH is the perfect middle ground between normal Minecraft gameplay and hardcore minecraft gameplay.
 
@@ -44,8 +51,6 @@ The Totem of Eternity is only used to craft other eternal items
   <img src="resources/eternal_sword_crafting_grid.png" alt="eternal_sword_crafting_grid" width="200">
 </p>
 
-
-
 #### Eternal Bundle
 
 Just like the legacy Bundle but keep with you any item inside it even after you die.
@@ -88,4 +93,4 @@ Most of the features are not actives when in creative mod.
 
 ---
 
-Looking for a fabric port ? Then Do it.
+> Looking for a fabric port ? Then Do it.
