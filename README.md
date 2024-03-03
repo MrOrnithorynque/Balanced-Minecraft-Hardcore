@@ -75,7 +75,7 @@ Legacy minecraft bundle implementation.
 </p>
 
 
-## GamerRules
+## GameRules
 
 - randomDeathSpawnPoint (default : true)
 - displayTextOnRespawn (default : true)
