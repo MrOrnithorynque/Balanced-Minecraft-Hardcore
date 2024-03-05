@@ -9,11 +9,13 @@ import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.bmh.items.IEternalItem;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
+import github.mrornithorynque.bmh.Config;
 
 import net.minecraft.core.BlockPos;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameRules;
@@ -24,21 +26,21 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
+
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public class RespawnPositionHandler {
 
-    private static final int MIN_DISTANCE = 15000;
-    private static final int MAX_DISTANCE = 60000;
     private static final int MAX_BUILD_HEIGHT = 320;
     private static final int MIN_BUILD_HEIGHT = -64;
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private int distanceFromBed = MAX_DISTANCE;
+    private int distanceFromBed = Config.maxDistanceFromBed.get();;
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
@@ -131,12 +133,20 @@ public class RespawnPositionHandler {
 
     private int calculateDistanceFromBed(ServerPlayer serverPlayer) {
 
+        int minDistance = Config.minDistanceFromBed.get();
+        int maxDistance = Config.maxDistanceFromBed.get();
+
         final int maxEasyLife = 9;
 
         int easyLife = 1;
-        int distanceFromBed = MAX_DISTANCE;
-
+        int distanceFromBed = maxDistance;
         int eternalItemCount = 0;
+
+        if (minDistance > maxDistance) {
+            LOGGER.warn("[BalancedMcHardcoreMain] minDistanceFromBed is greater than maxDistanceFromBed, using default values");
+            maxDistance = minDistance;
+        }
+
         for (int i = 0; i < serverPlayer.getInventory().getContainerSize(); i++) {
             ItemStack stack = serverPlayer.getInventory().getItem(i);
             if (stack.getItem() instanceof IEternalItem) {
@@ -147,11 +157,11 @@ public class RespawnPositionHandler {
         easyLife += eternalItemCount;
         easyLife += serverPlayer.level().getDifficulty().getId();
 
-        float x = (MAX_DISTANCE - MIN_DISTANCE);
+        float x = (maxDistance - minDistance);
         float y = (maxEasyLife / easyLife);
         float z = x / y;
 
-        distanceFromBed = (int)z + MIN_DISTANCE; // TODO : add randomness
+        distanceFromBed = (int)z + minDistance; // TODO : add randomness
 
         LOGGER.info("[BalancedMcHardcoreMain] Distance from bed: " + distanceFromBed);
 

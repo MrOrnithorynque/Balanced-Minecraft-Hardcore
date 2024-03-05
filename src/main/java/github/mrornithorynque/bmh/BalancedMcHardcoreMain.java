@@ -10,7 +10,9 @@ import github.mrornithorynque.bmh.utilities.BMHGameRules;
 
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
@@ -25,6 +27,8 @@ public class BalancedMcHardcoreMain {
         LOGGER.info("[BalancedMcHardcoreMain] Loading...");
 
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 
         modEventBus.addListener(this::commonSetup);
 
