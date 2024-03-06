@@ -1,4 +1,4 @@
-<h1>Balanced-Minecraft-Hardcore 1.20.2 <img src="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/resources/totem_of_eternity.gif" align="center" width="30"> </h1>
+<h1>Balanced-Minecraft-Hardcore 1.20.4 <img src="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/resources/totem_of_eternity.gif" align="center" width="30"> </h1>
 
 <img src="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/resources/bmh_banner.png" align="center"> </h1>
 
