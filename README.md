@@ -1,5 +1,5 @@
 <img src="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/resources/bmh_banner.png" align="center"> </h1>
-<h1 align="center">BALANCED MINECRAFT HARDCORE <img src="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/resources/totem_of_eternity.gif" align="center" width="30"><br>
+<h1 align="center">BALANCED MINECRAFT HARDCORE 1.20.4 <img src="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/resources/totem_of_eternity.gif" align="center" width="30"><br>
 	<a href="https://minecraft.curseforge.com/projects/balanced-minecraft-hardcore/files"><img src="https://cf.way2muchnoise.eu/versions/For%20MC_982343_all.svg" alt="Supported Versions"></a>
 	<a href="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/LICENSE"><img src="https://img.shields.io/github/license/MrOrnithorynque/Balanced-Minecraft-Hardcore?style=flat&color=900c3f" alt="License"></a>
 	<a href="https://discord.gg/AcdnVpVSZw"><img src="https://img.shields.io/discord/1213624965656739912?color=5865f2&label=Discord&style=flat" alt="Discord"></a>
