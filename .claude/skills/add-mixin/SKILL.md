@@ -10,11 +10,11 @@ Mixin is already wired on both loaders. Two configs, one refmap name (`bmh.refma
 - `common/src/main/resources/bmh.mixins.json`: mixins in `common/src/main/java/github/mrornithorynque/bmh/mixin/`, applied on Forge and Fabric.
 - `fabric/src/main/resources/bmh.fabric.mixins.json`: mixins in `fabric/src/main/java/github/mrornithorynque/bmh/fabric/mixin/`, Fabric only.
 
-The reference mixin is `common/src/main/java/github/mrornithorynque/bmh/mixin/CreateWorldGameTabMixin.java`: read it first, it uses every pattern below. `fabric/.../fabric/mixin/` holds the simple `HEAD` injections.
+The reference mixin is `common/src/main/java/github/mrornithorynque/bmh/mixin/CreateWorldGameTabMixin.java`: read it first, it uses most patterns below. `fabric/.../fabric/mixin/` holds the simple `HEAD` injections.
 
 ## 1. Pick where it goes
 
-- **Forge has an event for the hook** (death, respawn, wake-up, item pickup, ticks, HUD): do not mixin on Forge. Put the logic in a common handler (`common/.../handlers/`), call it from `forge/.../forge/ForgeEvents.java`, and add a Fabric-only mixin at the point where Forge fires its event (read the Forge-patched code, step 2). Fabric API events often fire elsewhere: `ServerLivingEntityEvents.ALLOW_DEATH` runs before the totem check, `AFTER_DEATH` after the drops, so check before using one.
+- **Forge has an event for the hook**: do not mixin on Forge. Put the logic in a common handler (`common/.../handlers/`) and call it from `forge/.../forge/ForgeEvents.java`. On Fabric, use a Fabric API event when it fires at the same point as Forge's (respawn, ticks and HUD do: `BalancedMcHardcoreFabric`, `BalancedMcHardcoreFabricClient`), otherwise a Fabric-only mixin where Forge fires its event (death, wake-up, item pickup and the anvil enchant check do; read the Forge-patched code, step 2). Check before trusting a Fabric API event: `ServerLivingEntityEvents.ALLOW_DEATH` runs before the totem check, `AFTER_DEATH` after the drops.
 - **No loader event** (a vanilla screen, say): a common mixin, listed once in `bmh.mixins.json`.
 - **Client-only target** (screens, rendering): list it under `client`, never `mixins`. A dedicated server must never load a client class, and Forge refuses to start if it does; common code that runs on the server reaches client code only behind `Services.PLATFORM.isPhysicalClient()` (see `client/LocalPlayerText.java`).
 
@@ -38,7 +38,7 @@ That jar carries Forge's patches: Fabric runs the vanilla code without them. For
 
 ## 3. Write the mixin
 
-In the package of its config (step 1), then list the class name in that config: under `client` for client-only targets, under `mixins` for code that runs on both sides.
+In the package of its config (listed at the top), then list the class name in that config: under `client` for client-only targets, under `mixins` for code that runs on both sides.
 
 - **Package-private or inner class:** target by string, `@Mixin(targets = "net.minecraft.client.gui.screens.worldselection.CreateWorldScreen$GameTab")`.
 - **Injecting into an inner class constructor:** the outer instance is the constructor's first parameter, so the handler is `(CreateWorldScreen screen, CallbackInfo ci)` with `@Inject(method = "<init>", at = @At("TAIL"))`.

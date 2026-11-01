@@ -6,7 +6,7 @@ Minecraft mod (mod id `bmh`) for Forge and Fabric: death sends you on a distant 
 
 Three Gradle modules (MultiLoader-Template style, all on official Mojang mappings):
 
-- `common/`: the gameplay, vanilla code only. Its own build compiles it against vanilla Minecraft (VanillaGradle), so a Forge or Fabric import there fails the build. It is not a jar of its own: `forge` and `fabric` compile its sources and resources into their jars (root `build.gradle`), so each loader's mixin processor writes `bmh.refmap.json` for the common mixins too.
+- `common/`: the gameplay, vanilla code only. Its own build compiles it against vanilla Minecraft (VanillaGradle), so a Forge or Fabric import there fails the build. It ships no jar of its own (`common/build/libs` is a by-product, never published): `forge` and `fabric` compile its sources and resources into their jars (root `build.gradle`), so each loader's mixin processor writes `bmh.refmap.json` for the common mixins too.
 - `forge/`: ForgeGradle 6 + MixinGradle, the `@Mod` class, `Config` (`config/bmh-common.toml`) and `forge/ForgeEvents` (Forge events, with the priorities the handlers rely on).
 - `fabric/`: fabric-loom, the entrypoints, `FabricConfig` (`config/bmh.properties`) and `fabric/mixin`.
 
@@ -14,11 +14,11 @@ Common code reaches the loader through `platform/IPlatformHelper` (registration,
 
 Fabric hooks death, wake-up, item pickup and the anvil's enchant check with its own mixins rather than Fabric API events, to fire where Forge fires its events: `ALLOW_DEATH` runs before the totem check and `AFTER_DEATH` after the drops; the enchant mixin mirrors Forge's `canApplyAtEnchantingTable` hook (without it a Mending book would go on the Navigator's Amulet).
 
-A dedicated server must never load a client class: on Forge it refuses to start ("Attempted to load class ... for invalid dist DEDICATED_SERVER"; 1.1.0 and earlier did exactly that). Client code lives in `client/LocalPlayerText`, `TextDrawer`, the client mixin and the loaders' client hooks, and is only reached behind `Services.PLATFORM.isPhysicalClient()`. `javap -v` on the built classes shows which ones reference `net/minecraft/client`.
+A dedicated server must never load a client class: on Forge it refuses to start ("Attempted to load class ... for invalid dist DEDICATED_SERVER"; 1.1.0 and earlier did exactly that). Client code lives in `client/LocalPlayerText`, `TextDrawer`, the client mixin and the loaders' client hooks, and stays out of the server's way: common code reaches it only behind `Services.PLATFORM.isPhysicalClient()`, the loader hooks are gated by `FMLEnvironment.dist` (Forge) and the `client` entrypoint (Fabric), and the mixin by the `client` list of its config. `javap -v` on the built classes shows which ones reference `net/minecraft/client`.
 
 ## One branch per Minecraft version
 
-The same mod ships for several Minecraft versions. Each version lives on its own long-lived branch. Everything under `common/src`, `forge/src` and `fabric/src`, the Gradle files other than `forge/build.gradle`, and the wrapper are identical on all of them; `forge/build.gradle`, `gradle.properties` and `README.md` differ per branch.
+The same mod ships for several Minecraft versions. Each version lives on its own long-lived branch. Everything under `common/src`, `forge/src` and `fabric/src`, the build scripts other than `forge/build.gradle`, and the wrapper are identical on all of them; `forge/build.gradle`, `gradle.properties`, `README.md` and `.vscode/settings.json` differ per branch (and `mods.toml` on `dev-46.0.14`).
 
 | Branch | Minecraft | Forge | Fabric API |
 |---|---|---|---|
