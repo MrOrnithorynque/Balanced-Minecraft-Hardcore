@@ -7,6 +7,9 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 ### Added
 - Minecraft 1.21.1, on Forge and Fabric (Fabric needs Fabric API).
 
+### Known issues
+- Moving a world from 1.20.x to 1.21.1: Eternal Bundles look empty afterwards. Empty them before you move the world.
+
 ## [1.2.0] - 2026-11-01
 
 ### Added
