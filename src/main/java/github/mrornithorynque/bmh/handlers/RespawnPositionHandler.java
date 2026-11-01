@@ -1,8 +1,9 @@
 package github.mrornithorynque.bmh.handlers;
 
-import java.util.Random;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
-import org.joml.Math;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -12,19 +13,22 @@ import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import github.mrornithorynque.bmh.Config;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.SectionPos;
+import net.minecraft.tags.BiomeTags;
+import net.minecraft.tags.BlockTags;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
-import net.minecraft.world.Difficulty;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.biome.Biomes;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -35,12 +39,13 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public class RespawnPositionHandler {
 
-    private static final int MAX_BUILD_HEIGHT = 320;
-    private static final int MIN_BUILD_HEIGHT = -64;
+    private static final int MAX_EASY_LIFE = 9;
+    private static final int MAX_POSITION_ATTEMPTS = 32;
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private int distanceFromBed = Config.maxDistanceFromBed.get();;
+    // One entry per player, filled on death and consumed on respawn.
+    private final Map<UUID, Integer> distancesFromBed = new HashMap<>();
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
@@ -51,84 +56,90 @@ public class RespawnPositionHandler {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onPlayerDeath(LivingDeathEvent event) {
 
-        if (event.getEntity() instanceof ServerPlayer) {
-            distanceFromBed = calculateDistanceFromBed((ServerPlayer) event.getEntity());
+        if (event.getEntity() instanceof ServerPlayer serverPlayer) {
+            distancesFromBed.put(serverPlayer.getUUID(), calculateDistanceFromBed(serverPlayer));
         }
     }
 
     private void setNewRespawnPosition(PlayerEvent.PlayerRespawnEvent event) {
 
-        if (event.getEntity() instanceof ServerPlayer) {
-
-            ServerPlayer serverPlayer = (ServerPlayer) event.getEntity();
-            ServerLevel serverLevel = serverPlayer.serverLevel();
-            BlockPos bedLocation = serverPlayer.getRespawnPosition();
-
-            LOGGER.info("[BalancedMcHardcoreMain] bedLocation : " + bedLocation);
-
-            GameRules gameRules = serverLevel.getGameRules();
-
-            if (!serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)) {
-
-                LOGGER.info("[BalancedMcHardcoreMain] RULE_RANDOM_DEATH_SPAWN_POINT: "
-                        + gameRules.getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT));
-                LOGGER.info("[BalancedMcHardcoreMain] Game rule randomDeathSpawnPoint is false, using default respawn position");
-
-                return;
-            }
-
-            if (serverPlayer.gameMode.getGameModeForPlayer() != GameType.SURVIVAL) {
-
-                LOGGER.info("[BalancedMcHardcoreMain] Player is not in survival mode, using default respawn position");
-                return;
-            }
-
-            if (bedLocation == null) {
-
-                bedLocation = serverLevel.getSharedSpawnPos();
-                LOGGER.info("[BalancedMcHardcoreMain] Respawn is not forced by a bed");
-            }
-
-            BlockPos respawnPosition = calculateRandomPosition(serverPlayer, serverLevel, bedLocation);
-
-            LOGGER.info("[BalancedMcHardcoreMain] new respawn pos and last : " + respawnPosition + ", " + bedLocation);
-
-            serverPlayer.setRespawnPosition(serverLevel.dimension(), respawnPosition, 0.0f, true, false);
-            serverPlayer.teleportTo(respawnPosition.getX(), respawnPosition.getY(), respawnPosition.getZ());
-            serverPlayer.setRespawnPosition(serverLevel.dimension(), bedLocation, 0.0f, true, false);
+        if (!(event.getEntity() instanceof ServerPlayer serverPlayer)) {
+            return;
         }
+
+        // Leaving the End through the exit portal is also a "respawn" in vanilla.
+        if (event.isEndConquered()) {
+
+            LOGGER.info("[BalancedMcHardcoreMain] Player is coming back from the End, using default respawn position");
+            return;
+        }
+
+        // Computed at death; fall back to the current inventory if the server restarted in between.
+        Integer storedDistance = distancesFromBed.remove(serverPlayer.getUUID());
+        int distanceFromBed = storedDistance != null ? storedDistance : calculateDistanceFromBed(serverPlayer);
+
+        ServerLevel serverLevel = serverPlayer.serverLevel();
+
+        if (!serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)) {
+
+            LOGGER.info("[BalancedMcHardcoreMain] Game rule randomDeathSpawnPoint is false, using default respawn position");
+            return;
+        }
+
+        if (serverPlayer.gameMode.getGameModeForPlayer() != GameType.SURVIVAL) {
+
+            LOGGER.info("[BalancedMcHardcoreMain] Player is not in survival mode, using default respawn position");
+            return;
+        }
+
+        BlockPos bedLocation = serverPlayer.getRespawnPosition();
+
+        if (bedLocation == null || serverPlayer.getRespawnDimension() != serverLevel.dimension()) {
+
+            bedLocation = serverLevel.getSharedSpawnPos();
+            LOGGER.info("[BalancedMcHardcoreMain] No bed in this dimension, using world spawn as center");
+        }
+
+        BlockPos respawnPosition = calculateRandomPosition(serverLevel, bedLocation, distanceFromBed);
+
+        if (respawnPosition == null) {
+
+            LOGGER.warn("[BalancedMcHardcoreMain] No safe respawn position found after " + MAX_POSITION_ATTEMPTS
+                    + " attempts, using default respawn position");
+            return;
+        }
+
+        LOGGER.info("[BalancedMcHardcoreMain] new respawn pos and bed : " + respawnPosition + ", " + bedLocation);
+
+        // Only move the player: the bed (or anchor) spawn point stays exactly as vanilla left it.
+        serverPlayer.teleportTo(respawnPosition.getX() + 0.5, respawnPosition.getY(), respawnPosition.getZ() + 0.5);
     }
 
-    private BlockPos calculateRandomPosition(ServerPlayer serverPlayer, ServerLevel serverLevel, BlockPos bedPosition) {
+    private BlockPos calculateRandomPosition(ServerLevel serverLevel, BlockPos bedPosition, int distanceFromBed) {
 
-        Biome biome;
-        do {
+        for (int attempt = 0; attempt < MAX_POSITION_ATTEMPTS; attempt++) {
 
-            LOGGER.info("[BalancedMcHardcoreMain] Calculating new respawn position");
+            BlockPos randomEdgePoint = findRandomEdgePoint(serverLevel.getRandom(), bedPosition, distanceFromBed);
 
-            BlockPos randomEdgePoint = findRandomEdgePoint(bedPosition, this.distanceFromBed);
-
-            int newX = randomEdgePoint.getX();
-            int newZ = randomEdgePoint.getZ();
-
-            biome = serverLevel.getBiome(new BlockPos(newX, 0, newZ)).get();
-
-            if (!biome.equals(Biomes.OCEAN) && !biome.equals(Biomes.RIVER)) {
-
-                LOGGER.info("[BalancedMcHardcoreMain] Found a suitable biome that is not an ocean or a river");
-                LOGGER.info("[BalancedMcHardcoreMain] serverLevel.getMinBuildHeight() : " + serverLevel.getMinBuildHeight());
-                LOGGER.info("[BalancedMcHardcoreMain] serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ); : "
-                        + serverLevel.getHeight(Heightmap.Types.MOTION_BLOCKING, newX, newZ));
-
-                int newY = getYRespawnPosition(newX, newZ, serverLevel);
-
-                bedPosition = new BlockPos(newX, newY, newZ);
-
-                break;
+            if (!serverLevel.getWorldBorder().isWithinBounds(randomEdgePoint)) {
+                continue;
             }
-        } while (biome.equals(Biomes.OCEAN) || biome.equals(Biomes.RIVER));
 
-        return bedPosition;
+            // Cheap check first: biome lookup does not generate the chunk.
+            Holder<Biome> biome = serverLevel.getBiome(randomEdgePoint.atY(serverLevel.getSeaLevel()));
+
+            if (biome.is(BiomeTags.IS_OCEAN) || biome.is(BiomeTags.IS_DEEP_OCEAN) || biome.is(BiomeTags.IS_RIVER)) {
+                continue;
+            }
+
+            BlockPos safePosition = findSafePosition(serverLevel, randomEdgePoint.getX(), randomEdgePoint.getZ());
+
+            if (safePosition != null) {
+                return safePosition;
+            }
+        }
+
+        return null;
     }
 
     private int calculateDistanceFromBed(ServerPlayer serverPlayer) {
@@ -136,10 +147,7 @@ public class RespawnPositionHandler {
         int minDistance = Config.minDistanceFromBed.get();
         int maxDistance = Config.maxDistanceFromBed.get();
 
-        final int maxEasyLife = 9;
-
         int easyLife = 1;
-        int distanceFromBed = maxDistance;
         int eternalItemCount = 0;
 
         if (minDistance > maxDistance) {
@@ -156,40 +164,73 @@ public class RespawnPositionHandler {
 
         easyLife += eternalItemCount;
         easyLife += serverPlayer.level().getDifficulty().getId();
+        easyLife = Math.min(easyLife, MAX_EASY_LIFE);
 
-        float x = (maxDistance - minDistance);
-        float y = (maxEasyLife / easyLife);
-        float z = x / y;
-
-        distanceFromBed = (int)z + minDistance; // TODO : add randomness
+        int distanceFromBed = minDistance + (maxDistance - minDistance) * easyLife / MAX_EASY_LIFE; // TODO : add randomness
 
         LOGGER.info("[BalancedMcHardcoreMain] Distance from bed: " + distanceFromBed);
 
         return distanceFromBed;
     }
 
-    private int getYRespawnPosition(int x, int z, ServerLevel serverLevel) {
+    // Returns the feet position on solid, dry ground with two free blocks above, or null.
+    private BlockPos findSafePosition(ServerLevel serverLevel, int x, int z) {
 
-        LOGGER.info("[BalancedMcHardcoreMain] Checking respawn position for X=" + x + ", Z=" + z);
+        int minY = serverLevel.getMinBuildHeight();
+        int y;
 
-        for (int y = MAX_BUILD_HEIGHT; y >= MIN_BUILD_HEIGHT; y--) {
-            BlockState blockState = serverLevel.getBlockState(new BlockPos(x, y, z));
-            Block block = blockState.getBlock();
+        if (serverLevel.dimensionType().hasCeiling()) {
+            // The heightmap would land on the bedrock roof: start under it and get out of the solid layer first.
+            y = minY + serverLevel.dimensionType().logicalHeight() - 2;
 
-            if (!block.equals(Blocks.AIR) && !block.equals(Blocks.CAVE_AIR) && !block.equals(Blocks.VOID_AIR)) {
-                LOGGER.info("[BalancedMcHardcoreMain] Found non-air block (" + block + ") at Y=" + y);
-                return y + 1;
+            while (y > minY && !isFreeSpace(serverLevel, new BlockPos(x, y, z))) {
+                y--;
             }
+        } else {
+            // Level.getHeight answers minBuildHeight for a chunk that is not loaded, and these points are
+            // thousands of blocks away: load (or generate) the chunk and read its heightmap directly.
+            LevelChunk chunk = serverLevel.getChunk(SectionPos.blockToSectionCoord(x), SectionPos.blockToSectionCoord(z));
+            y = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x & 15, z & 15) + 1;
         }
 
-        LOGGER.warn("[BalancedMcHardcoreMain] No non-air blocks found, defaulting to MAX_BUILD_HEIGHT");
+        // Go down through free space (air, grass, snow layers) to the first real block: that is the ground.
+        // Stopping there means water or lava is rejected instead of digging under it into a cave.
+        while (y > minY && isFreeSpace(serverLevel, new BlockPos(x, y, z))) {
+            y--;
+        }
 
-        return MAX_BUILD_HEIGHT;
+        BlockPos groundPos = new BlockPos(x, y, z);
+        BlockPos feet = groundPos.above();
+
+        if (y > minY
+                && isSafeGround(serverLevel, groundPos, serverLevel.getBlockState(groundPos))
+                && isFreeSpace(serverLevel, feet)
+                && isFreeSpace(serverLevel, feet.above())) {
+            return feet;
+        }
+
+        LOGGER.info("[BalancedMcHardcoreMain] No safe ground found at X=" + x + ", Z=" + z);
+
+        return null;
     }
 
-    public static BlockPos findRandomEdgePoint(BlockPos center, int radius) {
+    private boolean isFreeSpace(ServerLevel serverLevel, BlockPos pos) {
 
-        Random random = new Random();
+        BlockState state = serverLevel.getBlockState(pos);
+
+        return state.getCollisionShape(serverLevel, pos).isEmpty() && state.getFluidState().isEmpty();
+    }
+
+    private boolean isSafeGround(ServerLevel serverLevel, BlockPos pos, BlockState ground) {
+
+        return ground.getFluidState().isEmpty()
+                && ground.isFaceSturdy(serverLevel, pos, Direction.UP)
+                && !ground.is(BlockTags.LEAVES)
+                && !ground.is(Blocks.MAGMA_BLOCK);
+    }
+
+    public static BlockPos findRandomEdgePoint(RandomSource random, BlockPos center, int radius) {
+
         double theta = 2 * Math.PI * random.nextDouble();
 
         int xEdge = center.getX() + (int) (radius * Math.cos(theta));
