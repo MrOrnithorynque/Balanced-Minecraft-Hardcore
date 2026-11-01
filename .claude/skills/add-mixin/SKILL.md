@@ -5,7 +5,7 @@ description: Add or change a Mixin in BMH (inject into vanilla Minecraft classes
 
 # Adding a Mixin to BMH
 
-Mixin is already wired on both loaders. Two configs, one refmap name (`bmh.refmap.json`), written by each loader's build for its own jar:
+Mixin is already wired on both loaders. Two configs, one refmap name (`bmh.refmap.json`), written by each loader's build for its own jar (except Forge on 1.21.1, which runs on the official names and needs none):
 
 - `common/src/main/resources/bmh.mixins.json`: mixins in `common/src/main/java/github/mrornithorynque/bmh/mixin/`, applied on Forge and Fabric.
 - `fabric/src/main/resources/bmh.fabric.mixins.json`: mixins in `fabric/src/main/java/github/mrornithorynque/bmh/fabric/mixin/`, Fabric only.
@@ -14,7 +14,7 @@ The reference mixin is `common/src/main/java/github/mrornithorynque/bmh/mixin/Cr
 
 ## 1. Pick where it goes
 
-- **Forge has an event for the hook**: do not mixin on Forge. Put the logic in a common handler (`common/.../handlers/`) and call it from `forge/.../forge/ForgeEvents.java`. On Fabric, use a Fabric API event when it fires at the same point as Forge's (respawn, ticks and HUD do: `BalancedMcHardcoreFabric`, `BalancedMcHardcoreFabricClient`), otherwise a Fabric-only mixin where Forge fires its event (death, wake-up, item pickup and the anvil enchant check do; read the Forge-patched code, step 2). Check before trusting a Fabric API event: `ServerLivingEntityEvents.ALLOW_DEATH` runs before the totem check, `AFTER_DEATH` after the drops.
+- **Forge has an event for the hook**: do not mixin on Forge. Put the logic in a common handler (`common/.../handlers/`) and call it from `forge/.../forge/ForgeEvents.java`. On Fabric, use a Fabric API event when it fires at the same point as Forge's (respawn, ticks and HUD do: `BalancedMcHardcoreFabric`, `BalancedMcHardcoreFabricClient`), otherwise a Fabric-only mixin where Forge fires its event (death, wake-up, item pickup and the anvil enchant check do; read the Forge-patched code, step 2; on 1.21.1 the anvil check is a common mixin instead, `mixin/EnchantmentMixin.java`, see `.claude/CLAUDE.md`). Check before trusting a Fabric API event: `ServerLivingEntityEvents.ALLOW_DEATH` runs before the totem check, `AFTER_DEATH` after the drops.
 - **No loader event** (a vanilla screen, say): a common mixin, listed once in `bmh.mixins.json`.
 - **Client-only target** (screens, rendering): list it under `client`, never `mixins`. A dedicated server must never load a client class, and Forge refuses to start if it does; common code that runs on the server reaches client code only behind `Services.PLATFORM.isPhysicalClient()` (see `client/LocalPlayerText.java`).
 
@@ -48,11 +48,11 @@ In the package of its config (listed at the top), then list the class name in th
 
 ## 4. Check it
 
-1. `JAVA_HOME=/opt/homebrew/opt/openjdk@17 sh ./gradlew build`, then both jars (`forge/build/libs/`, `fabric/build/libs/`) must still contain `bmh.refmap.json`, and the Forge jar a `MixinConfigs` manifest line. `unzip -p <fabric jar> bmh.refmap.json` lists every injection target resolved to intermediary names: a mixin missing there found no target at compile time.
+1. `JAVA_HOME=/opt/homebrew/opt/openjdk@17 sh ./gradlew build` (`openjdk@21` on `dev-52.1.20`), then both jars (`forge/build/libs/`, `fabric/build/libs/`) must still contain `bmh.refmap.json` (the Forge one only on 1.20.x), and the Forge jar a `MixinConfigs` manifest line. `unzip -p <fabric jar> bmh.refmap.json` lists every injection target resolved to intermediary names: a mixin missing there found no target at compile time.
 2. `sh ./gradlew :forge:runClient` and `sh ./gradlew :fabric:runClient`, and have the user open the screen or trigger the code (computer use cannot drive the dev `java` window). A mixin is applied lazily, when its target class is first loaded; on Forge the proof is a line logged at DEBUG at that moment, so it is in `forge/run/logs/debug.log` (and the console), never in `latest.log`: `Mixing <YourMixin> from bmh.mixins.json into <target>`.
 3. For anything that runs on the server, boot a dedicated server on each loader too (`:forge:runServer`, `:fabric:runServer`, with `eula=true` in `<loader>/run/eula.txt`).
-4. Harmless in the Forge dev logs: `Reference map 'bmh.refmap.json' ... could not be read` (dev uses unobfuscated names) and the DEBUG line about `JAVA_17` being higher than the supported compatibility level.
+4. Harmless in the Forge logs: `Reference map 'bmh.refmap.json' ... could not be read` (dev uses unobfuscated names, and so does a 1.21.1 release) and the DEBUG line about `JAVA_17` (`JAVA_21` on 1.21.1) being higher than the supported compatibility level.
 
 ## 5. Every Minecraft version
 
-The mixin goes to every version branch like any change (see `.claude/CLAUDE.md`). Vanilla internals move between versions: a branch that compiles proves the signatures exist, not that the injection point still means the same thing. When the target is a method body (not a constructor `TAIL` or `HEAD`), decompile the same class on the oldest branch (1.20 / Forge 46.0.14) and compare before porting.
+The mixin goes to every version branch like any change (see `.claude/CLAUDE.md`). Vanilla internals move between versions: a branch that compiles proves the signatures exist, not that the injection point still means the same thing. When the target is a method body (not a constructor `TAIL` or `HEAD`), decompile the same class on the oldest branch (1.20 / Forge 46.0.14) and compare before porting. On `dev-52.1.20` (1.21.1) the cherry-pick may not even compile: port the mixin by hand there, against the 1.21.1 class.

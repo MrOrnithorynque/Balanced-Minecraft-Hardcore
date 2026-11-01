@@ -1,8 +1,11 @@
 # Changelog
 
-All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft version: each release ships the same changes for 1.20 to 1.20.4.
+All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft version: each release ships the same changes for 1.20 to 1.21.1.
 
 ## [Unreleased]
+
+### Added
+- Minecraft 1.21.1, on Forge and Fabric (Fabric needs Fabric API).
 
 ## [1.2.0] - 2026-11-01
 
