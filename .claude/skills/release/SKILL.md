@@ -7,7 +7,7 @@ description: Release a new version of Balanced Minecraft Hardcore to Modrinth an
 
 A release is never "main only". The mod ships for every Minecraft version the repo supports, one branch per version (see the table in `.claude/CLAUDE.md`), and every one of those branches gets the same version number, the same changelog and its own tag.
 
-Publishing is automatic: pushing a tag named `mc-<minecraft_version>-v<mod_version>` runs `.github/workflows/publish.yml` on the tagged commit, which builds that commit and uploads both jars to **CurseForge, plus Modrinth when `MODRINTH_TOKEN` is set** (and one GitHub release) in one go: a Forge version (`<mc>-<mod>`) and a Fabric version (`<mc>-<mod>-fabric`). One tag per version branch, so one release per Minecraft version and loader on each platform reached. Pushing a tag is the point of no return: the upload is public and cannot be cleanly taken back.
+Publishing is automatic: pushing a tag named `mc-<minecraft_version>-v<mod_version>` runs `.github/workflows/publish.yml` on the tagged commit, which builds that commit and uploads every jar to **CurseForge, plus Modrinth when `MODRINTH_TOKEN` is set** (and one GitHub release) in one go: a Forge version (`<mc>-<mod>`), a Fabric version (`<mc>-<mod>-fabric`) and, on 1.20.4 and 1.21.1, a NeoForge version (`<mc>-<mod>-neoforge`). The 1.20.1 Forge version is also listed for NeoForge. One tag per version branch, so one release per Minecraft version and loader on each platform reached. Pushing a tag is the point of no return: the upload is public and cannot be cleanly taken back.
 
 Run every multi-line snippet below as a `bash` script, with absolute paths: shell variables do not survive between tool calls, and zsh reads `$b:gradle.properties` as `$b` plus the `:g`/`:r` modifiers (`dev-46.0adle.properties`). Always write `"${b}:path"`.
 
@@ -75,10 +75,12 @@ for b in dev-52.1.20 dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14; d
   if ( cd "$W/$b" && sh ./gradlew build --console=plain ) > "$W/../build-$b.log" 2>&1; then
     forge=$(find "$W/$b/forge/build/libs" -name '*.jar' | head -1)
     fabric=$(find "$W/$b/fabric/build/libs" -name '*.jar' ! -name '*-sources.jar' | head -1)
+    # A branch with neoforge_version must also have built the NeoForge jar.
+    neo=ok; grep -q '^neoforge_version=' "$W/$b/gradle.properties" && ! ls "$W/$b"/neoforge/build/libs/*.jar >/dev/null 2>&1 && neo=missing
     # Forge 1.21.1 runs on the official names: its jar has no refmap, on purpose.
     { [ "$java" = 21 ] || unzip -l "$forge" | grep -q bmh.refmap.json; } && unzip -p "$forge" META-INF/MANIFEST.MF | grep -q MixinConfigs \
-      && unzip -l "$fabric" | grep -q bmh.refmap.json \
-      && echo "$b PASS" || echo "$b FAIL (a jar has no refmap, or the Forge jar no MixinConfigs)"
+      && unzip -l "$fabric" | grep -q bmh.refmap.json && [ "$neo" = ok ] \
+      && echo "$b PASS" || echo "$b FAIL (a jar has no refmap, the Forge jar no MixinConfigs, or the NeoForge jar is missing)"
   else
     echo "$b FAIL (see build-$b.log)"
   fi
@@ -129,7 +131,7 @@ gh run view <run-id> --log-failed     # for any failure
 ```
 
 - Green only means nothing failed. The `Successfully published the assets to ...` lines (one per loader step) say where each jar actually went (e.g. `CurseForge, GitHub` when Modrinth was skipped for lack of a token). Report that list per Minecraft version and loader, not "published everywhere".
-- The two loader steps run independently (Fabric runs even when Forge failed). If one failed, the other's version is already public: publish only the failed loader with step 8 (`-f loader=fabric` or `-f loader=forge`), ticking only the platforms its `Successfully published` line does not list. Never re-run the whole run.
+- The loader steps run independently (Fabric and NeoForge run even when Forge failed). If one failed, the others' versions are already public: publish only the failed loader with step 8 (`-f loader=fabric`, `forge` or `neoforge`), ticking only the platforms its `Successfully published` line does not list. Never re-run the whole run.
 - A red "Tag ... does not match gradle.properties" run means the tag was made on the wrong branch or before the bump.
 - A red "CHANGELOG.md has no non-empty '## [<version>]' section" run means step 2 did not reach that branch: fix the changelog on every branch, push, then move the tag (delete and re-create it, after asking).
 - No run at all for a tag means it went out in a push with more than three tags: delete it on the remote (`git push origin :refs/tags/<tag>`, after asking) and push it again alone.
@@ -146,7 +148,7 @@ for t in mc-1.20-v<mod> mc-1.20.1-v<mod> mc-1.20.2-v<mod> mc-1.20.3-v<mod> mc-1.
 done
 ```
 
-- Add `-f loader=forge` or `-f loader=fabric` to publish one jar only (default `both`). A tag from before the Fabric port only has the Forge jar, in `build/libs`; the workflow detects that layout, but `-f loader=fabric` on such a tag publishes nothing and still goes green: use `forge` or `both` there.
+- Add `-f loader=forge`, `fabric` or `neoforge` to publish one jar only (default `all`; it was `both` before the NeoForge build, so a manual run with `--ref main` takes the new names). A tag from before the Fabric port only has the Forge jar, in `build/libs`; the workflow detects that layout, but `-f loader=fabric` on such a tag publishes nothing and still goes green: use `forge` or `all` there.
 - The manual trigger exists only once this workflow is on `main` (it arrived with the Fabric port); before that, `gh workflow run` fails.
 - `--ref main` on purpose: the workflow definition comes from `main` (older tags predate the trigger), and the job checks out and builds the tagged commit itself.
 - Confirm the tag list and the platform with the user first: it publishes.
