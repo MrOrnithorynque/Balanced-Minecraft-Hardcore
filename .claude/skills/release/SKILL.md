@@ -44,6 +44,8 @@ In one commit on `main`:
 - `gradle.properties`: `mod_version=<version>`.
 - `CHANGELOG.md`: rename `## [Unreleased]` to `## [<version>] - <YYYY-MM-DD>` and add a fresh empty `## [Unreleased]` above it. If the section is empty or thin, write it from `git log <last tag>..main` (the last `mc-1.20.4-v*` tag): one line per change a player would notice, in player words.
 
+The workflow publishes that `## [<version>]` section, and only that section, as the changelog on Modrinth, CurseForge and the GitHub release. Players read it there, so it must stand on its own. If the heading is missing or the section is empty, the run fails before building.
+
 Commit message: `release: <version>`.
 
 ## 3. Port to every version branch
@@ -119,6 +121,7 @@ gh run view <run-id> --log-failed     # for any failure
 
 - One green run per tag means that Minecraft version is on both Modrinth and CurseForge.
 - A red "Tag ... does not match gradle.properties" run means the tag was made on the wrong branch or before the bump.
+- A red "CHANGELOG.md has no non-empty '## [<version>]' section" run means step 2 did not reach that branch: fix the changelog on every branch, push, then move the tag (delete and re-create it, after asking).
 - No run at all for a tag means it went out in a push with more than three tags: delete it on the remote (`git push origin :refs/tags/<tag>`, after asking) and push it again alone.
 
 Report each Minecraft version's result to the user, then clean up the scratch worktrees (`git worktree remove`).
