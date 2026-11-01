@@ -38,7 +38,7 @@ Paths under `src/main/java/github/mrornithorynque/bmh/` unless stated.
 
 ## Changelog
 
-`CHANGELOG.md` at the repo root, same file on every branch. Any change a player could notice adds a line under `## [Unreleased]` in the same commit, written for players (what changed in game, not which class). A release turns that section into the version's entry: see the `release` skill.
+`CHANGELOG.md` at the repo root, same file on every branch. Any change a player could notice adds a line under `## [Unreleased]` in the same commit, written for players (what changed in game, not which class). A release turns that section into the version's entry (see the `release` skill), and `publish.yml` posts exactly that entry as the changelog on Modrinth, CurseForge and the GitHub release.
 
 ## Releasing
 
