@@ -4,6 +4,13 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Added
+- Fabric version, for every Minecraft version from 1.20 to 1.20.4. It needs Fabric API. Its settings live in `config/bmh.properties`.
+
+### Fixed
+- The mod no longer stops a dedicated server from starting.
+- On a LAN world, the Navigator's Amulet no longer shows a guest's coordinates on the host's screen. On-screen texts still only show in singleplayer and for the LAN host.
+
 ## [1.1.0] - 2026-11-01
 
 ### Added
