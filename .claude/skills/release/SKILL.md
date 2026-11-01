@@ -7,7 +7,7 @@ description: Release a new version of Balanced Minecraft Hardcore to Modrinth an
 
 A release is never "main only". The mod ships for every Minecraft version the repo supports, one branch per version (see the table in `.claude/CLAUDE.md`), and every one of those branches gets the same version number, the same changelog and its own tag.
 
-Publishing is automatic: pushing a tag named `mc-<minecraft_version>-v<mod_version>` runs `.github/workflows/publish.yml` on the tagged commit, which builds that commit and uploads both jars to **Modrinth and CurseForge** (and one GitHub release) in one go: a Forge version (`<mc>-<mod>`) and a Fabric version (`<mc>-<mod>-fabric`). One tag per version branch, so one release per Minecraft version and loader on both sites. Pushing a tag is the point of no return: the upload is public and cannot be cleanly taken back.
+Publishing is automatic: pushing a tag named `mc-<minecraft_version>-v<mod_version>` runs `.github/workflows/publish.yml` on the tagged commit, which builds that commit and uploads both jars to **CurseForge, plus Modrinth when `MODRINTH_TOKEN` is set** (and one GitHub release) in one go: a Forge version (`<mc>-<mod>`) and a Fabric version (`<mc>-<mod>-fabric`). One tag per version branch, so one release per Minecraft version and loader on each platform reached. Pushing a tag is the point of no return: the upload is public and cannot be cleanly taken back.
 
 Run every multi-line snippet below as a `bash` script, with absolute paths: shell variables do not survive between tool calls, and zsh reads `$b:gradle.properties` as `$b` plus the `:g`/`:r` modifiers (`dev-46.0adle.properties`). Always write `"${b}:path"`.
 
@@ -91,7 +91,7 @@ git push origin main dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14   
 
 No force push. If a push is rejected, someone pushed meanwhile: stop and look.
 
-## 6. Tag every version branch (Modrinth + CurseForge)
+## 6. Tag every version branch (CurseForge, plus Modrinth with a token)
 
 One annotated tag per `dev-*` branch, named from **that branch's** `gradle.properties` (the workflow fails a tag that does not match it):
 
