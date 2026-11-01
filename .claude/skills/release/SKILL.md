@@ -19,7 +19,7 @@ git fetch origin --tags
 git status --short          # clean tree
 for b in main $(git for-each-ref --format='%(refname:short)' 'refs/heads/dev-*'); do
   echo "== $b behind/ahead: $(git rev-list --left-right --count "origin/${b}...${b}")"
-  git diff --stat main "$b" -- common fabric forge/src CHANGELOG.md .github ':!forge/src/main/resources/META-INF/mods.toml' | tail -1   # must print nothing
+  git diff --stat main "$b" -- . ':!forge/build.gradle' ':!gradle.properties' ':!README.md' ':!forge/src/main/resources/META-INF/mods.toml' ':!.vscode' | tail -1   # must print nothing
   git cat-file -e "${b}:.github/workflows/publish.yml" 2>/dev/null || echo "   NO publish workflow on $b"
   git cat-file -e "${b}:CHANGELOG.md" 2>/dev/null || echo "   NO CHANGELOG.md on $b"
 done
@@ -27,7 +27,7 @@ gh secret list    # CURSEFORGE_TOKEN required, MODRINTH_TOKEN optional (see belo
 ```
 
 - Every branch is level with `origin` (`0	0`). Anything ahead means unpushed work; anything behind means pull first.
-- `common`, `fabric`, `forge/src`, `CHANGELOG.md` and `.github` are identical everywhere (`mods.toml` excluded: `dev-46.0.14` lacks a commented-out template block, nothing else). If a branch differs, a change was not ported: port it (cherry-pick from `main`) before releasing.
+- Everything but `forge/build.gradle`, `gradle.properties`, `README.md` and `.vscode` is identical everywhere (`mods.toml` excluded: `dev-46.0.14` lacks a commented-out template block, nothing else). If a branch differs, a change was not ported: port it (cherry-pick from `main`) before releasing.
 - The publish workflow exists **on every branch**. A tag only publishes if the workflow file is in the tagged commit. A branch without it releases nothing, silently.
 - `CURSEFORGE_TOKEN` is set. If `MODRINTH_TOKEN` is missing, `mc-publish` **silently skips Modrinth** (it skips every platform whose token is empty) and the run still goes green: tell the user and get their OK before tagging. Modrinth can get the version later with the manual trigger in step 8. Never set secrets yourself: the user does.
 
@@ -125,7 +125,7 @@ gh run view <run-id> --log-failed     # for any failure
 ```
 
 - Green only means nothing failed. The `Successfully published the assets to ...` lines (one per loader step) say where each jar actually went (e.g. `CurseForge, GitHub` when Modrinth was skipped for lack of a token). Report that list per Minecraft version and loader, not "published everywhere".
-- If one loader's step failed, the other loader's version is already public: publish the missing one with step 8 (`-f loader=fabric` or `-f loader=forge`), never by re-running the whole run.
+- The two loader steps run independently (Fabric runs even when Forge failed). If one failed, the other's version is already public: publish only the failed loader with step 8 (`-f loader=fabric` or `-f loader=forge`), ticking only the platforms its `Successfully published` line does not list. Never re-run the whole run.
 - A red "Tag ... does not match gradle.properties" run means the tag was made on the wrong branch or before the bump.
 - A red "CHANGELOG.md has no non-empty '## [<version>]' section" run means step 2 did not reach that branch: fix the changelog on every branch, push, then move the tag (delete and re-create it, after asking).
 - No run at all for a tag means it went out in a push with more than three tags: delete it on the remote (`git push origin :refs/tags/<tag>`, after asking) and push it again alone.
@@ -142,7 +142,8 @@ for t in mc-1.20-v<mod> mc-1.20.1-v<mod> mc-1.20.2-v<mod> mc-1.20.3-v<mod> mc-1.
 done
 ```
 
-- Add `-f loader=forge` or `-f loader=fabric` to publish one jar only (default `both`). A tag from before the Fabric port only has the Forge jar, in `build/libs`; the workflow detects that layout.
+- Add `-f loader=forge` or `-f loader=fabric` to publish one jar only (default `both`). A tag from before the Fabric port only has the Forge jar, in `build/libs`; the workflow detects that layout, but `-f loader=fabric` on such a tag publishes nothing and still goes green: use `forge` or `both` there.
+- The manual trigger exists only once this workflow is on `main` (it arrived with the Fabric port); before that, `gh workflow run` fails.
 - `--ref main` on purpose: the workflow definition comes from `main` (older tags predate the trigger), and the job checks out and builds the tagged commit itself.
 - Confirm the tag list and the platform with the user first: it publishes.
 - Check each run with step 7. A platform whose token is still missing is skipped, so `No valid platform tokens found` in the log means nothing was published.
