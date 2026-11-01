@@ -6,6 +6,10 @@ pluginManagement {
             url = 'https://maven.minecraftforge.net/'
         }
         maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        maven {
             name = 'Sponge'
             url = 'https://repo.spongepowered.org/repository/maven-public/'
         }
@@ -13,5 +17,10 @@ pluginManagement {
 }
 
 plugins {
-    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
 }
+
+rootProject.name = 'bmh'
+
+// common: loader-independent code, compiled into both jars. forge and fabric: one jar each.
+include 'common', 'forge', 'fabric'
