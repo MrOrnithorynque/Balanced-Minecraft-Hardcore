@@ -1,0 +1,55 @@
+name: Publish
+
+# Release = push a tag named mc-<minecraft_version>-v<mod_version> on the commit you want to ship,
+# e.g. `git tag mc-1.20.4-v1.0.1 && git push origin mc-1.20.4-v1.0.1` from dev-49.0.31.
+# The tag decides the commit (and so the branch); everything else is read from that commit:
+# Minecraft and mod versions from gradle.properties, Java version from build.gradle.
+on:
+  push:
+    tags: ['mc-*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read versions
+        id: props
+        run: |
+          mc=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2)
+          mod=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          java=$(grep -o 'JavaLanguageVersion.of([0-9]*)' build.gradle | grep -o '[0-9]\+')
+          expected="mc-${mc}-v${mod}"
+          if [ "$GITHUB_REF_NAME" != "$expected" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match gradle.properties of this commit (expected $expected). Wrong branch, or mod_version not bumped?"
+            exit 1
+          fi
+          echo "mc=$mc" >> "$GITHUB_OUTPUT"
+          echo "mod=$mod" >> "$GITHUB_OUTPUT"
+          echo "java=$java" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.props.outputs.java }}
+
+      - name: Build
+        run: chmod +x gradlew && ./gradlew build
+
+      - uses: Kira-NT/mc-publish@v3
+        with:
+          modrinth-id: dc7VO9FK
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: 982343
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          files: build/libs/!(*-@(dev|sources|javadoc)).jar
+          name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for ${{ steps.props.outputs.mc }}
+          version: ${{ steps.props.outputs.mc }}-${{ steps.props.outputs.mod }}
+          version-type: release
+          loaders: forge
+          game-versions: ${{ steps.props.outputs.mc }}
+          java: ${{ steps.props.outputs.java }}
