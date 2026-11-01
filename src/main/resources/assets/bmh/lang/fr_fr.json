@@ -5,5 +5,8 @@
     "item.bmh.totem_of_eternity": "Le Totem de la Vie Éternelle",
     "item.bmh.navigator_amulet": "Amulette du Navigateur",
     "item.bmh.eternal_sword": "L'Épée de l'Éternité",
-    "itemGroup.bmh_creative_tab": "Onglet BMH"
+    "itemGroup.bmh_creative_tab": "Onglet BMH",
+
+    "bmh.createWorld.balancedHardcore": "Balanced Hardcore",
+    "bmh.createWorld.balancedHardcore.info": "Réapparition lointaine et objets éternels. Le désactiver coupe toutes les règles de jeu BMH pour ce monde."
 }
