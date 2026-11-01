@@ -93,6 +93,6 @@ Legacy minecraft bundle implementation.
 
 Most of the features are not actives when in creative mod.
 
----
+## Loaders
 
-> Looking for a fabric port ? Then Do it.
+Available for Forge and Fabric (Fabric needs [Fabric API](https://modrinth.com/mod/fabric-api)), from Minecraft 1.20 to 1.20.4.
