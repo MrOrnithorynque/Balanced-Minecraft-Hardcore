@@ -4,8 +4,10 @@ name: Publish
 # e.g. `git tag mc-1.20.4-v1.0.1 && git push origin mc-1.20.4-v1.0.1` from dev-49.0.31.
 # The tag decides the commit (and so the branch); everything else is read from that commit:
 # Minecraft and mod versions from gradle.properties, Java version from build.gradle.
-# Each tag publishes two versions on Modrinth and CurseForge, one per loader (Forge and Fabric),
-# and one GitHub release holding both jars. Tags from before the Fabric port (no fabric/ module)
+# Each tag publishes one version per loader on Modrinth and CurseForge (Forge, Fabric, and
+# NeoForge where gradle.properties names a neoforge_version), and one GitHub release holding
+# every jar. The 1.20.1 Forge jar is also listed for NeoForge, whose 1.20.1 is a Forge fork
+# that loads it as is. Tags from before the Fabric port (no fabric/ module)
 # publish their single Forge jar from build/libs, as they did then.
 #
 # Manual run (Actions > Publish > Run workflow, or `gh workflow run publish.yml --ref main -f tag=...`):
@@ -35,8 +37,8 @@ on:
       loader:
         description: 'Which jar to publish (tags from before the Fabric port only have Forge)'
         type: choice
-        options: [both, forge, fabric]
-        default: both
+        options: [all, forge, fabric, neoforge]
+        default: all
 
 jobs:
   publish:
@@ -65,6 +67,18 @@ jobs:
           echo "mc=$mc" >> "$GITHUB_OUTPUT"
           echo "mod=$mod" >> "$GITHUB_OUTPUT"
           echo "java=$java" >> "$GITHUB_OUTPUT"
+          # NeoForge jar only where gradle.properties names a version (settings.gradle builds it then).
+          if grep -q '^neoforge_version=' gradle.properties; then
+            echo "neoforge=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "neoforge=false" >> "$GITHUB_OUTPUT"
+          fi
+          # One loader per line, the list form mc-publish documents.
+          if [ "$mc" = 1.20.1 ]; then
+            printf 'forge_loaders<<EOF\nforge\nneoforge\nEOF\n' >> "$GITHUB_OUTPUT"
+          else
+            echo "forge_loaders=forge" >> "$GITHUB_OUTPUT"
+          fi
           if [ -d fabric ]; then
             echo "fabric=true" >> "$GITHUB_OUTPUT"
             echo "forge_files=forge/build/libs/!(*-@(dev|sources|javadoc)).jar" >> "$GITHUB_OUTPUT"
@@ -105,7 +119,7 @@ jobs:
       # a manual run only the ticked ones. github.event.inputs is always a string (empty on a
       # push), so the comparisons never mistake a "false" for true.
       - name: Publish Forge
-        if: github.event_name == 'push' || github.event.inputs.loader != 'fabric'
+        if: github.event_name == 'push' || github.event.inputs.loader == 'all' || github.event.inputs.loader == 'forge'
         uses: Kira-NT/mc-publish@v3
         with:
           modrinth-id: dc7VO9FK
@@ -120,7 +134,7 @@ jobs:
           github-name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for ${{ steps.props.outputs.mc }}
           version: ${{ steps.props.outputs.mc }}-${{ steps.props.outputs.mod }}
           version-type: release
-          loaders: forge
+          loaders: ${{ steps.props.outputs.forge_loaders }}
           game-versions: ${{ steps.props.outputs.mc }}
           java: ${{ steps.props.outputs.java }}
 
@@ -129,7 +143,7 @@ jobs:
       - name: Publish Fabric
         if: >-
           !cancelled() && steps.build.outcome == 'success' && steps.props.outputs.fabric == 'true'
-          && (github.event_name == 'push' || github.event.inputs.loader != 'forge')
+          && (github.event_name == 'push' || github.event.inputs.loader == 'all' || github.event.inputs.loader == 'fabric')
         uses: Kira-NT/mc-publish@v3
         with:
           modrinth-id: dc7VO9FK
@@ -147,4 +161,27 @@ jobs:
           loaders: fabric
           game-versions: ${{ steps.props.outputs.mc }}
           dependencies: fabric-api(required)
+          java: ${{ steps.props.outputs.java }}
+
+      # Same as Fabric: runs even if another loader's step failed.
+      - name: Publish NeoForge
+        if: >-
+          !cancelled() && steps.build.outcome == 'success' && steps.props.outputs.neoforge == 'true'
+          && (github.event_name == 'push' || github.event.inputs.loader == 'all' || github.event.inputs.loader == 'neoforge')
+        uses: Kira-NT/mc-publish@v3
+        with:
+          modrinth-id: dc7VO9FK
+          modrinth-token: ${{ (github.event_name == 'push' || github.event.inputs.modrinth == 'true') && secrets.MODRINTH_TOKEN || '' }}
+          curseforge-id: 982343
+          curseforge-token: ${{ (github.event_name == 'push' || github.event.inputs.curseforge == 'true') && secrets.CURSEFORGE_TOKEN || '' }}
+          github-token: ${{ (github.event_name == 'push' || github.event.inputs.github == 'true') && secrets.GITHUB_TOKEN || '' }}
+          github-tag: ${{ env.TAG }}
+          changelog-file: release-changelog.md
+          files: neoforge/build/libs/!(*-@(dev|sources|javadoc)).jar
+          name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for NeoForge ${{ steps.props.outputs.mc }}
+          github-name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for ${{ steps.props.outputs.mc }}
+          version: ${{ steps.props.outputs.mc }}-${{ steps.props.outputs.mod }}-neoforge
+          version-type: release
+          loaders: neoforge
+          game-versions: ${{ steps.props.outputs.mc }}
           java: ${{ steps.props.outputs.java }}
