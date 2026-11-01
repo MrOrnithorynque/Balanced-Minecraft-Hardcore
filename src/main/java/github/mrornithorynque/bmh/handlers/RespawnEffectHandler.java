@@ -12,12 +12,12 @@ import github.mrornithorynque.utilities.HexColor;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.client.Minecraft;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 
 @EventBusSubscriber(value = Dist.CLIENT)
@@ -31,14 +31,27 @@ public class RespawnEffectHandler {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
 
-        if (event.getEntity().equals(Minecraft.getInstance().player)) {
+        // Leaving the End is a vanilla respawn too, but not a new journey.
+        if (event.isEndConquered()) {
+            return;
+        }
 
-            player = (Player) event.getEntity();
-            Level level = player.level();
+        // The event fires on the server side, so the sound is played from there for everyone nearby.
+        player = event.getEntity();
+        Level level = player.level();
 
-            // if (serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL) {
-                playRespawnSound(player);
-            // }
+        // Same conditions as the distant respawn itself: no BMH respawn, no BMH effects.
+        if (!level.getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)
+                || player.isCreative() || player.isSpectator()) {
+            return;
+        }
+
+        playRespawnSound(player);
+
+        // TextDrawer renders on the client of this JVM, so only show the text when the respawning
+        // player is the local one (singleplayer or LAN host). Compared by UUID: the event carries
+        // the ServerPlayer, never the client's LocalPlayer instance.
+        if (FMLEnvironment.dist.isClient() && isLocalPlayer(player)) {
 
             if (level.getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN)) {
 
@@ -49,6 +62,13 @@ public class RespawnEffectHandler {
                         delay);
             }
         }
+    }
+
+    private static boolean isLocalPlayer(Player player) {
+
+        Player localPlayer = Minecraft.getInstance().player;
+
+        return localPlayer != null && localPlayer.getUUID().equals(player.getUUID());
     }
 
     private void playRespawnSound(Player player) {
