@@ -78,7 +78,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
                 removeOne(stack).ifPresent((p_150740_) -> {
                     add(stack, slot.safeInsert(p_150740_));
                 });
-            } else if (itemStack.getItem().canFitInsideContainerItems()) {
+            } else if (canInsert(itemStack)) {
 
                 int i = (64 - getContentWeight(stack)) / getWeight(itemStack);
                 int j = add(stack, slot.safeTake(itemStack.getCount(), i, player));
@@ -162,14 +162,21 @@ public class EternalBundleItem extends Item implements IEternalItem {
         return BAR_COLOR;
     }
 
+    // Must be checked before taking anything out of a slot, otherwise a rejected
+    // item is removed from the slot and never put back (issue #2).
+    private static boolean canInsert(ItemStack stack) {
+
+        return !stack.isEmpty()
+                && stack.getItem().canFitInsideContainerItems()
+                && !(stack.getItem() instanceof IEternalItem)
+                && stack.getItem() != Items.ENDER_CHEST;
+    }
+
     private static int add(ItemStack currentStack, ItemStack otherStack) {
 
         LOGGER.info("[BalancedMcHardcoreMain] Adding items to the stack...");
 
-        if (!otherStack.isEmpty()
-                && otherStack.getItem().canFitInsideContainerItems()
-                && !(otherStack.getItem() instanceof IEternalItem)
-                && otherStack.getItem() != Items.ENDER_CHEST) {
+        if (canInsert(otherStack)) {
 
             CompoundTag compoundTag = currentStack.getOrCreateTag();
 
