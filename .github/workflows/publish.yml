@@ -31,6 +31,23 @@ jobs:
           echo "mod=$mod" >> "$GITHUB_OUTPUT"
           echo "java=$java" >> "$GITHUB_OUTPUT"
 
+      # The "## [<mod_version>]" section of CHANGELOG.md becomes the changelog on Modrinth,
+      # CurseForge and the GitHub release. No section, no release: fail before building.
+      - name: Extract changelog
+        env:
+          MOD: ${{ steps.props.outputs.mod }}
+        run: |
+          awk -v v="$MOD" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-changelog.md
+          if ! grep -q '[^[:space:]]' release-changelog.md; then
+            echo "::error::CHANGELOG.md has no non-empty '## [$MOD]' section. Rename [Unreleased] to [$MOD] before tagging."
+            exit 1
+          fi
+          cat release-changelog.md
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -46,6 +63,7 @@ jobs:
           curseforge-id: 982343
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          changelog-file: release-changelog.md
           files: build/libs/!(*-@(dev|sources|javadoc)).jar
           name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for ${{ steps.props.outputs.mc }}
           version: ${{ steps.props.outputs.mc }}-${{ steps.props.outputs.mod }}
