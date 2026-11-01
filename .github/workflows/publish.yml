@@ -5,18 +5,51 @@ name: Publish
 # The tag decides the commit (and so the branch); everything else is read from that commit:
 # Minecraft and mod versions from gradle.properties, Java version from build.gradle.
 # Each tag publishes two versions on Modrinth and CurseForge, one per loader (Forge and Fabric),
-# and one GitHub release holding both jars.
+# and one GitHub release holding both jars. Tags from before the Fabric port (no fabric/ module)
+# publish their single Forge jar from build/libs, as they did then.
+#
+# Manual run (Actions > Publish > Run workflow, or `gh workflow run publish.yml --ref main -f tag=...`):
+# publishes an existing tag again, only to the platforms ticked. Use it to add a platform that was
+# skipped or failed, without uploading a duplicate to the others.
 on:
   push:
     tags: ['mc-*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to publish, e.g. mc-1.20.4-v1.1.0'
+        required: true
+        type: string
+      modrinth:
+        description: 'Publish to Modrinth'
+        type: boolean
+        default: false
+      curseforge:
+        description: 'Publish to CurseForge'
+        type: boolean
+        default: false
+      github:
+        description: 'Upload to the GitHub release'
+        type: boolean
+        default: false
+      loader:
+        description: 'Which jar to publish (tags from before the Fabric port only have Forge)'
+        type: choice
+        options: [both, forge, fabric]
+        default: both
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      # The tag being published: the pushed one, or the one picked for a manual run.
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
 
       - name: Read versions
         id: props
@@ -25,13 +58,22 @@ jobs:
           mod=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
           java=$(grep -o 'JavaLanguageVersion.of([0-9]*)' build.gradle | grep -o '[0-9]\+')
           expected="mc-${mc}-v${mod}"
-          if [ "$GITHUB_REF_NAME" != "$expected" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match gradle.properties of this commit (expected $expected). Wrong branch, or mod_version not bumped?"
+          if [ "$TAG" != "$expected" ]; then
+            echo "::error::Tag $TAG does not match gradle.properties of this commit (expected $expected). Wrong branch, or mod_version not bumped?"
             exit 1
           fi
           echo "mc=$mc" >> "$GITHUB_OUTPUT"
           echo "mod=$mod" >> "$GITHUB_OUTPUT"
           echo "java=$java" >> "$GITHUB_OUTPUT"
+          if [ -d fabric ]; then
+            echo "fabric=true" >> "$GITHUB_OUTPUT"
+            echo "forge_files=forge/build/libs/!(*-@(dev|sources|javadoc)).jar" >> "$GITHUB_OUTPUT"
+            echo "forge_label=Forge " >> "$GITHUB_OUTPUT"
+          else
+            echo "fabric=false" >> "$GITHUB_OUTPUT"
+            echo "forge_files=build/libs/!(*-@(dev|sources|javadoc)).jar" >> "$GITHUB_OUTPUT"
+            echo "forge_label=" >> "$GITHUB_OUTPUT"
+          fi
 
       # The "## [<mod_version>]" section of CHANGELOG.md becomes the changelog on Modrinth,
       # CurseForge and the GitHub release. No section, no release: fail before building.
@@ -58,17 +100,21 @@ jobs:
       - name: Build
         run: chmod +x gradlew && ./gradlew build
 
+      # A platform with an empty token is skipped by mc-publish: a tag push sends every token,
+      # a manual run only the ticked ones.
       - name: Publish Forge
+        if: github.event_name == 'push' || inputs.loader != 'fabric'
         uses: Kira-NT/mc-publish@v3
         with:
           modrinth-id: dc7VO9FK
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          modrinth-token: ${{ (github.event_name == 'push' || inputs.modrinth) && secrets.MODRINTH_TOKEN || '' }}
           curseforge-id: 982343
-          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          curseforge-token: ${{ (github.event_name == 'push' || inputs.curseforge) && secrets.CURSEFORGE_TOKEN || '' }}
+          github-token: ${{ (github.event_name == 'push' || inputs.github) && secrets.GITHUB_TOKEN || '' }}
+          github-tag: ${{ env.TAG }}
           changelog-file: release-changelog.md
-          files: forge/build/libs/!(*-@(dev|sources|javadoc)).jar
-          name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for Forge ${{ steps.props.outputs.mc }}
+          files: ${{ steps.props.outputs.forge_files }}
+          name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for ${{ steps.props.outputs.forge_label }}${{ steps.props.outputs.mc }}
           github-name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for ${{ steps.props.outputs.mc }}
           version: ${{ steps.props.outputs.mc }}-${{ steps.props.outputs.mod }}
           version-type: release
@@ -78,13 +124,15 @@ jobs:
 
       # Adds its jar to the GitHub release the Forge step created.
       - name: Publish Fabric
+        if: steps.props.outputs.fabric == 'true' && (github.event_name == 'push' || inputs.loader != 'forge')
         uses: Kira-NT/mc-publish@v3
         with:
           modrinth-id: dc7VO9FK
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          modrinth-token: ${{ (github.event_name == 'push' || inputs.modrinth) && secrets.MODRINTH_TOKEN || '' }}
           curseforge-id: 982343
-          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          curseforge-token: ${{ (github.event_name == 'push' || inputs.curseforge) && secrets.CURSEFORGE_TOKEN || '' }}
+          github-token: ${{ (github.event_name == 'push' || inputs.github) && secrets.GITHUB_TOKEN || '' }}
+          github-tag: ${{ env.TAG }}
           changelog-file: release-changelog.md
           files: fabric/build/libs/!(*-@(dev|sources|javadoc)).jar
           name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for Fabric ${{ steps.props.outputs.mc }}
