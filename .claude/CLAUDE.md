@@ -45,10 +45,10 @@ The table can drift: `gradle.properties` on each branch (`minecraft_version`, `f
 
 Paths under `common/src/main/java/github/mrornithorynque/bmh/` unless stated.
 
-- `handlers/RespawnPositionHandler.java`: the distant respawn (distance formula, safe landing spot).
+- `handlers/RespawnPositionHandler.java`: the distant respawn (distance formula, safe landing spot). Its targets are thousands of blocks from any player, in chunks that are not loaded: `Level.getHeight` then answers `minBuildHeight` and every spot looks like void, so load the chunk first (`serverLevel.getChunk(...)`). This broke every respawn once and compiled fine: verify respawn changes with a real death in `runClient` and its `[BalancedMcHardcoreMain]` log lines.
 - `handlers/RespawnEffectHandler.java`: bell sound and "new journey" text on respawn.
 - `utilities/BMHGameRules.java`: the six BMH game rules; `ALL_RULES` is what the world creation toggle flips.
-- `mixin/CreateWorldGameTabMixin.java`: the "Balanced Hardcore: ON/OFF" button on the Create New World screen, registered in `common/src/main/resources/bmh.mixins.json` (both loaders). Fabric-only mixins are in `fabric/src/main/resources/bmh.fabric.mixins.json`. `forge/.../mixin/ForgeGuiMixin.java` is dead (body commented out, not registered).
+- `mixin/CreateWorldGameTabMixin.java`: the "Balanced Hardcore: ON/OFF" button on the Create New World screen, registered in `common/src/main/resources/bmh.mixins.json` (both loaders). Fabric-only mixins are in `fabric/src/main/resources/bmh.fabric.mixins.json`. `forge/.../mixin/ForgeGuiMixin.java` is dead (body commented out, not registered). To add one, use the `add-mixin` skill.
 - `client/LocalPlayerText.java` and `github/mrornithorynque/utilities/TextDrawer.java` (outside `bmh/`) draw on the client of the same JVM: on-screen text works in singleplayer and for a LAN host, not for other players.
 
 ## Changelog
