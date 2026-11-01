@@ -1,0 +1,12 @@
+// Compiled against vanilla Minecraft only: anything loader-specific in here fails this build.
+plugins {
+    id 'org.spongepowered.gradle.vanilla'
+}
+
+minecraft {
+    version(minecraft_version)
+}
+
+dependencies {
+    compileOnly 'org.spongepowered:mixin:0.8.5'
+}

@@ -7,7 +7,7 @@ description: Release a new version of Balanced Minecraft Hardcore to Modrinth an
 
 A release is never "main only". The mod ships for every Minecraft version the repo supports, one branch per version (see the table in `.claude/CLAUDE.md`), and every one of those branches gets the same version number, the same changelog and its own tag.
 
-Publishing is automatic: pushing a tag named `mc-<minecraft_version>-v<mod_version>` runs `.github/workflows/publish.yml` on the tagged commit, which builds that commit and uploads the jar to **Modrinth and CurseForge** (and a GitHub release) in one go. One tag per version branch, so one release per Minecraft version on both sites. Pushing a tag is the point of no return: the upload is public and cannot be cleanly taken back.
+Publishing is automatic: pushing a tag named `mc-<minecraft_version>-v<mod_version>` runs `.github/workflows/publish.yml` on the tagged commit, which builds that commit and uploads both jars to **Modrinth and CurseForge** (and one GitHub release) in one go: a Forge version (`<mc>-<mod>`) and a Fabric version (`<mc>-<mod>-fabric`). One tag per version branch, so one release per Minecraft version and loader on both sites. Pushing a tag is the point of no return: the upload is public and cannot be cleanly taken back.
 
 Run every multi-line snippet below as a `bash` script, with absolute paths: shell variables do not survive between tool calls, and zsh reads `$b:gradle.properties` as `$b` plus the `:g`/`:r` modifiers (`dev-46.0adle.properties`). Always write `"${b}:path"`.
 
@@ -19,7 +19,7 @@ git fetch origin --tags
 git status --short          # clean tree
 for b in main $(git for-each-ref --format='%(refname:short)' 'refs/heads/dev-*'); do
   echo "== $b behind/ahead: $(git rev-list --left-right --count "origin/${b}...${b}")"
-  git diff --stat main "$b" -- src CHANGELOG.md .github ':!src/main/resources/META-INF/mods.toml' | tail -1   # must print nothing
+  git diff --stat main "$b" -- common fabric forge/src CHANGELOG.md .github ':!forge/src/main/resources/META-INF/mods.toml' | tail -1   # must print nothing
   git cat-file -e "${b}:.github/workflows/publish.yml" 2>/dev/null || echo "   NO publish workflow on $b"
   git cat-file -e "${b}:CHANGELOG.md" 2>/dev/null || echo "   NO CHANGELOG.md on $b"
 done
@@ -27,7 +27,7 @@ gh secret list    # needs MODRINTH_TOKEN and CURSEFORGE_TOKEN
 ```
 
 - Every branch is level with `origin` (`0	0`). Anything ahead means unpushed work; anything behind means pull first.
-- `src`, `CHANGELOG.md` and `.github` are identical everywhere (`mods.toml` excluded: `dev-46.0.14` lacks a commented-out template block, nothing else). If a branch differs, a change was not ported: port it (cherry-pick from `main`) before releasing.
+- `common`, `fabric`, `forge/src`, `CHANGELOG.md` and `.github` are identical everywhere (`mods.toml` excluded: `dev-46.0.14` lacks a commented-out template block, nothing else). If a branch differs, a change was not ported: port it (cherry-pick from `main`) before releasing.
 - The publish workflow exists **on every branch**. A tag only publishes if the workflow file is in the tagged commit. A branch without it releases nothing, silently.
 - Both secrets are set. Do not try to set them yourself: the user does.
 
@@ -60,7 +60,7 @@ for b in $(git for-each-ref --format='%(refname:short)' 'refs/heads/dev-*'); do
 done
 ```
 
-`mod_version` sits far from the per-branch lines of `gradle.properties` and `CHANGELOG.md` is identical everywhere, so this should apply cleanly. If a conflict appears (`build.gradle`, `gradle.properties` and `README.md` all differ per branch), keep the branch's own version of every line the release commit did not touch and apply only that commit's hunks. Never resolve by taking `main`'s whole file: `dev-46.0.14`'s `build.gradle` has a different layout.
+`mod_version` sits far from the per-branch lines of `gradle.properties` and `CHANGELOG.md` is identical everywhere, so this should apply cleanly. If a conflict appears (`forge/build.gradle`, `gradle.properties` and `README.md` all differ per branch), keep the branch's own version of every line the release commit did not touch and apply only that commit's hunks. Never resolve by taking `main`'s whole file: `dev-46.0.14`'s `forge/build.gradle` has a different layout.
 
 ## 4. Build every branch
 
@@ -70,9 +70,11 @@ W=<absolute scratchpad path>/wt
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 for b in dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14; do   # the real list from step 0
   if ( cd "$W/$b" && sh ./gradlew build --console=plain ) > "$W/../build-$b.log" 2>&1; then
-    jar=$(find "$W/$b/build/libs" -name '*.jar' | head -1)
-    unzip -l "$jar" | grep -q bmh.refmap.json && unzip -p "$jar" META-INF/MANIFEST.MF | grep -q MixinConfigs \
-      && echo "$b PASS" || echo "$b FAIL (jar has no refmap or MixinConfigs)"
+    forge=$(find "$W/$b/forge/build/libs" -name '*.jar' | head -1)
+    fabric=$(find "$W/$b/fabric/build/libs" -name '*.jar' ! -name '*-sources.jar' | head -1)
+    unzip -l "$forge" | grep -q bmh.refmap.json && unzip -p "$forge" META-INF/MANIFEST.MF | grep -q MixinConfigs \
+      && unzip -l "$fabric" | grep -q bmh.refmap.json \
+      && echo "$b PASS" || echo "$b FAIL (a jar has no refmap, or the Forge jar no MixinConfigs)"
   else
     echo "$b FAIL (see build-$b.log)"
   fi
@@ -119,7 +121,7 @@ gh run list --workflow publish.yml --limit 10
 gh run view <run-id> --log-failed     # for any failure
 ```
 
-- One green run per tag means that Minecraft version is on both Modrinth and CurseForge.
+- One green run per tag means that Minecraft version is on both Modrinth and CurseForge, for Forge and Fabric. If the Forge step passed and the Fabric step failed, the Forge version is already public: fix and re-run the failed job only (re-running all would try to publish the Forge version twice).
 - A red "Tag ... does not match gradle.properties" run means the tag was made on the wrong branch or before the bump.
 - A red "CHANGELOG.md has no non-empty '## [<version>]' section" run means step 2 did not reach that branch: fix the changelog on every branch, push, then move the tag (delete and re-create it, after asking).
 - No run at all for a tag means it went out in a push with more than three tags: delete it on the remote (`git push origin :refs/tags/<tag>`, after asking) and push it again alone.
