@@ -4,9 +4,11 @@ import java.util.function.Supplier;
 
 import github.mrornithorynque.bmh.items.*;
 import github.mrornithorynque.bmh.platform.Services;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.component.BundleContents;
 
 public class ItemInit {
 
@@ -14,6 +16,7 @@ public class ItemInit {
                         () -> new EternalBundleItem(
                                         new Item.Properties()
                                                         .stacksTo(1)
+                                                        .component(DataComponents.BUNDLE_CONTENTS, BundleContents.EMPTY)
                                                         .fireResistant()
                                                         .rarity(Rarity.EPIC)));
 

@@ -2,15 +2,11 @@ package github.mrornithorynque.bmh.items;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.NonNullList;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -28,20 +24,22 @@ import net.minecraft.world.inventory.tooltip.BundleTooltip;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemUtils;
+import net.minecraft.world.item.component.BundleContents;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * Vanilla's bundle, minus what an Eternal Bundle must refuse (see canInsert). The contents live in
+ * the same BUNDLE_CONTENTS component as vanilla's, which ItemInit gives the item.
+ */
 public class EternalBundleItem extends Item implements IEternalItem {
 
-    private static final String TAG_ITEMS = "Items";
     public static final int MAX_WEIGHT = 64;
-    private static final int BUNDLE_IN_BUNDLE_WEIGHT = 4;
     private static final Logger LOGGER = LogManager.getLogger();
     private static final int BAR_COLOR = Mth.color(0.4F, 0.4F, 1.0F);
 
@@ -57,7 +55,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
     public static float getFullnessDisplay(ItemStack stack) {
 
-        return (float) getContentWeight(stack) / 64.0F;
+        return getContents(stack).weight().floatValue();
     }
 
     public boolean overrideStackedOnOther(
@@ -68,28 +66,33 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
         if (stack.getCount() != 1 || clickAction != ClickAction.SECONDARY) {
             return false;
-        } else {
-
-            ItemStack itemStack = slot.getItem();
-
-            if (itemStack.isEmpty()) {
-
-                this.playRemoveOneSound(player);
-                removeOne(stack).ifPresent((p_150740_) -> {
-                    add(stack, slot.safeInsert(p_150740_));
-                });
-            } else if (canInsert(itemStack)) {
-
-                int i = (64 - getContentWeight(stack)) / getWeight(itemStack);
-                int j = add(stack, slot.safeTake(itemStack.getCount(), i, player));
-
-                if (j > 0) {
-                    this.playInsertSound(player);
-                }
-            }
-
-            return true;
         }
+
+        BundleContents.Mutable contents = new BundleContents.Mutable(getContents(stack));
+        ItemStack itemStack = slot.getItem();
+
+        if (itemStack.isEmpty()) {
+
+            ItemStack removed = contents.removeOne();
+
+            if (removed != null) {
+                this.playRemoveOneSound(player);
+                contents.tryInsert(slot.safeInsert(removed));
+                LOGGER.info("[BalancedMcHardcoreMain] Removed one item from the stack.");
+            }
+        } else if (canInsert(itemStack)) {
+
+            int added = contents.tryTransfer(slot, player);
+
+            if (added > 0) {
+                this.playInsertSound(player);
+                LOGGER.info("[BalancedMcHardcoreMain] Added " + added + " items to the stack.");
+            }
+        }
+
+        stack.set(DataComponents.BUNDLE_CONTENTS, contents.toImmutable());
+
+        return true;
     }
 
     public boolean overrideOtherStackedOnMe(
@@ -106,22 +109,29 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
         if (clickAction == ClickAction.SECONDARY && slot.allowModification(player)) {
 
+            BundleContents.Mutable contents = new BundleContents.Mutable(getContents(currentStack));
+
             if (otherStack.isEmpty()) {
 
-                removeOne(currentStack).ifPresent((p_186347_) -> {
+                ItemStack removed = contents.removeOne();
+
+                if (removed != null) {
                     this.playRemoveOneSound(player);
-                    slotAccess.set(p_186347_);
-                });
-            } else {
+                    slotAccess.set(removed);
+                    LOGGER.info("[BalancedMcHardcoreMain] Removed one item from the stack.");
+                }
+            } else if (canInsert(otherStack)) {
 
-                int i = add(currentStack, otherStack);
+                // tryInsert takes the items out of otherStack itself.
+                int added = contents.tryInsert(otherStack);
 
-                if (i > 0) {
-
+                if (added > 0) {
                     this.playInsertSound(player);
-                    otherStack.shrink(i);
+                    LOGGER.info("[BalancedMcHardcoreMain] Added " + added + " items to the stack.");
                 }
             }
+
+            currentStack.set(DataComponents.BUNDLE_CONTENTS, contents.toImmutable());
 
             return true;
         }
@@ -149,12 +159,12 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
     public boolean isBarVisible(@Nonnull ItemStack stack) {
 
-        return getContentWeight(stack) > 0;
+        return !getContents(stack).isEmpty();
     }
 
     public int getBarWidth(@Nonnull ItemStack stack) {
 
-        return Math.min(1 + 12 * getContentWeight(stack) / 64, 13);
+        return Math.min(1 + Mth.mulAndTruncate(getContents(stack).weight(), 12), 13);
     }
 
     public int getBarColor(@Nonnull ItemStack stack) {
@@ -172,187 +182,50 @@ public class EternalBundleItem extends Item implements IEternalItem {
                 && stack.getItem() != Items.ENDER_CHEST;
     }
 
-    private static int add(ItemStack currentStack, ItemStack otherStack) {
+    private static BundleContents getContents(ItemStack stack) {
 
-        LOGGER.info("[BalancedMcHardcoreMain] Adding items to the stack...");
-
-        if (canInsert(otherStack)) {
-
-            CompoundTag compoundTag = currentStack.getOrCreateTag();
-
-            if (!compoundTag.contains("Items")) {
-                compoundTag.put("Items", new ListTag());
-            }
-
-            int i = getContentWeight(currentStack);
-            int j = getWeight(otherStack);
-            int k = Math.min(otherStack.getCount(), (64 - i) / j);
-
-            if (k == 0) {
-
-                LOGGER.info("[BalancedMcHardcoreMain] No items added to the stack.");
-                return 0;
-            } else {
-
-                ListTag listTag = compoundTag.getList("Items", 10);
-                Optional<CompoundTag> optional = getMatchingItem(otherStack, listTag);
-
-                if (optional.isPresent()) {
-
-                    CompoundTag compoundTag1 = optional.get();
-
-                    if (compoundTag1 == null) {
-                        LOGGER.info("[BalancedMcHardcoreMain] No matching item found.");
-                        return 0;
-                    }
-
-                    ItemStack itemStack = ItemStack.of(compoundTag1);
-                    itemStack.grow(k);
-                    itemStack.save(compoundTag1);
-
-                    listTag.remove(compoundTag1);
-                    listTag.add(0, (Tag) compoundTag1);
-                } else {
-
-                    ItemStack itemStack1 = otherStack.copyWithCount(k);
-                    CompoundTag compoundTag2 = new CompoundTag();
-                    itemStack1.save(compoundTag2);
-                    listTag.add(0, (Tag) compoundTag2);
-                }
-
-                LOGGER.info("[BalancedMcHardcoreMain] Added " + k + " items to the stack.");
-                return k;
-            }
-        } else {
-            LOGGER.info("[BalancedMcHardcoreMain] No items added to the stack.");
-            return 0;
-        }
-    }
-
-    private static Optional<CompoundTag> getMatchingItem(ItemStack stack, ListTag listTag) {
-
-        return stack.is(Items.BUNDLE) ? Optional.empty()
-                : listTag.stream().filter(CompoundTag.class::isInstance).map(CompoundTag.class::cast)
-                        .filter((p_186350_) -> {
-                            return ItemStack.isSameItemSameTags(ItemStack.of(p_186350_), stack);
-                        }).findFirst();
-    }
-
-    private static int getWeight(ItemStack stack) {
-
-        if (stack.is(Items.BUNDLE)) {
-            return 4 + getContentWeight(stack);
-        } else {
-
-            if ((stack.is(Items.BEEHIVE) || stack.is(Items.BEE_NEST)) && stack.hasTag()) {
-
-                CompoundTag compoundtag = BlockItem.getBlockEntityData(stack);
-
-                if (compoundtag != null && !compoundtag.getList("Bees", 10).isEmpty()) {
-                    return 64;
-                }
-            }
-
-            return 64 / stack.getMaxStackSize();
-        }
-    }
-
-    private static int getContentWeight(ItemStack stack) {
-
-        return getContents(stack).mapToInt((p_186356_) -> {
-            return getWeight(p_186356_) * p_186356_.getCount();
-        }).sum();
-    }
-
-    private static Optional<ItemStack> removeOne(ItemStack stack) {
-
-        LOGGER.info("[BalancedMcHardcoreMain] Removing one item from the stack...");
-
-        CompoundTag compoundTag = stack.getOrCreateTag();
-
-        if (!compoundTag.contains("Items")) {
-            LOGGER.info("[BalancedMcHardcoreMain] No items found in the stack.");
-            return Optional.empty();
-        } else {
-            ListTag listTag = compoundTag.getList("Items", 10);
-
-            if (listTag.isEmpty()) {
-                LOGGER.info("[BalancedMcHardcoreMain] No items found in the list.");
-                return Optional.empty();
-            } else {
-                CompoundTag compoundTag1 = listTag.getCompound(0);
-                ItemStack itemStack = ItemStack.of(compoundTag1);
-                listTag.remove(0);
-
-                if (listTag.isEmpty()) {
-                    stack.removeTagKey("Items");
-                }
-
-                LOGGER.info("[BalancedMcHardcoreMain] Removed one item from the stack.");
-                return Optional.of(itemStack);
-            }
-        }
+        return stack.getOrDefault(DataComponents.BUNDLE_CONTENTS, BundleContents.EMPTY);
     }
 
     private static boolean dropContents(ItemStack stack, Player player) {
 
-        CompoundTag compoundTag = stack.getOrCreateTag();
+        BundleContents contents = getContents(stack);
 
-        if (!compoundTag.contains("Items")) {
+        if (contents.isEmpty()) {
             return false;
-        } else {
-
-            if (player instanceof ServerPlayer) {
-
-                ListTag listTag = compoundTag.getList("Items", 10);
-
-                for (int i = 0; i < listTag.size(); ++i) {
-
-                    CompoundTag compoundTag1 = listTag.getCompound(i);
-                    ItemStack itemStack = ItemStack.of(compoundTag1);
-                    player.drop(itemStack, true);
-                }
-            }
-
-            stack.removeTagKey("Items");
-
-            return true;
         }
-    }
 
-    private static Stream<ItemStack> getContents(ItemStack stack) {
+        stack.set(DataComponents.BUNDLE_CONTENTS, BundleContents.EMPTY);
 
-        CompoundTag compoundTag = stack.getTag();
-
-        if (compoundTag == null) {
-            return Stream.empty();
-        } else {
-
-            ListTag listTag = compoundTag.getList("Items", 10);
-            return listTag.stream().map(CompoundTag.class::cast).map(ItemStack::of);
+        if (player instanceof ServerPlayer) {
+            contents.itemsCopy().forEach(itemStack -> player.drop(itemStack, true));
         }
+
+        return true;
     }
 
     public Optional<TooltipComponent> getTooltipImage(@Nonnull ItemStack stack) {
 
-        NonNullList<ItemStack> nonNullList = NonNullList.create();
-        getContents(stack).forEach(nonNullList::add);
-        return Optional.of(new BundleTooltip(nonNullList, getContentWeight(stack)));
+        return Optional.of(new BundleTooltip(getContents(stack)));
     }
 
     public void appendHoverText(
             @Nonnull ItemStack stack,
-            Level level,
+            @Nonnull Item.TooltipContext context,
             @Nonnull List<Component> componentList,
             @Nonnull TooltipFlag tooltipFlag) {
 
-        componentList.add(Component.translatable("item.minecraft.bundle.fullness", getContentWeight(stack), 64)
+        componentList.add(Component.translatable("item.minecraft.bundle.fullness",
+                Mth.mulAndTruncate(getContents(stack).weight(), MAX_WEIGHT), MAX_WEIGHT)
                 .withStyle(ChatFormatting.GRAY));
     }
 
     public void onDestroyed(@Nonnull ItemEntity itemEntity) {
 
-        ItemUtils.onContainerDestroyed(itemEntity, getContents(itemEntity.getItem()));
+        BundleContents contents = getContents(itemEntity.getItem());
+
+        itemEntity.getItem().set(DataComponents.BUNDLE_CONTENTS, BundleContents.EMPTY);
+        ItemUtils.onContainerDestroyed(itemEntity, contents.itemsCopy());
     }
 
     private void playRemoveOneSound(Entity entity) {

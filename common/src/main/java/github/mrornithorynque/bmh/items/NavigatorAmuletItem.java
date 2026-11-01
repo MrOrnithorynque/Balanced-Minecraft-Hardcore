@@ -6,10 +6,13 @@ import javax.annotation.Nonnull;
 
 import github.mrornithorynque.bmh.client.LocalPlayerText;
 import github.mrornithorynque.bmh.platform.Services;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.Util;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.InteractionHand;
@@ -17,6 +20,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
@@ -31,10 +35,13 @@ public class NavigatorAmuletItem extends Item {
         super(properties);
     }
 
-    // Forge's IForgeItem hook (anvil included); on Fabric, fabric.mixin.EnchantmentMixin calls it.
-    // No @Override: the method does not exist in vanilla.
+    // The anvil asks through mixin.EnchantmentMixin, on both loaders; on Forge this is also IForgeItem's
+    // enchanting table hook. No @Override: the method does not exist in vanilla.
     public boolean canApplyAtEnchantingTable(ItemStack stack, Enchantment enchantment) {
-        return enchantment == Enchantments.UNBREAKING;
+        // Enchantments are registry data since 1.21 and this one comes without its key: the vanilla
+        // description is the translation key made from it.
+        return enchantment.description().getContents() instanceof TranslatableContents contents
+                && contents.getKey().equals(Util.makeDescriptionId("enchantment", Enchantments.UNBREAKING.location()));
     }
 
     @Override
@@ -43,18 +50,15 @@ public class NavigatorAmuletItem extends Item {
         ItemStack itemStack = player.getItemInHand(interactionHand);
 
         if (!level.isClientSide) {
-            CompoundTag tag = itemStack.getOrCreateTag();
-
             long currentTime = level.getGameTime();
-            long lastUseTime = tag.getLong(LAST_USE_TAG);
+            long lastUseTime = itemStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag().getLong(LAST_USE_TAG);
 
             if (currentTime >= lastUseTime + COOLDOWN_SECONDS * 20) {
 
-                tag.putLong(LAST_USE_TAG, currentTime);
-                itemStack.setTag(tag);
+                CustomData.update(DataComponents.CUSTOM_DATA, itemStack, tag -> tag.putLong(LAST_USE_TAG, currentTime));
 
                 if (!player.level().isClientSide) {
-                    itemStack.hurtAndBreak(1, player, (p) -> p.broadcastBreakEvent(interactionHand));
+                    itemStack.hurtAndBreak(1, player, LivingEntity.getSlotForHand(interactionHand));
 
                     level.playSeededSound(
                             null,

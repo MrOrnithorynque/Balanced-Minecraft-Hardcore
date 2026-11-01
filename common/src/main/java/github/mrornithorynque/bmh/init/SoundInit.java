@@ -20,7 +20,7 @@ public class SoundInit {
         return Services.PLATFORM.register(
                 Registries.SOUND_EVENT,
                 name,
-                () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(BalancedMcHardcore.MODID, name)));
+                () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(BalancedMcHardcore.MODID, name)));
     }
 
     public static void init() {

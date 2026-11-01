@@ -24,7 +24,7 @@ public class FabricPlatformHelper implements IPlatformHelper {
     public <T, I extends T> Supplier<I> register(ResourceKey<? extends Registry<T>> registry, String name, Supplier<I> factory) {
 
         Registry<T> target = (Registry<T>) BuiltInRegistries.REGISTRY.get(registry.location());
-        I object = Registry.register(target, new ResourceLocation(BalancedMcHardcore.MODID, name), factory.get());
+        I object = Registry.register(target, ResourceLocation.fromNamespaceAndPath(BalancedMcHardcore.MODID, name), factory.get());
 
         return () -> object;
     }

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.DiggerItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tier;
 
@@ -13,7 +14,7 @@ public class EternalAxeItem extends AxeItem implements IEternalItem {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public EternalAxeItem(Tier tier, float attackDamage, float attackSpeed, Properties properties) {
-        super(tier, attackDamage, attackSpeed, properties);
+        super(tier, properties.attributes(DiggerItem.createAttributes(tier, attackDamage, attackSpeed)));
     }
 
     @Override

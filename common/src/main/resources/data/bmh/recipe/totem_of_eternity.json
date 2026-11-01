@@ -23,7 +23,7 @@
         }
     },
     "result": {
-        "item": "bmh:totem_of_eternity",
+        "id": "bmh:totem_of_eternity",
         "count": 1
     }
 }

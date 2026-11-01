@@ -18,6 +18,22 @@ loom {
     }
 }
 
+repositories {
+    // Fabric API only from Fabric's maven: the Sponge proxy (root build.gradle) serves stale poms of it,
+    // e.g. a 1.21.1 fabric-loot-api-v2 that pulls 1.21.2 modules into the dev runtime and crashes it.
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Fabric'
+                url = 'https://maven.fabricmc.net/'
+            }
+        }
+        filter {
+            includeGroup('net.fabricmc.fabric-api')
+        }
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
     // Same Mojang names as the forge module, so common code reads the same on both loaders.

@@ -1,7 +1,10 @@
 package github.mrornithorynque.bmh.init;
 
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.level.block.Block;
 
 public class BMHModTierInit {
 
@@ -22,9 +25,10 @@ public class BMHModTierInit {
             return 0.0f;
         }
 
+        // Mines everything netherite mines (the old level 5, one above netherite, meant no more).
         @Override
-        public int getLevel() {
-            return 5;
+        public TagKey<Block> getIncorrectBlocksForDrops() {
+            return BlockTags.INCORRECT_FOR_NETHERITE_TOOL;
         }
 
         @Override

@@ -3,7 +3,9 @@
     "ingredient": {
         "item": "bmh:totem_of_eternity"
     },
-    "result": "bmh:totem_of_eternity",
+    "result": {
+        "id": "bmh:totem_of_eternity"
+    },
     "experience": 0,
     "cookingtime": 60000
 }

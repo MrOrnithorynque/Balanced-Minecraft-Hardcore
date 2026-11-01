@@ -1,4 +1,4 @@
-package github.mrornithorynque.bmh.fabric.mixin;
+package github.mrornithorynque.bmh.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -11,8 +11,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 
 /**
- * Forge routes Enchantment.canEnchant (what the anvil asks) to the item's canApplyAtEnchantingTable.
- * Without this, a Mending book would go on the Navigator Amulet on Fabric only.
+ * Enchantment.canEnchant is what the anvil asks (on Fabric through Fabric API's canBeEnchantedWith).
+ * Since 1.21 it only reads the enchantment's item tags, which the Navigator Amulet is in none of:
+ * without this, the amulet would take no book at all, on both loaders.
  */
 @Mixin(Enchantment.class)
 public abstract class EnchantmentMixin {

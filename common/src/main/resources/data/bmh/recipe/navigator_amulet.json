@@ -17,7 +17,7 @@
         }
     },
     "result": {
-        "item": "bmh:navigator_amulet",
+        "id": "bmh:navigator_amulet",
         "count": 1
     }
 }

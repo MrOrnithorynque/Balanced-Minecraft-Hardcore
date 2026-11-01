@@ -1,7 +1,7 @@
 {
     "type": "minecraft:crafting_shaped",
     "pattern": [
-        " n ",
+        "nDn",
         " N ",
         " B "
     ],
@@ -9,15 +9,18 @@
         "n": {
             "item": "minecraft:netherite_ingot"
         },
+        "D": {
+            "item": "minecraft:dragon_egg"
+        },
         "N": {
-            "item": "minecraft:netherite_sword"
+            "item": "minecraft:netherite_pickaxe"
         },
         "B": {
             "item": "bmh:totem_of_eternity"
         }
     },
     "result": {
-        "item": "bmh:eternal_sword",
+        "id": "bmh:eternal_pickaxe",
         "count": 1
     }
 }
