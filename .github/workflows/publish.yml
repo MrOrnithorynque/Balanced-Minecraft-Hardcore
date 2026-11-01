@@ -98,6 +98,7 @@ jobs:
           java-version: ${{ steps.props.outputs.java }}
 
       - name: Build
+        id: build
         run: chmod +x gradlew && ./gradlew build
 
       # A platform with an empty token is skipped by mc-publish: a tag push sends every token,
@@ -122,9 +123,12 @@ jobs:
           game-versions: ${{ steps.props.outputs.mc }}
           java: ${{ steps.props.outputs.java }}
 
-      # Adds its jar to the GitHub release the Forge step created.
+      # Adds its jar to the GitHub release the Forge step created. Runs even if the Forge step
+      # failed (!cancelled() replaces the implicit success()), so one loader never blocks the other.
       - name: Publish Fabric
-        if: steps.props.outputs.fabric == 'true' && (github.event_name == 'push' || inputs.loader != 'forge')
+        if: >-
+          !cancelled() && steps.build.outcome == 'success' && steps.props.outputs.fabric == 'true'
+          && (github.event_name == 'push' || inputs.loader != 'forge')
         uses: Kira-NT/mc-publish@v3
         with:
           modrinth-id: dc7VO9FK
