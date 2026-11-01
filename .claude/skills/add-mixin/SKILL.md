@@ -42,16 +42,16 @@ In the package of its config (listed at the top), then list the class name in th
 
 - **Package-private or inner class:** target by string, `@Mixin(targets = "net.minecraft.client.gui.screens.worldselection.CreateWorldScreen$GameTab")`.
 - **Injecting into an inner class constructor:** the outer instance is the constructor's first parameter, so the handler is `(CreateWorldScreen screen, CallbackInfo ci)` with `@Inject(method = "<init>", at = @At("TAIL"))`.
-- **Protected fields of the target's superclass** (`GridLayoutTab.layout`): make the mixin class `extends` that superclass, with a private constructor that only calls `super(...)` (never run, it just has to compile). Otherwise use `@Shadow` for the target's own fields, or an `@Accessor` interface for private ones.
+- **Protected fields of the target's superclass** (`GridLayoutTab.layout`): make the mixin class `extends` that superclass, with a private constructor that only calls `super(...)` (never run, it just has to compile). Otherwise use `@Shadow` for the target's own fields (private ones included); an `@Accessor` interface is only needed when code outside the mixin reads the field.
 - Prefix handler names with `bmh$` so they cannot collide with other mods' mixins. `private static final` fields and lambdas are fine in a mixin.
 - `injectors.defaultRequire` is 1: an injection that finds no target crashes the game when the target class loads, which is what you want in development.
 
 ## 4. Check it
 
 1. `JAVA_HOME=/opt/homebrew/opt/openjdk@17 sh ./gradlew build`, then both jars (`forge/build/libs/`, `fabric/build/libs/`) must still contain `bmh.refmap.json`, and the Forge jar a `MixinConfigs` manifest line. `unzip -p <fabric jar> bmh.refmap.json` lists every injection target resolved to intermediary names: a mixin missing there found no target at compile time.
-2. `sh ./gradlew :forge:runClient` and `sh ./gradlew :fabric:runClient`, and have the user open the screen or trigger the code (computer use cannot drive the dev `java` window). A mixin is applied lazily, when its target class is first loaded; on Forge the proof is a dev log line that appears at that moment: `Mixing <YourMixin> from bmh.mixins.json into <target>`.
+2. `sh ./gradlew :forge:runClient` and `sh ./gradlew :fabric:runClient`, and have the user open the screen or trigger the code (computer use cannot drive the dev `java` window). A mixin is applied lazily, when its target class is first loaded; on Forge the proof is a line logged at DEBUG at that moment, so it is in `forge/run/logs/debug.log` (and the console), never in `latest.log`: `Mixing <YourMixin> from bmh.mixins.json into <target>`.
 3. For anything that runs on the server, boot a dedicated server on each loader too (`:forge:runServer`, `:fabric:runServer`, with `eula=true` in `<loader>/run/eula.txt`).
-4. Harmless in the Forge dev log: `Reference map 'bmh.refmap.json' ... could not be read` (dev uses unobfuscated names) and the DEBUG line about `JAVA_17` being higher than the supported compatibility level.
+4. Harmless in the Forge dev logs: `Reference map 'bmh.refmap.json' ... could not be read` (dev uses unobfuscated names) and the DEBUG line about `JAVA_17` being higher than the supported compatibility level.
 
 ## 5. Every Minecraft version
 
