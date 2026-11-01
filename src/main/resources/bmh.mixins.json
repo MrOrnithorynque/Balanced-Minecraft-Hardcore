@@ -1,0 +1,14 @@
+{
+    "required": true,
+    "minVersion": "0.8",
+    "package": "github.mrornithorynque.bmh.mixin",
+    "compatibilityLevel": "JAVA_17",
+    "refmap": "bmh.refmap.json",
+    "mixins": [],
+    "client": [
+        "CreateWorldGameTabMixin"
+    ],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}
