@@ -4,6 +4,8 @@ name: Publish
 # e.g. `git tag mc-1.20.4-v1.0.1 && git push origin mc-1.20.4-v1.0.1` from dev-49.0.31.
 # The tag decides the commit (and so the branch); everything else is read from that commit:
 # Minecraft and mod versions from gradle.properties, Java version from build.gradle.
+# Each tag publishes two versions on Modrinth and CurseForge, one per loader (Forge and Fabric),
+# and one GitHub release holding both jars.
 on:
   push:
     tags: ['mc-*']
@@ -56,7 +58,8 @@ jobs:
       - name: Build
         run: chmod +x gradlew && ./gradlew build
 
-      - uses: Kira-NT/mc-publish@v3
+      - name: Publish Forge
+        uses: Kira-NT/mc-publish@v3
         with:
           modrinth-id: dc7VO9FK
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
@@ -64,10 +67,31 @@ jobs:
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           changelog-file: release-changelog.md
-          files: build/libs/!(*-@(dev|sources|javadoc)).jar
-          name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for ${{ steps.props.outputs.mc }}
+          files: forge/build/libs/!(*-@(dev|sources|javadoc)).jar
+          name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for Forge ${{ steps.props.outputs.mc }}
+          github-name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for ${{ steps.props.outputs.mc }}
           version: ${{ steps.props.outputs.mc }}-${{ steps.props.outputs.mod }}
           version-type: release
           loaders: forge
           game-versions: ${{ steps.props.outputs.mc }}
+          java: ${{ steps.props.outputs.java }}
+
+      # Adds its jar to the GitHub release the Forge step created.
+      - name: Publish Fabric
+        uses: Kira-NT/mc-publish@v3
+        with:
+          modrinth-id: dc7VO9FK
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: 982343
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          changelog-file: release-changelog.md
+          files: fabric/build/libs/!(*-@(dev|sources|javadoc)).jar
+          name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for Fabric ${{ steps.props.outputs.mc }}
+          github-name: Balanced Minecraft Hardcore ${{ steps.props.outputs.mod }} for ${{ steps.props.outputs.mc }}
+          version: ${{ steps.props.outputs.mc }}-${{ steps.props.outputs.mod }}-fabric
+          version-type: release
+          loaders: fabric
+          game-versions: ${{ steps.props.outputs.mc }}
+          dependencies: fabric-api(required)
           java: ${{ steps.props.outputs.java }}
