@@ -7,6 +7,7 @@ import javax.annotation.Nonnull;
 import github.mrornithorynque.bmh.client.LocalPlayerText;
 import github.mrornithorynque.bmh.platform.Services;
 import net.minecraft.Util;
+import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.sounds.SoundEvents;
@@ -42,6 +43,12 @@ public class NavigatorAmuletItem extends Item {
         // description is the translation key made from it.
         return enchantment.description().getContents() instanceof TranslatableContents contents
                 && contents.getKey().equals(Util.makeDescriptionId("enchantment", Enchantments.UNBREAKING.location()));
+    }
+
+    // NeoForge's anvil asks the item (IItemExtension), not Enchantment.canEnchant, so the mixin never
+    // sees it there. No @Override: the method does not exist in vanilla.
+    public boolean supportsEnchantment(ItemStack stack, Holder<Enchantment> enchantment) {
+        return enchantment.is(Enchantments.UNBREAKING);
     }
 
     @Override

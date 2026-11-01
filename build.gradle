@@ -1,10 +1,11 @@
-// Shared by the common, forge and fabric modules.
+// Shared by the common, forge, fabric and neoforge modules.
 // Every plugin is declared here once, so that they all share one classloader.
 plugins {
     id 'net.minecraftforge.gradle' version '[6.0.16,6.2)' apply false
     id 'org.spongepowered.mixin' version '0.7.+' apply false
     id 'fabric-loom' version '1.7.4' apply false
     id 'org.spongepowered.gradle.vanilla' version '0.2.1-SNAPSHOT' apply false
+    id 'net.neoforged.moddev' version '2.0.148' apply false
 }
 
 subprojects {
@@ -29,9 +30,9 @@ subprojects {
     }
 }
 
-// forge and fabric compile common's sources and resources themselves, so that each loader's
+// The loaders compile common's sources and resources themselves, so that each loader's
 // mixin processor writes the refmap for the common mixins too.
-configure([project(':forge'), project(':fabric')]) {
+configure([project(':forge'), project(':fabric'), project(':neoforge')]) {
     evaluationDependsOn(':common')
 
     tasks.named('compileJava', JavaCompile) {
