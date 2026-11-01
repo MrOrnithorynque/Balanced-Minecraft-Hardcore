@@ -4,6 +4,8 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-01
+
 ### Added
 - Minecraft 1.21.1, on Forge and Fabric (Fabric needs Fabric API).
 
