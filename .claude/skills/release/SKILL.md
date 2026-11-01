@@ -23,13 +23,13 @@ for b in main $(git for-each-ref --format='%(refname:short)' 'refs/heads/dev-*')
   git cat-file -e "${b}:.github/workflows/publish.yml" 2>/dev/null || echo "   NO publish workflow on $b"
   git cat-file -e "${b}:CHANGELOG.md" 2>/dev/null || echo "   NO CHANGELOG.md on $b"
 done
-gh secret list    # needs MODRINTH_TOKEN and CURSEFORGE_TOKEN
+gh secret list    # CURSEFORGE_TOKEN required, MODRINTH_TOKEN optional (see below)
 ```
 
 - Every branch is level with `origin` (`0	0`). Anything ahead means unpushed work; anything behind means pull first.
 - `common`, `fabric`, `forge/src`, `CHANGELOG.md` and `.github` are identical everywhere (`mods.toml` excluded: `dev-46.0.14` lacks a commented-out template block, nothing else). If a branch differs, a change was not ported: port it (cherry-pick from `main`) before releasing.
 - The publish workflow exists **on every branch**. A tag only publishes if the workflow file is in the tagged commit. A branch without it releases nothing, silently.
-- Both secrets are set. Do not try to set them yourself: the user does.
+- `CURSEFORGE_TOKEN` is set. If `MODRINTH_TOKEN` is missing, `mc-publish` **silently skips Modrinth** (it skips every platform whose token is empty) and the run still goes green: tell the user and get their OK before tagging. Modrinth can get the version later with the manual trigger in step 8. Never set secrets yourself: the user does.
 
 ## 1. Pick the version
 
@@ -116,14 +116,33 @@ done
 
 ## 7. Check the publish runs
 
+Each run takes about 2 to 2.5 minutes.
+
 ```bash
 gh run list --workflow publish.yml --limit 10
+gh run view <run-id> --log | grep "Successfully published the assets to"   # which platforms were reached
 gh run view <run-id> --log-failed     # for any failure
 ```
 
-- One green run per tag means that Minecraft version is on both Modrinth and CurseForge, for Forge and Fabric. If the Forge step passed and the Fabric step failed, the Forge version is already public: fix and re-run the failed job only (re-running all would try to publish the Forge version twice).
+- Green only means nothing failed. The `Successfully published the assets to ...` lines (one per loader step) say where each jar actually went (e.g. `CurseForge, GitHub` when Modrinth was skipped for lack of a token). Report that list per Minecraft version and loader, not "published everywhere".
+- If one loader's step failed, the other loader's version is already public: publish the missing one with step 8 (`-f loader=fabric` or `-f loader=forge`), never by re-running the whole run.
 - A red "Tag ... does not match gradle.properties" run means the tag was made on the wrong branch or before the bump.
 - A red "CHANGELOG.md has no non-empty '## [<version>]' section" run means step 2 did not reach that branch: fix the changelog on every branch, push, then move the tag (delete and re-create it, after asking).
 - No run at all for a tag means it went out in a push with more than three tags: delete it on the remote (`git push origin :refs/tags/<tag>`, after asking) and push it again alone.
 
 Report each Minecraft version's result to the user, then clean up the scratch worktrees (`git worktree remove`).
+
+## 8. Publishing one platform late
+
+When a platform was skipped (Modrinth without a token) or failed, **do not re-run the tag's run**: it would upload again to every platform that already has the file (duplicate CurseForge files). Use the manual trigger instead, one run per tag, choosing only the missing platform:
+
+```bash
+for t in mc-1.20-v<mod> mc-1.20.1-v<mod> mc-1.20.2-v<mod> mc-1.20.3-v<mod> mc-1.20.4-v<mod>; do
+  gh workflow run publish.yml --ref main -f tag="$t" -f modrinth=true -f curseforge=false -f github=false
+done
+```
+
+- Add `-f loader=forge` or `-f loader=fabric` to publish one jar only (default `both`). A tag from before the Fabric port only has the Forge jar, in `build/libs`; the workflow detects that layout.
+- `--ref main` on purpose: the workflow definition comes from `main` (older tags predate the trigger), and the job checks out and builds the tagged commit itself.
+- Confirm the tag list and the platform with the user first: it publishes.
+- Check each run with step 7. A platform whose token is still missing is skipped, so `No valid platform tokens found` in the log means nothing was published.
