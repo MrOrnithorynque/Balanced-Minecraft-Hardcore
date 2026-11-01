@@ -19,15 +19,16 @@ git fetch origin --tags
 git status --short          # clean tree
 for b in main $(git for-each-ref --format='%(refname:short)' 'refs/heads/dev-*'); do
   echo "== $b behind/ahead: $(git rev-list --left-right --count "origin/${b}...${b}")"
-  git diff --stat main "$b" -- . ':!forge/build.gradle' ':!gradle.properties' ':!README.md' ':!forge/src/main/resources/META-INF/mods.toml' ':!.vscode' | tail -1   # must print nothing
+  # dev-52.1.20 (1.21.1, and any later non-1.20.x branch) has its own sources: skip it here.
+  [ "$b" = dev-52.1.20 ] || git diff --stat main "$b" -- . ':!forge/build.gradle' ':!gradle.properties' ':!README.md' ':!forge/src/main/resources/META-INF/mods.toml' ':!.vscode' | tail -1   # must print nothing
   git cat-file -e "${b}:.github/workflows/publish.yml" 2>/dev/null || echo "   NO publish workflow on $b"
   git cat-file -e "${b}:CHANGELOG.md" 2>/dev/null || echo "   NO CHANGELOG.md on $b"
 done
 gh secret list    # CURSEFORGE_TOKEN required, MODRINTH_TOKEN optional (see below)
 ```
 
-- Every branch is level with `origin` (`0	0`). Anything ahead means unpushed work; anything behind means pull first.
-- Everything but `forge/build.gradle`, `gradle.properties`, `README.md` and `.vscode` is identical everywhere (`mods.toml` excluded: `dev-46.0.14` lacks a commented-out template block, nothing else). If a branch differs, a change was not ported: port it (cherry-pick from `main`) before releasing.
+- Every branch is level with `origin` (`0	0`). Anything ahead means unpushed work; anything behind means pull first. A branch never pushed yet (`dev-52.1.20` before its first push) has no `origin/` ref and prints a fatal here: that is expected, step 5 pushes it.
+- Everything but `forge/build.gradle`, `gradle.properties`, `README.md` and `.vscode` is identical on every 1.20.x branch (`mods.toml` excluded: `dev-46.0.14` lacks a commented-out template block, nothing else). If a branch differs, a change was not ported: port it (cherry-pick from `main`) before releasing. `dev-52.1.20` (1.21.1) has its own sources and is skipped by that check: compare `git log` of `main` and of `dev-52.1.20` since the last `mc-1.20.4-v*` tag instead, and make sure every change since then reached it (ported by hand where the 1.21.1 code differs, see `.claude/CLAUDE.md`).
 - The publish workflow exists **on every branch**. A tag only publishes if the workflow file is in the tagged commit. A branch without it releases nothing, silently.
 - `CURSEFORGE_TOKEN` is set. If `MODRINTH_TOKEN` is missing, `mc-publish` **silently skips Modrinth** (it skips every platform whose token is empty) and the run still goes green: tell the user and get their OK before tagging. Modrinth can get the version later with the manual trigger in step 8. Never set secrets yourself: the user does.
 
@@ -60,19 +61,22 @@ for b in $(git for-each-ref --format='%(refname:short)' 'refs/heads/dev-*'); do
 done
 ```
 
-`mod_version` sits far from the per-branch lines of `gradle.properties` and `CHANGELOG.md` is identical everywhere, so this should apply cleanly. If a conflict appears (`forge/build.gradle`, `gradle.properties` and `README.md` all differ per branch), keep the branch's own version of every line the release commit did not touch and apply only that commit's hunks. Never resolve by taking `main`'s whole file: `dev-46.0.14`'s `forge/build.gradle` has a different layout.
+`mod_version` sits far from the per-branch lines of `gradle.properties` and `CHANGELOG.md` is identical everywhere, so this should apply cleanly. If a conflict appears (`forge/build.gradle`, `gradle.properties` and `README.md` all differ per branch), keep the branch's own version of every line the release commit did not touch and apply only that commit's hunks. Never resolve by taking `main`'s whole file: `dev-46.0.14`'s and `dev-52.1.20`'s `forge/build.gradle` have a different layout.
 
 ## 4. Build every branch
 
 ```bash
 #!/bin/bash
 W=<absolute scratchpad path>/wt
-export JAVA_HOME=/opt/homebrew/opt/openjdk@17
-for b in dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14; do   # the real list from step 0
+for b in dev-52.1.20 dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14; do   # the real list from step 0
+  # JDK 17 for 1.20.x, 21 for 1.21.1: the branch's build.gradle says which.
+  java=$(grep -o 'JavaLanguageVersion.of([0-9]*)' "$W/$b/build.gradle" | grep -o '[0-9]\+')
+  export JAVA_HOME=/opt/homebrew/opt/openjdk@$java
   if ( cd "$W/$b" && sh ./gradlew build --console=plain ) > "$W/../build-$b.log" 2>&1; then
     forge=$(find "$W/$b/forge/build/libs" -name '*.jar' | head -1)
     fabric=$(find "$W/$b/fabric/build/libs" -name '*.jar' ! -name '*-sources.jar' | head -1)
-    unzip -l "$forge" | grep -q bmh.refmap.json && unzip -p "$forge" META-INF/MANIFEST.MF | grep -q MixinConfigs \
+    # Forge 1.21.1 runs on the official names: its jar has no refmap, on purpose.
+    { [ "$java" = 21 ] || unzip -l "$forge" | grep -q bmh.refmap.json; } && unzip -p "$forge" META-INF/MANIFEST.MF | grep -q MixinConfigs \
       && unzip -l "$fabric" | grep -q bmh.refmap.json \
       && echo "$b PASS" || echo "$b FAIL (a jar has no refmap, or the Forge jar no MixinConfigs)"
   else
@@ -86,7 +90,7 @@ Run it in the background (the first build of an old Minecraft version downloads 
 ## 5. Push the branches
 
 ```bash
-git push origin main dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14   # the real list from step 0
+git push origin main dev-52.1.20 dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14   # the real list from step 0
 ```
 
 No force push. If a push is rejected, someone pushed meanwhile: stop and look.
@@ -109,7 +113,7 @@ done
 **Before pushing, show the user the list of tags and the commit each points to, and get a clear yes.** Then push them **one tag per `git push`**. GitHub creates no event at all when more than three tags are pushed at once: no run starts, nothing is published, and nothing turns red.
 
 ```bash
-for t in mc-1.20-v<mod> mc-1.20.1-v<mod> mc-1.20.2-v<mod> mc-1.20.3-v<mod> mc-1.20.4-v<mod>; do
+for t in mc-1.20-v<mod> mc-1.20.1-v<mod> mc-1.20.2-v<mod> mc-1.20.3-v<mod> mc-1.20.4-v<mod> mc-1.21.1-v<mod>; do
   git push origin "$t"
 done
 ```
@@ -137,7 +141,7 @@ Report each Minecraft version's result to the user, then clean up the scratch wo
 When a platform was skipped (Modrinth without a token) or failed, **do not re-run the tag's run**: it would upload again to every platform that already has the file (duplicate CurseForge files). Use the manual trigger instead, one run per tag, choosing only the missing platform:
 
 ```bash
-for t in mc-1.20-v<mod> mc-1.20.1-v<mod> mc-1.20.2-v<mod> mc-1.20.3-v<mod> mc-1.20.4-v<mod>; do
+for t in mc-1.20-v<mod> mc-1.20.1-v<mod> mc-1.20.2-v<mod> mc-1.20.3-v<mod> mc-1.20.4-v<mod> mc-1.21.1-v<mod>; do
   gh workflow run publish.yml --ref main -f tag="$t" -f modrinth=true -f curseforge=false -f github=false
 done
 ```
