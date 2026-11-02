@@ -4,6 +4,8 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-02
+
 ### Added
 - NeoForge version for Minecraft 1.20.4 and 1.21.1. On 1.20.1, NeoForge runs the Forge version.
 
