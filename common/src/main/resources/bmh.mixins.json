@@ -5,7 +5,7 @@
     "compatibilityLevel": "JAVA_21",
     "refmap": "bmh.refmap.json",
     "mixins": [
-        "EnchantmentMixin"
+        "C_ServerPlayerMixin"
     ],
     "client": [
         "CreateWorldGameTabMixin"

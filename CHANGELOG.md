@@ -4,6 +4,17 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Added
+- Navigator's Amulet: sneak and use it on a bed or a lodestone in the Overworld to set your Home. Until you do, your Home is your respawn point (if it is in the Overworld), or the world spawn. Your Home stays with you through death.
+
+### Changed
+- Navigator's Amulet, rebuilt: its needle now always points north, like a compass that cannot be fooled (Overworld only: it spins in the other dimensions). It has no durability any more, so it no longer takes Unbreaking.
+- Navigator's Amulet: use it at night, under open sky and without rain, to read the stars. A reading shows your coordinates and costs one of its 3 starlight charges (the violet bar under the item). The charges come back at every nightfall, and a reading has a 2 second cooldown.
+- Navigator's Amulet: new recipe, string, 2 copper ingots, a compass and a spyglass.
+
+### Fixed
+- The Navigator's Amulet coordinates now show on dedicated servers too.
+
 ## [1.4.0] - 2026-11-02
 
 ### Added

@@ -1,19 +1,22 @@
 {
     "type": "minecraft:crafting_shaped",
     "pattern": [
-        "#E#",
-        "ECE",
-        " E "
+        " S ",
+        "CKC",
+        " Y "
     ],
     "key": {
-        "#": {
+        "S": {
             "item": "minecraft:string"
         },
-        "E": {
-            "item": "minecraft:ender_eye"
-        },
         "C": {
+            "item": "minecraft:copper_ingot"
+        },
+        "K": {
             "item": "minecraft:compass"
+        },
+        "Y": {
+            "item": "minecraft:spyglass"
         }
     },
     "result": {
