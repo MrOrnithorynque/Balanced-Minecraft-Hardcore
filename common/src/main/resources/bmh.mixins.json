@@ -7,7 +7,14 @@
     "mixins": [
         "A_LivingEntityTotemMixin",
         "B_AnvilMenuMixin",
-        "C_ServerPlayerMixin"
+        "C_ServerPlayerMixin",
+        "E_BlockDisplayInvoker",
+        "E_DisplayInvoker",
+        "E_DisplayMixin",
+        "E_MinecraftServerMixin",
+        "E_PlayerAttackMixin",
+        "E_ServerPlayerGameModeMixin",
+        "E_ServerPlayerMixin"
     ],
     "client": [
         "CreateWorldGameTabMixin",
