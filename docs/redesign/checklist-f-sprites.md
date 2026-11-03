@@ -14,9 +14,9 @@ Look at each item at GUI scale 2, 3 and 4 (Options, Video Settings, GUI Scale).
 4. `/give @p bmh:dormant_totem` and `/give @p bmh:totem_of_eternity`, side by side. The dormant one never sparkles
    and never moves: eyes closed (two dark lines), forehead gem dull grey-violet, the rest of the body identical to the
    awakened totem's first frame. The awakened one keeps its animation, its green and cyan eyes and its violet gem.
-5. `/give @p bmh:echo_heart`. A violet cut-crystal heart, lighter top left, a cyan four-point star in its centre.
-   Check it in the hotbar at night or underground (dark background): the whole heart, point included, should stay
-   readable. Put one in an item frame too.
+5. `/give @p bmh:echo_heart`. A violet heart jewel, its left lobe lit with a small white glint, and a cyan four-point
+   star glowing in a dark diamond-shaped window at its centre. Check it in the hotbar at night or underground (dark
+   background): the whole heart, point included, should stay readable. Put one in an item frame too.
 6. Any item showing a magenta and black checkerboard means its model points at a missing texture: the models are
    part B's (`models/item/dormant_totem.json`, `echo_heart.json` must use `bmh:item/dormant_totem`,
    `bmh:item/echo_heart`).

@@ -57,7 +57,16 @@ checklist live on the main side.
   - v4 (dark diamond socket, flat facets, small angular highlight), read 4: no crack, no belt, no competing highlight,
     "a window cut into the heart, with the light inside it", distinct from vanilla at 1x and 2x; still "polished
     enamel or a glossy cabochon" (no facet edge, no second glint), dull tips, a dark lower-right wedge;
-  - v5 (shipped): v4 plus lighter tips, the right lobe's lit edge and the lower-right bounced-light rim. Read 5.
+  - v5 (shipped): v4 plus lighter tips, the right lobe's lit edge and the lower-right bounced-light rim. Read 5 (full
+    set, shipped files): "clearly on", a heart at 1x, 2x and 4x, "no crack, band or belt", distinct from all four
+    vanilla items at 1x and 2x; still "smooth and glossy... It does not look cut", a soft dark diagonal on the lower
+    right ("a cast shadow rather than a crack"), the bottom tip "a little like a stray blue pixel at 4x".
+  **Call: ship v5.** Every reader, at every version, read a precious heart jewel with a light inside it, never an
+  echo shard or a nether star, which is the brief's test. "Facets" is the one word of the spec only half met: readers
+  see a few flat planes (read 3: "a cut gem with about four broad faces"), not a many-faceted cut. The recipe readers
+  name for it, light seam lines between planes, was tried (v13 variants b to d in the scratchpad) and crowded the
+  glint; at 16x16 the glint's clarity won. The glint sits half a pixel left of the heart's axis: an even-width heart
+  with a one-pixel white core cannot centre it; readers call it invisible at 1x and 2x.
   It is the one vivid item next to the dark eternal items on purpose: it is the precious ingredient, and the readers
   matched its colours to the lit totem's violet gem and cyan eye.
 - **No vanilla textures committed**: the comparison with vanilla's echo shard, nether star, amethyst shard and heart of
@@ -97,11 +106,17 @@ checklist live on the main side.
    items point at `bmh:item/dormant_totem` and `bmh:item/echo_heart` on both sides.
 
 9. Heart v3 to v5 (see Calls), with blind reads 3 and 4 between them; second pass committed as `9fbb2f0` (main) and
-   `0bbb67a` (1.21), pushed. Final heart (v5) written into `make_sprites.py`, which reproduces it pixel for pixel.
-   Final full-set blind read 5 launched on the shipped files.
+   `0bbb67a` (1.21), pushed. Final heart (v5) written into `make_sprites.py`, which reproduces it pixel for pixel;
+   committed `f2baaaa` (main) and `664ca7e` (1.21), pushed. The four PNGs have the same blob hash on both branches.
+10. Final builds: main `f2baaaa` `BUILD SUCCESSFUL in 1m 11s`, 1.21.1 `664ca7e` `BUILD SUCCESSFUL in 40s`; all six
+    jars (forge, fabric, neoforge on each side) contain the four textures, and their `echo_heart.png` hashes match the
+    source file. `origin/redesign/integration` (`432d0a2`) and `origin/redesign/integration-1.21` (`a886d42`) had not
+    moved, so there was nothing to merge. `git merge-tree` against every pushed sibling branch on its side: only
+    `CHANGELOG.md` (every part adds under `## [Unreleased]`, not avoidable from here) and, with part B,
+    `dormant_totem.png` and `echo_heart.png` (B's placeholders; the brief says F's file wins). Clean against `g`.
+11. Blind read 5 on the shipped files (see Calls); no change made after it.
 
 ## Resume here
 
-Step 9 in progress. Next: read blind read 5, commit the final pass on both sides, merge
-`origin/redesign/integration` and `origin/redesign/integration-1.21` (unmoved so far), rebuild both, merge-tree,
-push, report.
+Done. Part F is complete on both branches; nothing left but G's merge (take F's `dormant_totem.png` and
+`echo_heart.png` over B's placeholders, fold F's one `### Changed` changelog line into B's `### Changed` list).
