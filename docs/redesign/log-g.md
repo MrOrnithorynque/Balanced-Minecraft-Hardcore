@@ -73,6 +73,7 @@ Steps are numbered, not timed (this session reads no clock unless it runs `date`
 | B totem | `20c3e07` | `242a55c` | `27a11f8` / `74c3b8c` | main 20 s, 1.21 12 s, both green | `CHANGELOG.md` and `bmh.mixins.json` on both sides (lists folded and unioned by script) |
 | F sprites | `5fd953a` | `664ca7e` | `027a13c` / `8e0f078` | main 16 s, 1.21 15 s, both green | `CHANGELOG.md` folded; `dormant_totem.png` and `echo_heart.png` add/add on both sides: F's blobs taken (`checkout --theirs`), verified equal to F's branch |
 | C amulet | `09fee5e` | `660976a` | `4e61f11` / `6835d01` | main 34 s, 1.21 19 s, both green | `CHANGELOG.md` folded and `bmh.mixins.json` unioned on both sides; on 1.21 the three-way union dropped `EnchantmentMixin` (C removed it from the base list and deleted the class). `BalancedMcHardcoreMain`, `BalancedMcHardcoreFabricClient` and the 1.21 client classes auto-merged with A: both hooks kept until call 2a |
+| D sky | `7d42e91` | `b41955c` | `3c58bfc` / `7c71c74` | main 17 s, 1.21 15 s, both green | `CHANGELOG.md` folded; `bmh.mixins.json` auto-merged (D's `client` entry). Reading contract cross-check, both sides: C writes `bmh_reading` {`azimuth` float, `time` long} (main: stack NBT, 1.21: `CUSTOM_DATA`), D reads `getCompound("bmh_reading")`, `getFloat("azimuth")`, `getLong("time")` from the same places: same names, same types |
 
 ## Orders of the coordinator (wake of 2026-11-04, one turn, no report between steps)
 
