@@ -4,10 +4,18 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Added
+- Dormant Totem of Eternity and Echo Heart. The Totem of Eternity is now made in steps: the old Totem of Eternity recipe makes a Dormant Totem, the Echo Heart is crafted from 4 crying obsidian, 4 echo shards and a nether star, and the two meet at an anvil (Dormant Totem on the left, Echo Heart on the right, 39 levels). The name field is ignored.
+- The Totem of Eternity glows like an enchanted item and says "Eternity" in its tooltip. It is not a real enchantment, so a grindstone cannot remove it.
+- Every Eternal Item now says in its tooltip that you wake farther while you carry it. The Eternal Sword, Axe and Pickaxe also say that each death costs them 7% durability.
+
 ### Changed
 - The Totem of Undying no longer gives Fire Resistance when it saves you. You still get Regeneration and Absorption.
 - The exile from a respawn anchor in the Nether is now as long, in world terms, as one from a bed in the Overworld. Before, it was eight times longer, because a Nether block counts for 8 Overworld blocks.
 - On 1.21.1, mining a decorated pot with an Eternal Sword, Axe or Pickaxe now breaks it into sherds like with the other tools (it used to drop whole). Silk Touch still keeps it whole.
+- The Eternal Sword, Axe and Pickaxe are now made at the smithing table: Totem of Eternity in the template slot, your netherite sword, axe or pickaxe, and an echo shard. The tool keeps its enchantments, name and wear. The dragon egg is no longer needed, and the old crafting table recipes are gone.
+- New Eternal Bundle recipe: string, gold ingots, leather, netherite scrap and a Totem of Eternity. It no longer needs a vanilla bundle.
+- Eternal tools are repaired with gold blocks at the anvil instead of a Totem of Eternity.
 
 ### Fixed
 - The Eternal Bundle now shows its filled texture when it holds items.
