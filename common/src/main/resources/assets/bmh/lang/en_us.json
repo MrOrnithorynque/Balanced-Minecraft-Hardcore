@@ -12,8 +12,8 @@
     "tooltip.bmh.eternity": "Eternity",
     "tooltip.bmh.heavy_with_eternity": "Heavy with eternity: you wake farther while you carry it",
     "tooltip.bmh.death_wear": "Each death: -7% durability",
-    "tooltip.bmh.dormant_totem": "Awaken it with an Echo Heart at an anvil",
-    "tooltip.bmh.echo_heart": "Awakens a Dormant Totem of Eternity at an anvil",
+    "tooltip.bmh.dormant_totem": "Awaken it at an anvil: Dormant Totem left, Echo Heart right",
+    "tooltip.bmh.echo_heart": "Awakens a Dormant Totem at an anvil: totem left, heart right",
 
     "sounds.bmh.bell_sfx": "bell_sfx",
     "sounds.bmh.end": "end",

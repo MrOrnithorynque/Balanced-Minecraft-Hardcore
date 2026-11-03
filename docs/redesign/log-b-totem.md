@@ -7,8 +7,9 @@ Steps are numbered, no clock times (I cannot see the clock).
 
 ## Resume here
 
-Main side: written, built, boot-tested on the three loaders, committed (step 5). 1.21.1 side: code ported (step 6), build and boots pending (step 7).
-Then: audit, merge `origin/redesign/integration` and `origin/redesign/integration-1.21`, rebuild, push, report (step 8).
+Both sides are written, built, boot-tested on the three loaders and pushed (main `6e33704`, 1.21.1 `f4611da`); steps 1 to 8 are done.
+Left: act on the audit's findings (step 9), merge `origin/redesign/integration` and `origin/redesign/integration-1.21` (neither had moved at the
+time of writing), rebuild if anything changed, push, report.
 The temporary self-test (see Verification) is NOT in the repo: its sources live in the session scratchpad. If you redo it, install the two files
 (`BmhSelfTest.java` in `common/.../bmh/`, `B_SelfTestMixin.java` in `common/.../bmh/mixin/`) plus one `"B_SelfTestMixin"` entry in `bmh.mixins.json`,
 never commit them, never `git add -A`.
@@ -48,13 +49,20 @@ never commit them, never `git add -A`.
    `data/bmh/recipe/` with `"id"` in results (smithing result `{"id": ...}`, `ItemStack.STRICT_CODEC`), `compatibilityLevel` JAVA_21 left as is, the
    mixin listed before `EnchantmentMixin`. `B_AnvilMenuMixin` is byte-identical to the main side (same private members and constructor on 1.21.1, checked
    with `javap` on the 1.21.1 Loom jar).
+7. 1.21.1 built (`sh gradlew -p <121 worktree> build --max-workers=2`, JDK 21): BUILD SUCCESSFUL, 39 tasks. Jars: the Fabric one has `bmh.refmap.json` with
+   `B_AnvilMenuMixin.createResult -> class_1706;method_24928()V`; the Forge one has the `MixinConfigs` manifest line and, by design (official names on
+   1.21.1), no refmap; the NeoForge one has none. The three jars hold the new classes, recipes, models and textures.
+8. 1.21.1 booted on the three loaders with the same self-test, ported to the 1.21.1 API (components, registry holders, `CraftingInput`): see Verification.
+   Both sides were committed and pushed before this (`redesign/b-totem` and `redesign/b-totem-1.21`).
+9. Independent audit by a read-only agent (opus, foreground rules of rule 10): findings and what I did about them are in the section below.
 
 ## Calls made (the brief had no answer)
 
 - **Common mixin for the anvil** (rule 13), not Forge's `AnvilUpdateEvent` plus a Fabric mixin: one class, same behaviour on three loaders. It skips
   Forge's event for this one combination only.
-- **Hint tooltips on the Dormant Totem and the Echo Heart** (gray, one line each, via `HintItem`). Not in the brief; without them nothing in the game
-  says the two items meet at an anvil (no recipe book entry for an anvil step). Remove by switching those two registrations to a plain `Item`.
+- **Hint tooltips on the Dormant Totem and the Echo Heart** (gray, one line each, via `HintItem`, naming the slots: Dormant Totem left, Echo Heart right).
+  Not in the brief; without them nothing in the game says the two items meet at an anvil (no recipe book entry for an anvil step). Remove by switching
+  those two registrations to a plain `Item`.
 - **The awakened totem keeps its display name "The Totem of Eternal Life"** (not in the brief, other languages say "Eternal Life" too). The Dormant Totem
   is "Dormant Totem of Eternity" as the brief says, so the pair reads slightly differently. Louis' call; one line in `en_us.json`.
 - **No ability lines on the tools** ("Full-strength hits echo...", as the design page shows). The brief lists exactly two tooltip lines for B and
@@ -86,4 +94,32 @@ never commit them, never `git add -A`.
   - No `invalid dist` line on any of the three, no recipe parse error, no mixin error. Red that is not mine: Fabric logs `Couldn't parse element
     loot_tables:bmh:blocks/test_block` (the test loot table names a block that does not exist) and `No key layers in MapLike[{}]` (my flat-world
     `server.properties` without `generator-settings`); Forge and NeoForge log the dev-only `Reference map 'bmh.refmap.json' ... could not be read`.
+- 1.21.1 (`sh gradlew -p <121 worktree> :forge:runServer` / `:fabric:runServer` / `:neoforge:runServer`, JDK 21, one boot at a time under the machine-wide
+  locks): Forge, Fabric and NeoForge each reached `Done` and each ran the full self-test with `pass=73 fail=0` (the same checks as above, so the
+  smithing, recipe, repair, tooltip, item-rule and lang checks all ran on all three 1.21.1 loaders). Forge logged `Mixing B_AnvilMenuMixin ... into
+  net.minecraft.world.inventory.AnvilMenu`. Red that is not mine, all three: `Couldn't parse element ...loot_table/bmh:blocks/test_block` (known, rule 3),
+  `No key layers in MapLike[{}]` (my flat-world `server.properties`); Forge also printed netty's `Reflective setAccessible(true) disabled` (JDK 21, dev only).
+- `git merge-tree --write-tree` of each side against every sibling branch pushed so far (a-fixes, c-amulet, d-sky, e-abilities, f-sprites, and the `-1.21`
+  ones): conflicts only in the shared files of rule 8 and one by design. `CHANGELOG.md` with every sibling (all add lines under `[Unreleased]`);
+  `bmh.mixins.json` with A, C and E (each adds its mixin to the same list; on 1.21.1 A inserts before `EnchantmentMixin` like me, and C removes
+  `EnchantmentMixin`); `dormant_totem.png` and `echo_heart.png` with F (add/add: my placeholders against F's final sprites, F's files win as G was told).
+  No Java, lang or recipe conflict (`ItemInit.java` and `en_us.json` auto-merge with C). Nothing I could avoid on my side.
 - Em-dash / en-dash check on every line I added (global rule): none.
+
+## Audit (step 9)
+
+One read-only agent (opus, brief and evidence list in my prompt, raw outputs kept in the session scratchpad `audit-b/`, not in the repo) tried to refute eight
+claims (mixin on all loaders and sides, anvil behaviour, recipe formats and smithing data, main-side compile on 1.20 to 1.20.4, no client class on a server,
+brief compliance, tooltip truth, fidelity of the 1.21.1 port). Result: C1 to C8 confirmed, none refuted, no blocker or major finding. It did read the
+production-remapped jars (not a production run) and re-checked every vanilla member with `javap` on the five 1.20.x jars. Its nine findings and what I did:
+- F1 minor, the hint lines did not say which anvil slot: fixed on both sides, the lines now read "Awaken it at an anvil: Dormant Totem left, Echo Heart right"
+  and "Awakens a Dormant Totem at an anvil: totem left, heart right" (text only, no code change).
+- F2 minor, README still shows the deleted crafting grids: not changed (the pictures are Louis' screenshots, no client here to retake them); tracked in the
+  checklist, section 6, and in my report.
+- F3 minor, Forge and Fabric 1.20.4 ran only 15 of 73 checks: rerun after the last edits, result in the next section.
+- F4 nit, the checklist promised the tab title "BMH Tab" but the code asks for `itemGroup.BMH_tab`: checklist corrected (the bug itself is pre-existing, left).
+- F5 nit, grindstone step could not be done as written: corrected (verified in the patched `GrindstoneMenu`: `mayPlace` needs a damageable or enchanted item).
+- F6 nit, the bundle's contents preview sits under the name, above the text lines (vanilla inserts the tooltip image at index 1): checklist corrected.
+- F7 nit, contradictory step 3 of the checklist: rewritten.
+- F8 nit, the awakened totem's name "The Totem of Eternal Life" against "Totem of Eternity" everywhere else: my call 2, now listed for Louis in the checklist.
+- F9 nit, stale "Resume here": already rewritten when the report arrived.
