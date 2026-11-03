@@ -61,6 +61,23 @@ public class ItemInit {
                                                         .fireResistant()
                                                         .rarity(Rarity.EPIC)));
 
+        // The two halves of the Totem of Eternity. Not Eternal Items: they drop on death like any item.
+        public static final Supplier<Item> DORMANT_TOTEM = register("dormant_totem",
+                        () -> new HintItem(
+                                        new Item.Properties()
+                                                        .stacksTo(1)
+                                                        .fireResistant()
+                                                        .rarity(Rarity.RARE),
+                                        "tooltip.bmh.dormant_totem"));
+
+        public static final Supplier<Item> ECHO_HEART = register("echo_heart",
+                        () -> new HintItem(
+                                        new Item.Properties()
+                                                        .stacksTo(1)
+                                                        .fireResistant()
+                                                        .rarity(Rarity.RARE),
+                                        "tooltip.bmh.echo_heart"));
+
         private static Supplier<Item> register(String name, Supplier<Item> factory) {
 
                 return Services.PLATFORM.register(Registries.ITEM, name, factory);

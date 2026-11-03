@@ -1,0 +1,23 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "CEC",
+        "ESE",
+        "CEC"
+    ],
+    "key": {
+        "C": {
+            "item": "minecraft:crying_obsidian"
+        },
+        "E": {
+            "item": "minecraft:echo_shard"
+        },
+        "S": {
+            "item": "minecraft:nether_star"
+        }
+    },
+    "result": {
+        "item": "bmh:echo_heart",
+        "count": 1
+    }
+}
