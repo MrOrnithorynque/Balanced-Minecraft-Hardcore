@@ -218,6 +218,7 @@ public class EternalBundleItem extends Item implements IEternalItem {
         componentList.add(Component.translatable("item.minecraft.bundle.fullness",
                 Mth.mulAndTruncate(getContents(stack).weight(), MAX_WEIGHT), MAX_WEIGHT)
                 .withStyle(ChatFormatting.GRAY));
+        EternalTooltips.addHeavy(componentList);
     }
 
     public void onDestroyed(@Nonnull ItemEntity itemEntity) {

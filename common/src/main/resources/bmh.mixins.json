@@ -5,6 +5,7 @@
     "compatibilityLevel": "JAVA_21",
     "refmap": "bmh.refmap.json",
     "mixins": [
+        "B_AnvilMenuMixin",
         "EnchantmentMixin"
     ],
     "client": [
