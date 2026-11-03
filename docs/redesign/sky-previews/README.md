@@ -10,9 +10,11 @@ the default), with compass ticks on the horizon and a red marker on the true dir
 (zenith in the centre, rings every 30 degrees, north up, east right, the dashed line is the true direction). The grey
 square is the moon's bright disc. The header gives the chain's length and where its last star sits.
 
-In-game check: `ingame-*.png` are real Fabric 1.20.4 frames (a non-interactive client run with a development trigger,
-since removed), next to the matching preview. The player was a spectator, and flying widens the FOV by 10 percent, so
-the in-game chain looks a little smaller than in the preview; the stars and the chain are the same.
+In-game check: `ingame-az090-midnight.png` and `ingame-az270-late-night.png` are real Fabric 1.20.4 frames (a
+non-interactive client run with a development trigger, since removed), next to the matching preview. The player was a
+spectator, and flying widens the FOV by 10 percent, so the in-game chain looks a little smaller than in the preview;
+the stars and the chain are the same. `ingame-detail-az090-midnight.png` is a crop of a frame at full resolution (a
+Retina window): the line, its glow and the lit stars as the game draws them.
 
 - `az000-midnight.png`, `az090-midnight.png`, `az180-midnight.png`, `az270-midnight.png`: readings toward north, east,
   south, west at dayTime 18000 (midnight), 2.5 s after the reading (trace done, holding).

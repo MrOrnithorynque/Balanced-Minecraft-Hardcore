@@ -62,6 +62,28 @@ Steps are numbered, not timed. Started 2026-11-03 21:28 CET (read from `date`).
 9. C's branches already write the contract exactly (`AmuletReading`: `bmh_reading`, `azimuth` float from
    `atan2(toX - fromX, fromZ - toZ)`, `time` = `level.getGameTime()`), on both sides.
 
+10. Main-side `gradle build` (all loaders): OK. Refmaps: Forge maps `renderSky` to `m_202423_`, `starBuffer` to
+    `f_109471_`, `VertexBuffer.unbind` to `m_85931_`; Fabric to `method_3257`, `field_4113`, `method_1354`. The
+    `@Shadow level` field is renamed in the class itself (Forge `f_109465_`, Fabric `field_4085`, NeoForge `level`);
+    the Forge manifest has `MixinConfigs: bmh.mixins.json`.
+11. Fabric dedicated server (development build, `-verbose:class`): ready, RCON world prep (time 18000, no daylight
+    cycle, clear weather), clean stop, port closed; 33 mod classes loaded, none under `client.sky` nor the mixin.
+12. Non-interactive Fabric client run (`tools/client-shots.sh`, quick play into a copy of that world): the mixin
+    applied, `Sky azimuth self-check: from (0, 0), azimuth 0 aims at (0, -100), azimuth 90 at (100, 0)`, eight
+    readings, eight screenshots, clean exit. Every logged chain (`Star reading toward ...`) matches its offline preview
+    star for star. What the frames showed:
+    - the chain looks about 12 percent smaller than in the preview: a spectator flies, and flying multiplies the FOV
+      by 1.1 (70 to 77; tan 35 / tan 38.5 = 0.88, the measured ratio was 0.87). Not a bug.
+    - the real moon is a small bright square: only the middle 8 of 32 texels of a moon phase (10 of its 40 blocks) are
+      bright, the sun's core is 10 of 32 texels. The exclusion boxes shrank to the bright discs plus 3 blocks (moon 8,
+      sun 13 half-size): mean last-star error 2.07 degrees (was 2.20), worst 11.8 (was 17.2), 4 readings of 16200 at
+      10 degrees or more (was 56), sharp bends 226 (was 326). Only the 270 / 22000 case changed: now 270.1 degrees,
+      just under the moon, its line clipping the moon's corner.
+    - BUG found and fixed: the halos around the chain's stars were missing. The sky is drawn with back faces culled
+      and the halo fans wound outward. They now wind like the ribbons and vanilla's star quads (counter-clockwise from
+      the centre); the preview rasterizer culls back faces like GL, and still shows vanilla's stars, so its convention
+      matches the game's.
+
 ## Calls made (and why)
 
 1. **Picker = dynamic programming, not greedy.** Candidates within the off-plane limit, sorted high to low; the DP
