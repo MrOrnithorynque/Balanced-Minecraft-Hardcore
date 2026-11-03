@@ -83,9 +83,6 @@ public final class StarReadingRenderer {
         // server lags, which would retract the lines.
         double now = minecraft.gui.getGuiTicks() + partialTick;
         startFreshReading(level, player, now, partialTick);
-        if (DevSkyShots.ENABLED) {
-            DevSkyShots.frame(level, player, now, partialTick);
-        }
 
         Shown reading = shown;
         if (reading == null) {
@@ -126,7 +123,7 @@ public final class StarReadingRenderer {
         }
     }
 
-    static void show(ClientLevel level, float azimuth, double now, float partialTick) {
+    private static void show(ClientLevel level, float azimuth, double now, float partialTick) {
         // The sky as it stands now; within the 40 fresh ticks it turns less than a degree.
         float timeOfDay = level.getTimeOfDay(partialTick);
         int[] chain = StarChain.pick(StarField.stars(), azimuth, timeOfDay);
