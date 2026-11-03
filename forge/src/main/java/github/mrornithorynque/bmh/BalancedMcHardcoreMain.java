@@ -34,12 +34,12 @@ public class BalancedMcHardcoreMain {
         BalancedMcHardcore.init();
         ForgePlatformHelper.registerAll(modEventBus);
 
-        modEventBus.addListener(this::setup);
-
         // Client setup (item properties) is a mod bus event, and needs the client classes: never on a dedicated server.
         if (FMLEnvironment.dist.isClient()) {
             modEventBus.addListener(ForgeAmuletClient::onClientSetup);
         }
+
+        modEventBus.addListener(this::setup);
 
         LOGGER.info("[BalancedMcHardcoreMain] Setup complete.");
     }
