@@ -16,6 +16,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - The Eternal Sword, Axe and Pickaxe are now made at the smithing table: Totem of Eternity in the template slot, your netherite sword, axe or pickaxe, and an echo shard. The tool keeps its enchantments, name and wear. The dragon egg is no longer needed, and the old crafting table recipes are gone.
 - New Eternal Bundle recipe: string, gold ingots, leather, netherite scrap and a Totem of Eternity. It no longer needs a vanilla bundle.
 - Eternal tools are repaired with gold blocks at the anvil instead of a Totem of Eternity.
+- The Eternal Bundle wears a small gold ring charm on its drawstring, empty or full.
 
 ### Fixed
 - The Eternal Bundle now shows its filled texture when it holds items.
