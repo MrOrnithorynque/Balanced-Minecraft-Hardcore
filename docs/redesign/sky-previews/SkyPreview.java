@@ -22,9 +22,10 @@ import javax.imageio.ImageIO;
  * additive blend, as a player would see them and as an all-sky map. Also sweeps every azimuth over the whole night
  * and writes the chain statistics to stats.txt.
  *
- * Run from the repository root (JDK 17+):
- *   javac -d /tmp/sky docs/redesign/sky-previews/SkyPreview.java common/src/main/java/github/mrornithorynque/bmh/client/sky/Star*.java
- *   java -cp /tmp/sky SkyPreview docs/redesign/sky-previews
+ * Run from the repository root (JDK 17+), with the three plain-Java classes of client/sky:
+ *   S=common/src/main/java/github/mrornithorynque/bmh/client/sky
+ *   javac -d /tmp/sky docs/redesign/sky-previews/SkyPreview.java $S/StarField.java $S/StarChain.java $S/StarTrace.java
+ *   java -Djava.awt.headless=true -cp /tmp/sky SkyPreview docs/redesign/sky-previews
  */
 public class SkyPreview {
 

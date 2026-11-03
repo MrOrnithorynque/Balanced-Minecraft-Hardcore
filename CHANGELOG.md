@@ -4,6 +4,9 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Added
+- Navigator's Amulet: a star reading now draws a short constellation in the night sky, real stars linked from high overhead down to the horizon in the direction of Home. Only you see it; it fades after about ten seconds.
+
 ## [1.4.0] - 2026-11-02
 
 ### Added

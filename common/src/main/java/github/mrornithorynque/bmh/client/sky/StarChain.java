@@ -52,14 +52,23 @@ public final class StarChain {
     }
 
     /**
+     * The horizontal unit vector {x, z} toward an azimuth, in the amulet's convention (part C writes it): degrees
+     * clockwise from north, 0 north (-Z), 90 east (+X).
+     */
+    public static double[] toward(double azimuth) {
+        double a = Math.toRadians(azimuth);
+        return new double[] { Math.sin(a), -Math.cos(a) };
+    }
+
+    /**
      * The chain for a reading toward {@code azimuth} (degrees clockwise from north, 0 north, 90 east) at
      * {@code timeOfDay} (Minecraft's 0 to 1 sky angle, 0.5 at midnight): indexes into {@code stars}, highest star
      * first. Empty if the sky has no usable star in that direction (never seen on the vanilla field, kept for safety).
      */
     public static int[] pick(List<StarField.Star> stars, double azimuth, double timeOfDay) {
-        double a = Math.toRadians(azimuth);
-        double hx = Math.sin(a), hz = -Math.cos(a); // toward the azimuth, on the horizon
-        double nx = Math.cos(a), nz = Math.sin(a);  // normal of the vertical plane through it
+        double[] toward = toward(azimuth);
+        double hx = toward[0], hz = toward[1]; // toward the azimuth, on the horizon
+        double nx = -hz, nz = hx;               // normal of the vertical plane through it
 
         int n = stars.size();
         double[][] dirs = new double[n][];

@@ -6,7 +6,8 @@
     "refmap": "bmh.refmap.json",
     "mixins": [],
     "client": [
-        "CreateWorldGameTabMixin"
+        "CreateWorldGameTabMixin",
+        "D_LevelRendererSkyMixin"
     ],
     "injectors": {
         "defaultRequire": 1
