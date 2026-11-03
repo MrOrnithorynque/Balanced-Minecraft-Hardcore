@@ -1,0 +1,626 @@
+<title>BMH Item Redesign</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column of item chapters; the object (sprite, recipe, in-game mockup) sits left, its rules right, stacked on phones. */
+:root {
+  --bg: #ebeaef;
+  --surface: #f7f7fa;
+  --ink: #1c1a22;
+  --muted: #5b5666;
+  --line: #d3d0da;
+  --gold: #8f5d0c;
+  --cyan: #0a6f79;
+  --copper: #974c25;
+  --alert: #a3352c;
+  /* in-game objects keep their own colours in both themes */
+  --slot: #8b8b8b; --slot-dark: #373737; --slot-light: #ffffff; --panel: #c6c6c6; --panel-ink: #3f3f3f;
+  --tip-bg: #100010; --tip-hi: #5000ff; --tip-lo: #28007f;
+  --mc-gray: #aaaaaa; --mc-dgray: #555555; --mc-gold: #ffaa00; --mc-aqua: #55ffff; --mc-daqua: #00aaaa;
+  --mc-purple: #ff55ff; --mc-white: #ffffff; --mc-yellow: #ffff55;
+  --display: "Silkscreen", ui-monospace, monospace;
+  --game: "VT323", ui-monospace, monospace;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121017; --surface: #1b1822; --ink: #ebe8f1; --muted: #a39dae; --line: #2e2a38;
+    --gold: #e8b73a; --cyan: #5de3ea; --copper: #e5915c; --alert: #ff7a6b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121017; --surface: #1b1822; --ink: #ebe8f1; --muted: #a39dae; --line: #2e2a38;
+  --gold: #e8b73a; --cyan: #5de3ea; --copper: #e5915c; --alert: #ff7a6b;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 16px/1.6 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 1080px; margin: 0 auto; padding-block: 40px 80px; display: grid; gap: 76px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; text-wrap: balance; margin: 0; letter-spacing: 0; }
+h1 { font-size: clamp(28px, 4.8vw, 48px); line-height: 1.12; }
+h2 { font-size: clamp(22px, 3vw, 30px); line-height: 1.2; }
+h3 { font-size: 17px; line-height: 1.3; }
+p { margin: 0; max-width: 66ch; }
+.eyebrow { font: 600 12px/1.4 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 19px; color: var(--muted); max-width: 62ch; }
+.tag { font-size: 17px; color: var(--muted); font-style: italic; }
+.stack { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.stack-lg { display: grid; gap: 24px; align-content: start; min-width: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 15px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.copper { color: var(--copper); }
+strong { font-weight: 600; }
+a { color: var(--cyan); }
+:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+ul.rules { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; max-width: 66ch; }
+ul.rules li { padding-left: 22px; position: relative; }
+ul.rules li::before { content: ""; position: absolute; left: 2px; top: 0.62em; width: 8px; height: 8px; background: var(--gold); }
+ul.rules.mortal li::before { background: var(--copper); }
+
+/* ---------- pixel objects ---------- */
+.px { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+.anim {
+  width: var(--s, 48px); height: var(--s, 48px);
+  image-rendering: pixelated; background-repeat: no-repeat;
+  background-size: var(--s, 48px) calc(var(--s, 48px) * var(--n));
+  animation: strip calc(var(--n) * 50ms) steps(var(--n)) infinite;
+}
+@keyframes strip { from { background-position: 0 0; } to { background-position: 0 calc(var(--s, 48px) * var(--n) * -1); } }
+@media (prefers-reduced-motion: reduce) { .anim { animation: none; } }
+
+.slot {
+  --s: 48px; --b: 3px;
+  width: calc(var(--s) + 2 * var(--b) + 8px); height: calc(var(--s) + 2 * var(--b) + 8px);
+  background: var(--slot);
+  box-shadow: inset var(--b) var(--b) 0 var(--slot-dark), inset calc(-1 * var(--b)) calc(-1 * var(--b)) 0 var(--slot-light);
+  display: grid; place-items: center; flex: none;
+}
+.slot > .px, .slot > .anim { width: var(--s); height: var(--s); }
+.slot.xl { --s: 128px; --b: 4px; }
+.slot.lg { --s: 80px; --b: 4px; }
+.slot.sm { --s: 32px; --b: 2px; }
+.panel {
+  background: var(--panel); padding: 14px; display: inline-grid; gap: 10px; justify-self: start;
+  box-shadow: inset 3px 3px 0 #ffffff, inset -3px -3px 0 #555555, 0 0 0 3px #000000;
+  color: var(--panel-ink); font-family: var(--game); font-size: 20px; max-width: 100%;
+}
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.craft { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.grid3 { display: grid; grid-template-columns: repeat(3, auto); }
+.grid3 .slot { --s: 36px; --b: 2px; }
+.arrow { font: 400 34px/1 var(--game); color: #8b8b8b; }
+.chip {
+  width: 36px; height: 36px; display: grid; place-items: center;
+  font: 400 22px/1 var(--game);
+  background: var(--c); color: var(--t, #ffffff);
+  box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.28), inset 3px 3px 0 rgba(255, 255, 255, 0.22);
+}
+.legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px 14px; font-size: 14px; color: var(--muted); }
+.legend span { display: flex; gap: 8px; align-items: center; }
+.legend .chip { width: 22px; height: 22px; font-size: 17px; box-shadow: none; flex: none; }
+.legend .mini { width: 22px; height: 22px; flex: none; }
+.legend .mini img { width: 22px; height: 22px; }
+
+/* in-game tooltip */
+.mc-tip {
+  background: var(--tip-bg); color: var(--mc-white); padding: 10px 12px; max-width: 360px;
+  border: 2px solid var(--tip-bg);
+  box-shadow: inset 0 0 0 2px var(--tip-hi), inset 0 -2px 0 2px var(--tip-lo);
+  font: 400 20px/1.2 var(--game); display: grid; gap: 2px; align-content: start;
+}
+.mc-tip .name { color: var(--mc-purple); margin-bottom: 4px; }
+.mc-tip .name.plain { color: var(--mc-white); }
+.mc-tip .g { color: var(--mc-gray); } .mc-tip .dg { color: var(--mc-dgray); }
+.mc-tip .au { color: var(--mc-gold); } .mc-tip .aq { color: var(--mc-aqua); } .mc-tip .daq { color: var(--mc-daqua); }
+
+/* ---------- hero ---------- */
+.hero { display: grid; gap: 26px; }
+.hotbar { display: flex; flex-wrap: wrap; padding: 4px; background: #1f1f1f; box-shadow: 0 0 0 3px #000000; width: max-content; max-width: 100%; }
+.compare { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 14px; align-items: center; }
+.compare .slot { --s: 40px; --b: 3px; }
+.compare .lab { font: 600 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.caption { font-size: 13px; color: var(--muted); max-width: 72ch; }
+
+/* ---------- pillars ---------- */
+.pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px 36px; }
+.pillar { display: grid; gap: 8px; align-content: start; border-top: 3px solid var(--ink); padding-top: 14px; }
+.pillar h3 { font-size: 16px; }
+.pillar p { font-size: 15px; color: var(--muted); }
+
+/* ---------- chapters ---------- */
+.chapter { display: grid; gap: 28px; }
+.chapter-head { display: grid; gap: 8px; }
+.split { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 40px; align-items: start; }
+@media (max-width: 820px) { .split { grid-template-columns: minmax(0, 1fr); } }
+
+/* exile rings */
+.rings-wrap { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 36px; align-items: center; }
+@media (max-width: 820px) { .rings-wrap { grid-template-columns: minmax(0, 1fr); } }
+.rings svg { width: 100%; height: auto; display: block; }
+.rings .ring { fill: none; stroke: var(--gold); stroke-width: 1.5; opacity: 0.75; }
+.rings .ring0 { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 4 4; }
+.rings .lbl { fill: var(--ink); font: 600 12px var(--mono); }
+.rings .lblbg { fill: var(--bg); }
+.rings .path { stroke: var(--cyan); stroke-width: 1.5; stroke-dasharray: 2 4; }
+.rings .you { fill: var(--cyan); }
+.rings .note { fill: var(--muted); font: 500 12px var(--mono); }
+.dist { width: 100%; border-collapse: collapse; font-size: 15px; }
+.dist td, .dist th { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); text-align: left; }
+.dist th { font: 600 12px/1.3 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.dist .r { text-align: right; }
+
+/* path */
+.path-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 820px) { .path-steps { grid-template-columns: minmax(0, 1fr); } }
+.step { display: grid; gap: 10px; align-content: start; padding: 18px 20px 20px; border-left: 3px solid var(--line); }
+.step:nth-child(1) { border-left-color: var(--copper); }
+.step:nth-child(2) { border-left-color: var(--gold); }
+.step:nth-child(3) { border-left-color: var(--cyan); }
+.step .when { font: 600 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.step p { font-size: 15px; color: var(--muted); }
+
+/* abilities */
+.abilities { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; }
+.ability { background: var(--surface); padding: 16px; display: grid; gap: 10px; align-content: start; border: 1px solid var(--line); }
+.ability .top { display: flex; gap: 12px; align-items: center; }
+.ability h3 { font-size: 16px; }
+.ability .kind { font: 500 12px/1 var(--mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.ability p { font-size: 15px; color: var(--muted); }
+
+table.cmp { width: 100%; border-collapse: collapse; font-size: 15px; }
+table.cmp th, table.cmp td { text-align: left; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.cmp th { font: 600 12px/1.3 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+table.cmp td:first-child { font-weight: 600; }
+.scroll { overflow-x: auto; min-width: 0; }
+
+/* bundle */
+.states { display: flex; gap: 18px; flex-wrap: wrap; }
+.state { display: grid; gap: 6px; justify-items: center; font-size: 13px; color: var(--muted); }
+.loadouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.loadouts .mc-tip { gap: 6px; }
+.loadouts .slot { --s: 32px; --b: 2px; }
+.bar { height: 6px; background: #3a3a3a; }
+.bar i { display: block; height: 100%; width: 100%; background: #6666ff; }
+
+/* navigator */
+.screen {
+  position: relative; aspect-ratio: 16 / 9; width: 100%; overflow: hidden;
+  background: linear-gradient(180deg, #070b1f 0%, #121d47 52%, #2d2b5c 74%, #4b3557 100%);
+  box-shadow: 0 0 0 3px #000000; font-family: var(--game); color: #ffffff;
+}
+.screen svg.stars { position: absolute; inset: 0; width: 100%; height: 100%; }
+.screen svg.land { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 46%; }
+.actionbar { position: absolute; bottom: 21%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: clamp(10px, 1.9vw, 19px); color: #ffffff; text-shadow: 2px 2px 0 #3f3f3f; display: flex; align-items: center; gap: 0.5em; }
+.actionbar img { width: 1.4em; height: 1.4em; }
+.actionbar .y { color: #ffff55; }
+.hud { position: absolute; bottom: 4%; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 4%; width: 56%; }
+.hud .off, .hud .bar9 { background: rgba(0, 0, 0, 0.55); box-shadow: 0 0 0 2px #000000; display: flex; }
+.hud .off { flex: 0 0 auto; }
+.hud .bar9 { flex: 1 1 auto; }
+.hud i { aspect-ratio: 1; box-shadow: inset 0 0 0 1px #8b8b8b; display: grid; place-items: center; }
+.hud .off i { width: clamp(20px, 4.2vw, 40px); }
+.hud .bar9 i { flex: 1 1 0; }
+.hud .off img { width: 82%; height: auto; }
+.hand { position: absolute; right: 7%; bottom: 14%; width: 22%; aspect-ratio: 1; filter: drop-shadow(4px 4px 0 rgba(0, 0, 0, 0.45)); }
+.hand img { width: 100%; height: 100%; }
+.needles { display: flex; flex-wrap: wrap; gap: 0; }
+.needles .slot { --s: 40px; --b: 3px; }
+.parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 22px; }
+.part { display: grid; gap: 8px; align-content: start; }
+.part h3 { font-size: 16px; }
+.part p { font-size: 15px; color: var(--muted); }
+
+/* review, bugs, costs, calls */
+.changes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 36px; }
+.change { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.change .what { font: 600 12px/1.5 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.found { display: grid; gap: 0; }
+.bug { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 18px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.bug p { font-size: 15px; color: var(--muted); grid-column: 1 / -1; }
+.bug .sev { font: 600 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--alert); border: 1px solid var(--alert); padding: 5px 7px; align-self: start; }
+.bug .sev.mid { color: var(--gold); border-color: var(--gold); }
+.buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+.bucket { background: var(--surface); border: 1px solid var(--line); padding: 18px; display: grid; gap: 8px; align-content: start; }
+.bucket .lvl { display: flex; gap: 4px; }
+.bucket .lvl i { width: 14px; height: 14px; background: var(--line); }
+.bucket .lvl i.on { background: var(--gold); }
+.bucket p { font-size: 15px; color: var(--muted); }
+ol.calls { margin: 0; padding-left: 22px; display: grid; gap: 12px; max-width: 72ch; }
+ol.calls li::marker { font-family: var(--display); color: var(--gold); }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 18px; display: grid; gap: 6px; }
+</style>
+
+<main>
+
+<header class="hero">
+  <div class="stack">
+    <div class="eyebrow">Balanced Minecraft Hardcore · item redesign proposal</div>
+    <h1>Death is a journey. The items should know it.</h1>
+    <p class="lede">The Totem of Eternity, the three Eternal tools, the Eternal Bundle and the Navigator's Amulet, redrawn and rethought: what they look like, how you get them, what they do. Gameplay came first, then an adversarial review, then the pixels. Nothing here is code yet.</p>
+  </div>
+  <div class="stack">
+    <div class="hotbar" role="img" aria-label="The proposed items in a row of inventory slots">
+      <div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABAElEQVR42mNkIBOI8In8Z2BgYGAiV/OFj68ZyDJAhE/kv5udE0P1y/cMDAwMDCzkaD7Cx8Ug4+5FmgtQNF+9wXDr/h2GN5/eMDJRohnDBSJ8Iv9hoUuMZhQDRPhE/j8+7cHw+tkSeBQR0szAwMDAiG7b8eliDDImRgyypjsYCGnG6d/4F+/+P/n//7+VvsV/K30LDG/h1awlJfbfx0Dzv9jiDf9vL9UiTjMs8HwMNOGaRPhE/i/KlCJsiAifyP/bS7X+f78Zg6EYW6ygA3gsyJ8KYTh+5AOK5JtPbxgJBRwLAwMDw/EjHxjczkcw7GJgYGBg4CEpbzAiZ02YraSYAADLAZDoNAak0wAAAABJRU5ErkJggg==" alt=""></div>
+      <div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA40lEQVR42mNgoBAw4pIQ4RP5j8x/8+kNVrUsuDRnxqUw3H1wj4GBgYHhweNHDAz3Gf5jM4gJm+YLH1/DNcOAIL8Aw/HpYhguY0LX7H3rFkOYgSXEVqjtr9+9YfDSFWc4fuQDhmuZ8AXQg8ePGO6UVDB46Yoz7L5wm6Fo6S/CXkAGr9+9YYhc3s2w+8Jthldf/mENSAwDtu8+BNcMsxmXZqzRKMIn8l+QX4AozTjj//ZSrf9aUmL/0UMcG8CIhWgbdYbjRz6QZ3O+lzXRNg8SzQwMDIwifCL/xXiYSPczvpxHCgAA6PeCwzqvdYkAAAAASUVORK5CYII=" alt=""></div>
+      <div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA/ElEQVR42mNgoBAwwhgifCL/0SXffHrDSJQBInwi/5mmzmFwWbkMRXLXoX0EDYIb4H3rFsNtdy8MBQqycngNwukFQX4BBgYGBgZRIREGBVk5hsbIKwyWma8wDMHpNJiBfdFsDJY2AgzxXXxw1yAbwoTLAJgiSxsBBq+KXzgDkQWfC6Jt1Bn8S28zMDDzMbx+9warOiZ8mndfuM3w6ss/hvcfP8Dl3OycUMKLhZBmJP/+h8UKThfg0QwHDx4/wm6ACJ/I/+PTxfBqxhkGMJuPH/mAV7PV6VMMd0oqMP2c72X9X0tK7D+2/ICuFl0NowifyH8xHiaSnI0z1ZEDAIlVgENnEm/pAAAAAElFTkSuQmCC" alt=""></div>
+      <div class="slot"><div class="anim" role="img" aria-label="totem of eternity" style="--n:30;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAHgCAYAAACsFu3MAAADBklEQVR42u3bP0gbYRzG8SeSIUipQaKD1KXoIrSlUiVKyKBULHSUQsthoOjQoZuTtZSidOrW0cnqmMGCQ+gcjFRJsQUhYjVoKJaGGIsYl/J28a75c1dTSsHW7wuB3Mt7v9zlnvczvHfnk0uzwgEzOzdS0Tcei2th5cSns5oVDphSxjLV/aWMZaxwoKbf51Vk6GZzRd/b94X6juB3m2vF0OWQcevPf8vXjPe77fxodEyfstvK7u06/V8LeUky1UX81TsPRQfU+f21Ru8HdeVWtyQpt5ZWKnms6aVgTZEG+08rL9QXCWpmMOlszwwm1RcJ1vzRkuR3rnksbhIb0up6Wqn2Y00potzp4ClFlEoWJTVW5iQWN377EGfnRjQeiyuxIU0vBfVUxYpfnF5q1MFhUcNdR5qdG1FuLf3zKtjXvS8S1PNX20psXNJQdECr62mngL3zs8dXlUoWnVz4qs+pfOfDFy8lSU2TE2ppDmlzZ0vDXUeS5ISqwS6wsHLiK0/a52vXded21PnuNc7vFpjs3q7aCnnFH45Jkto+fpCaQ2cn0c5Bdm/XDo7TWk4LbO5sVSTSV0+EfxVpHx7gAR7gAR7gAR7gAR7gAR7gAR7gAR7gAR7gAR7gQZ0eeE5pc5QwpYzlfNymMh7gwT/iQf/qO0nSck+vpweuGXhw955pnV80OWNMbL9gWucXTf+NsHHLh6cHTZMT6j7dbpqcwAM8wAM8wAM8wAM8+B88KGWsChPwAA/OtwcV52SFA8aezp3tHc507mzvcKazPc4zGHaB2H7B5Ixxinh50ODlwXJPr558OVD3whst9/TWl0Q8wAM8wAM8wAM8wIPz70G5CXiAB6wfXOz1AzzAAzzAAzzAAzzAAzcPbBPwAA94PvHiPp+IB3iAB3iAB3iAB7zP9NffZ/JCBQ/wgPUDPMADPMADPMADPMADPGD9AA94PvG8P5+IB3iAB3iAB3iAB3iAB3iAB3iAB3iAB3iAB3iAB3iAB3jA/UbuN+IBHuABHuABHuABHvzp+0w/AN2aNE3BX4yOAAAAAElFTkSuQmCC)"></div></div>
+      <div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA+UlEQVR42mNgGAW0BUI8Qv+FeIT+o7ORARM+zZ6WbgwMDAwM0a4R/7UVNbGqYyTkAm1FTYbXH94wvHr/muHdl3eMRBsgxCP0/+lZL4YnZ84xMDAwMBw/8oGhYPEPDEMYcWkuiMpmuHn/NsOjF48ZUm3uM8w+oojVJUz4NJ+9cZ6BgYGBYfYRRYZUm/sMogIiDGKCogzIgcmEz2ZkEFrgxDCv4j2GIUz4NIsKiDC8/vCGYdcaRQZDl9MMvhV/GVJt7qMYzIIcZbuP78MID1EBEXhA4oxGIR6h/2KCogyiAiI4Faba3GfYdf4dw8OvxiiByYjsBVJSKSwmAJg1dy+6iO0sAAAAAElFTkSuQmCC" alt=""></div>
+      <div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABIElEQVR42rVTv2vCQBh9BscMehj3G6QNmYKTkKmIYMHRpXumLhn9a1wEB3EvOBc69NccMhzVFsSEeEMLXcp10SO53NlS6JuO497jfd97B/wXiE0EsYlQzyosEzm6usawNwCxiRj2BvCoC51I3eQgZgnOaAcAsN5ukPJM+652agSPugCAlGfY7VPk73ntVwLEJuLt8RKvD0/y7u6WI5p9VkTqpvn9/gJOoyXvw4DDoy5SnomiG0tHnt8s0D33jQm1m45cqKWSY5bAabSw3m5KpHF0gelkX3JVcRCzpEIEgNWSwu/fYzT5Qhiwn3ugorhMYwrF2HQIA4bVc46Xj24p1pJAu+lUZlRxLNRRQMZ4iEVWVSekkrVFMn2aInSN/DO+AWb2g+Bl6+F2AAAAAElFTkSuQmCC" alt=""></div>
+      <div class="slot"><div class="anim" role="img" aria-label="eternal bundle full" style="--n:32;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAIACAYAAACLuuzTAAACTUlEQVR42u3aP2hTURSA8e/VoEMDmoeJi0sW/yAdpGPTIoqDm4tgHeIUEFwyCq4Kopur4GAGF4eCQ6FdSgi4iE4O4hDUDtXUlwwtKA7XKeElfQlRCSh8Z7o83jm8c+99v+nALCLOxyHOxyFrDXBzJwn9d6Os5B8rFwCYX60CsP/8GQBHmlske8lQTi7rC67+PMxm9TpXLq8AsA6cfviId7/TwvLCUig11kKpsRaWF5YGbYxGZgulQpGXDw4NPX/V6lFvfD/QQpSVvHjmPJ92Pg8VqFXaPGmV6fR2+drtDArl0sn1G7d53/5wIHk0SoUiQEj2kmhu2uRr9Ys8vdOleOz40PO5/mJS8saLMreOPubepRa1Sju7wKTYfv2G9c0mY08hzsfhXPnsxCK1SpuNtwkf9xeHNjJK7/5of1nR6e0CDArkgP6RDC7KuEKjyZn3YJo9Gb1M/2DogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7MyoPtEMLY3zntQWm1GvoezEOguQXAySiK9OC/9ODbqcbfeXD3S5f7Jwp6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAdMGieaxoPZzCOlx6T0wHkkPdADPdADPdADPdADPdADPdADPdADPdADPdADPdADPdADPdADPdADPdADPdCDP/EgPSalB84j6YEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6MHU8QufROQAMnJWfwAAAABJRU5ErkJggg==)"></div></div>
+      <div class="slot"><div class="anim" role="img" aria-label="needle spin" style="--n:32;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAIACAYAAACLuuzTAAAERElEQVR42u3dT0iTYRwH8O87BpsQDAwhaL52UDALgi4jFA9BkCYdBCkK7NCfgwRJVHgSDwWyLkZdjDo0MIRuuVanEJqYO8jQrYbFijkPtRCVYArh2+Htfd27vXN7n61t2fe5vdv7PM/77/nwPr/neTbgT2pvO6QM9J1SUCAN9J1S2tsOKUXtILuciuxyKlYq0AuRXU7lw91uZfL8UUV2OfNmlvIVotWspcT6plRUAVrG6MQt/bPl8DxO339rWpCUnTkz47HhOAKOKLbPHAQALEQSuPP6s6EQu9lhHRuOG7Y7x1cBAI/ac/e1mdU+/3ICALCRisO/nDJk8HY1G66Pzaz242cvYiMVx+fZWRweXNG/uz6zD+9iPwz7m57CRko9Be/VOUwvPtnlXmUdwXJ4Hv7eNX37cWQQL0N39O1z+7/mLyCxvilpt2q3NPVlzXAXcm6jt6vZcM7ZNe9aQOaD5O1qNlywqS9rhR8kkUe5fIke0AN6QA/oQQU8AKA/3kIeBBxR4BXQkawT96AjWfevenDzaT2WpMjf9SDnFBYiCf1qt3r689ZMD+gBPaAH9IAeVMeDjVQcneNA0J0GmgQ8AIAhJaGbkO2B3bz2HQ9mJoFLD07oHmS3i5I9sOd6AHSOA7E5n9oaMzIX7YGemf0FekAP6AE9oAd71wPheKKWgu60uAcfxw4CaCjeg5B/RK3tsurBkiRjNGnBA0NTFvGgbP0FMw/YX6AH9IAe0AN6sEc8EI4nPrsxaz2emO3BEBLoaWwAADxM57kLssupvLl9EsDOGGt20lplZpOmB/SAHtADekAP6EElPPhl+4SQf0TcA+11/9rRMYMHmSOflj0IutN4mP4m7oFWOz2gB/SAHtADelDbHtjMDmvreL+eWfVgNe/7s6kH9u0WhPwjRXlQ/fHGgvOVl6QIhpREafHEUUnWY6rCHmR3degBPaAH9IAe0IPK9xdC/hG0evrF+wtmyVI80b7dItZfKKsHvQiUNt7Y09igW8D5SPSAHtADekAP9kA8UTPhr8UTC/cXnsPQNirfXyiLB+B4Iz2gB/SAHtADerBXPKhf7BVf7xx0p3MssORBmB7QA3pAD+gBPajp+UixOR9ws1fMg8y1v0Ljja2eaow3DikJfbzRsgdBdxqjkgzh+cpoAh41/aQH9IAe0AN6QA/+x/nKRXngufAJgDoNuSgPAo4o/EpK92DpQQSWfg8Fr9QpRIgMiq13NpsZzXgiPaAH9IAe0AN6UK31zgFHVD3vDA9iIZ9hnRPXO9MDekAP6AE9oAeV9kBrkcIeAMDA92nx9c4dyTpAkrFKD+gBPaAH9IAe0IPyeLBybwrdW0fEPTjwIoyB79MlxhMluYbWO8fmfKWtd2719OuFcD0TPaAH9IAe0IN/tL8QcEQRcKgv3kLxxO6tIzn/5Wo5nnjl/UoNrHfm/7nSA3pAD+hBBT34DZcf4UcNPE53AAAAAElFTkSuQmCC)"></div></div>
+      <div class="slot"></div>
+    </div>
+    <p class="caption">16x16 textures drawn at the game's own scale, shown 3x. The totem and the full bundle play their .mcmeta animations; the amulet's needle spins the way it does in the Nether.</p>
+  </div>
+  <div class="compare" aria-label="Current icons above, proposed icons below">
+    <span class="lab">Now</span>
+    <div class="row">
+      <div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABhGlDQ1BJQ0MgUHJvZmlsZQAAeJx9kT1Iw0AcxV9TpSIVQQuKOASsTnZREcdSxSJYKG2FVh1MLv2CJg1Jiouj4Fpw8GOx6uDirKuDqyAIfoA4OzgpukiJ/0sKLWI8OO7Hu3uPu3eA0Kgw1eyKAqpmGal4TMzmVsXAK/wQMIQxDEjM1BPpxQw8x9c9fHy9i/As73N/jj4lbzLAJxJHmW5YxBvEs5uWznmfOMRKkkJ8Tjxp0AWJH7kuu/zGueiwwDNDRiY1TxwiFosdLHcwKxkq8QxxWFE1yheyLiuctzirlRpr3ZO/MJjXVtJcpzmKOJaQQBIiZNRQRgUWIrRqpJhI0X7Mwz/i+JPkkslVBiPHAqpQITl+8D/43a1ZmJ5yk4IxoPvFtj/GgcAu0Kzb9vexbTdPAP8zcKW1/dUGMPdJer2thY+A/m3g4rqtyXvA5Q4w/KRLhuRIfppCoQC8n9E35YDBW6B3ze2ttY/TByBDXS3fAAeHwESRstc93t3T2du/Z1r9/QCID3KvVToGRgAAAUlJREFUeNqdk71LwwAQxV/aptFIsZQilNZIKA6hQtVVKckW6+hf4VhXBx1K6SaC4KAUnAoi4iYiOAl+lA6iDUWoaBWtIkkgkxJ7Tga0oknedMvv7nHvjoEP5SWZvuqgH3hyZhoDiShOzg4R8gqP5sahmwae2g/eHOQlmbjkIChAeL5p4uqijpapMyG3cGIiDcIHjBcDmqahZeoMADBuYDYRQSDMwLYMaI2GAwNA4D+4031E+76J7jv1wL86WKmu0WXtDp39Gm7Na7B9YUwpszjYrfbAPVpYKtNxfYcEjqdMMkWZZIoEjqd0NEauo5pfXCbbfiXFKjoNPB2KwPGkWEXC9hgJHE+lSvnPBt+WmBVFmlNyditewjoVUDnaBPsWcz+9oKo0wkeciasbW+7sZ0WRCqpKfh4rlJdkkoaD2Ds9hy8N9ce9xfRDn6UEiq8l1jOvAAAAAElFTkSuQmCC" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABhmlDQ1BJQ0MgUHJvZmlsZQAAeJx9kT1Iw1AUhU9TpSIVESuIOGSoDmJBrIijVLEIFkpboVUHk5f+CE0akhQXR8G14ODPYtXBxVlXB1dBEPwBcXZwUnSREu9LCi1ivPB4H+fdc3jvPkCol5lqdkwAqmYZqXhMzOZWxMArfOjDAMYQlZipJ9ILGXjW1z11U91FeJZ335/Vo+RNBvhE4lmmGxbxOvH0pqVz3icOsZKkEJ8Tjxt0QeJHrssuv3EuOizwzJCRSc0Rh4jFYhvLbcxKhko8RRxWVI3yhazLCuctzmq5ypr35C8M5rXlNNdpDSOORSSQhAgZVWygDAsR2jVSTKToPObhH3L8SXLJ5NoAI8c8KlAhOX7wP/g9W7MQnXSTgjGg88W2P0aAwC7QqNn297FtN04A/zNwpbX8lTow80l6raWFj4DebeDiuqXJe8DlDjD4pEuG5Eh+WkKhALyf0TflgP5boHvVnVvzHKcPQIZmtXQDHBwCo0XKXvN4d1f73P7tac7vB93WctL4PRX1AAABOklEQVR42qWSPUvDUBSGnytKMNDBGgVpGqQioXYTS7eWIlLRoaD+gKx2EXTt5pB/IaijLg6K+A9CVVxqcbBIrZNREVERCtepl1YaUuq7nXN5zn3PhyBEthmXnfFd81F0xkNhsOOUcJxSTzj0Z7fsykI2J/+66JQIgldWN7itXatczasQMaIAVJ+aIrQF/82n5lUAeKjXqX822N+t8uG/Bs6n68HSdAlgabpstXx5ufcut4pHKm+bcWmbcdnTwffzC42fLwEQMaLcHIxweHLB+dU2yUxaDRdguFeBNpyKmXJ5zmZtcwqAZCYNwHQiEb6FVMyUzsK8stxup5DNSbfsqs2IIHhyZpZ7z1NuLE2XueI6xpjB2emxugnRLzw6MR54jV1wPpvvst23/g3vLC0OBluaPjjcLjAwDPwComyKbOwco3AAAAAASUVORK5CYII=" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABhGlDQ1BJQ0MgUHJvZmlsZQAAeJx9kT1Iw0AcxV9TpSIVQQuKOASsTnZREcdSxSJYKG2FVh1MLv2CJg1Jiouj4Fpw8GOx6uDirKuDqyAIfoA4OzgpukiJ/0sKLWI8OO7Hu3uPu3eA0Kgw1eyKAqpmGal4TMzmVsXAK/wQMIQxDEjM1BPpxQw8x9c9fHy9i/As73N/jj4lbzLAJxJHmW5YxBvEs5uWznmfOMRKkkJ8Tjxp0AWJH7kuu/zGueiwwDNDRiY1TxwiFosdLHcwKxkq8QxxWFE1yheyLiuctzirlRpr3ZO/MJjXVtJcpzmKOJaQQBIiZNRQRgUWIrRqpJhI0X7Mwz/i+JPkkslVBiPHAqpQITl+8D/43a1ZmJ5yk4IxoPvFtj/GgcAu0Kzb9vexbTdPAP8zcKW1/dUGMPdJer2thY+A/m3g4rqtyXvA5Q4w/KRLhuRIfppCoQC8n9E35YDBW6B3ze2ttY/TByBDXS3fAAeHwESRstc93t3T2du/Z1r9/QCID3KvVToGRgAAAS9JREFUeNqlkrFKw1AUhr8bHAQztLYULS0lUelUguKgdCnERaSzm3XVx/AZfAK3boK42FFwcYilQynYWIiClKaJojgoXKcGrWls9FvP/f5zz7lXEEIxl5dMoHPviP31taAuJh0s5vKyVjsAoD/oA+B6LrZjA7ChzuJ63uSAUcjHyysA1d09Wp0WjUadnacHnquHrLy/MTVLiXlpVky5PWjKwvGRLG+WZeQI4xiaLldTCRw1CUA2k+Xq4hwljmy5Pr0bi1KxRCqZAvg9wNB0ubWscXnbo3lni64/FGf1k6CuTNP59Nqi6w+/jZtJZ6IDvnYel4Hof2BoulQXFnlst8Pk4FVCb2BoukwXtEgZoOsPxYw691M2K6YcpU+DiHPtMJT/yADKaNt/kYNtxpl5nE8RsoPBJ3bkHwAAAABJRU5ErkJggg==" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABhGlDQ1BJQ0MgUHJvZmlsZQAAeJx9kT1Iw0AcxV9TRdGKgx2kOGSoTlaKijhKFYtgobQVWnUwufQLmjQkKS6OgmvBwY/FqoOLs64OroIg+AHi7OCk6CIl/i8ptIjx4Lgf7+497t4BQqPCVLMrCqiaZaTiMTGbWxV7XiEghH5EMSExU0+kFzPwHF/38PH1LsKzvM/9OQaUvMkAn0g8x3TDIt4gntm0dM77xEFWkhTic+Jxgy5I/Mh12eU3zkWHBZ4ZNDKpeeIgsVjsYLmDWclQiaeJw4qqUb6QdVnhvMVZrdRY6578hYG8tpLmOs0RxLGEBJIQIaOGMiqwEKFVI8VEivZjHv6Q40+SSyZXGYwcC6hCheT4wf/gd7dmYWrSTQrEgO4X2/4YBXp2gWbdtr+Pbbt5AvifgSut7a82gNlP0uttLXwEDG4DF9dtTd4DLneA4SddMiRH8tMUCgXg/Yy+KQcM3QJ9a25vrX2cPgAZ6mr5Bjg4BMaKlL3u8e7ezt7+PdPq7wfgdXLTNXk7WAAAAW1JREFUeNqNkrFLAmEYxn8XZeRdwy12iKJLHqKBQdTc0NTe1N/S0B/Q3BZUgxYURhDY0OJsQpZ4TaLJ4XIEWsidXIPdh90d5gPf8L3f9z7v+z7vIxECPZF0w+KtbkfyxxbDktPZHBv5PEazJeKjsQ3g+kkW/AT94QCAl0aDm/szjg4uvWTxNpNgGvXzJS7KlVlfgiMARJxJxeOrQ0ZjW9zDENrB7WOJwd0u7uiLiGNTrpRwrk/mJ9j7PuXpoYhe2ERajrL/+cFbsRxKEFiLqqpuStNIanGk5agYoWP2aJsmlmVJAQ38e2+bJgBriRSASI7JCjFZcad9IURMZ3NEHJtqvcb21s6karcNQFKLC2Kvu2q99ncEVVVdgJisoOcLZLI6RrMlPBBxbIx3Q3jBG0V04AVisuKOxjat+vMk8fe9Y/boDwfhGgSc2HxlXgTWaFmW1B8OyKxnWFlVxAmr/q+VPXgizuUDv6h+jfz4AQhMpaLES84TAAAAAElFTkSuQmCC" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABoklEQVR42sWTu2obQRSGvwmplmEt2xDYlb3GzWq1xrAgEATSBduFniCpDK5SuU0XUqdSlSqQTk/gJ0hhCAQMAUV2EyTbK7EQXZZBLieFPGONIwipcmBgOMz/8Z/LwP8O8TjRzBra3L9efBP/BGhmDb0bbTMrFQDj6YS/wcRj8ffeD5QqnUdS+khPAqDmiu7VpdU9WX44KxX7SR0pfQegVMmoyBkVOdKTpHFNO4Bm1tCt+MHh4csD0njvD5CUPhuVdSdnHZwXFZ4/mzIrFcPbG5J6Yt2Ys5/UFyBPEoWBBnhqAGu+5LyA01c7tDt9ZmWPpJ4QVLcY3t7YEsfTCa1Y8KmAKAy0SOOajsJtCwE4bm0C8PnsFz8H16i5sr04eVHl7Eqj5gqlSkQa17T0JBuVddZ8SVDdsvUdZXcWZMDvPl44QBGFgU7jPZZLARzQ6etdet2uI5aeZFTkiyYO8mvG08lK8VF2x9sPX2h3+rx/k61epCgMtFkWU4qJ49Ym7U7f2UqAUZEzyIfCDt+Mxczb2HQW6r5xC9dDsfIzLYNWhRGa+A1BSqVoiwXFIQAAAABJRU5ErkJggg==" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABSklEQVR42q2SzUoCURzFfxNB1MjgwpxUKEEEP0AXli4EN75DD9BLRKvoDdr0Er6D+7A2BlkgggnONOZiGGaMVrdF3IsfMxLUWV2495x7zv/84Y/Qoi4qxbIACD4DAEbjsfZrgUqxLI7TaSaWxWzuAKDrMQCCwOf9Y654O9vsndVqJBOmImbMDMmEydFhQsg3u2HEp5dnDRBSxLFtACaWtfE2VODm/FTU21Uub+/x/AWu5yLnsR5hYwatRlMAtE++qLerFEolXgcDet0+ANedRy1yiK1GUxixA8xUCoDhcMTVRYFet0/3bY+pM40e4joZIJ/PqbPruej7+kbcrS04ts1dZwJA3IirOkNbcD0XI3awIiDdPNhg/KyBWqxQB56/UJVFYT2GcrCiHCKyXGdkC7lsVshfZGYZT2I2d7bvwbLQMoLAB1gh/wu+Aa5Nh7CTJ9ayAAAAAElFTkSuQmCC" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABhGlDQ1BJQ0MgUHJvZmlsZQAAeJx9kT1Iw0AcxV9TRdGKgx2kOGSoTlaKijhKFYtgobQVWnUwufQLmjQkKS6OgmvBwY/FqoOLs64OroIg+AHi7OCk6CIl/i8ptIjx4Lgf7+497t4BQqPCVLMrCqiaZaTiMTGbWxV7XiEghH5EMSExU0+kFzPwHF/38PH1LsKzvM/9OQaUvMkAn0g8x3TDIt4gntm0dM77xEFWkhTic+Jxgy5I/Mh12eU3zkWHBZ4ZNDKpeeIgsVjsYLmDWclQiaeJw4qqUb6QdVnhvMVZrdRY6578hYG8tpLmOs0RxLGEBJIQIaOGMiqwEKFVI8VEivZjHv6Q40+SSyZXGYwcC6hCheT4wf/gd7dmYWrSTQrEgO4X2/4YBXp2gWbdtr+Pbbt5AvifgSut7a82gNlP0uttLXwEDG4DF9dtTd4DLneA4SddMiRH8tMUCgXg/Yy+KQcM3QJ9a25vrX2cPgAZ6mr5Bjg4BMaKlL3u8e7ezt7+PdPq7wfgdXLTNXk7WAAAAXBJREFUeNq1kztLw2AUhp8ktCCtiktwCARcdXAULzjpIHbTwb9QcBfsWBU38Tb4ExQnBcGO3tDJwQoKVYoZVKxpm9Q2/Zp8DiJUtK0OnvXwnvPyvOfAf1dvT79s1ldbiQuu3XRI0wEF1yaRilFw7b87MHRTrl2MQFAkkYph6OaPLpRG4sXDAUp+BKdcxbZdKp5gJ36F9ZxVmjowdFOunA5TCjpAa2M9eYMQNTRNZXqz75sTtR6YoZty9XwUpxzGE7A0d4GwbtneeqLq+bzmqkxt9GLopvwEq9bTTqRivBQjVIRGqeR+bJAfO3xfEolqvOaqTG/28ZmOCpC+u1Q6o10kx/ao+ZJ88Q3Lcr6xcR0fzwvYiV/RGe0ifXepKD8xmN0dwqsI0tc5zg4cBifaCYVUhAg4Tma+gGyYwvzhJNbDI/fZPEEgkRJOFjKtUwCwnrPKwvg+3d064bDaUNyyDN2Uy0czstER/eqR6iP7l298B4TxuHwYCuQYAAAAAElFTkSuQmCC" alt=""></div>
+    </div>
+    <span class="lab">New</span>
+    <div class="row">
+      <div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABAElEQVR42mNkIBOI8In8Z2BgYGAiV/OFj68ZyDJAhE/kv5udE0P1y/cMDAwMDCzkaD7Cx8Ug4+5FmgtQNF+9wXDr/h2GN5/eMDJRohnDBSJ8Iv9hoUuMZhQDRPhE/j8+7cHw+tkSeBQR0szAwMDAiG7b8eliDDImRgyypjsYCGnG6d/4F+/+P/n//7+VvsV/K30LDG/h1awlJfbfx0Dzv9jiDf9vL9UiTjMs8HwMNOGaRPhE/i/KlCJsiAifyP/bS7X+f78Zg6EYW6ygA3gsyJ8KYTh+5AOK5JtPbxgJBRwLAwMDw/EjHxjczkcw7GJgYGBg4CEpbzAiZ02YraSYAADLAZDoNAak0wAAAABJRU5ErkJggg==" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA40lEQVR42mNgoBAw4pIQ4RP5j8x/8+kNVrUsuDRnxqUw3H1wj4GBgYHhweNHDAz3Gf5jM4gJm+YLH1/DNcOAIL8Aw/HpYhguY0LX7H3rFkOYgSXEVqjtr9+9YfDSFWc4fuQDhmuZ8AXQg8ePGO6UVDB46Yoz7L5wm6Fo6S/CXkAGr9+9YYhc3s2w+8Jthldf/mENSAwDtu8+BNcMsxmXZqzRKMIn8l+QX4AozTjj//ZSrf9aUmL/0UMcG8CIhWgbdYbjRz6QZ3O+lzXRNg8SzQwMDIwifCL/xXiYSPczvpxHCgAA6PeCwzqvdYkAAAAASUVORK5CYII=" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA/ElEQVR42mNgoBAwwhgifCL/0SXffHrDSJQBInwi/5mmzmFwWbkMRXLXoX0EDYIb4H3rFsNtdy8MBQqycngNwukFQX4BBgYGBgZRIREGBVk5hsbIKwyWma8wDMHpNJiBfdFsDJY2AgzxXXxw1yAbwoTLAJgiSxsBBq+KXzgDkQWfC6Jt1Bn8S28zMDDzMbx+9warOiZ8mndfuM3w6ss/hvcfP8Dl3OycUMKLhZBmJP/+h8UKThfg0QwHDx4/wm6ACJ/I/+PTxfBqxhkGMJuPH/mAV7PV6VMMd0oqMP2c72X9X0tK7D+2/ICuFl0NowifyH8xHiaSnI0z1ZEDAIlVgENnEm/pAAAAAElFTkSuQmCC" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABiElEQVR42pWSP0gCcRTHPxc3SEQdYovUErQEBUWDwuGgJLW7BEdC5NDQ1hRFhNLU1uhkON7oIM0HColhgaD0R1RaEtOIcolr8S5Pz7Q3/X5f3vv+3u+9j4BNKB6HHk+ELFokrJLMdgRGheJx6F8lRe/Xv0qKrngcA7owzCS46rRo17fN8Tr4b9g6uqZdup3eeG8M5It2xfs7ezxWnqjUqqb+2mwA6P0mYn9x0Odn8fuKnW2JufU1AOq5PBntk2hKGjCZMIbWa+SVJWIBzbzHAhpeWRoYNIBo7jys6uki3BTyZOY/OUam3k0+RiajtYBJKydhVReNFuOJEJGwSroI0ZTECS3Li9HUJG/tFptLH8QTIeq5/O8WjL17ZYmzyyfSxSmCPj83hbxpYBSfHiyQ0VomF0L/n3qL2+cXAMwcHTLrdFF+fmBz6QPAhGrCMEhmO0IvaS/LK2xt+MzzsDzRDphKrYq72UDd3QPAfX8HTtdoEg0OKrWqAY4Zs12D8vODhUhhHIT/QvoHSo20dcjTcO8AAAAASUVORK5CYII=" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA+UlEQVR42mNgGAW0BUI8Qv+FeIT+o7ORARM+zZ6WbgwMDAwM0a4R/7UVNbGqYyTkAm1FTYbXH94wvHr/muHdl3eMRBsgxCP0/+lZL4YnZ84xMDAwMBw/8oGhYPEPDEMYcWkuiMpmuHn/NsOjF48ZUm3uM8w+oojVJUz4NJ+9cZ6BgYGBYfYRRYZUm/sMogIiDGKCogzIgcmEz2ZkEFrgxDCv4j2GIUz4NIsKiDC8/vCGYdcaRQZDl9MMvhV/GVJt7qMYzIIcZbuP78MID1EBEXhA4oxGIR6h/2KCogyiAiI4Faba3GfYdf4dw8OvxiiByYjsBVJSKSwmAJg1dy+6iO0sAAAAAElFTkSuQmCC" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABIElEQVR42rVTv2vCQBh9BscMehj3G6QNmYKTkKmIYMHRpXumLhn9a1wEB3EvOBc69NccMhzVFsSEeEMLXcp10SO53NlS6JuO497jfd97B/wXiE0EsYlQzyosEzm6usawNwCxiRj2BvCoC51I3eQgZgnOaAcAsN5ukPJM+652agSPugCAlGfY7VPk73ntVwLEJuLt8RKvD0/y7u6WI5p9VkTqpvn9/gJOoyXvw4DDoy5SnomiG0tHnt8s0D33jQm1m45cqKWSY5bAabSw3m5KpHF0gelkX3JVcRCzpEIEgNWSwu/fYzT5Qhiwn3ugorhMYwrF2HQIA4bVc46Xj24p1pJAu+lUZlRxLNRRQMZ4iEVWVSekkrVFMn2aInSN/DO+AWb2g+Bl6+F2AAAAAElFTkSuQmCC" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABNklEQVR42qWSPUjDUBSFv0iHCIUMrhI7ZJAiOIpUuhWMY6EoCDq5lI4iTk5OcXIsOAmFzlpwE0FD6RKKf3QoUVK3OrRd7PZcTOhL0h/1bO9xv3Peu/fCjzLplCgWcoIpKhZyIpNOiZkKdE0VuqaK3wQEJrqmitfTLVHdWRG6po6FlXEmfrIvrz9UZjLwwZfKYXDXaTpsnt3GGilheBRcPXEBqOV7ADw+exzdtCWTRNyzfBBg0HXJluFh8QuWorVzcenOVSWAAY6Fx8bHPACWaUj9ScSn7zLourTrdewq7J+vA1Cyk2wvvEv1sV/wk62DBndPFxNmFTLoNB1qeciWodW4ZHltT4LD6VIPvP5Q8UcVwDG6futJU4iM0TKN4Fyyk5HkiQaji2SZBvetTwmcukh/WeV/6xvmAYy8lbqeCAAAAABJRU5ErkJggg==" alt=""></div>
+    </div>
+  </div>
+</header>
+
+<section class="stack-lg" aria-labelledby="rules-h">
+  <h2 id="rules-h">Four rules behind every choice</h2>
+  <div class="pillars">
+    <div class="pillar"><h3>Death is a journey</h3><p>On Normal you wake 23,333 blocks from your bed. Every item serves the walk home, or the new start where you landed.</p></div>
+    <div class="pillar"><h3>Eternity comes from what cheats death</h3><p>A Totem of Undying refuses death. Echo Shards are what remains: the recovery compass is made of them. Crying Obsidian brings you back: it is the respawn anchor's stone. The real gates are an evoker (only they drop the totem) and an Ancient City (the only source of shards). The tools add the Wither.</p></div>
+    <div class="pillar"><h3>Eternity has weight</h3><p>Each Eternal Item you carry pushes your respawn about 6,100 blocks farther. Nobody sees it today. Shown, it turns carrying eternal items into a decision.</p></div>
+    <div class="pillar"><h3>Mortal and eternal read at a glance</h3><p>Eternal: netherite black, gold, echo cyan, a small gold ring. Mortal: warm copper and a night-blue face. The amulet is the only mortal one, and it looks it.</p></div>
+  </div>
+</section>
+
+<section class="stack-lg" aria-labelledby="weight-h">
+  <div class="chapter-head">
+    <div class="eyebrow">The mechanic everything hangs on</div>
+    <h2 id="weight-h">The weight of eternity</h2>
+  </div>
+  <div class="rings-wrap">
+    <figure class="rings" style="margin:0">
+      <svg viewBox="0 0 420 420" role="img" aria-label="Respawn circles around the bed on Normal, from 23,333 blocks with no Eternal Item to 60,000 with six"><circle class="ring" cx="210" cy="210" r="192.0"/><circle class="ring" cx="210" cy="210" r="172.4"/><circle class="ring" cx="210" cy="210" r="152.9"/><circle class="ring" cx="210" cy="210" r="133.3"/><circle class="ring" cx="210" cy="210" r="113.8"/><circle class="ring" cx="210" cy="210" r="94.2"/><circle class="ring0" cx="210" cy="210" r="74.7"/><rect class="lblbg" x="241.6" y="137.7" width="16" height="17"/><text class="lbl" x="249.6" y="150.7" text-anchor="middle">0</text><rect class="lblbg" x="251.9" y="121.1" width="16" height="17"/><text class="lbl" x="259.9" y="134.1" text-anchor="middle">1</text><rect class="lblbg" x="262.3" y="104.5" width="16" height="17"/><text class="lbl" x="270.3" y="117.5" text-anchor="middle">2</text><rect class="lblbg" x="272.7" y="87.9" width="16" height="17"/><text class="lbl" x="280.7" y="100.9" text-anchor="middle">3</text><rect class="lblbg" x="283.0" y="71.3" width="16" height="17"/><text class="lbl" x="291.0" y="84.3" text-anchor="middle">4</text><rect class="lblbg" x="293.4" y="54.8" width="16" height="17"/><text class="lbl" x="301.4" y="67.8" text-anchor="middle">5</text><rect class="lblbg" x="303.7" y="38.2" width="16" height="17"/><text class="lbl" x="311.7" y="51.2" text-anchor="middle">6</text><line class="path" x1="210" y1="210" x2="126.8" y2="254.2"/><rect class="you" x="121.8" y="249.2" width="10" height="10"/><text class="note" x="122.8" y="278.2" text-anchor="middle">you wake here</text><image href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAJCAYAAADgkQYQAAAAZ0lEQVR42mNgQAMifCL/GfABET6R/7eXav3HqRCm4PvNGAyFTDAFx6eLMciYGDEwMDAwyJgYMRyfLga3mhGmABewzHzFwAgz6caNYxgKNDSsGN58esPIhE0CHTAxEAEYCYXNm09vGAHl2CdOFa9stQAAAABJRU5ErkJggg==" x="196.5" y="196.5" width="27" height="27" style="image-rendering:pixelated"/><text class="note" x="210" y="240" text-anchor="middle">bed</text></svg>
+    </figure>
+    <div class="stack">
+      <p>Your respawn is a random point on a circle around your bed. The circle grows with the difficulty and with every Eternal Item in your inventory, between 5,000 and 60,000 blocks with the default config.</p>
+      <div class="scroll">
+        <table class="dist">
+          <thead><tr><th>Eternal items carried</th><th class="r">Radius on Normal</th><th class="r">Same walk in the Nether</th></tr></thead>
+          <tbody>
+            <tr><td class="num">0</td><td class="num r">23,333</td><td class="num r">2,917</td></tr>
+<tr><td class="num">1</td><td class="num r">29,444</td><td class="num r">3,680</td></tr>
+<tr><td class="num">2</td><td class="num r">35,555</td><td class="num r">4,444</td></tr>
+<tr><td class="num">3</td><td class="num r">41,666</td><td class="num r">5,208</td></tr>
+<tr><td class="num">4</td><td class="num r">47,777</td><td class="num r">5,972</td></tr>
+<tr><td class="num">5</td><td class="num r">53,888</td><td class="num r">6,736</td></tr>
+<tr><td class="num">6+</td><td class="num r">60,000</td><td class="num r">7,500</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted small">With nothing eternal: Peaceful 11,111, Easy 17,222, Normal 23,333, Hard 29,444. The Nether column is why the fast way home goes through the Nether.</p>
+      <p><strong>Proposal:</strong> every Eternal Item says in its tooltip that it is heavy with eternity, and the amulet's star fix gives the actual radius you would wake on if you died now. The number comes from the server, because a tooltip is drawn on the client and cannot know a server's config.</p>
+    </div>
+  </div>
+</section>
+
+<section class="stack-lg" aria-labelledby="path-h">
+  <div class="chapter-head">
+    <div class="eyebrow">Progression</div>
+    <h2 id="path-h">The path</h2>
+  </div>
+  <div class="path-steps">
+    <div class="step">
+      <span class="when">1 · First hours</span>
+      <div class="row"><div class="slot sm"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABNklEQVR42qWSPUjDUBSFv0iHCIUMrhI7ZJAiOIpUuhWMY6EoCDq5lI4iTk5OcXIsOAmFzlpwE0FD6RKKf3QoUVK3OrRd7PZcTOhL0h/1bO9xv3Peu/fCjzLplCgWcoIpKhZyIpNOiZkKdE0VuqaK3wQEJrqmitfTLVHdWRG6po6FlXEmfrIvrz9UZjLwwZfKYXDXaTpsnt3GGilheBRcPXEBqOV7ADw+exzdtCWTRNyzfBBg0HXJluFh8QuWorVzcenOVSWAAY6Fx8bHPACWaUj9ScSn7zLourTrdewq7J+vA1Cyk2wvvEv1sV/wk62DBndPFxNmFTLoNB1qeciWodW4ZHltT4LD6VIPvP5Q8UcVwDG6futJU4iM0TKN4Fyyk5HkiQaji2SZBvetTwmcukh/WeV/6xvmAYy8lbqeCAAAAABJRU5ErkJggg==" alt=""></div><h3>Navigator's Amulet</h3></div>
+      <p>Iron, redstone, copper, amethyst, string. Before the Nether. Today it needs 4 Eyes of Ender, so it arrives after blazes and endermen, while you have no coordinates at all.</p>
+    </div>
+    <div class="step">
+      <span class="when">2 · Mid to late game</span>
+      <div class="row"><div class="slot sm"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABiElEQVR42pWSP0gCcRTHPxc3SEQdYovUErQEBUWDwuGgJLW7BEdC5NDQ1hRFhNLU1uhkON7oIM0HColhgaD0R1RaEtOIcolr8S5Pz7Q3/X5f3vv+3u+9j4BNKB6HHk+ELFokrJLMdgRGheJx6F8lRe/Xv0qKrngcA7owzCS46rRo17fN8Tr4b9g6uqZdup3eeG8M5It2xfs7ezxWnqjUqqb+2mwA6P0mYn9x0Odn8fuKnW2JufU1AOq5PBntk2hKGjCZMIbWa+SVJWIBzbzHAhpeWRoYNIBo7jys6uki3BTyZOY/OUam3k0+RiajtYBJKydhVReNFuOJEJGwSroI0ZTECS3Li9HUJG/tFptLH8QTIeq5/O8WjL17ZYmzyyfSxSmCPj83hbxpYBSfHiyQ0VomF0L/n3qL2+cXAMwcHTLrdFF+fmBz6QPAhGrCMEhmO0IvaS/LK2xt+MzzsDzRDphKrYq72UDd3QPAfX8HTtdoEg0OKrWqAY4Zs12D8vODhUhhHIT/QvoHSo20dcjTcO8AAAAASUVORK5CYII=" alt=""></div><div class="slot sm"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABIElEQVR42rVTv2vCQBh9BscMehj3G6QNmYKTkKmIYMHRpXumLhn9a1wEB3EvOBc69NccMhzVFsSEeEMLXcp10SO53NlS6JuO497jfd97B/wXiE0EsYlQzyosEzm6usawNwCxiRj2BvCoC51I3eQgZgnOaAcAsN5ukPJM+652agSPugCAlGfY7VPk73ntVwLEJuLt8RKvD0/y7u6WI5p9VkTqpvn9/gJOoyXvw4DDoy5SnomiG0tHnt8s0D33jQm1m45cqKWSY5bAabSw3m5KpHF0gelkX3JVcRCzpEIEgNWSwu/fYzT5Qhiwn3ugorhMYwrF2HQIA4bVc46Xj24p1pJAu+lUZlRxLNRRQMZ4iEVWVSekkrVFMn2aInSN/DO+AWb2g+Bl6+F2AAAAAElFTkSuQmCC" alt=""></div><h3>Totem, then Bundle</h3></div>
+      <p>A raid or a woodland mansion for the Totem of Undying, an Ancient City for the Echo Shards, crying obsidian from ruined portals or bartering. The Eternal Bundle is the first eternity you own.</p>
+    </div>
+    <div class="step">
+      <span class="when">3 · Endgame</span>
+      <div class="row"><div class="slot sm"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABAElEQVR42mNkIBOI8In8Z2BgYGAiV/OFj68ZyDJAhE/kv5udE0P1y/cMDAwMDCzkaD7Cx8Ug4+5FmgtQNF+9wXDr/h2GN5/eMDJRohnDBSJ8Iv9hoUuMZhQDRPhE/j8+7cHw+tkSeBQR0szAwMDAiG7b8eliDDImRgyypjsYCGnG6d/4F+/+P/n//7+VvsV/K30LDG/h1awlJfbfx0Dzv9jiDf9vL9UiTjMs8HwMNOGaRPhE/i/KlCJsiAifyP/bS7X+f78Zg6EYW6ygA3gsyJ8KYTh+5AOK5JtPbxgJBRwLAwMDw/EjHxjczkcw7GJgYGBg4CEpbzAiZ02YraSYAADLAZDoNAak0wAAAABJRU5ErkJggg==" alt=""></div><div class="slot sm"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA40lEQVR42mNgoBAw4pIQ4RP5j8x/8+kNVrUsuDRnxqUw3H1wj4GBgYHhweNHDAz3Gf5jM4gJm+YLH1/DNcOAIL8Aw/HpYhguY0LX7H3rFkOYgSXEVqjtr9+9YfDSFWc4fuQDhmuZ8AXQg8ePGO6UVDB46Yoz7L5wm6Fo6S/CXkAGr9+9YYhc3s2w+8Jthldf/mENSAwDtu8+BNcMsxmXZqzRKMIn8l+QX4AozTjj//ZSrf9aUmL/0UMcG8CIhWgbdYbjRz6QZ3O+lzXRNg8SzQwMDIwifCL/xXiYSPczvpxHCgAA6PeCwzqvdYkAAAAASUVORK5CYII=" alt=""></div><div class="slot sm"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA/ElEQVR42mNgoBAwwhgifCL/0SXffHrDSJQBInwi/5mmzmFwWbkMRXLXoX0EDYIb4H3rFsNtdy8MBQqycngNwukFQX4BBgYGBgZRIREGBVk5hsbIKwyWma8wDMHpNJiBfdFsDJY2AgzxXXxw1yAbwoTLAJgiSxsBBq+KXzgDkQWfC6Jt1Bn8S28zMDDzMbx+9warOiZ8mndfuM3w6ss/hvcfP8Dl3OycUMKLhZBmJP/+h8UKThfg0QwHDx4/wm6ACJ/I/+PTxfBqxhkGMJuPH/mAV7PV6VMMd0oqMP2c72X9X0tK7D+2/ICuFl0NowifyH8xHiaSnI0z1ZEDAIlVgENnEm/pAAAAAElFTkSuQmCC" alt=""></div></div>
+      <p>One Totem of Eternity and one Nether Star per tool, on top of your own netherite tool, at the smithing table. Three tools, three Withers.</p>
+    </div>
+  </div>
+</section>
+
+<section class="chapter" aria-labelledby="totem-h">
+  <div class="chapter-head">
+    <div class="eyebrow">Eternal · the key</div>
+    <h2 id="totem-h">Totem of Eternity</h2>
+    <p class="tag">The heart of eternity. One totem, one eternal item.</p>
+  </div>
+  <div class="split">
+    <div class="stack-lg">
+      <div class="row" style="gap:18px; align-items:flex-start">
+        <div class="slot xl"><div class="anim" role="img" aria-label="totem of eternity" style="--n:30;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAHgCAYAAACsFu3MAAADBklEQVR42u3bP0gbYRzG8SeSIUipQaKD1KXoIrSlUiVKyKBULHSUQsthoOjQoZuTtZSidOrW0cnqmMGCQ+gcjFRJsQUhYjVoKJaGGIsYl/J28a75c1dTSsHW7wuB3Mt7v9zlnvczvHfnk0uzwgEzOzdS0Tcei2th5cSns5oVDphSxjLV/aWMZaxwoKbf51Vk6GZzRd/b94X6juB3m2vF0OWQcevPf8vXjPe77fxodEyfstvK7u06/V8LeUky1UX81TsPRQfU+f21Ru8HdeVWtyQpt5ZWKnms6aVgTZEG+08rL9QXCWpmMOlszwwm1RcJ1vzRkuR3rnksbhIb0up6Wqn2Y00potzp4ClFlEoWJTVW5iQWN377EGfnRjQeiyuxIU0vBfVUxYpfnF5q1MFhUcNdR5qdG1FuLf3zKtjXvS8S1PNX20psXNJQdECr62mngL3zs8dXlUoWnVz4qs+pfOfDFy8lSU2TE2ppDmlzZ0vDXUeS5ISqwS6wsHLiK0/a52vXded21PnuNc7vFpjs3q7aCnnFH45Jkto+fpCaQ2cn0c5Bdm/XDo7TWk4LbO5sVSTSV0+EfxVpHx7gAR7gAR7gAR7gAR7gAR7gAR7gAR7gAR7gAR7gQZ0eeE5pc5QwpYzlfNymMh7gwT/iQf/qO0nSck+vpweuGXhw955pnV80OWNMbL9gWucXTf+NsHHLh6cHTZMT6j7dbpqcwAM8wAM8wAM8wAM8+B88KGWsChPwAA/OtwcV52SFA8aezp3tHc507mzvcKazPc4zGHaB2H7B5Ixxinh50ODlwXJPr558OVD3whst9/TWl0Q8wAM8wAM8wAM8wIPz70G5CXiAB6wfXOz1AzzAAzzAAzzAAzzAAzcPbBPwAA94PvHiPp+IB3iAB3iAB3iAB7zP9NffZ/JCBQ/wgPUDPMADPMADPMADPMADPGD9AA94PvG8P5+IB3iAB3iAB3iAB3iAB3iAB3iAB3iAB3iAB3iAB3iAB3jA/UbuN+IBHuABHuABHuABHvzp+0w/AN2aNE3BX4yOAAAAAElFTkSuQmCC)"></div></div>
+        <div class="mc-tip" aria-label="Tooltip mockup">
+          <span class="name">The Totem of Eternal Life</span>
+          <span class="g">Makes one netherite tool, or one Eternal Bundle, eternal.</span>
+          <span class="au">Heavy with eternity: you wake farther while you carry it</span>
+          <span class="daq">Stays with you when you die</span>
+        </div>
+      </div>
+      <div class="panel" aria-label="Crafting recipe">
+        <span>Crafting</span>
+        <div class="craft">
+          <div class="grid3"><div class="slot"><span class="chip" style="--c:#2a1046;--t:#d9b8ff" title="Crying Obsidian">C</span></div><div class="slot"><span class="chip" style="--c:#0d4f57;--t:#8ff6f6" title="Echo Shard">E</span></div><div class="slot"><span class="chip" style="--c:#2a1046;--t:#d9b8ff" title="Crying Obsidian">C</span></div><div class="slot"><span class="chip" style="--c:#0d4f57;--t:#8ff6f6" title="Echo Shard">E</span></div><div class="slot"><span class="chip" style="--c:#d9a91f;--t:#3a2600" title="Totem of Undying">U</span></div><div class="slot"><span class="chip" style="--c:#0d4f57;--t:#8ff6f6" title="Echo Shard">E</span></div><div class="slot"><span class="chip" style="--c:#2a1046;--t:#d9b8ff" title="Crying Obsidian">C</span></div><div class="slot"><span class="chip" style="--c:#0d4f57;--t:#8ff6f6" title="Echo Shard">E</span></div><div class="slot"><span class="chip" style="--c:#2a1046;--t:#d9b8ff" title="Crying Obsidian">C</span></div></div>
+          <span class="arrow">&rarr;</span>
+          <div class="slot lg"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABiElEQVR42pWSP0gCcRTHPxc3SEQdYovUErQEBUWDwuGgJLW7BEdC5NDQ1hRFhNLU1uhkON7oIM0HColhgaD0R1RaEtOIcolr8S5Pz7Q3/X5f3vv+3u+9j4BNKB6HHk+ELFokrJLMdgRGheJx6F8lRe/Xv0qKrngcA7owzCS46rRo17fN8Tr4b9g6uqZdup3eeG8M5It2xfs7ezxWnqjUqqb+2mwA6P0mYn9x0Odn8fuKnW2JufU1AOq5PBntk2hKGjCZMIbWa+SVJWIBzbzHAhpeWRoYNIBo7jys6uki3BTyZOY/OUam3k0+RiajtYBJKydhVReNFuOJEJGwSroI0ZTECS3Li9HUJG/tFptLH8QTIeq5/O8WjL17ZYmzyyfSxSmCPj83hbxpYBSfHiyQ0VomF0L/n3qL2+cXAMwcHTLrdFF+fmBz6QPAhGrCMEhmO0IvaS/LK2xt+MzzsDzRDphKrYq72UDd3QPAfX8HTtdoEg0OKrWqAY4Zs12D8vODhUhhHIT/QvoHSo20dcjTcO8AAAAASUVORK5CYII=" alt=""></div>
+        </div>
+      </div>
+      <div class="legend"><span><span class="chip" style="--c:#2a1046;--t:#d9b8ff" title="Crying Obsidian">C</span>Crying Obsidian</span><span><span class="chip" style="--c:#0d4f57;--t:#8ff6f6" title="Echo Shard">E</span>Echo Shard</span><span><span class="chip" style="--c:#d9a91f;--t:#3a2600" title="Totem of Undying">U</span>Totem of Undying</span></div>
+    </div>
+    <div class="stack">
+      <ul class="rules">
+        <li><strong>Every eternal item consumes exactly one:</strong> the Bundle in its crafting recipe, the tools at the smithing table.</li>
+        <li><strong>Recipe:</strong> a Totem of Undying in the middle, four Echo Shards, four Crying Obsidian. Undying, memory, return. Four shards is a real gate: an Ancient City chest averages 0.7 shard (weight 4 out of 86, five to ten rolls, one to three per hit).</li>
+        <li><strong>Gone:</strong> the three netherite ingots and the diamond, emerald and amethyst blocks. They made it expensive, not meaningful.</li>
+        <li><strong>Still eternal, still one per player.</strong> It survives your death, and it weighs while you carry it, so you keep it at home until you use it.</li>
+        <li><strong>Look:</strong> a hooded idol with a gold mask, cyan eyes and a floating halo. Its heart pulses while a glint runs around the halo.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="chapter" aria-labelledby="tools-h">
+  <div class="chapter-head">
+    <div class="eyebrow">Eternal · endgame</div>
+    <h2 id="tools-h">Eternal tools</h2>
+    <p class="tag">Your own netherite tool, made eternal. It keeps its enchantments.</p>
+  </div>
+  <div class="split">
+    <div class="stack-lg">
+      <div class="row" style="gap:12px">
+        <div class="slot lg"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABAElEQVR42mNkIBOI8In8Z2BgYGAiV/OFj68ZyDJAhE/kv5udE0P1y/cMDAwMDCzkaD7Cx8Ug4+5FmgtQNF+9wXDr/h2GN5/eMDJRohnDBSJ8Iv9hoUuMZhQDRPhE/j8+7cHw+tkSeBQR0szAwMDAiG7b8eliDDImRgyypjsYCGnG6d/4F+/+P/n//7+VvsV/K30LDG/h1awlJfbfx0Dzv9jiDf9vL9UiTjMs8HwMNOGaRPhE/i/KlCJsiAifyP/bS7X+f78Zg6EYW6ygA3gsyJ8KYTh+5AOK5JtPbxgJBRwLAwMDw/EjHxjczkcw7GJgYGBg4CEpbzAiZ02YraSYAADLAZDoNAak0wAAAABJRU5ErkJggg==" alt=""></div><div class="slot lg"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA40lEQVR42mNgoBAw4pIQ4RP5j8x/8+kNVrUsuDRnxqUw3H1wj4GBgYHhweNHDAz3Gf5jM4gJm+YLH1/DNcOAIL8Aw/HpYhguY0LX7H3rFkOYgSXEVqjtr9+9YfDSFWc4fuQDhmuZ8AXQg8ePGO6UVDB46Yoz7L5wm6Fo6S/CXkAGr9+9YYhc3s2w+8Jthldf/mENSAwDtu8+BNcMsxmXZqzRKMIn8l+QX4AozTjj//ZSrf9aUmL/0UMcG8CIhWgbdYbjRz6QZ3O+lzXRNg8SzQwMDIwifCL/xXiYSPczvpxHCgAA6PeCwzqvdYkAAAAASUVORK5CYII=" alt=""></div><div class="slot lg"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA/ElEQVR42mNgoBAwwhgifCL/0SXffHrDSJQBInwi/5mmzmFwWbkMRXLXoX0EDYIb4H3rFsNtdy8MBQqycngNwukFQX4BBgYGBgZRIREGBVk5hsbIKwyWma8wDMHpNJiBfdFsDJY2AgzxXXxw1yAbwoTLAJgiSxsBBq+KXzgDkQWfC6Jt1Bn8S28zMDDzMbx+9warOiZ8mndfuM3w6ss/hvcfP8Dl3OycUMKLhZBmJP/+h8UKThfg0QwHDx4/wm6ACJ/I/+PTxfBqxhkGMJuPH/mAV7PV6VMMd0oqMP2c72X9X0tK7D+2/ICuFl0NowifyH8xHiaSnI0z1ZEDAIlVgENnEm/pAAAAAElFTkSuQmCC" alt=""></div>
+      </div>
+      <div class="panel" aria-label="Smithing recipe">
+        <span>Upgrade Gear</span>
+        <div class="craft">
+          <div class="row" style="gap:0">
+            <div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABiElEQVR42pWSP0gCcRTHPxc3SEQdYovUErQEBUWDwuGgJLW7BEdC5NDQ1hRFhNLU1uhkON7oIM0HColhgaD0R1RaEtOIcolr8S5Pz7Q3/X5f3vv+3u+9j4BNKB6HHk+ELFokrJLMdgRGheJx6F8lRe/Xv0qKrngcA7owzCS46rRo17fN8Tr4b9g6uqZdup3eeG8M5It2xfs7ezxWnqjUqqb+2mwA6P0mYn9x0Odn8fuKnW2JufU1AOq5PBntk2hKGjCZMIbWa+SVJWIBzbzHAhpeWRoYNIBo7jys6uki3BTyZOY/OUam3k0+RiajtYBJKydhVReNFuOJEJGwSroI0ZTECS3Li9HUJG/tFptLH8QTIeq5/O8WjL17ZYmzyyfSxSmCPj83hbxpYBSfHiyQ0VomF0L/n3qL2+cXAMwcHTLrdFF+fmBz6QPAhGrCMEhmO0IvaS/LK2xt+MzzsDzRDphKrYq72UDd3QPAfX8HTtdoEg0OKrWqAY4Zs12D8vODhUhhHIT/QvoHSo20dcjTcO8AAAAASUVORK5CYII=" alt=""></div>
+            <div class="slot"><span class="chip" style="--c:#3b3236" title="Netherite tool">T</span></div>
+            <div class="slot"><span class="chip" style="--c:#f2f2f2;--t:#3a3a3a" title="Nether Star">S</span></div>
+          </div>
+          <span class="arrow">&rarr;</span>
+          <div class="slot lg"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABAElEQVR42mNkIBOI8In8Z2BgYGAiV/OFj68ZyDJAhE/kv5udE0P1y/cMDAwMDCzkaD7Cx8Ug4+5FmgtQNF+9wXDr/h2GN5/eMDJRohnDBSJ8Iv9hoUuMZhQDRPhE/j8+7cHw+tkSeBQR0szAwMDAiG7b8eliDDImRgyypjsYCGnG6d/4F+/+P/n//7+VvsV/K30LDG/h1awlJfbfx0Dzv9jiDf9vL9UiTjMs8HwMNOGaRPhE/i/KlCJsiAifyP/bS7X+f78Zg6EYW6ygA3gsyJ8KYTh+5AOK5JtPbxgJBRwLAwMDw/EjHxjczkcw7GJgYGBg4CEpbzAiZ02YraSYAADLAZDoNAak0wAAAABJRU5ErkJggg==" alt=""></div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><span class="mini"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABiElEQVR42pWSP0gCcRTHPxc3SEQdYovUErQEBUWDwuGgJLW7BEdC5NDQ1hRFhNLU1uhkON7oIM0HColhgaD0R1RaEtOIcolr8S5Pz7Q3/X5f3vv+3u+9j4BNKB6HHk+ELFokrJLMdgRGheJx6F8lRe/Xv0qKrngcA7owzCS46rRo17fN8Tr4b9g6uqZdup3eeG8M5It2xfs7ezxWnqjUqqb+2mwA6P0mYn9x0Odn8fuKnW2JufU1AOq5PBntk2hKGjCZMIbWa+SVJWIBzbzHAhpeWRoYNIBo7jys6uki3BTyZOY/OUam3k0+RiajtYBJKydhVReNFuOJEJGwSroI0ZTECS3Li9HUJG/tFptLH8QTIeq5/O8WjL17ZYmzyyfSxSmCPj83hbxpYBSfHiyQ0VomF0L/n3qL2+cXAMwcHTLrdFF+fmBz6QPAhGrCMEhmO0IvaS/LK2xt+MzzsDzRDphKrYq72UDd3QPAfX8HTtdoEg0OKrWqAY4Zs12D8vODhUhhHIT/QvoHSo20dcjTcO8AAAAASUVORK5CYII=" alt=""></span>Totem of Eternity (template slot)</span>
+        <span><span class="chip" style="--c:#3b3236">T</span>Netherite sword, axe or pickaxe</span>
+        <span><span class="chip" style="--c:#f2f2f2;--t:#3a3a3a">S</span>Nether Star</span>
+      </div>
+    </div>
+    <div class="stack">
+      <ul class="rules">
+        <li><strong>Smithing table:</strong> the Totem of Eternity in the template slot, your netherite tool, a Nether Star. The tool keeps its enchantments, its name and its wear. Today's crafting-table recipe eats them.</li>
+        <li><strong>No dragon egg.</strong> There is one per world, so today only one player per world can ever own an Eternal Pickaxe.</li>
+        <li><strong>Data only.</strong> The template slot accepts any item a smithing recipe names, and smithing copies the base item's data. Both checked in the 1.20.4 and 1.21.1 sources.</li>
+        <li><strong>Stats stay.</strong> The sword's 2.6 swings a second mostly hit the target's invulnerability window, so its real ceiling is two hits a second: strong, not broken. The axe is the outlier (your call below).</li>
+        <li><strong>On top, one ability each</strong>, all on one theme: the blow echoes.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="abilities">
+    <div class="ability">
+      <div class="top"><div class="slot sm"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABAElEQVR42mNkIBOI8In8Z2BgYGAiV/OFj68ZyDJAhE/kv5udE0P1y/cMDAwMDCzkaD7Cx8Ug4+5FmgtQNF+9wXDr/h2GN5/eMDJRohnDBSJ8Iv9hoUuMZhQDRPhE/j8+7cHw+tkSeBQR0szAwMDAiG7b8eliDDImRgyypjsYCGnG6d/4F+/+P/n//7+VvsV/K30LDG/h1awlJfbfx0Dzv9jiDf9vL9UiTjMs8HwMNOGaRPhE/i/KlCJsiAifyP/bS7X+f78Zg6EYW6ygA3gsyJ8KYTh+5AOK5JtPbxgJBRwLAwMDw/EjHxjczkcw7GJgYGBg4CEpbzAiZ02YraSYAADLAZDoNAak0wAAAABJRU5ErkJggg==" alt=""></div><div><div class="kind">Sword</div><h3>Echo Strike</h3></div></div>
+      <p>A full-strength hit echoes to the nearest other enemy within 5 blocks, for half the damage: a cyan arc between them. It jumps because an echo on the same target would land inside its invulnerability frames and add nothing.</p>
+    </div>
+    <div class="ability">
+      <div class="top"><div class="slot sm"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA40lEQVR42mNgoBAw4pIQ4RP5j8x/8+kNVrUsuDRnxqUw3H1wj4GBgYHhweNHDAz3Gf5jM4gJm+YLH1/DNcOAIL8Aw/HpYhguY0LX7H3rFkOYgSXEVqjtr9+9YfDSFWc4fuQDhmuZ8AXQg8ePGO6UVDB46Yoz7L5wm6Fo6S/CXkAGr9+9YYhc3s2w+8Jthldf/mENSAwDtu8+BNcMsxmXZqzRKMIn8l+QX4AozTjj//ZSrf9aUmL/0UMcG8CIhWgbdYbjRz6QZ3O+lzXRNg8SzQwMDIwifCL/xXiYSPczvpxHCgAA6PeCwzqvdYkAAAAASUVORK5CYII=" alt=""></div><div><div class="kind">Axe</div><h3>Echo Felling</h3></div></div>
+      <p>Cut a log and the blow runs up the trunk: the whole tree falls. Only trees with natural leaves, capped at 64 logs, so it never fells your house. Sneak to cut a single log.</p>
+    </div>
+    <div class="ability">
+      <div class="top"><div class="slot sm"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA/ElEQVR42mNgoBAwwhgifCL/0SXffHrDSJQBInwi/5mmzmFwWbkMRXLXoX0EDYIb4H3rFsNtdy8MBQqycngNwukFQX4BBgYGBgZRIREGBVk5hsbIKwyWma8wDMHpNJiBfdFsDJY2AgzxXXxw1yAbwoTLAJgiSxsBBq+KXzgDkQWfC6Jt1Bn8S28zMDDzMbx+9warOiZ8mndfuM3w6ss/hvcfP8Dl3OycUMKLhZBmJP/+h8UKThfg0QwHDx4/wm6ACJ/I/+PTxfBqxhkGMJuPH/mAV7PV6VMMd0oqMP2c72X9X0tK7D+2/ICuFl0NowifyH8xHiaSnI0z1ZEDAIlVgENnEm/pAAAAAElFTkSuQmCC" alt=""></div><div><div class="kind">Pickaxe</div><h3>Echo Sense</h3></div></div>
+      <p>Mine an ore and the stone answers: the same ore within 8 blocks glows through walls for 5 seconds. Done with glowing block displays spawned by the server, so no client rendering code.</p>
+    </div>
+  </div>
+  <div class="split">
+    <div class="mc-tip" aria-label="Tooltip mockup">
+      <span class="name">The Sword of Eternity</span>
+      <span class="aq">Echo Strike</span>
+      <span class="g">Full-strength hits echo to a nearby enemy.</span>
+      <span class="au">Heavy with eternity: you wake farther while you carry it</span>
+      <span class="g">Each death: -7% durability</span>
+      <span class="dg">Repair: Gold Block</span>
+    </div>
+    <div class="stack">
+      <div class="scroll">
+        <table class="cmp">
+          <thead><tr><th></th><th>Today</th><th>Proposed</th><th>Netherite</th></tr></thead>
+          <tbody>
+            <tr><td>Sword</td><td class="num">11 dmg · 2.6/s</td><td class="num">same + Echo Strike</td><td class="num">8 dmg · 1.6/s</td></tr>
+            <tr><td>Axe</td><td class="num">18 dmg · 0.8/s</td><td class="num">18 or 15 + Echo Felling</td><td class="num">10 dmg · 1.0/s</td></tr>
+            <tr><td>Pickaxe</td><td class="num">speed 15</td><td class="num">same + Echo Sense</td><td class="num">speed 9</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted small">Durability stays at 10,000 and death still costs 7%, now written on the tooltip. A gold block repairs 25% at the anvil instead of a whole Totem of Eternity, which under the new recipe would cost four Echo Shards per repair.</p>
+    </div>
+  </div>
+</section>
+
+<section class="chapter" aria-labelledby="bundle-h">
+  <div class="chapter-head">
+    <div class="eyebrow">Eternal · the first one you own</div>
+    <h2 id="bundle-h">Eternal Bundle</h2>
+    <p class="tag">One thing crosses death with you. Choosing it is the game.</p>
+  </div>
+  <div class="split">
+    <div class="stack-lg">
+      <div class="states">
+        <div class="state"><div class="slot lg"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA+UlEQVR42mNgGAW0BUI8Qv+FeIT+o7ORARM+zZ6WbgwMDAwM0a4R/7UVNbGqYyTkAm1FTYbXH94wvHr/muHdl3eMRBsgxCP0/+lZL4YnZ84xMDAwMBw/8oGhYPEPDEMYcWkuiMpmuHn/NsOjF48ZUm3uM8w+oojVJUz4NJ+9cZ6BgYGBYfYRRYZUm/sMogIiDGKCogzIgcmEz2ZkEFrgxDCv4j2GIUz4NIsKiDC8/vCGYdcaRQZDl9MMvhV/GVJt7qMYzIIcZbuP78MID1EBEXhA4oxGIR6h/2KCogyiAiI4Faba3GfYdf4dw8OvxiiByYjsBVJSKSwmAJg1dy+6iO0sAAAAAElFTkSuQmCC" alt=""></div>empty</div>
+        <div class="state"><div class="slot lg"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABIElEQVR42rVTv2vCQBh9BscMehj3G6QNmYKTkKmIYMHRpXumLhn9a1wEB3EvOBc69NccMhzVFsSEeEMLXcp10SO53NlS6JuO497jfd97B/wXiE0EsYlQzyosEzm6usawNwCxiRj2BvCoC51I3eQgZgnOaAcAsN5ukPJM+652agSPugCAlGfY7VPk73ntVwLEJuLt8RKvD0/y7u6WI5p9VkTqpvn9/gJOoyXvw4DDoy5SnomiG0tHnt8s0D33jQm1m45cqKWSY5bAabSw3m5KpHF0gelkX3JVcRCzpEIEgNWSwu/fYzT5Qhiwn3ugorhMYwrF2HQIA4bVc46Xj24p1pJAu+lUZlRxLNRRQMZ4iEVWVSekkrVFMn2aInSN/DO+AWb2g+Bl6+F2AAAAAElFTkSuQmCC" alt=""></div>packed</div>
+        <div class="state"><div class="slot lg"><div class="anim" role="img" aria-label="eternal bundle full" style="--n:32;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAIACAYAAACLuuzTAAACTUlEQVR42u3aP2hTURSA8e/VoEMDmoeJi0sW/yAdpGPTIoqDm4tgHeIUEFwyCq4Kopur4GAGF4eCQ6FdSgi4iE4O4hDUDtXUlwwtKA7XKeElfQlRCSh8Z7o83jm8c+99v+nALCLOxyHOxyFrDXBzJwn9d6Os5B8rFwCYX60CsP/8GQBHmlske8lQTi7rC67+PMxm9TpXLq8AsA6cfviId7/TwvLCUig11kKpsRaWF5YGbYxGZgulQpGXDw4NPX/V6lFvfD/QQpSVvHjmPJ92Pg8VqFXaPGmV6fR2+drtDArl0sn1G7d53/5wIHk0SoUiQEj2kmhu2uRr9Ys8vdOleOz40PO5/mJS8saLMreOPubepRa1Sju7wKTYfv2G9c0mY08hzsfhXPnsxCK1SpuNtwkf9xeHNjJK7/5of1nR6e0CDArkgP6RDC7KuEKjyZn3YJo9Gb1M/2DogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7ogR7MyoPtEMLY3zntQWm1GvoezEOguQXAySiK9OC/9ODbqcbfeXD3S5f7Jwp6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAd6oAdMGieaxoPZzCOlx6T0wHkkPdADPdADPdADPdADPdADPdADPdADPdADPdADPdADPdADPdADPdADPdADPdCDP/EgPSalB84j6YEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6IEe6MHU8QufROQAMnJWfwAAAABJRU5ErkJggg==)"></div></div>full</div>
+      </div>
+      <div class="loadouts" aria-label="Four ways to fill the bundle">
+        <div class="mc-tip"><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABNklEQVR42qWSPUjDUBSFv0iHCIUMrhI7ZJAiOIpUuhWMY6EoCDq5lI4iTk5OcXIsOAmFzlpwE0FD6RKKf3QoUVK3OrRd7PZcTOhL0h/1bO9xv3Peu/fCjzLplCgWcoIpKhZyIpNOiZkKdE0VuqaK3wQEJrqmitfTLVHdWRG6po6FlXEmfrIvrz9UZjLwwZfKYXDXaTpsnt3GGilheBRcPXEBqOV7ADw+exzdtCWTRNyzfBBg0HXJluFh8QuWorVzcenOVSWAAY6Fx8bHPACWaUj9ScSn7zLourTrdewq7J+vA1Cyk2wvvEv1sV/wk62DBndPFxNmFTLoNB1qeciWodW4ZHltT4LD6VIPvP5Q8UcVwDG6futJU4iM0TKN4Fyyk5HkiQaji2SZBvetTwmcukh/WeV/6xvmAYy8lbqeCAAAAABJRU5ErkJggg==" alt=""></div><div class="bar"><i></i></div><span class="g">Your way home</span></div>
+        <div class="mc-tip"><div class="slot"><span class="chip" style="--c:#c99a4a;--t:#3a2600">64</span></div><div class="bar"><i></i></div><span class="g">64 bread</span></div>
+        <div class="mc-tip"><div class="slot"><span class="chip" style="--c:#1f6b5e">16</span></div><div class="bar"><i></i></div><span class="g">16 ender pearls</span></div>
+        <div class="mc-tip"><div class="slot"><span class="chip" style="--c:#4fb6c2;--t:#0b2b2f">Pk</span></div><div class="bar"><i></i></div><span class="g">a diamond pickaxe</span></div>
+      </div>
+      <div class="panel" aria-label="Crafting recipe">
+        <span>Crafting</span>
+        <div class="craft">
+          <div class="grid3"><div class="slot"><span class="chip" style="--c:#ececec;--t:#333333" title="String">S</span></div><div class="slot"><span class="chip" style="--c:#f1c232;--t:#4a3200" title="Gold Ingot">G</span></div><div class="slot"><span class="chip" style="--c:#ececec;--t:#333333" title="String">S</span></div><div class="slot"><span class="chip" style="--c:#8a4f2a;--t:#fbe3cf" title="Leather">L</span></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABiElEQVR42pWSP0gCcRTHPxc3SEQdYovUErQEBUWDwuGgJLW7BEdC5NDQ1hRFhNLU1uhkON7oIM0HColhgaD0R1RaEtOIcolr8S5Pz7Q3/X5f3vv+3u+9j4BNKB6HHk+ELFokrJLMdgRGheJx6F8lRe/Xv0qKrngcA7owzCS46rRo17fN8Tr4b9g6uqZdup3eeG8M5It2xfs7ezxWnqjUqqb+2mwA6P0mYn9x0Odn8fuKnW2JufU1AOq5PBntk2hKGjCZMIbWa+SVJWIBzbzHAhpeWRoYNIBo7jys6uki3BTyZOY/OUam3k0+RiajtYBJKydhVReNFuOJEJGwSroI0ZTECS3Li9HUJG/tFptLH8QTIeq5/O8WjL17ZYmzyyfSxSmCPj83hbxpYBSfHiyQ0VomF0L/n3qL2+cXAMwcHTLrdFF+fmBz6QPAhGrCMEhmO0IvaS/LK2xt+MzzsDzRDphKrYq72UDd3QPAfX8HTtdoEg0OKrWqAY4Zs12D8vODhUhhHIT/QvoHSo20dcjTcO8AAAAASUVORK5CYII=" alt="Totem of Eternity"></div><div class="slot"><span class="chip" style="--c:#8a4f2a;--t:#fbe3cf" title="Leather">L</span></div><div class="slot"><span class="chip" style="--c:#8a4f2a;--t:#fbe3cf" title="Leather">L</span></div><div class="slot"><span class="chip" style="--c:#4a3a36;--t:#eadbd5" title="Netherite Scrap">N</span></div><div class="slot"><span class="chip" style="--c:#8a4f2a;--t:#fbe3cf" title="Leather">L</span></div></div>
+          <span class="arrow">&rarr;</span>
+          <div class="slot lg"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA+UlEQVR42mNgGAW0BUI8Qv+FeIT+o7ORARM+zZ6WbgwMDAwM0a4R/7UVNbGqYyTkAm1FTYbXH94wvHr/muHdl3eMRBsgxCP0/+lZL4YnZ84xMDAwMBw/8oGhYPEPDEMYcWkuiMpmuHn/NsOjF48ZUm3uM8w+oojVJUz4NJ+9cZ6BgYGBYfYRRYZUm/sMogIiDGKCogzIgcmEz2ZkEFrgxDCv4j2GIUz4NIsKiDC8/vCGYdcaRQZDl9MMvhV/GVJt7qMYzIIcZbuP78MID1EBEXhA4oxGIR6h/2KCogyiAiI4Faba3GfYdf4dw8OvxiiByYjsBVJSKSwmAJg1dy+6iO0sAAAAAElFTkSuQmCC" alt=""></div>
+        </div>
+      </div>
+      <div class="legend"><span><span class="chip" style="--c:#ececec;--t:#333333" title="String">S</span>String</span><span><span class="chip" style="--c:#f1c232;--t:#4a3200" title="Gold Ingot">G</span>Gold Ingot</span><span><span class="chip" style="--c:#8a4f2a;--t:#fbe3cf" title="Leather">L</span>Leather</span><span><span class="chip" style="--c:#4a3a36;--t:#eadbd5" title="Netherite Scrap">N</span>Netherite Scrap</span><span><span class="mini"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABiElEQVR42pWSP0gCcRTHPxc3SEQdYovUErQEBUWDwuGgJLW7BEdC5NDQ1hRFhNLU1uhkON7oIM0HColhgaD0R1RaEtOIcolr8S5Pz7Q3/X5f3vv+3u+9j4BNKB6HHk+ELFokrJLMdgRGheJx6F8lRe/Xv0qKrngcA7owzCS46rRo17fN8Tr4b9g6uqZdup3eeG8M5It2xfs7ezxWnqjUqqb+2mwA6P0mYn9x0Odn8fuKnW2JufU1AOq5PBntk2hKGjCZMIbWa+SVJWIBzbzHAhpeWRoYNIBo7jys6uki3BTyZOY/OUam3k0+RiajtYBJKydhVReNFuOJEJGwSroI0ZTECS3Li9HUJG/tFptLH8QTIeq5/O8WjL17ZYmzyyfSxSmCPj83hbxpYBSfHiyQ0VomF0L/n3qL2+cXAMwcHTLrdFF+fmBz6QPAhGrCMEhmO0IvaS/LK2xt+MzzsDzRDphKrYq72UDd3QPAfX8HTtdoEg0OKrWqAY4Zs12D8vODhUhhHIT/QvoHSo20dcjTcO8AAAAASUVORK5CYII=" alt=""></span>T Totem of Eternity</span></div>
+    </div>
+    <div class="stack">
+      <ul class="rules">
+        <li><strong>The system stays.</strong> What is inside survives your death. It still refuses Eternal Items and ender chests.</li>
+        <li><strong>So does the capacity:</strong> the vanilla bundle's, where one stack of 64, or a single tool, fills it. Each of the four loadouts on the left is a full bundle. Bread or pearls, the amulet or a pickaxe: that choice is a bet on how the next exile goes.</li>
+        <li><strong>Considered and rejected: four stacks.</strong> It would carry three netherite tools through death for the price of one totem, which kills the Eternal tools, and bundles nested inside it could smuggle Eternal Items past the death rules. It would also need custom insertion and a custom tooltip on every loader.</li>
+        <li><strong>Three looks:</strong> empty and squat, packed and round, full with cyan light leaking from the opening and the ring. It needs one client registration per loader, which also fixes today's filled texture (see below).</li>
+        <li><strong>Recipe without a vanilla bundle:</strong> leather, string, a gold clasp, netherite scrap (the reason it does not burn) and a Totem of Eternity.</li>
+        <li><strong>Look:</strong> violet-black leather, a gold drawstring and a gold ring charm, the eternity ring every eternal item carries somewhere.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="chapter" aria-labelledby="amulet-h">
+  <div class="chapter-head">
+    <div class="eyebrow">Mortal · first hours</div>
+    <h2 id="amulet-h">Navigator's Amulet</h2>
+    <p class="tag">It points home and it reads the stars. That is all, and that is enough.</p>
+  </div>
+  <div class="screen" role="img" aria-label="Mockup of the screen at night: the amulet in the offhand slot and in the hand, its needle pointing home, and a star fix in the action bar">
+    <svg class="stars" viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true"><rect x="52.5" y="8.6" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.49"/><rect x="85.6" y="18.1" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.95"/><rect x="35.5" y="5.8" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.49"/><rect x="16.2" y="20.7" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.97"/><rect x="100.4" y="27.7" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.77"/><rect x="63.9" y="45.0" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.76"/><rect x="22.8" y="20.4" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.76"/><rect x="89.4" y="32.0" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.77"/><rect x="101.7" y="18.4" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.76"/><rect x="98.6" y="23.8" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.88"/><rect x="74.6" y="42.6" width="0.9" height="0.9" fill="#e8e6ff" opacity="0.61"/><rect x="125.9" y="32.8" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.50"/><rect x="48.8" y="23.8" width="0.9" height="0.9" fill="#e8e6ff" opacity="0.85"/><rect x="46.9" y="45.1" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.73"/><rect x="27.7" y="17.1" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.68"/><rect x="152.1" y="5.4" width="0.9" height="0.9" fill="#e8e6ff" opacity="0.64"/><rect x="56.6" y="23.9" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.49"/><rect x="16.6" y="13.9" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.48"/><rect x="111.4" y="30.5" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.61"/><rect x="62.2" y="31.4" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.97"/><rect x="57.5" y="28.9" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.48"/><rect x="121.8" y="7.7" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.67"/><rect x="145.0" y="23.8" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.70"/><rect x="87.7" y="40.9" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.93"/><rect x="45.4" y="20.3" width="0.9" height="0.9" fill="#e8e6ff" opacity="0.83"/><rect x="61.3" y="12.2" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.55"/><rect x="38.2" y="12.3" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.91"/><rect x="30.4" y="14.4" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.68"/><rect x="59.6" y="26.9" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.83"/><rect x="82.4" y="29.2" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.70"/><rect x="137.9" y="43.9" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.67"/><rect x="63.5" y="23.2" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.48"/><rect x="12.5" y="11.2" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.51"/><rect x="95.7" y="6.5" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.75"/><rect x="150.0" y="29.0" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.93"/><rect x="97.8" y="8.5" width="0.9" height="0.9" fill="#e8e6ff" opacity="0.98"/><rect x="96.0" y="22.9" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.92"/><rect x="156.9" y="22.5" width="1.2" height="1.2" fill="#e8e6ff" opacity="0.62"/><rect x="24.5" y="35.0" width="0.9" height="0.9" fill="#e8e6ff" opacity="0.71"/><rect x="110.0" y="24.7" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.97"/><rect x="84.4" y="8.5" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.87"/><rect x="48.5" y="30.3" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.83"/><rect x="42.7" y="18.1" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.65"/><rect x="36.8" y="25.8" width="0.9" height="0.9" fill="#e8e6ff" opacity="0.80"/><rect x="97.7" y="36.7" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.89"/><rect x="129.7" y="34.6" width="0.6" height="0.6" fill="#e8e6ff" opacity="0.56"/></svg>
+    <svg class="land" viewBox="0 0 160 40" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 22 H10 V18 H22 V20 H30 V14 H40 V16 H52 V12 H60 V15 H70 V19 H84 V16 H96 V11 H104 V13 H116 V18 H128 V15 H140 V20 H152 V17 H160 V40 H0 Z" fill="#131a2e"/>
+      <path d="M0 30 H14 V27 H28 V29 H44 V25 H58 V28 H76 V26 H92 V29 H108 V24 H124 V27 H142 V25 H160 V40 H0 Z" fill="#0c101e"/>
+    </svg>
+    <div class="hand" aria-hidden="true"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABNklEQVR42qWSPUjDUBSFv0iHCIUMrhI7ZJAiOIpUuhWMY6EoCDq5lI4iTk5OcXIsOAmFzlpwE0FD6RKKf3QoUVK3OrRd7PZcTOhL0h/1bO9xv3Peu/fCjzLplCgWcoIpKhZyIpNOiZkKdE0VuqaK3wQEJrqmitfTLVHdWRG6po6FlXEmfrIvrz9UZjLwwZfKYXDXaTpsnt3GGilheBRcPXEBqOV7ADw+exzdtCWTRNyzfBBg0HXJluFh8QuWorVzcenOVSWAAY6Fx8bHPACWaUj9ScSn7zLourTrdewq7J+vA1Cyk2wvvEv1sV/wk62DBndPFxNmFTLoNB1qeciWodW4ZHltT4LD6VIPvP5Q8UcVwDG6futJU4iM0TKN4Fyyk5HkiQaji2SZBvetTwmcukh/WeV/6xvmAYy8lbqeCAAAAABJRU5ErkJggg==" alt=""></div>
+    <div class="actionbar" aria-hidden="true">X 1,284 · Y 72 · Z -3,907 · <img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAJCAYAAADgkQYQAAAAZ0lEQVR42mNgQAMifCL/GfABET6R/7eXav3HqRCm4PvNGAyFTDAFx6eLMciYGDEwMDAwyJgYMRyfLga3mhGmABewzHzFwAgz6caNYxgKNDSsGN58esPIhE0CHTAxEAEYCYXNm09vGAHl2CdOFa9stQAAAABJRU5ErkJggg==" alt="">23,407 <span class="y">· If you fall now: 29,444</span></div>
+    <div class="hud" aria-hidden="true">
+      <div class="off"><i><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABNklEQVR42qWSPUjDUBSFv0iHCIUMrhI7ZJAiOIpUuhWMY6EoCDq5lI4iTk5OcXIsOAmFzlpwE0FD6RKKf3QoUVK3OrRd7PZcTOhL0h/1bO9xv3Peu/fCjzLplCgWcoIpKhZyIpNOiZkKdE0VuqaK3wQEJrqmitfTLVHdWRG6po6FlXEmfrIvrz9UZjLwwZfKYXDXaTpsnt3GGilheBRcPXEBqOV7ADw+exzdtCWTRNyzfBBg0HXJluFh8QuWorVzcenOVSWAAY6Fx8bHPACWaUj9ScSn7zLourTrdewq7J+vA1Cyk2wvvEv1sV/wk62DBndPFxNmFTLoNB1qeciWodW4ZHltT4LD6VIPvP5Q8UcVwDG6futJU4iM0TKN4Fyyk5HkiQaji2SZBvetTwmcukh/WeV/6xvmAYy8lbqeCAAAAABJRU5ErkJggg==" alt=""></i></div>
+      <div class="bar9"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+  </div>
+  <p class="caption">Mockup: night, open sky, the amulet in the offhand. The needle in the item points home; the star fix (use) writes your coordinates, the distance home and your exile radius to the action bar.</p>
+  <div class="parts">
+    <div class="part"><h3 class="copper">The needle</h3><p>Drawn in the item itself, like a vanilla compass, and it points to your <strong>Home</strong>. You choose Home on purpose: sneak and use the amulet on a bed or a lodestone. It is stored on you, not on the amulet, and a camp bed you sleep in does not move it. Overworld only: in the Nether and the End it spins.</p></div>
+    <div class="part"><h3 class="copper">The star fix</h3><p>Use it under open sky: exact X, Y, Z, the distance home, and the radius you would wake on if you died now. Under a roof, underground, in the Nether or the End, the stars are hidden. Readings go to the action bar, so they work on servers.</p></div>
+    <div class="part"><h3 class="copper">Starlight</h3><p>Three fixes, and they refill each night you spend under open sky. No item to feed it, nothing to break. Today it has 10 uses, then you craft another with 4 more Eyes of Ender.</p></div>
+  </div>
+  <div class="split">
+    <div class="stack-lg">
+      <div class="stack">
+        <div class="needles" role="img" aria-label="The needle at eight headings">
+          <div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABJklEQVR42mNggAJrLYX/WaGu/xkIgKxQ1//WWgr/iVIgx8/xX46f4z8pFsANkePn+H+txev/igid/3L8HDg1M+IyBGYzDDz6+IORKANgGq8uLYGLPb5wjsGjex9WgxjRNSNr1K+7x7CN/SrDP29pBgYGBoZLVx4xlG2/g2IICzZn6dfdQ+HbzXzHwMDAwDDFGlMtEzbbz21aysDAwMDw6fU9hi2PX6No6PJUQQkfJmy2G/lFM3x6fY/hzvHjDJoFT+FyOUd5GA7feIOiHqsXPr2GeKEr9STDgctz8MQVmgseXzjHsCXoA5w/60oBw6ZTZXB+uPAD3AY8+viDERZV+MDm+x9QYgEjGrs8VVD8jG4zXgOQE1KXpwpKgG2+/4FwQiInKVMMADv2iFGl2AqoAAAAAElFTkSuQmCC" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABNklEQVR42qWSPUjDUBSFv0iHCIUMrhI7ZJAiOIpUuhWMY6EoCDq5lI4iTk5OcXIsOAmFzlpwE0FD6RKKf3QoUVK3OrRd7PZcTOhL0h/1bO9xv3Peu/fCjzLplCgWcoIpKhZyIpNOiZkKdE0VuqaK3wQEJrqmitfTLVHdWRG6po6FlXEmfrIvrz9UZjLwwZfKYXDXaTpsnt3GGilheBRcPXEBqOV7ADw+exzdtCWTRNyzfBBg0HXJluFh8QuWorVzcenOVSWAAY6Fx8bHPACWaUj9ScSn7zLourTrdewq7J+vA1Cyk2wvvEv1sV/wk62DBndPFxNmFTLoNB1qeciWodW4ZHltT4LD6VIPvP5Q8UcVwDG6futJU4iM0TKN4Fyyk5HkiQaji2SZBvetTwmcukh/WeV/6xvmAYy8lbqeCAAAAABJRU5ErkJggg==" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABLklEQVR42mNggAJrLYX/WaGu/xkIgKxQ1//WWgr/iVIgx8/xX46f4z8pFsANkePn+H+txev/igid/3L8HDg1M+IyBGYzDDz6+IORKANgGq8uLYGLPb5wjsGjex9WgxjRNSNr1K+7x8DAwMCwJegDAwMDA8OlK48YyrbfQTGEBZuzYBoZGBgYPr2+x2A3E8KeYo2plgmb7ec2LYVrRgddnioo4cOEzXYjv2iGT6/vMdw5fpxhYf5xuFzOUR6GwzfeoKjH6oVTWxogtiWfZDhweQ5DBcMjBh9ZUQYGBgaGyd9xxIIcP8f/HaVODAwMDAx2M99hjdpw4QcMDAwMDJvvf4AHJBNyPMOiCh9A1ozVC5euPIKHds5RHhSbSUpIXZ4qKAG2+f4HwgmJnKRMMQAAnJmG5jpu5G4AAAAASUVORK5CYII=" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABRElEQVR42qWSMUgCcRTGfyc33BDc0BqHgy0SBG1x4CZkYyAFQU0u0tAQ0RQNDWFT1GK0Bu4KbRGUSA0idkWEnHGOF6Iu2tK/oe7ozru0+sbH+77vfe89+IIej4psOikYgWw6KfR4VIzVoKmK0FRF/MbAFdFURTzuL4rCyozQVCWULIWJOM4OrO5AGkvAIT6cb7m1Vq3KwuFloJDkJ38nzu6aAJSWOgDUDYvti4ZHJBI01tvcmkvu2SaJfJtEvh0YNRLkLr9Pc1fao2ebQ4RcKubZj+xv+HRepWebNCoVygVYP5oHYKM8wfLki6dfDhrLcc5lbrm6P/vhVr4dtGpVd2EAp8Ymz5LBjrAAhtw9AlZ3IDmn8uNA0riZ6gNQbHY8VxiKUDcsTnTczI7zcT84Qugj5VIxrp9e3Xqx2Rn9SH955X/jA3tbjGMXf2J5AAAAAElFTkSuQmCC" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABJElEQVR42mNggAJrLYX/WaGu/xkIgKxQ1//WWgr/iVIgx8/xX46f4z8pFsANkePn+H+txev/igid/3L8HDg1M+IyBGYzDDz6+IORKANgGq8uLYGLPb5wjsGjex9WgxjRNSNr1K+7x8DAwMCwJegDAwMDA8OlK48YyrbfQTGEBZuzYBoZGBgYTm1pYNAwj2NgYGBgmGKNqZYJm+3nNi1lYGBgYPj0+h6Ghi5PFZTwYcFuezTDp9f3GO4cP85wdBlCLucoD0O48AMU9Vi9ALO5K/Ukw4HLc/DEFZIXYKENCzAGBgaGWVcKGIIYtsH56LajGPDo4w9GWFQhAx9ZURT+5vsf8MfCpSuP4KGdc5QHp80EE1KXpwrD4RtvUGwmmJDIScoUAwAzp39stbUJPwAAAABJRU5ErkJggg==" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABOUlEQVR42qWSMUgCURjHfxcONwg3tMbp4CASNEoIbUI2ClIQtLWIQ0REU1NDXGtL0RQIzhW0RVCHuEjYFRJicY02qAS5vYZ6h2fvPKv/+N73///e+74PvpVJxUWxkBWEqFjIikwqLiYqMA1dmIYufgPwQkxDF497S6KyMitMQw80a0Ehkizl9gbaRAHS+FDe8s5e7+osHlwpg7RR87BxbrcNwEW+C0DDcdm+bPlCIqpnSSNAv9Nm4QiatVPYzP+onVLR62dlzwxf5mR6DQArl/D1J6Kmr9LvtGlVq9gVSKbnASjZUZanX3z1yi9IsrVe4/r+ZMyshr4guy0btiNcjp0NnjTHux+l+wLc3kCTo7qd+WBfM5XE8+fu+Ck0HBdicBh7p2RHA8mhi2TlEtw033zk0EX6yyr/W5+EuIwMZJrz0AAAAABJRU5ErkJggg==" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABL0lEQVR42mNggAJrLYX/WaGu/xkIgKxQ1//WWgr/iVIgx8/xX46f4z8pFsANkePn+H+txev/igid/3L8HDg1M+IyBGYzDDz6+IORKANgGq8uLYGLPb5wjsGjex9WgxjRNSNr1K+7x8DAwMCwJegDAwMDA8OlK48YyrbfQTGEBZuzYBoZGBgYPr2+x2A3E8KeYo2plgmb7ec2LYVrRgddnioo4cOEzXYjv2iGT6/vMdw5fpxhYf5xuFzOUR6GwzfeoKjH8MI29qsQf/9/zdCVepLhwOU5DDdOLWJgYGBg0DCPwx0Lcvwc/3eUOjEwMDAw2M18hzVqw4UfMDAwMDBsvv8BHpBMyPEMiyp8AFkzVi9cuvIIHto5R3lQbCYpIXV5qqAE2Ob7HwgnJHKSMsUAAMIBiLn0Aj4ZAAAAAElFTkSuQmCC" alt=""></div><div class="slot"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABOklEQVR42mNggAJrLYX/WaGu/xkIgKxQ1//WWgr/iVIgx8/xX46f4z8pFsANkePn+H+txev/igid/3L8HDg1M+IyBGYzDDz6+IORKANgGq8uLYGLPb5wjsGjex9WgxjRNSNr1K+7x8DAwMCwJegDAwMDA8OlK48YyrbfQTGEBZuznrZuZvD6qc3AwMDA8On1PQa7mRDxKdaYapmw2S6x+gJD1qsDDJ9e38PQ0OWpghI+GC6AODua4ROjHMOd48cZjq5gYIifaMnAwMDAkHOUhyFc+AGKeqxegNnclXqS4cDlOXjiCskLsNCGBRgDAwPDrCsFDLcYrzDcOLmIgYGBAcN2FAMeffzBCIsqdKBhHgc3ZPP9DyixgBGNXZ4qcH7OUR4Mm/EagJyQujxVGA7feIOikWBCIicpUwwAYcmM0dqUc8cAAAAASUVORK5CYII=" alt=""></div>
+        </div>
+        <p class="caption">Eight of the needle's headings. The game would use 32, picked by a compass-style "angle" property, as the vanilla compass does.</p>
+      </div>
+      <div class="row" style="gap:18px; align-items:flex-start">
+        <div class="slot xl"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABNklEQVR42qWSPUjDUBSFv0iHCIUMrhI7ZJAiOIpUuhWMY6EoCDq5lI4iTk5OcXIsOAmFzlpwE0FD6RKKf3QoUVK3OrRd7PZcTOhL0h/1bO9xv3Peu/fCjzLplCgWcoIpKhZyIpNOiZkKdE0VuqaK3wQEJrqmitfTLVHdWRG6po6FlXEmfrIvrz9UZjLwwZfKYXDXaTpsnt3GGilheBRcPXEBqOV7ADw+exzdtCWTRNyzfBBg0HXJluFh8QuWorVzcenOVSWAAY6Fx8bHPACWaUj9ScSn7zLourTrdewq7J+vA1Cyk2wvvEv1sV/wk62DBndPFxNmFTLoNB1qeciWodW4ZHltT4LD6VIPvP5Q8UcVwDG6futJU4iM0TKN4Fyyk5HkiQaji2SZBvetTwmcukh/WeV/6xvmAYy8lbqeCAAAAABJRU5ErkJggg==" alt=""></div>
+        <div class="mc-tip" aria-label="Tooltip mockup">
+          <span class="name plain">Navigator's Amulet</span>
+          <span class="g">Points to your home</span>
+          <span class="g">Use under open sky: star fix</span>
+          <span class="g">Sneak-use on a bed or lodestone: set home</span>
+          <span class="aq">Starlight 2/3</span>
+        </div>
+      </div>
+      <div class="panel" aria-label="Crafting recipe">
+        <span>Crafting</span>
+        <div class="craft">
+          <div class="grid3"><div class="slot"></div><div class="slot"><span class="chip" style="--c:#ececec;--t:#333333" title="String">S</span></div><div class="slot"></div><div class="slot"><span class="chip" style="--c:#c8693a;--t:#ffffff" title="Copper Ingot">C</span></div><div class="slot"><span class="chip" style="--c:#5f6670;--t:#ffffff" title="Compass">K</span></div><div class="slot"><span class="chip" style="--c:#c8693a;--t:#ffffff" title="Copper Ingot">C</span></div><div class="slot"></div><div class="slot"><span class="chip" style="--c:#a8642f;--t:#ffffff" title="Spyglass">Y</span></div><div class="slot"></div></div>
+          <span class="arrow">&rarr;</span>
+          <div class="slot lg"><img class="px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABNklEQVR42qWSPUjDUBSFv0iHCIUMrhI7ZJAiOIpUuhWMY6EoCDq5lI4iTk5OcXIsOAmFzlpwE0FD6RKKf3QoUVK3OrRd7PZcTOhL0h/1bO9xv3Peu/fCjzLplCgWcoIpKhZyIpNOiZkKdE0VuqaK3wQEJrqmitfTLVHdWRG6po6FlXEmfrIvrz9UZjLwwZfKYXDXaTpsnt3GGilheBRcPXEBqOV7ADw+exzdtCWTRNyzfBBg0HXJluFh8QuWorVzcenOVSWAAY6Fx8bHPACWaUj9ScSn7zLourTrdewq7J+vA1Cyk2wvvEv1sV/wk62DBndPFxNmFTLoNB1qeciWodW4ZHltT4LD6VIPvP5Q8UcVwDG6futJU4iM0TKN4Fyyk5HkiQaji2SZBvetTwmcukh/WeV/6xvmAYy8lbqeCAAAAABJRU5ErkJggg==" alt=""></div>
+        </div>
+      </div>
+      <div class="legend"><span><span class="chip" style="--c:#ececec;--t:#333333" title="String">S</span>String</span><span><span class="chip" style="--c:#c8693a;--t:#ffffff" title="Copper Ingot">C</span>Copper Ingot</span><span><span class="chip" style="--c:#5f6670;--t:#ffffff" title="Compass">K</span>Compass</span><span><span class="chip" style="--c:#a8642f;--t:#ffffff" title="Spyglass">Y</span>Spyglass</span></div>
+    </div>
+    <div class="stack">
+      <ul class="rules mortal">
+        <li><strong>What it no longer does.</strong> No pin to your last death: that is the recovery compass's job, and it costs eight Echo Shards. No distances on the needle and no help in the Nether: a needle that pointed everywhere with a number on it would turn every exile into "walk until it reads zero".</li>
+        <li><strong>The Nether is a gamble.</strong> Take a star fix before you step through, divide by 8, and hold your heading in the dark. Or carry a vanilla lodestone compass tied to your Nether hub. The slow, safe way home stays the Overworld, needle in hand.</li>
+        <li><strong>Mortal on purpose.</strong> It drops when you die, like anything else. Home lives on you, so a freshly crafted amulet points home at once: crafting it is the first quest of every exile. Or spend your one Eternal Bundle slot on it.</li>
+        <li><strong>Recipe:</strong> a compass to know where, a spyglass to see far, copper and a string to wear it. All overworld, first hours.</li>
+        <li><strong>Look:</strong> a copper medallion on a cord, a night-blue face with one star, a red needle and an amethyst pivot. Today's green ender-eye diamond goes.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="stack-lg" aria-labelledby="review-h">
+  <div class="chapter-head">
+    <div class="eyebrow">Not one-shot</div>
+    <h2 id="review-h">What the review changed</h2>
+    <p class="muted">A first version went to a clean-context reviewer told to break it, with the mod's code and the vanilla sources to check against. Every claim below was re-checked before it changed the design.</p>
+  </div>
+  <div class="changes">
+    <div class="change"><span class="what">Amulet</span><span>A screen-wide compass ribbon with Home, Last death and Mark pins, all with distances, gave away the whole "being lost" tension and duplicated the recovery compass. The needle moved into the item, points home only, Overworld only.</span></div>
+    <div class="change"><span class="what">Home</span><span>Clicking any bed sets your spawn, even by day, so a camp bed would have stolen your home. Home is now set on purpose.</span></div>
+    <div class="change"><span class="what">Charges</span><span>Amethyst charges became Starlight that refills at night: same pacing, no inventory chore.</span></div>
+    <div class="change"><span class="what">Bundle</span><span>Four stacks would have replaced the Eternal tools and opened a smuggling hole through nested bundles. Capacity stays vanilla.</span></div>
+    <div class="change"><span class="what">Sword</span><span>An echo on the same target lands in its invulnerability frames: at full swing speed it adds no damage at all. The echo now jumps to another enemy.</span></div>
+    <div class="change"><span class="what">Stats</span><span>v1 lowered the tools to netherite plus a notch. That betrayed "very powerful". They stay; only the axe is in question.</span></div>
+    <div class="change"><span class="what">Axe</span><span>Felling every connected log would fell a log cabin. Natural trees only, capped.</span></div>
+    <div class="change"><span class="what">Repair</span><span>Repairing with Echo Shards spent the scarcest ingredient. Gold blocks instead.</span></div>
+  </div>
+</section>
+
+<section class="stack-lg" aria-labelledby="bugs-h">
+  <div class="chapter-head">
+    <div class="eyebrow">Found on the way · bugs in the released mod</div>
+    <h2 id="bugs-h">Worth fixing before any redesign</h2>
+  </div>
+  <div class="found">
+    <div class="bug"><h3>Eternal tools cannot be enchanted on 1.21.1</h3><span class="sev">High</span><p>Since 1.21, enchantments decide what they apply to through item tags (#minecraft:swords and friends), and the mod ships no tag files. So no book and no enchanting table works on them, on all three loaders. Read from the code, not yet tested in game. The fix is data only: add the three tools to the vanilla tags.</p></div>
+    <div class="bug"><h3>The Eternal Bundle's filled texture never shows</h3><span class="sev mid">Medium</span><p>The model switches on the "filled" property, but vanilla registers that property for its own bundle only and the mod registers none. Every version, every loader: the bundle always looks empty.</p></div>
+    <div class="bug"><h3>On a dedicated server the amulet burns a use and shows nothing</h3><span class="sev mid">Medium</span><p>The coordinates go through on-screen text that only exists on a physical client, but the durability is spent on the server. The changelog says the text only shows in singleplayer; it does not say the use is lost.</p></div>
+    <div class="bug"><h3>A respawn anchor exiles you inside the Nether</h3><span class="sev mid">Check</span><p>The exile is centred on your spawn point in its own dimension, so with an anchor you wake 23,333 Nether blocks away: 186,664 in Overworld terms. Read from the code; it may be intended.</p></div>
+  </div>
+</section>
+
+<section class="stack-lg" aria-labelledby="cost-h">
+  <div class="chapter-head">
+    <div class="eyebrow">Buckets, not estimates</div>
+    <h2 id="cost-h">What it costs to build</h2>
+  </div>
+  <div class="buckets">
+    <div class="bucket"><div class="lvl"><i class="on"></i><i></i><i></i></div><h3>Data only</h3><p>JSON and PNG: the new textures and animations (including the 32 needle headings), the crafting and smithing recipes, and the item tags that fix enchanting on 1.21.1. Same files on every branch; 1.21.1's recipe format differs.</p></div>
+    <div class="bucket"><div class="lvl"><i class="on"></i><i class="on"></i><i></i></div><h3>Small code</h3><p>One client registration per loader for the needle and the bundle's looks. Home on the player, written into the amulet for the needle. The star fix: sky check, action bar, night refill. Tooltips, gold repair.</p></div>
+    <div class="bucket"><div class="lvl"><i class="on"></i><i class="on"></i><i class="on"></i></div><h3>New systems</h3><p>The three echo abilities: Echo Strike's jump, Echo Felling's natural-tree check, Echo Sense's glowing block displays. Each wants a real test in runClient.</p></div>
+  </div>
+  <p class="muted">Everything ships to seven branches, and 1.21.1 is ported by hand. The data-only bucket alone already delivers the new look, the new recipes and the enchanting fix.</p>
+</section>
+
+<section class="stack-lg" aria-labelledby="calls-h">
+  <h2 id="calls-h">Your calls</h2>
+  <ol class="calls">
+    <li><strong>The axe.</strong> Keep 18 damage (21 with Sharpness V, so it one-shots any 20-health mob: zombies, skeletons, creepers), or trim it to 15?</li>
+    <li><strong>Starlight.</strong> Three fixes that refill each night, or free fixes under the sky with only a cooldown?</li>
+    <li><strong>Echo Sense.</strong> The most expensive ability for the most convenience-like effect. Keep it, or give the pickaxe something else?</li>
+    <li><strong>The 50-minute blasting recipe</strong> that turns a Totem of Eternity into the same totem. What is it for?</li>
+  </ol>
+</section>
+
+<footer>
+  <span>Facts about the current mod come from the dev-52.1.20 branch (Minecraft 1.21.1). Vanilla behaviour was checked in the decompiled 1.20.4 and 1.21.1 sources and the 1.21.1 data files.</span>
+  <span>The textures exist as real 16x16 PNGs, animation strips with .mcmeta files, ready for assets/bmh/textures/item.</span>
+</footer>
+
+</main>
