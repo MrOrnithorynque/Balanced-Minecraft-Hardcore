@@ -25,6 +25,8 @@ public class CreativeTabInit {
                         output.accept(ItemInit.ETERNAL_SWORD.get());
                         output.accept(ItemInit.NAVIGATOR_AMULET.get());
                         output.accept(ItemInit.TOTEM_OF_ETERNITY.get());
+                        output.accept(ItemInit.DORMANT_TOTEM.get());
+                        output.accept(ItemInit.ECHO_HEART.get());
                         output.accept(Items.BUNDLE);
                     })
                     .build());
