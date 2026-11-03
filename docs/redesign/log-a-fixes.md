@@ -12,10 +12,11 @@ Server port 25611, RCON port 25711, RCON password `bmh`. The step numbers below 
 
 ## Resume here
 
-A1 to A4 are written, built and booted on both sides (table in "Verification"). Left when this was written: the final
-rebuild and push of both branches after merging `origin/redesign/integration*`, and the report. Not executed anywhere
-because nobody can run a client: the Eternal Bundle texture (A2), the player side of the totem (A4) and the anchor respawn
-(A3). They are in `checklist-a-fixes.md`.
+The work of part A is complete on both sides: A1 to A4 are written, built and booted (table in "Verification"), reviewed by
+a fresh agent and fixed accordingly, and both branches are pushed. `origin/redesign/integration` and `-1.21` had not moved,
+so the merges into my branches were no-ops. What is left is Louis's in-game checking of what needs a client: the Eternal
+Bundle texture (A2), the player side of the totem (A4) and the anchor respawn (A3), all in `checklist-a-fixes.md`. A fresh
+session only has to re-run the final builds if it touches the code again.
 
 ## Plan (brief part A)
 
@@ -151,14 +152,26 @@ harmless `Reflective setAccessible(true) disabled`):
   on every version, so it needs Forge's and NeoForge's public version, which the standard modding idiom relies on (built on
   1.20.4 and 1.21.1, not on the older Forge versions).
 
+Final state after the audit fixes and the (no-op) merges of `origin/redesign/integration` and `-1.21`:
+- main, HEAD `64f0df0` plus this log: `BUILD SUCCESSFUL in 1m 21s` (43 tasks), Forge, Fabric and NeoForge jars built;
+- 1.21.1, HEAD `ebf5363`: `BUILD SUCCESSFUL in 1m 7s` (39 tasks).
+- The server boots above ran on the commits before the audit fixes (`e24f682`, `1ecf8ca`). The fixes changed comments,
+  Javadoc, the changelog, and one line of `RespawnPositionHandler` (the cap), none of which runs at server startup, so the
+  final commits were not booted again: the machine was at a load average of 80 and each boot took five minutes or more.
+  The NeoForge 1.20.4 rerun of the final main sources compiled and reached world generation before the limit hit it.
+
 Not executed anywhere (no client): the three client registration paths of A2 on each loader, the totem on a real player (A4)
 and the anchor respawn (A3). All in `checklist-a-fixes.md`.
 
 ## For session G (ports) and for the repo docs
 
-- Merge conflicts to expect against sibling branches (checked with `git merge-tree` while they were pushed): `CHANGELOG.md`
-  with every part; `bmh.mixins.json` with e-abilities and c-amulet (both add to the common `mixins` list);
-  `BalancedMcHardcoreFabricClient.java` with c-amulet-1.21 (both add a line to `onInitializeClient`; keep both lines).
+- Merge conflicts to expect against the sibling branches pushed when this was written (`git merge-tree --write-tree HEAD
+  origin/redesign/<sibling>`; `redesign/g` is clean): `CHANGELOG.md` with every part; `bmh.mixins.json` with b-totem,
+  c-amulet and e-abilities on main and with b-totem-1.21 and c-amulet-1.21 (all add to the common `mixins` list);
+  `BalancedMcHardcoreFabricClient.java` with c-amulet and c-amulet-1.21 (both add a line to `onInitializeClient`: keep both
+  lines); `forge/.../BalancedMcHardcoreMain.java` with c-amulet on main (A adds `modEventBus.addListener(ForgeClientSetup::
+  onClientSetup)` and C adds `ForgeAmuletClient::onClientSetup` at the same spot: keep both listeners, or move C's property
+  registration into `ClientItemProperties.registerAll` and drop `ForgeAmuletClient`).
 - **Check the refmap of every 1.20.x Forge and Fabric jar you build.** `A_LivingEntityTotemMixin` is the first common mixin
   that targets a member by name, and on Forge 1.20.x that method only exists as `m_21262_` at runtime. A dev `runServer`
   applies the mixin from the source name even when the refmap lacks the entry, so only the jar shows it:
