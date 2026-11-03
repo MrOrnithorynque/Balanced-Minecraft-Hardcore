@@ -3,6 +3,7 @@ package github.mrornithorynque.bmh;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
+import github.mrornithorynque.bmh.forge.ForgeAmuletClient;
 import github.mrornithorynque.bmh.forge.ForgeClientEvents;
 import github.mrornithorynque.bmh.forge.ForgeEvents;
 import github.mrornithorynque.bmh.forge.ForgePlatformHelper;
@@ -34,6 +35,11 @@ public class BalancedMcHardcoreMain {
         ForgePlatformHelper.registerAll(modEventBus);
 
         modEventBus.addListener(this::setup);
+
+        // Client setup (item properties) is a mod bus event, and needs the client classes: never on a dedicated server.
+        if (FMLEnvironment.dist.isClient()) {
+            modEventBus.addListener(ForgeAmuletClient::onClientSetup);
+        }
 
         LOGGER.info("[BalancedMcHardcoreMain] Setup complete.");
     }

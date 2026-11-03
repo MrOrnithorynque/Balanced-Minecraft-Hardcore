@@ -4,7 +4,9 @@
     "package": "github.mrornithorynque.bmh.mixin",
     "compatibilityLevel": "JAVA_17",
     "refmap": "bmh.refmap.json",
-    "mixins": [],
+    "mixins": [
+        "C_ServerPlayerMixin"
+    ],
     "client": [
         "CreateWorldGameTabMixin"
     ],
