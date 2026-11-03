@@ -70,6 +70,7 @@ Steps are numbered, not timed (this session reads no clock unless it runs `date`
 | Part | Main-side sha merged | 1.21 sha merged | Integration after (main / 1.21) | Builds | Conflicts resolved |
 |---|---|---|---|---|---|
 | A fixes | `4353418` | `ebf5363` | `54299cc` / `29f506c` | main 50 s, 1.21 49 s, both green | none (clean merge on both sides) |
+| B totem | `20c3e07` | `242a55c` | `27a11f8` / `74c3b8c` | main 20 s, 1.21 12 s, both green | `CHANGELOG.md` and `bmh.mixins.json` on both sides (lists folded and unioned by script) |
 
 ## Orders of the coordinator (wake of 2026-11-04, one turn, no report between steps)
 
