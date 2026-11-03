@@ -22,12 +22,14 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.border.WorldBorder;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 
@@ -88,7 +90,8 @@ public class RespawnPositionHandler {
             LOGGER.info("[BalancedMcHardcoreMain] No bed in this dimension, using world spawn as center");
         }
 
-        BlockPos respawnPosition = calculateRandomPosition(serverLevel, bedLocation, distanceFromBed);
+        int exileDistance = toLevelBlocks(serverLevel, distanceFromBed);
+        BlockPos respawnPosition = calculateRandomPosition(serverLevel, bedLocation, exileDistance);
 
         if (respawnPosition == null) {
 
@@ -101,6 +104,20 @@ public class RespawnPositionHandler {
 
         // Only move the player: the bed (or anchor) spawn point stays exactly as vanilla left it.
         serverPlayer.teleportTo(respawnPosition.getX() + 0.5, respawnPosition.getY(), respawnPosition.getZ() + 0.5);
+    }
+
+    // The distance is measured in Overworld blocks, but a Nether block covers 8 of them. Dividing by the
+    // respawn level's coordinate scale makes an anchor exile as far in world terms as an Overworld one.
+    private static int toLevelBlocks(ServerLevel serverLevel, int worldDistance) {
+
+        double coordinateScale = serverLevel.dimensionType().coordinateScale();
+        // Capped at the farthest a world border can reach: a data pack with a tiny scale would overflow an int.
+        int levelDistance = Mth.floor(Mth.clamp(worldDistance / coordinateScale + 0.5D, 0.0D, WorldBorder.MAX_CENTER_COORDINATE));
+
+        LOGGER.info("[BalancedMcHardcoreMain] Exile distance: " + worldDistance + " world blocks, " + levelDistance
+                + " blocks in " + serverLevel.dimension().location() + " (coordinate scale " + coordinateScale + ")");
+
+        return levelDistance;
     }
 
     private static BlockPos calculateRandomPosition(ServerLevel serverLevel, BlockPos bedPosition, int distanceFromBed) {
