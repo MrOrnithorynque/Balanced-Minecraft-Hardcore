@@ -12,12 +12,11 @@ here were read from `date`.
 
 ## Resume here
 
-Steps 1 to 14 done. Both sides implemented, audited, fixed, boot-tested on every loader (6 of 6, 28 of 28 checks each) and
-committed. What is left: the final full `build` of both sides at the final commits (queued behind the other sessions' Gradle
-slots), push both branches, report with the status line. `origin/redesign/integration*` had not moved at the last fetch (no part
-merged yet), so the merge of integration into my branches is a no-op; if a part has been merged by the time you read this, merge it,
-rebuild, and move my three loader registrations into part A's `ClientItemProperties.registerAll` (optional cleanup, G can do it).
-`get_usage` after the first piece: weekly all models 12 percent.
+DONE. Both sides implemented, audited, fixed, built at the final commits (main `8687369` plus docs, 1.21.1 `660976a`), boot-tested on
+every loader (6 of 6, 28 of 28 checks each) and pushed. `origin/redesign/integration*` had not moved at the last fetch (no part merged
+yet), so the merge of integration into my branches was a no-op; if a part has been merged since, merge it, rebuild, and move my three
+loader registrations into part A's `ClientItemProperties.registerAll` (optional cleanup, G can do it). Left for Louis:
+`checklist-c-amulet.md` (everything the client draws). `get_usage` at the end of the run: see the report.
 
 ## Steps
 
@@ -147,8 +146,8 @@ rebuild, and move my three loader registrations into part A's `ClientItemPropert
 - `JAVA_HOME=/opt/homebrew/opt/openjdk@17 sh <main worktree>/gradlew -p <main worktree> build --max-workers=2` (via `gradle_run.sh`,
   slot in `/private/tmp/bmh-gradle.N`): `BUILD SUCCESSFUL in 3m 44s` at the first commit and `BUILD SUCCESSFUL in 2m 15s` at the final
   one (`8687369`), Forge, Fabric and NeoForge jars each.
-- Same with `openjdk@21` in the `-121` worktree: `BUILD SUCCESSFUL in 3m 43s` at the first commit; the final one is in the last line
-  of this section.
+- Same with `openjdk@21` in the `-121` worktree: `BUILD SUCCESSFUL in 3m 43s` at the first commit and `BUILD SUCCESSFUL in 1m 40s`
+  at the final one (`660976a`), Forge, Fabric and NeoForge jars each.
 - `unzip -p <fabric jar> bmh.refmap.json`, `unzip -p <forge jar> META-INF/MANIFEST.MF`, `javap -v -cp <extracted forge classes> ...`.
 - `compile_check.sh <version> <jdk> <worktree> <out>` for 1.20 to 1.20.4.
 - `boot_server.sh <worktree> <jdk> <loader> <mc version> <log dir> <during.sh>` for the six boots of step 10, logs in each worktree's
