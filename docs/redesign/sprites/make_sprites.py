@@ -38,12 +38,13 @@ def paint(img, pixels):
 
 
 # Eternal Bundle: Louis's two textures plus the eternity ring, nothing else.
-# A 4x4 gold ring, corners cut, lit from the top left; '.' keeps Louis's pixel (the hole shows his leather).
-RING = ['.YG.',
-        'Y..g',
-        'G..g',
-        '.ge.']
-RING_GOLD = {'Y': h('f7d95c'), 'G': h('dba52a'), 'g': h('a2691a'), 'e': h('5c3808')}
+# A 4x4 gold hoop, corners cut, brighter on top; '.' keeps Louis's pixel (the hole shows his leather). The hoop stays
+# bright all round: a dark lower right made the hole read as an amber stone in a gold setting (blind read 1).
+RING = ['.YY.',
+        'Y..G',
+        'G..G',
+        '.GG.']
+RING_GOLD = {'Y': h('f7d95c'), 'G': h('dba52a')}
 
 
 def with_ring(img, ox, oy):
@@ -62,45 +63,54 @@ def eternal_bundle_filled():
 
 
 # Dormant Totem: frame 0 of Louis's Totem of Eternity, asleep. Only the forehead gem and the eyes change:
-# the gem loses its light (dull violet-grey, no white spark), each eye closes (lid in the face's own grey over a
-# dark lash line that keeps a trace of the eye's green or cyan). Everything else is his pixels.
-LID = h('4d4143')  # the face colour around the eyes in his texture
+# the gem loses its light (dull violet-grey, no white spark), each eye closes: a lid a shade lighter than his face grey
+# over a near-black lash line that keeps a trace of the eye's green or cyan. Lids in the face's own grey left the
+# closed eyes invisible on their own (blind read 1). Everything else is his pixels.
+LID = h('5f5759')
 
 
 def dormant_totem():
     f0 = original('totem_of_eternity.png').crop((0, 0, 16, 16))
     return paint(f0, {
-        (7, 2): h('5e5268'), (8, 2): h('4f4560'), (7, 3): h('4f4560'), (8, 3): h('3a3148'),
-        (5, 5): LID, (6, 5): LID, (5, 6): h('1f3a28'), (6, 6): h('1f3a28'),
-        (9, 5): LID, (10, 5): LID, (9, 6): h('1c3836'), (10, 6): h('1c3836'),
+        (7, 2): h('776a88'), (8, 2): h('5b4e72'), (7, 3): h('5b4e72'), (8, 3): h('3a2e4c'),
+        (5, 5): LID, (6, 5): LID, (5, 6): h('101c14'), (6, 6): h('101c14'),
+        (9, 5): LID, (10, 5): LID, (9, 6): h('0f1c1b'), (10, 6): h('0f1c1b'),
     })
 
 
-# Echo Heart: a cut crystal heart in crying-obsidian violets (vanilla crying obsidian runs #2b0178, #6006ab, #8308e4
-# over near-black), lit from the top left: one bright crown facet and a white spark on the left lobe, a dark
-# pavilion below with bevel rims so the point survives dark grounds, and a four-point echo-cyan glint at its heart.
+# Echo Heart: a cut heart jewel in crying-obsidian violets (vanilla crying obsidian runs #2b0178, #6006ab, #8308e4
+# over near-black), lit from the top left. A dark diamond table (every pixel within 3 steps of (7,8)) holds a
+# four-point echo-cyan glint: white core, cyan plus, teal ring, tips faded into the table. Four flat facets around it,
+# split on the heart's axis and on the glint's row: upper left lavender-violet with a lit corner on the lobe's edge,
+# upper right and lower left mid violet, lower right darker. The outline is graded like Louis's: lighter on the lit
+# top and left.
+# Three blind reads shaped it: smooth shading read as a glossy cabochon; a dark pixel under the cleft as a crack; a
+# light-over-dark split along the glint's arm, then a thin dark table band, as a belt or seam; a shorter top arm as a
+# Latin cross; dark-teal tips as dirt; a round highlight as a dome competing with the glint; and a glint half on
+# bright facets as lopsided. The diamond table gives the glint the same dark ground all round.
 HEART_PAL = {
     '.': (0, 0, 0, 0),
-    'o': h('120818'),
-    '1': h('2b0e55'), '2': h('3c1470'), '3': h('4d1890'), '4': h('6a2cc4'),
+    'o': h('120818'), 'p': h('2c1250'),
+    '2': h('3c1470'), '3': h('4d1890'), '4': h('6a2cc4'),
     '5': h('9056e4'), '6': h('c6a2ff'), 'S': h('f6eeff'),
-    't': h('145a66'), 'c': h('16a3b0'), 'C': h('5fe8ee'), 'W': h('e4ffff'),
+    'c': h('16a3b0'), 'C': h('5fe8ee'), 'W': h('e4ffff'),
+    'T': h('2b548d'),  # glint tips: the teal faded 55% into the table violet
 }
 HEART = [
     '................',
     '................',
-    '...oooo..oooo...',
-    '..o5S66oo5544o..',
-    '.o5S666t554444o.',
-    '.o55566c544444o.',
-    '.o5555cCc44443o.',
-    '.o33tcCWCct222o.',
-    '..o433cCc2223o..',
-    '...o422c1113o...',
-    '....o42t113o....',
-    '.....o4213o.....',
-    '......o23o......',
-    '.......oo.......',
+    '...pppp..pppp...',
+    '..pS655pp4444o..',
+    '.p655555444444o.',
+    '.p55555T444444o.',
+    '.p55552c244444o.',
+    '.p5552cCc24444o.',
+    '..p4TcCWCcT33o..',
+    '...p42cCc233o...',
+    '....p42c233o....',
+    '.....p4T33o.....',
+    '......p43o......',
+    '.......po.......',
     '................',
     '................',
 ]
