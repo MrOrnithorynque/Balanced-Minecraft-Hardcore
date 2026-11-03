@@ -10,6 +10,9 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - Every Eternal Item now says in its tooltip that you wake farther while you carry it. The Eternal Sword, Axe and Pickaxe also say that each death costs them 7% durability.
 - Navigator's Amulet: sneak and use it on a bed or a lodestone in the Overworld to set your Home. Until you do, your Home is your respawn point (if it is in the Overworld), or the world spawn. Your Home stays with you through death.
 - Navigator's Amulet: a star reading now draws a short constellation in the night sky, real stars linked from high overhead down to the horizon in the direction of Home. Only you see it; it fades after about ten seconds.
+- Eternal Sword, Echo Strike: a full-strength hit that lands echoes a moment later onto the nearest other hostile mob within 5 blocks of the target, for half the damage, with a cyan line between the two. It never goes to players, villagers, animals, golems, armor stands or your own pets.
+- Eternal Axe, smash: a hit landed while you fall hits harder the longer the fall, up to 3 times the damage after a fall of about 25 blocks, and the blow halves your fall distance, so you take about half the fall damage.
+- Eternal Pickaxe, Echo Sense: breaking an ore makes the same ore within 8 blocks glow through walls for 5 seconds (stone and deepslate variants together, at most 64 at once).
 
 ### Changed
 - The Totem of Undying no longer gives Fire Resistance when it saves you. You still get Regeneration and Absorption.
