@@ -9,6 +9,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - The Totem of Eternity glows like an enchanted item and says "Eternity" in its tooltip. It is not a real enchantment, so a grindstone cannot remove it.
 - Every Eternal Item now says in its tooltip that you wake farther while you carry it. The Eternal Sword, Axe and Pickaxe also say that each death costs them 7% durability.
 - Navigator's Amulet: sneak and use it on a bed or a lodestone in the Overworld to set your Home. Until you do, your Home is your respawn point (if it is in the Overworld), or the world spawn. Your Home stays with you through death.
+- Navigator's Amulet: a star reading now draws a short constellation in the night sky, real stars linked from high overhead down to the horizon in the direction of Home. Only you see it; it fades after about ten seconds.
 
 ### Changed
 - The Totem of Undying no longer gives Fire Resistance when it saves you. You still get Regeneration and Absorption.
