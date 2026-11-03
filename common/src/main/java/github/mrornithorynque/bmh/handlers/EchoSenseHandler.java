@@ -8,9 +8,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import org.joml.Vector3f;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
+
+import com.mojang.math.Transformation;
 
 import github.mrornithorynque.bmh.BalancedMcHardcore;
 import github.mrornithorynque.bmh.mixin.E_BlockDisplayInvoker;
@@ -40,7 +43,12 @@ import net.minecraft.world.phys.AABB;
  * A display is saved with its chunk: a player who quits within 5 seconds would leave the ore glowing
  * for good. Every display therefore carries the scoreboard tags {@code bmh_echo} and
  * {@code bmh_echo_until_<expiry game time>}, and {@code E_DisplayMixin} discards it from
- * {@code Display.tick} once that time has passed, which also covers displays reloaded from disk.
+ * {@code Display.tick} once that time has passed or its ore is gone, which also covers displays
+ * reloaded from disk.
+ *
+ * At most 64 displays live around one spot at a time (the ones within reach of a new reading are counted,
+ * and a display met again only gets a longer glow, so a vein mined for a while keeps glowing a little
+ * longer than 5 seconds).
  */
 public class EchoSenseHandler {
 
@@ -62,7 +70,8 @@ public class EchoSenseHandler {
     private static final int GLOW_COLOR = 0x00F0FF;
 
     // "The same ore" is the same vanilla ore tag, so the stone and deepslate variants light up together.
-    // Nether quartz ore, nether gold ore and ancient debris have no such tag: they match their own block.
+    // Nether quartz ore and ancient debris have no such tag: they match their own block (nether gold ore is
+    // in #minecraft:gold_ores, so it lights the gold ores).
     private static final List<TagKey<Block>> ORE_FAMILIES = List.of(
             BlockTags.COAL_ORES,
             BlockTags.COPPER_ORES,
@@ -138,7 +147,7 @@ public class EchoSenseHandler {
                 player.getGameProfile().getName(), spawned, extended);
     }
 
-    /** Called from {@code Display.tick} on both sides: discards an Echo Sense display whose time is up. */
+    /** Called from {@code Display.tick} on both sides: discards an Echo Sense display whose time is up or whose ore is gone. */
     public static void discardIfExpired(Display display) {
 
         if (display.level().isClientSide) {
@@ -151,7 +160,9 @@ public class EchoSenseHandler {
             return;
         }
 
-        if (display.level().getGameTime() >= expiryOf(tags)) {
+        // It ends with its time, or with its ore: a lit ore that was mined must not stay behind as a ghost.
+        if (display.level().getGameTime() >= expiryOf(tags)
+                || !display.level().getBlockState(display.blockPosition()).is(ECHO_SENSE_ORES)) {
             display.discard();
         }
     }
@@ -213,6 +224,11 @@ public class EchoSenseHandler {
 
         ((E_BlockDisplayInvoker) display).bmh$setBlockState(ore.state());
         ((E_DisplayInvoker) display).bmh$setGlowColorOverride(GLOW_COLOR);
+        // Drawn a hair inside its block. An entity inside an opaque block is lit with the block's own light,
+        // which is none: at full size it would turn an exposed ore dark and shimmer against the real faces.
+        // Inside, the real ore keeps its look and the glow outline still shows through walls.
+        ((E_DisplayInvoker) display).bmh$setTransformation(
+                new Transformation(new Vector3f(0.02F, 0.02F, 0.02F), null, new Vector3f(0.96F, 0.96F, 0.96F), null));
 
         display.setGlowingTag(true);
         display.addTag(ECHO_TAG);

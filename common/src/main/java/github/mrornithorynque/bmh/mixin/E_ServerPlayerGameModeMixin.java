@@ -1,5 +1,8 @@
 package github.mrornithorynque.bmh.mixin;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -14,6 +17,7 @@ import github.mrornithorynque.bmh.items.EternalPickaxeItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerPlayerGameMode;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -27,34 +31,40 @@ public abstract class E_ServerPlayerGameModeMixin {
     @Final
     protected ServerPlayer player;
 
+    // One entry per destroyBlock call in progress: a mod that breaks a whole vein from inside a break
+    // event calls it again before the first call returns.
     @Unique
-    private BlockState bmh$brokenState;
+    private final Deque<BlockState> bmh$brokenStates = new ArrayDeque<>();
 
     @Unique
-    private long bmh$lastSense = Long.MIN_VALUE;
+    private long bmh$nextSense;
 
     @Inject(method = "destroyBlock", at = @At("HEAD"))
     private void bmh$rememberBlock(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
 
-        bmh$brokenState = player.getMainHandItem().getItem() instanceof EternalPickaxeItem
+        // A return that never came (an exception) leaves its entry behind: forget the old ones.
+        if (bmh$brokenStates.size() > 8) {
+            bmh$brokenStates.clear();
+        }
+
+        bmh$brokenStates.push(player.getMainHandItem().getItem() instanceof EternalPickaxeItem
                 ? player.serverLevel().getBlockState(pos)
-                : null;
+                : Blocks.AIR.defaultBlockState());
     }
 
     @Inject(method = "destroyBlock", at = @At("RETURN"))
     private void bmh$senseOre(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
 
-        BlockState broken = bmh$brokenState;
-        bmh$brokenState = null;
+        BlockState broken = bmh$brokenStates.poll();
 
-        if (broken == null || !cir.getReturnValueZ()) {
+        if (broken == null || !cir.getReturnValueZ() || !broken.is(EchoSenseHandler.ECHO_SENSE_ORES)) {
             return;
         }
 
         long now = player.serverLevel().getGameTime();
 
-        if (now - bmh$lastSense >= EchoSenseHandler.COOLDOWN_TICKS) {
-            bmh$lastSense = now;
+        if (now >= bmh$nextSense) {
+            bmh$nextSense = now + EchoSenseHandler.COOLDOWN_TICKS;
             EchoSenseHandler.onOreBroken(player, pos, broken);
         }
     }

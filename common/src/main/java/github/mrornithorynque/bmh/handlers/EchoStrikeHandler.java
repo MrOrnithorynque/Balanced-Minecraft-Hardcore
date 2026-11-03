@@ -1,5 +1,6 @@
 package github.mrornithorynque.bmh.handlers;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +12,7 @@ import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -19,15 +21,17 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.npc.AbstractVillager;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
  * Echo Strike, the Eternal Sword's ability: a full-strength hit that lands echoes a few ticks later
- * onto the nearest other living entity around the target, for half the damage. It jumps to another
- * entity on purpose: a second hit on the same target would land inside its invulnerability frames
+ * onto the nearest other enemy around the target, for half the damage. It jumps to another
+ * mob on purpose: a second hit on the same target would land inside its invulnerability frames
  * and add nothing.
  *
  * Fed by {@code E_PlayerAttackMixin} (the hit) and {@code E_ServerPlayerMixin} (the clock). The echo
@@ -47,7 +51,7 @@ public class EchoStrikeHandler {
     private static final DustParticleOptions CYAN = new DustParticleOptions(new Vector3f(0.1F, 0.9F, 1.0F), 1.0F);
 
     /** An echo on its way: where the hit landed, the damage it will deal, and when. */
-    public record PendingEcho(UUID targetId, Vec3 origin, float damage, long dueGameTime) {
+    public record PendingEcho(ResourceKey<Level> dimension, UUID targetId, Vec3 origin, float damage, long dueGameTime) {
     }
 
     /**
@@ -68,11 +72,14 @@ public class EchoStrikeHandler {
             pending.remove(0);
         }
 
+        ServerLevel level = attacker.serverLevel();
+
         pending.add(new PendingEcho(
+                level.dimension(),
                 target.getUUID(),
                 center(target),
                 damage * DAMAGE_RATIO,
-                attacker.serverLevel().getGameTime() + DELAY_TICKS));
+                level.getGameTime() + DELAY_TICKS));
     }
 
     /** Called at the start of every tick of the attacker: lands the echoes that are due. */
@@ -82,14 +89,23 @@ public class EchoStrikeHandler {
         ServerLevel level = attacker.serverLevel();
         long now = level.getGameTime();
 
-        Iterator<PendingEcho> iterator = pending.iterator();
+        // Out of the queue first: delivering hurts a mob, and a mod listening to that may start another swing.
+        List<PendingEcho> due = new ArrayList<>();
 
-        while (iterator.hasNext()) {
+        for (Iterator<PendingEcho> iterator = pending.iterator(); iterator.hasNext();) {
 
             PendingEcho echo = iterator.next();
 
             if (echo.dueGameTime() <= now) {
                 iterator.remove();
+                due.add(echo);
+            }
+        }
+
+        for (PendingEcho echo : due) {
+
+            // The attacker may have changed dimension since the hit: the echo is lost with it.
+            if (level.dimension().equals(echo.dimension())) {
                 deliver(attacker, level, echo);
             }
         }
@@ -109,7 +125,10 @@ public class EchoStrikeHandler {
 
         Vec3 end = center(victim);
 
-        victim.hurt(level.damageSources().playerAttack(attacker), echo.damage());
+        // Invulnerability frames can absorb the echo: then there is nothing to show either.
+        if (!victim.hurt(level.damageSources().playerAttack(attacker), echo.damage())) {
+            return;
+        }
 
         drawLine(level, origin, end);
         level.playSound(null, end.x, end.y, end.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 0.6F, 1.6F);
@@ -138,10 +157,12 @@ public class EchoStrikeHandler {
         return nearest;
     }
 
-    // Any living entity, minus what the Eternal Sword must never turn on.
+    // An enemy (a hostile mob), minus what the Eternal Sword must never turn on. The brief lists the spared
+    // kinds (players, villagers, armor stands, the attacker's pets) and says "enemy": an Enemy is neither,
+    // and animals, golems and allays are not hurt by a fight next to them.
     private static boolean isValidVictim(ServerPlayer attacker, LivingEntity entity, UUID targetId) {
 
-        if (entity == attacker || entity.getUUID().equals(targetId)) {
+        if (!(entity instanceof Enemy) || entity == attacker || entity.getUUID().equals(targetId)) {
             return false;
         }
 

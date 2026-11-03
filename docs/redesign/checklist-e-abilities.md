@@ -15,25 +15,29 @@ Per-use lines (`Echo Strike: ...`, `Smash: ...`, `Echo Sense: ...`) are DEBUG, i
 
 ## 1. Sword: Echo Strike
 
-Setup (zombies that stand still, two of them 3 blocks apart):
+Echo victims are enemies (hostile mobs): zombies, skeletons, creepers, spiders and the like. Husks do not burn in the
+sun, so they make good test dummies. Setup, two of them 3 blocks apart:
 
 ```
-/summon minecraft:zombie ~3 ~ ~ {NoAI:1b,Tags:["bmh_a"]}
-/summon minecraft:zombie ~3 ~ ~3 {NoAI:1b,Tags:["bmh_b"]}
+/summon minecraft:husk ~3 ~ ~ {NoAI:1b,Tags:["bmh_a"]}
+/summon minecraft:husk ~3 ~ ~3 {NoAI:1b,Tags:["bmh_b"]}
 ```
 
-1. Hold the Eternal Sword and hit zombie A once, waiting until the attack indicator under the crosshair is full.
+1. Hold the Eternal Sword and hit husk A once, waiting until the attack indicator under the crosshair is full.
    You should see: about a quarter of a second after the hit, a cyan dotted line from A to B, small sparks on B, a soft
    chime, and B losing hearts. Check with `/data get entity @e[tag=bmh_b,limit=1] Health`: B had 20, it should now be
-   14.5 (the hit does 11, the echo 5.5, a bit less if the zombie wears armor).
-2. Hit zombie A with a rushed swing (click again right away, indicator not full). No cyan line, B untouched.
+   14.5 (the hit does 11, the echo 5.5, a bit less because the husk wears natural armor: about 14.6).
+2. Hit husk A with a rushed swing (click again right away, indicator not full). No cyan line, B untouched.
 3. Kill A with a full hit, then hit B alone: no line (no other creature around), no error in the log.
 4. The echo must never go to: you; another player; a villager (`/summon minecraft:villager ~ ~ ~3 {NoAI:1b}` next to A);
-   an armor stand; a wolf you tamed (feed it bones). Each time the line goes elsewhere or nowhere.
-5. A cow near the target is a valid victim (the brief reads "any living entity" and lists what is spared). Say so if you
-   do not want that: it is one line in `EchoStrikeHandler.isValidVictim`.
+   an armor stand; a wolf you tamed (feed it bones). Each time the line goes to B or nowhere.
+5. Only enemies are echo victims. A cow, a sheep, an iron golem or a bee standing next to A (closer than B) is not
+   touched, and the line still goes to B. (The brief says "enemy" and lists what is spared; I read it as hostile mobs,
+   so a fight next to a farm or a village golem never hurts them. If you want any living mob as a victim, it is one
+   condition in `EchoStrikeHandler.isValidVictim`.)
 6. If the echo kills B, B drops its loot and experience as if you had killed it.
-7. The echo never echoes: with three zombies in a row, only the one nearest the target is hurt, not the third.
+7. The echo never echoes: with three husks in a row (A, then B 3 blocks further, then C 3 blocks further), only B is
+   hurt, not C.
 
 ## 2. Axe: smash
 
@@ -93,5 +97,11 @@ Build a small test wall (so the ores are behind stone, not in sight), standing o
    ```
    It must be 64 or less, the ones nearest the block you broke. Break a second ore right away: the glow of the first
    cluster is extended and the count stays 64 or less, no doubled outlines.
-6. In the Nether: quartz ore, nether gold ore and ancient debris each light only blocks of their own kind.
+6. In the Nether: quartz ore and ancient debris each light only blocks of their own kind; nether gold ore lights the
+   gold ores (it is in the vanilla gold ore tag).
 7. Creative mode breaks count too. Spectator mode never breaks anything.
+8. Mine one of the glowing ores while it still glows: its outline disappears at once (no ghost ore floating where the
+   ore was).
+9. Look at the ores that are not behind stone, in a cave: the real ore must keep its normal look (not darker, no
+   flicker) while its cyan outline shows. The glow cube is drawn a hair inside the block for this; I could not look at
+   it without a game client, so tell me if exposed ores look off.
