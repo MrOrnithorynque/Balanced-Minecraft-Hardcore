@@ -20,6 +20,12 @@ public final class EternalTooltips {
         lines.add(Component.translatable("tooltip.bmh.heavy_with_eternity").withStyle(ChatFormatting.GOLD));
     }
 
+    /** Each tool names what it does beyond being a tool, in dark aqua, above the gold line. */
+    public static void addAbility(List<Component> lines, String key) {
+
+        lines.add(Component.translatable(key).withStyle(ChatFormatting.DARK_AQUA));
+    }
+
     /** The three tools lose 7% of their durability at each death (KeepItemAfterDeath). */
     public static void addDeathWear(List<Component> lines) {
 
