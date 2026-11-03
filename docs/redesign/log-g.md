@@ -23,11 +23,11 @@ Steps are numbered, not timed (this session reads no clock unless it runs `date`
 | Part | Main-side branch | 1.21 branch | Log |
 |---|---|---|---|
 | A fixes | `redesign/a-fixes` | `redesign/a-fixes-1.21` | `log-a-fixes.md` |
+| A fixes | `4353418` | `ebf5363` | `54299cc` / `29f506c` | main 50 s, 1.21 49 s, both green | none (clean merge on both sides) |
 | B totem | `redesign/b-totem` | `redesign/b-totem-1.21` | `log-b-totem.md` |
-| C amulet | `redesign/c-amulet` | `redesign/c-amulet-1.21` | `log-c-amulet.md` |
-| D sky | `redesign/d-sky` | `redesign/d-sky-1.21` | `log-d-sky.md` |
-| E abilities | `redesign/e-abilities` | `redesign/e-abilities-1.21` | `log-e-abilities.md` |
+| B totem | `20c3e07` | `242a55c` | `27a11f8` / `74c3b8c` | main 20 s, 1.21 12 s, both green | `CHANGELOG.md` and `bmh.mixins.json` on both sides (lists folded and unioned by script) |
 | F sprites | `redesign/f-sprites` | `redesign/f-sprites-1.21` | `log-f-sprites.md` |
+| F sprites | `5fd953a` | `664ca7e` | `027a13c` / `8e0f078` | main 16 s, 1.21 15 s, both green | `CHANGELOG.md` folded; `dormant_totem.png` and `echo_heart.png` add/add on both sides: F's blobs taken (`checkout --theirs`), verified equal to F's branch |
 
 ## State at READY (step 4)
 
@@ -69,9 +69,10 @@ Steps are numbered, not timed (this session reads no clock unless it runs `date`
 
 | Part | Main-side sha merged | 1.21 sha merged | Integration after (main / 1.21) | Builds | Conflicts resolved |
 |---|---|---|---|---|---|
-| A fixes | `4353418` | `ebf5363` | `54299cc` / `29f506c` | main 50 s, 1.21 49 s, both green | none (clean merge on both sides) |
-| B totem | `20c3e07` | `242a55c` | `27a11f8` / `74c3b8c` | main 20 s, 1.21 12 s, both green | `CHANGELOG.md` and `bmh.mixins.json` on both sides (lists folded and unioned by script) |
-| F sprites | `5fd953a` | `664ca7e` | `027a13c` / `8e0f078` | main 16 s, 1.21 15 s, both green | `CHANGELOG.md` folded; `dormant_totem.png` and `echo_heart.png` add/add on both sides: F's blobs taken (`checkout --theirs`), verified equal to F's branch |
+| C amulet | `redesign/c-amulet` | `redesign/c-amulet-1.21` | `log-c-amulet.md` |
+| C amulet | `09fee5e` | `660976a` | `4e61f11` / `6835d01` | main 34 s, 1.21 19 s, both green | `CHANGELOG.md` folded and `bmh.mixins.json` unioned on both sides; on 1.21 the three-way union dropped `EnchantmentMixin` (C removed it from the base list and deleted the class). `BalancedMcHardcoreMain`, `BalancedMcHardcoreFabricClient` and the 1.21 client classes auto-merged with A: both hooks kept until call 2a |
+| D sky | `redesign/d-sky` | `redesign/d-sky-1.21` | `log-d-sky.md` |
+| E abilities | `redesign/e-abilities` | `redesign/e-abilities-1.21` | `log-e-abilities.md` |
 
 ## Orders of the coordinator (wake of 2026-11-04, one turn, no report between steps)
 
