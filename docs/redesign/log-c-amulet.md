@@ -12,13 +12,11 @@ here were read from `date`.
 
 ## Resume here
 
-Steps 1 to 12 done. Both sides implemented, built, audited, fixed and pushed (main `72f03bd` plus this log, 1.21.1 `0977005`).
-Server boots so far: Fabric 1.20.4 and Forge 1.20.4 pass the whole bot scenario (28 of 28). Still to boot, queued in
-`boot_all.sh` behind the other sessions' Gradle slots and server lock: NeoForge 1.20.4, Forge 1.21.1, NeoForge 1.21.1, and a
-rerun of Fabric 1.21.1 (its first run was 27 of 28, the miss was a race in my test script). If the queue was lost, rerun
-`scratchpad/boot_all.sh` (it takes the slots and the lock itself).
-Then: merge `origin/redesign/integration*` (fold my client registration into part A's `ClientItemProperties.registerAll` if A is
-in by then), full rebuild of both sides, `git merge-tree` against the pushed siblings, push both branches, report.
+Steps 1 to 14 done. Both sides implemented, audited, fixed, boot-tested on every loader (6 of 6, 28 of 28 checks each) and
+committed. What is left: the final full `build` of both sides at the final commits (queued behind the other sessions' Gradle
+slots), push both branches, report with the status line. `origin/redesign/integration*` had not moved at the last fetch (no part
+merged yet), so the merge of integration into my branches is a no-op; if a part has been merged by the time you read this, merge it,
+rebuild, and move my three loader registrations into part A's `ClientItemProperties.registerAll` (optional cleanup, G can do it).
 `get_usage` after the first piece: weekly all models 12 percent.
 
 ## Steps
@@ -52,9 +50,10 @@ in by then), full rebuild of both sides, `git merge-tree` against the pushed sib
    Loom merged jars of 1.20, 1.20.1, 1.20.2, 1.20.3 and 1.20.4 (`compile_check.sh`, scratchpad). The loader classes
    (`ForgeAmuletClient` etc.) only use APIs that exist on every 1.20.x Forge, and G's port builds will prove them.
 9. 1.21.1 build: `BUILD SUCCESSFUL in 3m 43s` (JDK 21).
-10. Server boots with a scripted vanilla client. `scratchpad/boot_server.sh` takes a Gradle slot and the server lock, writes
+10. Server boots with a scripted vanilla client (the scripts are kept in `docs/redesign/c-amulet-tools/`, with a README).
+    `boot_server.sh` takes a Gradle slot and the server lock, writes
     `server.properties` (flat world, peaceful, port 25613, RCON 25713) and boots `:<loader>:runServer`; once the log says `Done` it runs
-    `scratchpad/bot-scripts/amulet_scenario.js`, a mineflayer 4.39 bot (`online-mode=false`) that sends only "use item" and "use item on
+    `amulet_scenario.js`, a mineflayer 4.39 bot (`online-mode=false`) that sends only "use item" and "use item on
     block" packets and reads the action bar, with RCON (`rcon.py`) for `give`, `time`, `weather`, `setblock`, `tp`, `kill` and `data get
     entity`. It checks: a reading by day is refused with nothing written; at midnight under open sky a reading shows
     `bmh.amulet.reading` with the player's block coordinates, spends one charge and writes `bmh_reading`, `bmh_starlight`, `bmh_night`;
@@ -67,9 +66,12 @@ in by then), full rebuild of both sides, `git merge-tree` against the pushed sib
 
     | Side | Loader | Boot | Scenario | Notes |
     |---|---|---|---|---|
-    | 1.21.1 | Fabric | `Done` after 106 s | 27 of 28 | the "empty" check lost a race in my script (the server answers in a few ms, before my wait window started); fixed, rerun queued |
-    | 1.20.4 | Fabric | 160 s | 28 of 28 | |
+    | 1.20.4 | Fabric | `Done` after 160 s | 28 of 28 | |
     | 1.20.4 | Forge | 195 s | 28 of 28 | debug log: `Mixing C_ServerPlayerMixin from bmh.mixins.json into net.minecraft.server.level.ServerPlayer` |
+    | 1.20.4 | NeoForge | 207 s | 28 of 28 | |
+    | 1.21.1 | Forge | 156 s | 28 of 28 | same `Mixing C_ServerPlayerMixin` debug line |
+    | 1.21.1 | NeoForge | 160 s | 28 of 28 | |
+    | 1.21.1 | Fabric | 174 s | 28 of 28 | its first run (106 s) was 27 of 28: the "empty" check lost a race in my script (the server answers in a few ms, before my wait window started); fixed in the script, not in the mod |
 
     Every boot logs the item's self-check: `Azimuth self-check: Home (0, -100) seen from (0, 0) gives 0.0 (expected 0), Home (100, 0)
     gives 90.0 (expected 90)`. The needle was also checked by a simulation (`needle_sim.py`): vanilla's angle for a non-local holder
@@ -82,6 +84,16 @@ in by then), full rebuild of both sides, `git merge-tree` against the pushed sib
     spawn protection, held right click spending the charges, glass. The other findings were doc corrections (the stale enchantment
     glint of old amulets, the pending boots).
 12. Fix and commits: main `72f03bd` and 1.21.1 `0977005` (client `use()` returns `consume`). The log and the checklist were updated.
+13. Conflicts with the siblings (`git merge-tree --write-tree HEAD origin/redesign/<sibling>` for a, b, d, e, f and their `-1.21`).
+    Avoidable ones removed: the Fabric client entrypoint now carries one line (`FabricAmuletClient.register()`, before the HUD line, no new
+    import: same package) and the Forge constructor registers the client setup before the common one, so part A's edits next to them
+    merge cleanly (main `8687369`, 1.21.1 `660976a`). What is left is only what rule 8 expects G to resolve: `CHANGELOG.md` (every part)
+    and the `mixins` array of `bmh.mixins.json` (a, b, e: each part adds its mixin line to the same array; on 1.21.1 keep the others and
+    `C_ServerPlayerMixin`, and drop `EnchantmentMixin`, which part C deleted). Part A's `ClientItemProperties.registerAll(Registrar)` is
+    the better home for the amulet line (`registrar.register(ItemInit.NAVIGATOR_AMULET.get(), AmuletCompass.ANGLE, AmuletCompass.angle())`);
+    with it, `ForgeAmuletClient`, `NeoForgeAmuletClient` and `FabricAmuletClient` and their three call lines can go. Left to G on purpose:
+    folding needs A merged first.
+14. Final builds at the final commits: see the Verification section.
 
 ## Calls made (with reasons)
 
@@ -133,7 +145,11 @@ in by then), full rebuild of both sides, `git merge-tree` against the pushed sib
 ## Verification commands
 
 - `JAVA_HOME=/opt/homebrew/opt/openjdk@17 sh <main worktree>/gradlew -p <main worktree> build --max-workers=2` (via `gradle_run.sh`,
-  slot in `/private/tmp/bmh-gradle.N`): `BUILD SUCCESSFUL`.
-- Same with `openjdk@21` in the `-121` worktree: `BUILD SUCCESSFUL`.
+  slot in `/private/tmp/bmh-gradle.N`): `BUILD SUCCESSFUL in 3m 44s` at the first commit and `BUILD SUCCESSFUL in 2m 15s` at the final
+  one (`8687369`), Forge, Fabric and NeoForge jars each.
+- Same with `openjdk@21` in the `-121` worktree: `BUILD SUCCESSFUL in 3m 43s` at the first commit; the final one is in the last line
+  of this section.
 - `unzip -p <fabric jar> bmh.refmap.json`, `unzip -p <forge jar> META-INF/MANIFEST.MF`, `javap -v -cp <extracted forge classes> ...`.
 - `compile_check.sh <version> <jdk> <worktree> <out>` for 1.20 to 1.20.4.
+- `boot_server.sh <worktree> <jdk> <loader> <mc version> <log dir> <during.sh>` for the six boots of step 10, logs in each worktree's
+  `build/logs/` (`server-<loader>-<version>.log` and `scenario-<loader>-<version>.log`); `needle_sim.py <navigator_amulet.json>`.
