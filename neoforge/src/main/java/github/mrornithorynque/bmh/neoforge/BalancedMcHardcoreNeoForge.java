@@ -31,6 +31,7 @@ public class BalancedMcHardcoreNeoForge {
         // The HUD text needs the client classes: never touch them on a dedicated server.
         if (FMLEnvironment.dist.isClient()) {
             modEventBus.register(NeoForgeClientEvents.class);
+            modEventBus.addListener(NeoForgeAmuletClient::onClientSetup);
         }
 
         LOGGER.info("[BalancedMcHardcoreMain] Setup complete.");
