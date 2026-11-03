@@ -115,6 +115,25 @@ Steps are numbered, not timed. Started 2026-11-03 21:28 CET (read from `date`).
     `[Unreleased]` heading; unavoidable from one side, G's file per rule 8); `bmh.mixins.json` merges cleanly with A,
     B, C, E. Neither integration branch has moved since the session started.
 
+18. Final boots on the final code (no development trigger), `-verbose:class`, port 25614, RCON stop
+    (`tools/boot6.sh` then `tools/boot-test-long.sh` for one rerun; logs in `<wt>/build/d-sky-logs/boot-final/`):
+
+    | Side | Loader | Ready | Stop | Mod classes loaded | Sky classes loaded |
+    |---|---|---|---|---|---|
+    | main | Fabric | 249 s (first run in this tree: Gradle setup included) | RCON, port closed | 33 | 0 |
+    | main | Forge | 63 s (rerun, see below) | RCON, port closed | 42 | 0 |
+    | main | NeoForge | 93 s | RCON, port closed | 33 | 0 |
+    | 1.21.1 | Fabric | 51 s | RCON, port closed | 33 | 0 |
+    | 1.21.1 | Forge | 60 s | RCON, port closed | 42 | 0 |
+    | 1.21.1 | NeoForge | 57 s | RCON, port closed | 33 | 0 |
+
+    The first main Forge boot reached `Done (106.960s)!` 325 s after Gradle started (first ForgeGradle run in this
+    worktree: `downloadAssets`, `prepareRuns`; plus `-verbose:class`), 25 s past the script's 300 s window, so the
+    script killed it (Gradle exit 1, Java exit 143); the rerun with a 600 s window was clean. Only red line on main
+    Forge: the known `Couldn't parse element loot_tables:bmh:blocks/test_block`.
+19. Integration branches unchanged since the session started (`432d0a2`, `a886d42`): merges are no-ops ("Already up
+    to date").
+
 ## Shader mods (Iris, Oculus)
 
 Not tested (none installed here). What the code implies: the chain is drawn inside vanilla's `renderSky`, right after
@@ -165,11 +184,9 @@ effort, stated in the checklist; not a blocker.
 
 ## Resume here
 
-Steps 1 to 17 done; both sides have their final code, no development trigger left, both pushed. Remaining: the
-final boots, three per side (`tools/boot3.sh <wt> <java home> <out>`: fabric, forge, neoforge, port 25614, logs in
-`<wt>/build/d-sky-logs/boot-final/`; main's are queued for the server lock), the 1.21.1 final build (queued, log
-`<wt>-121/build/d-sky-logs/build-121-final.log`), then fetch, merge the integration branches if they moved (rebuild if
-anything merged), push, report.
+Part D is done on both sides: final code built and booted on all six loader/side pairs, both branches pushed, the
+report sent (DONE line). Nothing left for this session. If G's merge brings conflicts in `CHANGELOG.md` (expected,
+every part adds under `[Unreleased]`) keep every part's line. Louis's in-game checks: `docs/redesign/checklist-d-sky.md`.
 Tools live in this session's scratchpad (`tools/`, `wait_build.sh`, `compile_all.sh`, `prev.sh`); if it is gone,
 session A's originals are in the shared notes folder.
 Regenerate the PNGs into `docs/redesign/sky-previews/` once the look is final:
