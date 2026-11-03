@@ -60,7 +60,7 @@ Just like the legacy Bundle but keep with you any item inside it even after you 
 
 #### Navigator's Amulet
 
-Your only way of knowing coordinates in your world. Right click and the coordinates is displayed for few seconds on your screen.
+Your only way of knowing coordinates in your world, and a compass that only knows north: its needle always points north in the Overworld. Sneak and right click a bed or a lodestone to set your Home. At night, under open sky and without rain, right click to read the stars: your coordinates show on the action bar and the stars point you toward your Home. A reading costs one of its 3 starlight charges, which come back at every nightfall.
 
 <p align="center">
   <img src="resources/navigator_amulet_crafting_grid.png" alt="navigator_amulet_crafting_grid" width="200">
