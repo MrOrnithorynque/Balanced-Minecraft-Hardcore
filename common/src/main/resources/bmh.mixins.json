@@ -6,8 +6,8 @@
     "refmap": "bmh.refmap.json",
     "mixins": [
         "A_LivingEntityTotemMixin",
-        "EnchantmentMixin",
-        "B_AnvilMenuMixin"
+        "B_AnvilMenuMixin",
+        "C_ServerPlayerMixin"
     ],
     "client": [
         "CreateWorldGameTabMixin"
