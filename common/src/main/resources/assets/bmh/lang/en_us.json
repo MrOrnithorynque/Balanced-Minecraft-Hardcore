@@ -18,6 +18,19 @@
     "sounds.bmh.bell_sfx": "bell_sfx",
     "sounds.bmh.end": "end",
 
+    "bmh.amulet.starlight": "Starlight %s/%s",
+    "bmh.amulet.tooltip.read": "Use at night under open sky to read the stars.",
+    "bmh.amulet.tooltip.home": "Sneak and use on a bed or a lodestone to set Home.",
+    "bmh.amulet.reading": "X %s · Y %s · Z %s",
+    "bmh.amulet.empty": "No starlight left tonight.",
+    "bmh.amulet.hidden.dimension": "The stars are hidden: they only answer in the Overworld.",
+    "bmh.amulet.hidden.rain": "The stars are hidden behind the clouds.",
+    "bmh.amulet.hidden.day": "The stars are hidden: wait for night.",
+    "bmh.amulet.hidden.roof": "The stars are hidden: you need open sky above you.",
+    "bmh.amulet.home_set.bed": "Home set to this bed.",
+    "bmh.amulet.home_set.lodestone": "Home set to this lodestone.",
+    "bmh.amulet.home_overworld": "Home can only be set in the Overworld.",
+
     "bmh.createWorld.balancedHardcore": "Balanced Hardcore",
     "bmh.createWorld.balancedHardcore.info": "Distant respawn and eternal items. Turning it off disables every BMH game rule for this world."
 }
