@@ -12,8 +12,6 @@ public class BalancedMcHardcoreFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
 
-        FabricAmuletClient.register();
-
         HudRenderCallback.EVENT.register((guiGraphics, tickDelta) -> TextDrawer.getInstance().render(guiGraphics));
 
         // The main entrypoint has registered the items by now.
