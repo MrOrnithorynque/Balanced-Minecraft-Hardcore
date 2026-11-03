@@ -7,10 +7,11 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 ### Changed
 - The Totem of Undying no longer gives Fire Resistance when it saves you. You still get Regeneration and Absorption.
 - The exile from a respawn anchor in the Nether is now as long, in world terms, as one from a bed in the Overworld. Before, it was eight times longer, because a Nether block counts for 8 Overworld blocks.
+- On 1.21.1, mining a decorated pot with an Eternal Sword, Axe or Pickaxe now breaks it into sherds like with the other tools (it used to drop whole). Silk Touch still keeps it whole.
 
 ### Fixed
 - The Eternal Bundle now shows its filled texture when it holds items.
-- On 1.21.1, the Eternal Sword, Axe and Pickaxe take enchantments again (Mending, Unbreaking, Sharpness and the rest of what their netherite versions take).
+- On 1.21.1, the Eternal Sword, Axe and Pickaxe no longer refuse enchantments (Mending, Unbreaking and the rest of what their netherite versions take).
 
 ## [1.4.0] - 2026-11-02
 

@@ -24,7 +24,8 @@ public abstract class A_LivingEntityTotemMixin {
     @Inject(method = "checkTotemDeathProtection", at = @At("RETURN"))
     private void bmh$dropTotemFireResistance(DamageSource source, CallbackInfoReturnable<Boolean> cir) {
 
-        // Vanilla wipes every effect when the totem triggers, so this only removes the totem's own.
+        // The totem clears the player's effects before it adds its three (NeoForge clears the ones a totem cures,
+        // Fire Resistance included), so any Fire Resistance left at this point is the totem's.
         if (cir.getReturnValueZ() && (Object) this instanceof Player player) {
             player.removeEffect(MobEffects.FIRE_RESISTANCE);
         }

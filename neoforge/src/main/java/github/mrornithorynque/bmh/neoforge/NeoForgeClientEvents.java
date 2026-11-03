@@ -11,10 +11,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiOverlaysEvent;
 
-/**
- * Mod bus, client only (the @Mod class registers it behind the client check): the HUD text is one more
- * overlay on top of the vanilla ones, and the item properties wait for the client setup.
- */
+/** Mod bus: the HUD text is one more overlay on top of the vanilla ones. */
 public class NeoForgeClientEvents {
 
     @SubscribeEvent
