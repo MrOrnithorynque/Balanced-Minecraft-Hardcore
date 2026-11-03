@@ -40,6 +40,28 @@ Steps are numbered, not timed. Started 2026-11-03 21:28 CET (read from `date`).
    blend, draws vanilla's stars and exactly the triangles `StarTrace` emits; player view and all-sky map; sweeps
    every azimuth over the night into `stats.txt`). Tuned the picker on it (see Calls 1 to 5).
 
+6. In-game code, main side (commit `74d0b71`): `client/sky/StarReadingRenderer` (reads the held amulet's
+   `bmh_reading`, starts a reading this client has not shown and that is under 40 ticks old, animates it, draws
+   `StarTrace`'s triangles with vanilla's sun-and-moon path: CPU-transformed vertices, `BufferUploader`, position-colour
+   shader, SRC_ALPHA + ONE, previous shader and shader colour restored) and `mixin/D_LevelRendererSkyMixin` (client
+   list of `bmh.mixins.json`; `@Inject` into `renderSky` with its full descriptor, slice from the `starBuffer` field,
+   first `VertexBuffer.unbind()` after it, shift AFTER; `@Shadow level`). Logs once
+   `Sky azimuth self-check` (from (0, 0): azimuth 0 aims at (0, -100), 90 at (100, 0)) and per reading
+   `Star reading toward <az>: <n> stars, the last at azimuth <a>, altitude <h>`. Changelog line, checklist
+   `docs/redesign/checklist-d-sky.md`.
+7. Plain `javac` of the whole common tree against the Loom jars of 1.20, 1.20.1, 1.20.2, 1.20.3, 1.20.4: all compile
+   (script: scratchpad `compile_all.sh`, libraries from the Gradle cache).
+8. 1.21.1 side (commit on `redesign/d-sky-1.21`, pushed): `StarField` rewritten on 1.21.1's code (floats, JOML,
+   accumulated corners), checked bit-exact against vanilla 1.21.1 `drawStars` (780 stars, 3120 corners, 0 mismatches,
+   real `RandomSource` replaced by our copy, `Mth.lengthSquared` inlined from its source); same 780 stars as the main
+   side (centres within 0.143 degrees: the diamond offset), 86.0 percent of the 16200 sweep readings pick the very
+   same chain, the rest differ by tie-breaks. `StarChain` and `StarTrace` identical to main. Renderer: custom data
+   (`DataComponents.CUSTOM_DATA`, `contains` then `copyTag`), `Tesselator.begin` / `addVertex` / `setColor` /
+   `build()` (null when empty). Mixin: rebuilds the star pose from `frustumMatrix`, `YP(-90)`, `XP(timeOfDay * 360)`.
+   `javac` against the 1.21.1 jar: compiles.
+9. C's branches already write the contract exactly (`AmuletReading`: `bmh_reading`, `azimuth` float from
+   `atan2(toX - fromX, fromZ - toZ)`, `time` = `level.getGameTime()`), on both sides.
+
 ## Calls made (and why)
 
 1. **Picker = dynamic programming, not greedy.** Candidates within the off-plane limit, sorted high to low; the DP
@@ -64,10 +86,29 @@ Steps are numbered, not timed. Started 2026-11-03 21:28 CET (read from `date`).
    by the star brightness, like vanilla's stars", normalized so a reading at full night is at full strength (vanilla's
    star brightness tops out at 0.5).
 
+7. **Once started, a reading plays to the end** even if the amulet leaves the hand (it spent a charge; cutting it
+   on a hotbar scroll would look like a bug). It stops early only on a level change. A newer reading replaces it.
+8. **Development trigger = `DevSkyShots`**, an environment variable (`BMH_DEV_SKYSHOTS=1`) read by the client, not a
+   command: no loader code to add and remove on six loader/side pairs. It runs one non-interactive singleplayer
+   client (quick play into a world the dedicated server made), fakes readings toward 0/90/180/270 at dayTime 18000 and
+   22000, faces the camera that way, saves screenshots, quits. Brief rule 4 says nobody can *drive* `runClient`; this
+   needs no driving, and only a real frame proves the GL state and the pose, which the offline previews cannot. One
+   window on Louis's screen for a few minutes, sound muted in `options.txt`. Removed before DONE (brief, part D,
+   item 4).
+9. **Self-check log** for the azimuth convention (brief, part C: "both log a self-check"), from the very helper the
+   picker aims with (`StarChain.toward`).
+10. **Harness:** the Write/Edit tools refuse files in the `-121` worktree while the session sits in the main one;
+    switching with `EnterWorktree` (path) works (session A's note). After a switch, the Bash guard refuses scripts and
+    variables around git: plain commands with literal paths only.
+
 ## Resume here
 
-Step 5 done (plain-Java code and previews tuned, not yet regenerated into the repo). Next: the renderer
-(`StarReadingRenderer`) and the client mixin (`D_LevelRendererSkyMixin`) on main, build, server boots, then the 1.21.1
-port. Regenerate the PNGs into `docs/redesign/sky-previews/` once the look is final:
-`javac -d <tmp> docs/redesign/sky-previews/SkyPreview.java common/src/main/java/github/mrornithorynque/bmh/client/sky/Star*.java`
-then `java -Djava.awt.headless=true -cp <tmp> SkyPreview docs/redesign/sky-previews`.
+Steps 1 to 9 done; both branches pushed (main `74d0b71`, 1.21.1 committed with the same content ported). In progress:
+main-side Gradle `build` queued for a slot (scratchpad `wait_build.sh`, log `build/d-sky-logs/build-main-1.log`). Next:
+Fabric server boot that leaves a night world (`tools/boot-test.sh` + `tools/cmds-fabric-world.txt` in the scratchpad,
+copies of session A's tools with `-verbose:class`), the client screenshot run (`tools/client-shots.sh`), then remove
+`DevSkyShots` and its one call line on both sides, final builds, three server boots per side, audit, report.
+Regenerate the PNGs into `docs/redesign/sky-previews/` once the look is final:
+`javac -d <tmp> docs/redesign/sky-previews/SkyPreview.java` plus `StarField.java`, `StarChain.java`, `StarTrace.java`
+from `common/src/main/java/github/mrornithorynque/bmh/client/sky/` (not `Star*.java`: that also catches the
+Minecraft-bound renderer), then `java -Djava.awt.headless=true -cp <tmp> SkyPreview docs/redesign/sky-previews`.

@@ -184,9 +184,9 @@ public class SkyPreview {
         mapR.disc(radius);
         for (Raster r : new Raster[] { viewR, mapR }) {
             Function<double[], double[]> proj = r == viewR ? view : map;
-            // The moon (40 blocks wide, 100 out), dim grey, only to show where it is.
-            double[][] moon = { { -20, -100, 20 }, { 20, -100, 20 }, { 20, -100, -20 }, { -20, -100, -20 } };
-            float[] grey = { 0.35F, 0.35F, 0.33F };
+            // The moon's bright disc (the middle 10 blocks of its 40-block quad, 100 out), grey, to show where it is.
+            double[][] moon = { { -5, -100, 5 }, { 5, -100, 5 }, { 5, -100, -5 }, { -5, -100, -5 } };
+            float[] grey = { 0.75F, 0.75F, 0.72F };
             r.quad(proj, toWorld(moon, t), grey, 1.0F);
             // Vanilla's stars: shader colour (b, b, b, b), blend SRC_ALPHA + ONE.
             float[] white = { brightness, brightness, brightness };
