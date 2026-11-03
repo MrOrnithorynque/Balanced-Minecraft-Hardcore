@@ -1,12 +1,19 @@
 package github.mrornithorynque.bmh.items;
 
+import java.util.List;
+
+import javax.annotation.Nullable;
+
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
 
 public class EternalAxeItem extends AxeItem implements IEternalItem {
 
@@ -14,6 +21,14 @@ public class EternalAxeItem extends AxeItem implements IEternalItem {
 
     public EternalAxeItem(Tier tier, float attackDamage, float attackSpeed, Properties properties) {
         super(tier, attackDamage, attackSpeed, properties);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> lines, TooltipFlag flag) {
+
+        super.appendHoverText(stack, level, lines, flag);
+        EternalTooltips.addHeavy(lines);
+        EternalTooltips.addDeathWear(lines);
     }
 
     @Override
