@@ -30,6 +30,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - The Eternal Bundle now shows its filled texture when it holds items.
 - On 1.21.1, the Eternal Sword, Axe and Pickaxe no longer refuse enchantments (Mending, Unbreaking and the rest of what their netherite versions take).
 - The Navigator's Amulet coordinates now show on dedicated servers too.
+- The BMH creative tab no longer shows a raw translation key as its name: it is called "BMH Tab".
 
 ## [1.4.0] - 2026-11-02
 
