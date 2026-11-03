@@ -1,0 +1,412 @@
+package github.mrornithorynque.bmh.selftest;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.TreeSet;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+
+import com.mojang.authlib.GameProfile;
+import com.mojang.logging.LogUtils;
+
+import github.mrornithorynque.bmh.handlers.EchoStrikeQueue;
+import github.mrornithorynque.bmh.init.ItemInit;
+
+import io.netty.channel.embedded.EmbeddedChannel;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.Connection;
+import net.minecraft.network.ConnectionProtocol; // 1.20-ONLY
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ClientInformation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
+
+/**
+ * Throwaway headless test of part E (never shipped): a fake ServerPlayer in the overworld, driven by the
+ * server's own ticks, started only when a file named bmh-selftest exists in the server's working directory.
+ * Logs PASS/FAIL lines tagged [E-SELFTEST] and halts the server at the end.
+ */
+public final class EchoSelfTest {
+
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final String TAG = "[E-SELFTEST] ";
+    private static final boolean ENABLED = Files.exists(Path.of("bmh-selftest"));
+    private static final int FLOOR_Y = 200;
+    private static final double FEET = FLOOR_Y + 1;
+
+    private static int phase = 0;
+    private static long resumeAt = 0;
+    private static long startedAt = -1;
+    private static boolean finished;
+    private static int checks;
+    private static int failures;
+
+    private static ServerLevel level;
+    private static Player_ player;
+    private static LivingEntity a, b, v, w, f, g, c, ig;
+    private static ArmorStand s;
+    private static BlockPos p0, p1, p2, p3;
+
+    /** A ServerPlayer whose attack-strength ticker can be set. */
+    private static final class Player_ extends ServerPlayer {
+        Player_(MinecraftServer server, ServerLevel level, GameProfile profile) {
+            super(server, level, profile, ClientInformation.createDefault());
+        }
+
+        void swing(boolean full) {
+            this.attackStrengthTicker = full ? 1000 : 0;
+            this.setOnGround(false);
+        }
+    }
+
+    public static void onServerTick(MinecraftServer server) {
+
+        if (!ENABLED || finished) {
+            return;
+        }
+
+        ServerLevel overworld = server.overworld();
+
+        if (overworld == null) {
+            return;
+        }
+
+        if (startedAt < 0) {
+            startedAt = overworld.getGameTime();
+        }
+
+        if (overworld.getGameTime() - startedAt > 1800) {
+            check("self-test finished in time", false, "stuck in phase " + phase);
+            finish(server);
+            return;
+        }
+
+        if (overworld.getGameTime() < resumeAt) {
+            return;
+        }
+
+        try {
+            int wait = step(server, overworld);
+            resumeAt = overworld.getGameTime() + wait;
+        } catch (Throwable t) {
+            LOGGER.error(TAG + "exception in phase " + phase, t);
+            check("no exception in phase " + phase, false, t.toString());
+            finish(server);
+        }
+    }
+
+    private static int step(MinecraftServer server, ServerLevel overworld) {
+
+        switch (phase++) {
+
+            case 0 -> {
+                level = overworld;
+                LOGGER.info(TAG + "start, game time {}", level.getGameTime());
+                for (int x = 0; x < 40; x++) {
+                    for (int z = 0; z < 40; z++) {
+                        level.setBlock(new BlockPos(x, FLOOR_Y, z), Blocks.STONE.defaultBlockState(), 2);
+                    }
+                }
+                GameProfile profile = new GameProfile(UUID.nameUUIDFromBytes("bmh_e_test".getBytes()), "bmh_e_test");
+                player = new Player_(server, level, profile);
+                Connection connection = new Connection(PacketFlow.SERVERBOUND);
+                EmbeddedChannel channel = new EmbeddedChannel(connection);
+                channel.attr(Connection.ATTRIBUTE_SERVERBOUND_PROTOCOL).set(ConnectionProtocol.PLAY.codec(PacketFlow.SERVERBOUND)); // 1.20-ONLY
+                channel.attr(Connection.ATTRIBUTE_CLIENTBOUND_PROTOCOL).set(ConnectionProtocol.PLAY.codec(PacketFlow.CLIENTBOUND)); // 1.20-ONLY
+                new ServerGamePacketListenerImpl(server, connection, player, CommonListenerCookie.createInitial(profile));
+                player.moveTo(8.5, FEET, 8.5, 0.0F, 0.0F);
+                level.addNewPlayer(player);
+                return 5;
+            }
+
+            case 1 -> {
+                int t0 = player.tickCount;
+                check("test player is ticked by the level", t0 > 0, "tickCount=" + t0);
+                hold(ItemInit.ETERNAL_SWORD.get());
+                check("sword attack damage is 11", near(player.getAttributeValue(Attributes.ATTACK_DAMAGE), 11.0, 0.001),
+                        "attack damage " + player.getAttributeValue(Attributes.ATTACK_DAMAGE));
+                // A is the target. Next to it, spared: villager V, tamed wolf W, armor stand S, cow C, iron golem IG.
+                // B (a ravager, an Enemy) is the nearest valid victim; F is 3 blocks from B and 6 from A: it is hit
+                // only if the echo echoes.
+                a = mob(EntityType.IRON_GOLEM, 6.5, 6.5);
+                v = mob(EntityType.VILLAGER, 7.5, 6.5);
+                Wolf wolf = mob(EntityType.WOLF, 6.5, 7.5);
+                wolf.tame(player);
+                w = wolf;
+                s = EntityType.ARMOR_STAND.create(level);
+                s.moveTo(5.5, FEET, 6.5, 0.0F, 0.0F);
+                level.addFreshEntity(s);
+                c = mob(EntityType.COW, 6.5, 5.5);
+                ig = mob(EntityType.IRON_GOLEM, 4.5, 6.5);
+                b = mob(EntityType.RAVAGER, 6.5, 9.5);
+                f = mob(EntityType.RAVAGER, 6.5, 12.5);
+                return 3;
+            }
+
+            case 2 -> {
+                player.swing(true);
+                player.attack(a);
+                check("sword hit deals 11", near(lost(a), 11.0, 0.01), "A lost " + lost(a));
+                int pending = pending().size();
+                check("full-strength sword hit queues one echo", pending == 1, "pending=" + pending);
+                return 8;
+            }
+
+            case 3 -> {
+                check("echo hit the nearest enemy for half", near(lost(b), 5.5, 0.01), "B lost " + lost(b));
+                check("echo spared the villager", lost(v) == 0, "V lost " + lost(v));
+                check("echo spared the tamed wolf", lost(w) == 0, "W lost " + lost(w));
+                check("echo spared the armor stand", lost(s) == 0, "S lost " + lost(s));
+                check("echo spared the cow (not an enemy)", lost(c) == 0, "C lost " + lost(c));
+                check("echo spared the iron golem (not an enemy)", lost(ig) == 0, "IG lost " + lost(ig));
+                check("the echo never echoes", lost(f) == 0, "F lost " + lost(f));
+                check("A took the first hit only", near(lost(a), 11.0, 0.01), "A lost " + lost(a));
+                check("queue is empty after delivery", pending().isEmpty(), "");
+                // A weak swing must not echo.
+                reset(a, b, f);
+                player.swing(false);
+                player.attack(a);
+                check("weak swing queues no echo", pending().isEmpty(), "");
+                return 8;
+            }
+
+            case 4 -> {
+                check("weak swing left B untouched", lost(b) == 0, "B lost " + lost(b));
+                // Nothing but non-enemies around the target: nobody is hit, nothing breaks.
+                v.discard();
+                w.discard();
+                s.discard();
+                b.discard();
+                f.discard();
+                reset(a);
+                player.swing(true);
+                player.attack(a);
+                return 8;
+            }
+
+            case 5 -> {
+                check("no enemy around: the cow and the golem stay untouched", lost(c) == 0 && lost(ig) == 0, "C lost " + lost(c) + ", IG lost " + lost(ig));
+                check("no enemy around: queue drained without error", pending().isEmpty(), "");
+                c.discard();
+                ig.discard();
+                // Echo onto a hostile mob inside the range, and out of it.
+                b = mob(EntityType.HUSK, 6.5, 10.4);   // 3.9 blocks (husks do not burn in the sun)
+                f = mob(EntityType.HUSK, 6.5, 12.9);   // 6.4 blocks: out of range
+                reset(a);
+                player.swing(true);
+                player.attack(a);
+                return 8;
+            }
+
+            case 6 -> {
+                check("husk 3.9 blocks away is echoed", lost(b) > 4.0, "husk lost " + lost(b));
+                check("husk 6.4 blocks away is not", lost(f) == 0, "far husk lost " + lost(f));
+                b.discard();
+                f.discard();
+                a.discard();
+                // Axe.
+                hold(ItemInit.ETERNAL_AXE.get());
+                check("axe attack damage is 18", near(player.getAttributeValue(Attributes.ATTACK_DAMAGE), 18.0, 0.001),
+                        "attack damage " + player.getAttributeValue(Attributes.ATTACK_DAMAGE));
+                g = mob(EntityType.IRON_GOLEM, 20.5, 20.5);
+                axeCase("fall 3 blocks", 3.0F, false, 27.0 * (1.0 + Math.sqrt(0.16 * 3.0)), 1.5F);
+                axeCase("fall 10 blocks", 10.0F, false, 27.0 * (1.0 + Math.sqrt(0.16 * 10.0)), 5.0F);
+                axeCase("fall 30 blocks", 30.0F, false, 27.0 * 3.0, 15.0F);
+                axeCase("fall 1 block (below the 1.5 threshold)", 1.0F, false, 27.0, 1.0F);
+                axeCase("on the ground, fall 10", 10.0F, true, 18.0, 10.0F);
+                axeCase("fall exactly 1.5", 1.5F, false, 27.0, 1.5F);
+                return 5;
+            }
+
+            case 7 -> {
+                g.discard();
+                // Pickaxe.
+                hold(ItemInit.ETERNAL_PICKAXE.get());
+                p0 = new BlockPos(12, FLOOR_Y + 1, 24);
+                p1 = p0.offset(3, 0, 0);
+                p2 = p0.offset(0, 4, 0);
+                p3 = p0.offset(0, 0, 8);
+                level.setBlock(p0, Blocks.IRON_ORE.defaultBlockState(), 2);
+                level.setBlock(p1, Blocks.IRON_ORE.defaultBlockState(), 2);
+                level.setBlock(p2, Blocks.DEEPSLATE_IRON_ORE.defaultBlockState(), 2);
+                level.setBlock(p3, Blocks.IRON_ORE.defaultBlockState(), 2);
+                level.setBlock(p0.offset(9, 0, 0), Blocks.IRON_ORE.defaultBlockState(), 2);
+                level.setBlock(p0.offset(2, 0, 2), Blocks.GOLD_ORE.defaultBlockState(), 2);
+                boolean broke = player.gameMode.destroyBlock(p0);
+                check("pickaxe broke the ore", broke, "destroyBlock returned " + broke);
+                List<Display.BlockDisplay> shining = echoes();
+                check("Echo Sense lit 3 ores (stone and deepslate variants, 8 blocks in, 9 out, gold ignored)", shining.size() == 3, "count=" + shining.size());
+                TreeSet<String> names = new TreeSet<>();
+                boolean allGlow = true, allInset = true, allTagged = true;
+                for (Display.BlockDisplay d : shining) {
+                    CompoundTag nbt = d.saveWithoutId(new CompoundTag());
+                    names.add(nbt.getCompound("block_state").getString("Name"));
+                    allGlow &= d.hasGlowingTag() && d.getTeamColor() == 0x00F0FF && nbt.getBoolean("Glowing");
+                    float scale = nbt.getCompound("transformation").getList("scale", 5).getFloat(0);
+                    allInset &= near(scale, 0.96, 0.001);
+                    allTagged &= d.getTags().contains("bmh_echo") && d.getTags().stream().anyMatch(t -> t.startsWith("bmh_echo_until_"));
+                }
+                if (!shining.isEmpty()) {
+                    LOGGER.info(TAG + "sample display nbt: {}", shining.get(0).saveWithoutId(new CompoundTag()));
+                }
+                check("displays show the mined ore's blocks", names.toString().equals("[minecraft:deepslate_iron_ore, minecraft:iron_ore]"), names.toString());
+                check("displays glow cyan (flag, color override, nbt)", allGlow, "");
+                check("displays are drawn inset", allInset, "");
+                check("displays carry bmh_echo and their expiry", allTagged, "");
+                // Mining a lit ore in the same tick: the cooldown skips a second reading, and the lit ore's display must go.
+                boolean broke2 = player.gameMode.destroyBlock(p1);
+                check("second ore broke", broke2, "destroyBlock returned " + broke2);
+                return 3;
+            }
+
+            case 8 -> {
+                int n = echoes().size();
+                boolean ghost = echoes().stream().anyMatch(d -> d.blockPosition().equals(p1));
+                check("mined lit ore leaves no ghost display, cooldown adds none", n == 2 && !ghost, "count=" + n + " ghost=" + ghost);
+                return 103;
+            }
+
+            case 9 -> {
+                int left = echoes().size();
+                check("Echo Sense displays gone after 5 s", left == 0, "left=" + left);
+                // Cap: a wall of coal.
+                BlockPos c0 = new BlockPos(20, FLOOR_Y + 1, 5);
+                for (int dx = 0; dx < 8; dx++) {
+                    for (int dy = 0; dy < 3; dy++) {
+                        for (int dz = 0; dz < 8; dz++) {
+                            level.setBlock(c0.offset(dx, dy, dz), (dx + dy + dz) % 2 == 0 ? Blocks.COAL_ORE.defaultBlockState() : Blocks.DEEPSLATE_COAL_ORE.defaultBlockState(), 2);
+                        }
+                    }
+                }
+                boolean broke = player.gameMode.destroyBlock(c0.offset(3, 1, 3));
+                int n = echoes().size();
+                check("coal wall: at most 64 glowing, 64 reached", broke && n == 64, "count=" + n);
+                return 8;
+            }
+
+            case 10 -> {
+                // A second break after the cooldown: the glow is extended, never doubled.
+                BlockPos c0 = new BlockPos(20, FLOOR_Y + 1, 5);
+                player.gameMode.destroyBlock(c0.offset(4, 1, 3));
+                int n = echoes().size();
+                check("second break: still at most 64", n <= 64 && n > 0, "count=" + n);
+                // Stale displays (as reloaded from a chunk) are discarded at their first tick.
+                for (int i = 0; i < 2; i++) {
+                    Display.BlockDisplay stale = new Display.BlockDisplay(EntityType.BLOCK_DISPLAY, level);
+                    stale.moveTo(30 + i, FLOOR_Y + 2, 30, 0.0F, 0.0F);
+                    stale.addTag("bmh_echo");
+                    if (i == 0) {
+                        stale.addTag("bmh_echo_until_1");
+                    }
+                    level.addFreshEntity(stale);
+                }
+                return 4;
+            }
+
+            case 11 -> {
+                int stale = level.getEntitiesOfClass(Display.BlockDisplay.class, new AABB(29, FLOOR_Y, 29, 33, FLOOR_Y + 4, 31)).size();
+                check("stale displays discarded", stale == 0, "left=" + stale);
+                finish(server);
+                return 0;
+            }
+
+            default -> {
+                return 1000000;
+            }
+        }
+    }
+
+    private static void axeCase(String name, float fall, boolean onGround, double expectedLoss, float expectedFall) {
+
+        reset(g);
+        player.swing(true);
+        player.fallDistance = fall;
+        player.setOnGround(onGround);
+        player.attack(g);
+        double loss = lost(g);
+        check("axe " + name + ": damage", near(loss, expectedLoss, 0.02), "lost " + loss + " expected " + expectedLoss);
+        check("axe " + name + ": fall distance", near(player.fallDistance, expectedFall, 0.001), "fall " + player.fallDistance + " expected " + expectedFall);
+    }
+
+    private static List<Display.BlockDisplay> echoes() {
+
+        return level.getEntitiesOfClass(Display.BlockDisplay.class, new AABB(-10, FLOOR_Y - 5, -10, 60, FLOOR_Y + 30, 60),
+                d -> d.getTags().contains("bmh_echo"));
+    }
+
+    private static double lost(LivingEntity entity) {
+
+        return entity.getMaxHealth() - entity.getHealth();
+    }
+
+    private static void hold(Item item) {
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(item));
+        player.doTick();
+    }
+
+    private static void reset(LivingEntity... entities) {
+
+        for (LivingEntity e : entities) {
+            e.setHealth(e.getMaxHealth());
+            e.invulnerableTime = 0;
+            e.hurtTime = 0;
+        }
+    }
+
+    private static <T extends Mob> T mob(EntityType<T> type, double x, double z) {
+
+        T mob = type.create(level);
+        mob.setNoAi(true);
+        mob.setPersistenceRequired();
+        mob.moveTo(x, FEET, z, 0.0F, 0.0F);
+        level.addFreshEntity(mob);
+        return mob;
+    }
+
+    private static List<?> pending() {
+
+        return new ArrayList<>(((EchoStrikeQueue) (Object) player).bmh$pendingEchoes());
+    }
+
+    private static boolean near(double a, double b, double eps) {
+
+        return Math.abs(a - b) <= eps;
+    }
+
+    private static void check(String name, boolean ok, String detail) {
+
+        checks++;
+        if (!ok) {
+            failures++;
+        }
+        LOGGER.info("{}{} {} | {}", TAG, ok ? "PASS" : "FAIL", name, detail);
+    }
+
+    private static void finish(MinecraftServer server) {
+
+        finished = true;
+        LOGGER.info("{}FINISHED checks={} failures={}", TAG, checks, failures);
+        server.halt(false);
+    }
+}
