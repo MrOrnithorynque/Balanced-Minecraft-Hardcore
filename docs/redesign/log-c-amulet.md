@@ -12,11 +12,14 @@ here were read from `date`.
 
 ## Resume here
 
-Steps 1 to 9 done: both sides implemented, built (`BUILD SUCCESSFUL`, Forge, Fabric, NeoForge each), committed (main
-`689d8b5`, 1.21.1 `763d882`) and pushed. `get_usage` after this piece: weekly all models 12 percent.
-Next: step 10 (dedicated server boots, 3 loaders x 2 sides, with the scripted bot for the server-side behaviour; the
-Gradle slots and the server lock are contended by the other sessions, boots wait their turn), step 11 (refutation audit by a
-sub-agent, running), then merge `origin/redesign/integration*`, rebuild, `git merge-tree` against the siblings, push, report.
+Steps 1 to 12 done. Both sides implemented, built, audited, fixed and pushed (main `72f03bd` plus this log, 1.21.1 `0977005`).
+Server boots so far: Fabric 1.20.4 and Forge 1.20.4 pass the whole bot scenario (28 of 28). Still to boot, queued in
+`boot_all.sh` behind the other sessions' Gradle slots and server lock: NeoForge 1.20.4, Forge 1.21.1, NeoForge 1.21.1, and a
+rerun of Fabric 1.21.1 (its first run was 27 of 28, the miss was a race in my test script). If the queue was lost, rerun
+`scratchpad/boot_all.sh` (it takes the slots and the lock itself).
+Then: merge `origin/redesign/integration*` (fold my client registration into part A's `ClientItemProperties.registerAll` if A is
+in by then), full rebuild of both sides, `git merge-tree` against the pushed siblings, push both branches, report.
+`get_usage` after the first piece: weekly all models 12 percent.
 
 ## Steps
 
@@ -49,6 +52,36 @@ sub-agent, running), then merge `origin/redesign/integration*`, rebuild, `git me
    Loom merged jars of 1.20, 1.20.1, 1.20.2, 1.20.3 and 1.20.4 (`compile_check.sh`, scratchpad). The loader classes
    (`ForgeAmuletClient` etc.) only use APIs that exist on every 1.20.x Forge, and G's port builds will prove them.
 9. 1.21.1 build: `BUILD SUCCESSFUL in 3m 43s` (JDK 21).
+10. Server boots with a scripted vanilla client. `scratchpad/boot_server.sh` takes a Gradle slot and the server lock, writes
+    `server.properties` (flat world, peaceful, port 25613, RCON 25713) and boots `:<loader>:runServer`; once the log says `Done` it runs
+    `scratchpad/bot-scripts/amulet_scenario.js`, a mineflayer 4.39 bot (`online-mode=false`) that sends only "use item" and "use item on
+    block" packets and reads the action bar, with RCON (`rcon.py`) for `give`, `time`, `weather`, `setblock`, `tp`, `kill` and `data get
+    entity`. It checks: a reading by day is refused with nothing written; at midnight under open sky a reading shows
+    `bmh.amulet.reading` with the player's block coordinates, spends one charge and writes `bmh_reading`, `bmh_starlight`, `bmh_night`;
+    a second use within 2 s does nothing; 3 readings give 0 and the 4th says `bmh.amulet.empty`; `time add 24000` refills to 3 with night
+    2 (inventoryTick); rain and a roof refuse; sneak + use on a lodestone and on a bed sets Home (`bmh_home` x, y, z of the block);
+    in creative the azimuth from south, west, north and east of Home is exactly 0, 90, 180 and 270; Home survives `kill` (restoreFrom)
+    and a relog (save and read); in the Nether the stars refuse. A vanilla client can join the Forge and Fabric dev servers.
+    The default Home was checked numerically too: a new player at (9.5, -1.5) got azimuth 257.4712 on Fabric 1.21.1, which is
+    atan2(-9, -2) toward the world spawn (0.5, 0.5).
+
+    | Side | Loader | Boot | Scenario | Notes |
+    |---|---|---|---|---|
+    | 1.21.1 | Fabric | `Done` after 106 s | 27 of 28 | the "empty" check lost a race in my script (the server answers in a few ms, before my wait window started); fixed, rerun queued |
+    | 1.20.4 | Fabric | 160 s | 28 of 28 | |
+    | 1.20.4 | Forge | 195 s | 28 of 28 | debug log: `Mixing C_ServerPlayerMixin from bmh.mixins.json into net.minecraft.server.level.ServerPlayer` |
+
+    Every boot logs the item's self-check: `Azimuth self-check: Home (0, -100) seen from (0, 0) gives 0.0 (expected 0), Home (100, 0)
+    gives 90.0 (expected 90)`. The needle was also checked by a simulation (`needle_sim.py`): vanilla's angle for a non-local holder
+    in every yaw, the model overrides resolved the way `ItemOverrides` does, and the frame's needle direction: worst error 5.6 degrees
+    (half a frame is 5.625), north gives frame 00, east 24, south 16, west 08.
+11. Audit. A fresh read-only sub-agent was briefed to refute 11 claims (click flow, charges, needle, Home, dedicated server safety,
+    1.21.1 port, compatibility, spec) with citations, and its 5 million azimuth samples, bytecode comparisons across 1.20 to 1.21.1
+    and constant pool scan of the six jars all came back clean. One real flaw, read myself in `Minecraft.startUseItem` before acting:
+    see "Client side of a click" below (fixed on both sides). Left as they are and written under "Known limits": adventure mode,
+    spawn protection, held right click spending the charges, glass. The other findings were doc corrections (the stale enchantment
+    glint of old amulets, the pending boots).
+12. Fix and commits: main `72f03bd` and 1.21.1 `0977005` (client `use()` returns `consume`). The log and the checklist were updated.
 
 ## Calls made (with reasons)
 
