@@ -4,7 +4,15 @@
     "package": "github.mrornithorynque.bmh.mixin",
     "compatibilityLevel": "JAVA_17",
     "refmap": "bmh.refmap.json",
-    "mixins": [],
+    "mixins": [
+        "E_BlockDisplayInvoker",
+        "E_DisplayInvoker",
+        "E_DisplayMixin",
+        "E_MinecraftServerMixin",
+        "E_PlayerAttackMixin",
+        "E_ServerPlayerGameModeMixin",
+        "E_ServerPlayerMixin"
+    ],
     "client": [
         "CreateWorldGameTabMixin"
     ],

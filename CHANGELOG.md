@@ -4,6 +4,11 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Added
+- Eternal Sword, Echo Strike: a full-strength hit that lands echoes a moment later onto the nearest other creature within 5 blocks of the target, for half the damage, with a cyan line between the two. It spares players, villagers, armor stands and your own tamed animals.
+- Eternal Axe, smash: a hit landed while you fall hits harder the longer the fall, up to 3 times the damage after a fall of about 25 blocks, and the blow halves your fall distance, so you take about half the fall damage.
+- Eternal Pickaxe, Echo Sense: breaking an ore makes the same ore within 8 blocks glow through walls for 5 seconds (stone and deepslate variants together, at most 64 at once).
+
 ## [1.4.0] - 2026-11-02
 
 ### Added
