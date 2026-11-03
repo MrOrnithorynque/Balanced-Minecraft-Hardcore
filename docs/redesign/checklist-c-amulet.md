@@ -3,10 +3,13 @@
 Do it once per loader (Forge, Fabric, NeoForge), on 1.20.4 and on 1.21.1. Start in survival, in the Overworld, on open ground:
 `/gamemode survival`, `/weather clear`, `/give @p bmh:navigator_amulet`. Servers are checked by script (see the log); these
 steps are the ones that need the client: icon, needle, tooltip, bar, sounds, the arm swing.
+BMH hides the coordinates from F3 in survival: for the checks that compare against coordinates or a facing, run
+`/gamerule removeCoordinatesInSurvival false` first, or read `/data get entity @s Pos` and `/data get entity @s Rotation`
+(yaw 180 is north, -90 is east, 0 is south, 90 is west).
 
 1. **Look.** In the inventory the amulet shows a violet bar, full. Tooltip: `Navigator's Amulet`, then a violet
    `Starlight 3/3`, then two gray lines (use at night under open sky, sneak and use on a bed or a lodestone). No durability line.
-2. **Needle, Overworld.** Hold it and turn on the spot with F3 open. Facing north (F3 says "Towards negative Z"): needle
+2. **Needle, Overworld.** Hold it and turn on the spot (with F3 open, "Towards negative Z" is north). Facing north: needle
    straight up, red tip up. Facing east: tip to the left. South: down. West: to the right. The needle wobbles a little like a
    compass, and it must not point at spawn (walk away from spawn and check). Drop it: the item on the ground and in an item
    frame shows a needle too.
@@ -20,7 +23,7 @@ steps are the ones that need the client: icon, needle, tooltip, bar, sounds, the
    - in the Nether: "The stars are hidden: they only answer in the Overworld."
    The bar stays full each time.
 6. **A reading.** `/time set midnight`, `/weather clear`, open sky, right click. You hear an amethyst chime, your arm swings,
-   the action bar says `X <x> · Y <y> · Z <z>` with your block coordinates (check against F3), the item bar drops to two
+   the action bar says `X <x> · Y <y> · Z <z>` with your block coordinates (check against `/data get entity @s Pos`), the item bar drops to two
    thirds and the tooltip says `Starlight 2/3`. A second right click within 2 seconds does nothing (the item shows the
    cooldown sweep). Nothing shows Home's coordinates or distance, anywhere.
 7. **Charges.** Read two more times (2 seconds apart): `Starlight 0/3`, empty bar. The next right click says

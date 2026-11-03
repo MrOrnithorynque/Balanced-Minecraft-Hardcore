@@ -12,10 +12,11 @@ here were read from `date`.
 
 ## Resume here
 
-Steps 1 to 9 done: both sides implemented, built (`BUILD SUCCESSFUL`, Forge, Fabric, NeoForge each) and committed locally.
-Next: step 10 (dedicated server boots, 3 loaders x 2 sides, then a scripted bot for the server-side behaviour), then the
-`get_usage` guard, a refutation audit by a sub-agent, merge `origin/redesign/integration*`, rebuild, `git merge-tree` against
-the siblings, push both branches, report. Not pushed yet.
+Steps 1 to 9 done: both sides implemented, built (`BUILD SUCCESSFUL`, Forge, Fabric, NeoForge each), committed (main
+`689d8b5`, 1.21.1 `763d882`) and pushed. `get_usage` after this piece: weekly all models 12 percent.
+Next: step 10 (dedicated server boots, 3 loaders x 2 sides, with the scripted bot for the server-side behaviour; the
+Gradle slots and the server lock are contended by the other sessions, boots wait their turn), step 11 (refutation audit by a
+sub-agent, running), then merge `origin/redesign/integration*`, rebuild, `git merge-tree` against the siblings, push, report.
 
 ## Steps
 
