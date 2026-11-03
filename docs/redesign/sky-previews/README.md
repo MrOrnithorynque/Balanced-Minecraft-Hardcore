@@ -14,7 +14,9 @@ In-game check: `ingame-az090-midnight.png` and `ingame-az270-late-night.png` are
 non-interactive client run with a development trigger, since removed), next to the matching preview. The player was a
 spectator, and flying widens the FOV by 10 percent, so the in-game chain looks a little smaller than in the preview;
 the stars and the chain are the same. `ingame-detail-az090-midnight.png` is a crop of a frame at full resolution (a
-Retina window): the line, its glow and the lit stars as the game draws them.
+Retina window): the line, its glow and the lit stars as the game draws them. `ingame-1.21.1-detail-az090-midnight.png`
+is the same crop on Fabric 1.21.1 (its stars are vanilla 1.21's smaller diamonds); there the reading went through the
+real path, an amulet carrying a fresh `bmh_reading` handed to the player by the server.
 
 - `az000-midnight.png`, `az090-midnight.png`, `az180-midnight.png`, `az270-midnight.png`: readings toward north, east,
   south, west at dayTime 18000 (midnight), 2.5 s after the reading (trace done, holding).

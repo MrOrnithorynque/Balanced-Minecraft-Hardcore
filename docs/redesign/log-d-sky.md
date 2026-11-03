@@ -102,6 +102,28 @@ Steps are numbered, not timed. Started 2026-11-03 21:28 CET (read from `date`).
 14. Development trigger removed on main (`DevSkyShots` and its call); `show` back to private. Common tree compiles
     on 1.20 to 1.20.4.
 
+15. Main final `build` (dev trigger gone): OK.
+16. 1.21.1: `build` OK (Fabric refmap: `method_3257`, `field_4113`, `method_1354`; Forge 1.21.1 and NeoForge jars keep
+    official names, `level` shadow, `MixinConfigs` present). Fabric dedicated server (development build): ready,
+    world prepared over RCON, clean stop, port closed, 33 mod classes loaded, none of ours. Non-interactive Fabric
+    1.21.1 client run, this time through the real path: the integrated server handed the player (creative, flying,
+    y 140) an amulet whose custom data carried a fresh `bmh_reading`, and the client's own reader started each chain.
+    Eight readings, eight frames; the chains match 1.20.4's (same stars; last-star positions within 0.2 degrees,
+    from 1.21's offset diamonds). A full-resolution crop of the same view on both versions is identical: the rebuilt
+    1.21.1 pose is right. Then `DevSkyShots` removed on 1.21.1 too (`b41955c`).
+17. `merge-tree` against every pushed sibling, both sides: only `CHANGELOG.md` conflicts (we all add under the empty
+    `[Unreleased]` heading; unavoidable from one side, G's file per rule 8); `bmh.mixins.json` merges cleanly with A,
+    B, C, E. Neither integration branch has moved since the session started.
+
+## Shader mods (Iris, Oculus)
+
+Not tested (none installed here). What the code implies: the chain is drawn inside vanilla's `renderSky`, right after
+the stars, with `GameRenderer.getPositionColorShader()` and vanilla's blend. Iris and Oculus keep calling vanilla's sky
+code with shader packs on but swap the programs per phase, so the chain is drawn with the pack's sky program: it may
+show tinted, brighter or not at all, and a pack that draws its own stars (many do) puts different stars behind it.
+Without a shader pack loaded, both mods leave vanilla rendering alone and the chain looks as in the previews. Best
+effort, stated in the checklist; not a blocker.
+
 ## Calls made (and why)
 
 1. **Picker = dynamic programming, not greedy.** Candidates within the off-plane limit, sorted high to low; the DP
@@ -143,14 +165,11 @@ Steps are numbered, not timed. Started 2026-11-03 21:28 CET (read from `date`).
 
 ## Resume here
 
-Steps 1 to 14 done, both branches pushed. Main has its final code (dev trigger removed, `f645964`); its final build is
-queued (log `build/d-sky-logs/build-main-final.log`), then three boots (`tools/boot-test.sh` with
-`tools/cmds-plain.txt`: fabric, forge, neoforge, port 25614). 1.21.1 still carries `DevSkyShots` for one client run:
-its Fabric boot that leaves a night world is queued for the server lock (`<wt>-121/build/d-sky-logs/boot-dev/`),
-then `tools/client-shots.sh <wt>-121 /opt/homebrew/opt/openjdk@21 fabric <out>`, then delete `DevSkyShots.java` and
-its call in `StarReadingRenderer.render` (and make `show` private), final 1.21.1 build, three boots. Before the report:
-fetch, merge `origin/redesign/integration` (and `-1.21`) if they moved, `scratchpad/merge_check.sh` on both sides
-(main: only `CHANGELOG.md` conflicts, with every sibling, unavoidable), rebuild if anything merged, push.
+Steps 1 to 17 done; both sides have their final code, no development trigger left, both pushed. Remaining: the
+final boots, three per side (`tools/boot3.sh <wt> <java home> <out>`: fabric, forge, neoforge, port 25614, logs in
+`<wt>/build/d-sky-logs/boot-final/`; main's are queued for the server lock), the 1.21.1 final build (queued, log
+`<wt>-121/build/d-sky-logs/build-121-final.log`), then fetch, merge the integration branches if they moved (rebuild if
+anything merged), push, report.
 Tools live in this session's scratchpad (`tools/`, `wait_build.sh`, `compile_all.sh`, `prev.sh`); if it is gone,
 session A's originals are in the shared notes folder.
 Regenerate the PNGs into `docs/redesign/sky-previews/` once the look is final:
