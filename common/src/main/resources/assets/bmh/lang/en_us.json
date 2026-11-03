@@ -7,6 +7,14 @@
     "item.bmh.eternal_sword": "The Sword of Eternity",
     "itemGroup.bmh_creative_tab": "BMH Tab",
 
+    "item.bmh.dormant_totem": "Dormant Totem of Eternity",
+    "item.bmh.echo_heart": "Echo Heart",
+    "tooltip.bmh.eternity": "Eternity",
+    "tooltip.bmh.heavy_with_eternity": "Heavy with eternity: you wake farther while you carry it",
+    "tooltip.bmh.death_wear": "Each death: -7% durability",
+    "tooltip.bmh.dormant_totem": "Awaken it at an anvil: Dormant Totem left, Echo Heart right",
+    "tooltip.bmh.echo_heart": "Awakens a Dormant Totem at an anvil: totem left, heart right",
+
     "sounds.bmh.bell_sfx": "bell_sfx",
     "sounds.bmh.end": "end",
 

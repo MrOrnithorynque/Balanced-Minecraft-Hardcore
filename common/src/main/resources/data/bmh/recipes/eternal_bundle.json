@@ -1,18 +1,24 @@
 {
     "type": "minecraft:crafting_shaped",
     "pattern": [
-        " n ",
-        "nBn",
-        " C "
+        "SGS",
+        "LTL",
+        "LNL"
     ],
     "key": {
-        "n": {
-            "item": "minecraft:netherite_ingot"
+        "S": {
+            "item": "minecraft:string"
         },
-        "B": {
-            "item": "minecraft:bundle"
+        "G": {
+            "item": "minecraft:gold_ingot"
         },
-        "C": {
+        "L": {
+            "item": "minecraft:leather"
+        },
+        "N": {
+            "item": "minecraft:netherite_scrap"
+        },
+        "T": {
             "item": "bmh:totem_of_eternity"
         }
     },
