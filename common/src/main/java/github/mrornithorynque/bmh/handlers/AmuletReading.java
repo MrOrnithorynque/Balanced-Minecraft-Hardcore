@@ -12,10 +12,13 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 
 /**
  * Star readings of the Navigator's Amulet: when the stars can be read, what a reading writes on the
@@ -76,7 +79,8 @@ public class AmuletReading {
 
     /**
      * Null when the stars can be read here and now, else the lang key saying why not. isNight() is
-     * decided by how dark the sky is, and a thunderstorm darkens a day: rain is refused first.
+     * decided by how dark the sky is, and a thunderstorm darkens a day: rain is refused first. A sky out of
+     * sight counts as hidden too (see sightBlocked): nothing is drawn then, so no charge is spent.
      */
     @Nullable
     public static String hiddenReason(ServerPlayer player) {
@@ -95,11 +99,24 @@ public class AmuletReading {
             return "bmh.amulet.hidden.day";
         }
 
-        if (!level.canSeeSky(BlockPos.containing(player.getEyePosition()))) {
+        if (!level.canSeeSky(BlockPos.containing(player.getEyePosition())) || sightBlocked(player)) {
             return "bmh.amulet.hidden.roof";
         }
 
         return null;
+    }
+
+    /**
+     * The cases where the sky renderer draws no sky for the player: a blinding effect, eyes in water or lava,
+     * eyes inside powder snow. The refusal reuses the roof message: the sky is out of sight.
+     */
+    private static boolean sightBlocked(ServerPlayer player) {
+
+        return player.hasEffect(MobEffects.BLINDNESS)
+                || player.hasEffect(MobEffects.DARKNESS)
+                || player.isEyeInFluid(FluidTags.WATER)
+                || player.isEyeInFluid(FluidTags.LAVA)
+                || player.level().getBlockState(BlockPos.containing(player.getEyePosition())).is(Blocks.POWDER_SNOW);
     }
 
     /** Charges left on the stack. */
