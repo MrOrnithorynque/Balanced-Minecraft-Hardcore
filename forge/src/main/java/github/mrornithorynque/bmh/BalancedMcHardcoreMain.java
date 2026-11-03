@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.bmh.forge.ForgeClientEvents;
+import github.mrornithorynque.bmh.forge.ForgeClientSetup;
 import github.mrornithorynque.bmh.forge.ForgeEvents;
 import github.mrornithorynque.bmh.forge.ForgePlatformHelper;
 
@@ -34,6 +35,11 @@ public class BalancedMcHardcoreMain {
         ForgePlatformHelper.registerAll(modEventBus);
 
         modEventBus.addListener(this::setup);
+
+        // Item properties need the client classes: never touch them on a dedicated server.
+        if (FMLEnvironment.dist.isClient()) {
+            modEventBus.addListener(ForgeClientSetup::onClientSetup);
+        }
 
         LOGGER.info("[BalancedMcHardcoreMain] Setup complete.");
     }
