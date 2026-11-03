@@ -29,6 +29,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.border.WorldBorder;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 
@@ -110,7 +111,8 @@ public class RespawnPositionHandler {
     private static int toLevelBlocks(ServerLevel serverLevel, int worldDistance) {
 
         double coordinateScale = serverLevel.dimensionType().coordinateScale();
-        int levelDistance = Mth.floor(worldDistance / coordinateScale + 0.5D);
+        // Capped at the farthest a world border can reach: a data pack with a tiny scale would overflow an int.
+        int levelDistance = Mth.floor(Mth.clamp(worldDistance / coordinateScale + 0.5D, 0.0D, WorldBorder.MAX_CENTER_COORDINATE));
 
         LOGGER.info("[BalancedMcHardcoreMain] Exile distance: " + worldDistance + " world blocks, " + levelDistance
                 + " blocks in " + serverLevel.dimension().location() + " (coordinate scale " + coordinateScale + ")");

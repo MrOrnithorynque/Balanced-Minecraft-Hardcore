@@ -11,10 +11,7 @@ import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
-/**
- * Mod bus, client only (the @Mod class registers it behind the client check): the HUD text is one more
- * layer on top of the vanilla ones, and the item properties wait for the client setup.
- */
+/** Mod bus: the HUD text is one more layer on top of the vanilla ones. */
 public class ForgeClientEvents {
 
     @SubscribeEvent
