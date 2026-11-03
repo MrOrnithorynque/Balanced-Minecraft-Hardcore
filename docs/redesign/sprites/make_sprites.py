@@ -79,37 +79,38 @@ def dormant_totem():
 
 
 # Echo Heart: a cut heart jewel in crying-obsidian violets (vanilla crying obsidian runs #2b0178, #6006ab, #8308e4
-# over near-black), lit from the top left. A dark diamond table (every pixel within 3 steps of (7,8)) holds a
-# four-point echo-cyan glint: white core, cyan plus, teal ring, tips faded into the table. Four flat facets around it,
-# split on the heart's axis and on the glint's row: upper left lavender-violet with a lit corner on the lobe's edge,
-# upper right and lower left mid violet, lower right darker. The outline is graded like Louis's: lighter on the lit
-# top and left.
-# Three blind reads shaped it: smooth shading read as a glossy cabochon; a dark pixel under the cleft as a crack; a
+# over near-black), lit from the top left. A dark diamond socket (every pixel within 3 steps of (7,8)) holds a
+# four-point echo-cyan glint: white core, cyan plus, teal ring, periwinkle tips that reach out of the socket like
+# rays. Four flat facets around it, split on the heart's axis and on the glint's row: upper left lavender-violet with a
+# lit corner on the lobe's edge, upper right mid violet with its own lit top edge, lower left mid violet, lower right
+# darker with a rim of bounced light inside the outline (crystal, and the point holds on dark grounds). The outline is
+# graded like Louis's: lighter on the lit top and left.
+# Four blind reads shaped it: smooth shading read as a glossy cabochon; a dark pixel under the cleft as a crack; a
 # light-over-dark split along the glint's arm, then a thin dark table band, as a belt or seam; a shorter top arm as a
-# Latin cross; dark-teal tips as dirt; a round highlight as a dome competing with the glint; and a glint half on
-# bright facets as lopsided. The diamond table gives the glint the same dark ground all round.
+# Latin cross; dark tips as dirt or dull squares; a round highlight as a dome competing with the glint; a glint half on
+# bright facets as lopsided; a flat right lobe and a dark lower-right wedge as the weakest shading.
 HEART_PAL = {
     '.': (0, 0, 0, 0),
     'o': h('120818'), 'p': h('2c1250'),
     '2': h('3c1470'), '3': h('4d1890'), '4': h('6a2cc4'),
     '5': h('9056e4'), '6': h('c6a2ff'), 'S': h('f6eeff'),
     'c': h('16a3b0'), 'C': h('5fe8ee'), 'W': h('e4ffff'),
-    'T': h('2b548d'),  # glint tips: the teal faded 55% into the table violet
+    'u': h('5979cd'),  # glint tips: the teal faded 55% into violet 5
 }
 HEART = [
     '................',
     '................',
     '...pppp..pppp...',
-    '..pS655pp4444o..',
+    '..pS655pp5544o..',
     '.p655555444444o.',
-    '.p55555T444444o.',
+    '.p55555u444444o.',
     '.p55552c244444o.',
     '.p5552cCc24444o.',
-    '..p4TcCWCcT33o..',
-    '...p42cCc233o...',
-    '....p42c233o....',
-    '.....p4T33o.....',
-    '......p43o......',
+    '..p4ucCWCcu34o..',
+    '...p42cCc234o...',
+    '....p42c234o....',
+    '.....p4u34o.....',
+    '......p44o......',
     '.......po.......',
     '................',
     '................',

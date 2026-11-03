@@ -39,17 +39,26 @@ checklist live on the main side.
   the eyes invisible on their own in blind read 1), bottom row a near-black lash line with a trace of the eye's colour
   (`101c14` green, `0f1c1b` cyan). Gem `776a88`, `5b4e72`, `5b4e72`, `3a2e4c`: dull, no white spark, visible.
 - **Echo Heart**: crying-obsidian violets (vanilla `crying_obsidian.png` runs `2b0178`, `6006ab`, `8308e4` over
-  near-black) and the toolkit's echo cyans. A 14x12 heart jewel lit from the top left: a two-pixel crown bevel round
-  the edge, its facets toned by the way they face (lavender and a white spark on the left lobe, mid violet on the
-  right lobe, a lighter rim on the lower right so the point holds on dark grounds), around a darker table holding a
-  four-point glint (diamond core, four equal arms, centre (7,8)). Outline graded like Louis's (`2c1250` on the lit top
-  and left, `120818` elsewhere). How it got there: a plus-shaped glint read as a medical cross (draft); version 1
-  (smooth facets, glint at (7,7)) read in blind read 1 as a glossy dome with a crack under the cleft (dark tip) and a
-  belt (light top over dark bottom split along the glint's arm); version 2 (six diagonal facets, no top tip) read in
-  blind read 2 as a two-tone cabochon with a lopsided "Latin cross" glint, dirty dark-teal tips and the spark smeared
-  into the glint; version 3 (bevel, equal arms, tips faded 55% into the violet under them: `5979cd`, `34579e`,
-  `2b548d`, mid violet between spark and glint) went to blind read 3.
-  It is the one vivid item next to the dark eternal items on purpose: it is the precious ingredient, and both readers
+  near-black) and the toolkit's echo cyans. A 14x12 heart jewel lit from the top left. A dark diamond socket (`3c1470`,
+  every pixel within 3 steps of (7,8)) holds a four-point glint: white core, cyan plus, teal ring, periwinkle tips
+  (`5979cd`, the teal faded 55% into violet) reaching out like rays. Four flat facets around it: upper left
+  `9056e4` with a lit corner on the lobe's edge (`f6eeff`, `c6a2ff`), upper right `6a2cc4` with a lit top edge,
+  lower left `6a2cc4`, lower right `4d1890` with a rim of bounced light (`6a2cc4`) inside the outline. Outline graded
+  like Louis's (`2c1250` on the lit top and left, `120818` elsewhere).
+  How it got there, one blind read per version (answers in the scratchpad, `blind<N>/answers.md`):
+  - draft: a plus-shaped glint read as a medical cross (my own review);
+  - v1 (smooth facets, glint at (7,7)), read 1: a glossy dome, a dark tip under the cleft read as a crack, the
+    light-top/dark-bottom split along the glint's arm as a belt;
+  - v2 (six diagonal facets, no top tip), read 2: a two-tone cabochon, a lopsided "Latin cross" glint, dirty
+    dark-teal tips, the spark smeared into the glint;
+  - v3 (two-pixel bevel round the edge, glint at (7,8)), read 3: "a cut gem with about four broad faces", but a thin
+    dark table band on row 6 read as a seam or hairline crack, the glint melted into the lavender on its upper left,
+    and a round highlight competed with it;
+  - v4 (dark diamond socket, flat facets, small angular highlight), read 4: no crack, no belt, no competing highlight,
+    "a window cut into the heart, with the light inside it", distinct from vanilla at 1x and 2x; still "polished
+    enamel or a glossy cabochon" (no facet edge, no second glint), dull tips, a dark lower-right wedge;
+  - v5 (shipped): v4 plus lighter tips, the right lobe's lit edge and the lower-right bounced-light rim. Read 5.
+  It is the one vivid item next to the dark eternal items on purpose: it is the precious ingredient, and the readers
   matched its colours to the lit totem's violet gem and cyan eye.
 - **No vanilla textures committed**: the comparison with vanilla's echo shard, nether star, amethyst shard and heart of
   the sea was rendered in the scratchpad only (Mojang's assets stay out of the repo). Blind read 1: distinct from all
@@ -87,7 +96,12 @@ checklist live on the main side.
    `## [Unreleased]`) and the two placeholder PNGs with part B (brief: F's file wins). B's models for the two new
    items point at `bmh:item/dormant_totem` and `bmh:item/echo_heart` on both sides.
 
+9. Heart v3 to v5 (see Calls), with blind reads 3 and 4 between them; second pass committed as `9fbb2f0` (main) and
+   `0bbb67a` (1.21), pushed. Final heart (v5) written into `make_sprites.py`, which reproduces it pixel for pixel.
+   Final full-set blind read 5 launched on the shipped files.
+
 ## Resume here
 
-Step 8 done, blind read 3 pending. Next: act on it, commit the final pass on both sides, merge
-`origin/redesign/integration` and `origin/redesign/integration-1.21`, rebuild both, merge-tree, push, report.
+Step 9 in progress. Next: read blind read 5, commit the final pass on both sides, merge
+`origin/redesign/integration` and `origin/redesign/integration-1.21` (unmoved so far), rebuild both, merge-tree,
+push, report.
