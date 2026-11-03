@@ -71,6 +71,7 @@ Steps are numbered, not timed (this session reads no clock unless it runs `date`
 |---|---|---|---|---|---|
 | A fixes | `4353418` | `ebf5363` | `54299cc` / `29f506c` | main 50 s, 1.21 49 s, both green | none (clean merge on both sides) |
 | B totem | `20c3e07` | `242a55c` | `27a11f8` / `74c3b8c` | main 20 s, 1.21 12 s, both green | `CHANGELOG.md` and `bmh.mixins.json` on both sides (lists folded and unioned by script) |
+| F sprites | `5fd953a` | `664ca7e` | `027a13c` / `8e0f078` | main 16 s, 1.21 15 s, both green | `CHANGELOG.md` folded; `dormant_totem.png` and `echo_heart.png` add/add on both sides: F's blobs taken (`checkout --theirs`), verified equal to F's branch |
 
 ## Orders of the coordinator (wake of 2026-11-04, one turn, no report between steps)
 
