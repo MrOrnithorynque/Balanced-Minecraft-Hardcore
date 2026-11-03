@@ -3,7 +3,6 @@ package github.mrornithorynque.bmh;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
-import github.mrornithorynque.bmh.forge.ForgeAmuletClient;
 import github.mrornithorynque.bmh.forge.ForgeClientEvents;
 import github.mrornithorynque.bmh.forge.ForgeEvents;
 import github.mrornithorynque.bmh.forge.ForgePlatformHelper;
@@ -39,7 +38,6 @@ public class BalancedMcHardcoreMain {
         // The HUD text needs the client classes: never touch them on a dedicated server.
         if (FMLEnvironment.dist.isClient()) {
             modEventBus.register(ForgeClientEvents.class);
-            modEventBus.addListener(ForgeAmuletClient::onClientSetup);
         }
 
         LOGGER.info("[BalancedMcHardcoreMain] Setup complete.");

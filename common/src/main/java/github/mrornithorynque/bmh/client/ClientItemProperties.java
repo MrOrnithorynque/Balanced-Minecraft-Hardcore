@@ -26,5 +26,8 @@ public class ClientItemProperties {
         // The Eternal Bundle's model switches on "filled", but vanilla registers that property for Items.BUNDLE only.
         registrar.register(ItemInit.ETERNAL_BUNDLE.get(), ResourceLocation.withDefaultNamespace("filled"),
                 (stack, level, entity, seed) -> EternalBundleItem.getFullnessDisplay(stack));
+
+        // The Navigator's Amulet needle: vanilla's compass machinery aimed due north of the holder (Overworld only).
+        registrar.register(ItemInit.NAVIGATOR_AMULET.get(), AmuletCompass.ANGLE, AmuletCompass.angle());
     }
 }
