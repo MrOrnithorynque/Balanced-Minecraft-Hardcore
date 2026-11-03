@@ -51,7 +51,6 @@ public class ItemInit {
                         () -> new NavigatorAmuletItem(
                                         new Item.Properties()
                                                         .stacksTo(1)
-                                                        .durability(10)
                                                         .rarity(Rarity.COMMON)));
 
         public static final Supplier<Item> TOTEM_OF_ETERNITY = register("totem_of_eternity",
