@@ -12,6 +12,9 @@
     "tooltip.bmh.eternity": "Eternity",
     "tooltip.bmh.heavy_with_eternity": "Heavy with eternity: you wake farther while you carry it",
     "tooltip.bmh.death_wear": "Each death: -7% durability",
+    "tooltip.bmh.ability.eternal_sword": "Echo Strike: a full hit echoes onto a nearby hostile mob",
+    "tooltip.bmh.ability.eternal_axe": "Smash: hits while falling land harder and soften the fall",
+    "tooltip.bmh.ability.eternal_pickaxe": "Echo Sense: a mined ore makes the same ore nearby glow",
     "tooltip.bmh.dormant_totem": "Awaken it at an anvil: Dormant Totem left, Echo Heart right",
     "tooltip.bmh.echo_heart": "Awakens a Dormant Totem at an anvil: totem left, heart right",
 
