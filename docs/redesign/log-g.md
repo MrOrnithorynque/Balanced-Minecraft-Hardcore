@@ -65,6 +65,12 @@ Steps are numbered, not timed (this session reads no clock unless it runs `date`
 2. This log is committed on `redesign/g`, so G's first-parent history starts with a docs commit. The `-m 1` port walks the first-parent chain, so that commit and the two docs commits travel to the ports with the rest, as the brief's command says. Revisit at port time if the docs make a port conflict.
 3. At merge time only the builds are required (part G, item 1). Server boots of the integrated mod on every loader of both sides happen once the last part is in, before the port starts (the port step needs boots on all seven branches anyway).
 
+4. Call 2a: besides the code, `.claude/CLAUDE.md` named the three deleted classes (same sentence on both sides), so that line now says the needle registers in `client/ClientItemProperties.java`. The `docs/redesign/log-*.md` files keep their old wording on purpose (history).
+5. Call 2b: "cannot see the sky" is decided from the eyes, like the sky drawing's own checks (vanilla skips the sky for fog type powder snow or lava and for Blindness and Darkness): Blindness, Darkness, `isEyeInFluid` water or lava, and the block at the eye position being powder snow. `Entity.isInPowderSnow` (feet in powder snow) is not used: with only the feet in snow the sky is drawn, so refusing would deny a valid reading. Message: `bmh.amulet.hidden.roof`. The change is also said in C's amulet changelog bullet.
+6. Call 2c: `EternalTooltips.addAbility(lines, key)` (DARK_AQUA) is called before `addHeavy` in the three tools; keys and texts exactly as ordered; B's tooltip changelog line ends "and each Eternal tool names its ability."
+7. Call 2d: lang, changelog and B's checklist say "Dormant Totem of Eternal Life". Scope call: the changelog's other bullets said "Totem of Eternity" for the awakened item, whose in-game name is "The Totem of Eternal Life"; they now say "Totem of Eternal Life" too, so a player finds the item under the name the game shows. Registry ids (`bmh:totem_of_eternity`), the "Eternity" tooltip line, the README's Totem section and the brief are untouched. B's checklist section 6 (its two open points) now says both points are settled.
+8. Call 2e: both sides ask for `itemGroup.BMH_tab` (`CreativeTabInit`); the key is added next to the old unused `itemGroup.bmh_creative_tab` (kept), value "BMH Tab", plus a `### Fixed` bullet.
+
 ## Merge ledger
 
 | Part | Main-side sha merged | 1.21 sha merged | Integration after (main / 1.21) | Builds | Conflicts resolved |
@@ -75,6 +81,7 @@ Steps are numbered, not timed (this session reads no clock unless it runs `date`
 | C amulet | `09fee5e` | `660976a` | `4e61f11` / `6835d01` | main 34 s, 1.21 19 s, both green | `CHANGELOG.md` folded and `bmh.mixins.json` unioned on both sides; on 1.21 the three-way union dropped `EnchantmentMixin` (C removed it from the base list and deleted the class). `BalancedMcHardcoreMain`, `BalancedMcHardcoreFabricClient` and the 1.21 client classes auto-merged with A: both hooks kept until call 2a |
 | D sky | `7d42e91` | `b41955c` | `3c58bfc` / `7c71c74` | main 17 s, 1.21 15 s, both green | `CHANGELOG.md` folded; `bmh.mixins.json` auto-merged (D's `client` entry). Reading contract cross-check, both sides: C writes `bmh_reading` {`azimuth` float, `time` long} (main: stack NBT, 1.21: `CUSTOM_DATA`), D reads `getCompound("bmh_reading")`, `getFloat("azimuth")`, `getLong("time")` from the same places: same names, same types |
 | E abilities | `8bef4bb` | `3079dc9` | `37ea980` / `8ed0272` | main 25 s, 1.21 15 s, both green | `CHANGELOG.md` folded; `bmh.mixins.json` unioned on both sides (E's 7 `E_` names in `mixins`). E's `docs/redesign/e-selftest/` came with it (throwaway test, never installed in the commits) |
+| calls 2a to 2e | five commits | five commits | main `6c0fe9b` `b760fb6` `ec1e0b5` `274ed22` `66210ea` / 1.21 `71e74f7` `56d4d92` `fbf388c` `fe9d98c` `a9e5a2a` | main 17 s, 1.21 14 s, both green | none (no merge involved); see Calls made 4 to 8 |
 
 ## Orders of the coordinator (wake of 2026-11-04, one turn, no report between steps)
 
@@ -102,4 +109,4 @@ Builds take about 50 s per side on a warm machine.
 
 ## Resume here
 
-Step 1 of the orders in progress: A merged and built on both sides (ledger above). Next: push A, then merge B, F, C, D, E in that order. If this log is all you have: `git fetch origin --prune`, read the ledger to see which parts are in `origin/redesign/integration*`, continue from the next part.
+Orders step 1 and 2 are done and pushed: all six parts and the five calls are in `origin/redesign/integration` and `origin/redesign/integration-1.21` (both build green). Next: step 3, re-run B's 73 checks (tools in the shared notes folder, `b-totem-tools/`) and E's 44 checks (`docs/redesign/e-selftest/`) on both sides and three loaders, one suite after the other, never committed. Then step 4 (ports), step 5 (CHECKLIST.md, report DONE). If this log is all you have: `git fetch origin --prune`, read the ledger, continue from the first step not marked done here.
