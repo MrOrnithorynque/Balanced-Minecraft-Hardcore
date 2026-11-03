@@ -5,8 +5,8 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 ## [Unreleased]
 
 ### Added
-- Dormant Totem of Eternity and Echo Heart. The Totem of Eternity is now made in steps: the old Totem of Eternity recipe makes a Dormant Totem, the Echo Heart is crafted from 4 crying obsidian, 4 echo shards and a nether star, and the two meet at an anvil (Dormant Totem on the left, Echo Heart on the right, 39 levels). The name field is ignored.
-- The Totem of Eternity glows like an enchanted item and says "Eternity" in its tooltip. It is not a real enchantment, so a grindstone cannot remove it.
+- Dormant Totem of Eternal Life and Echo Heart. The Totem of Eternal Life is now made in steps: the old Totem of Eternal Life recipe makes a Dormant Totem, the Echo Heart is crafted from 4 crying obsidian, 4 echo shards and a nether star, and the two meet at an anvil (Dormant Totem on the left, Echo Heart on the right, 39 levels). The name field is ignored.
+- The Totem of Eternal Life glows like an enchanted item and says "Eternity" in its tooltip. It is not a real enchantment, so a grindstone cannot remove it.
 - Every Eternal Item now says in its tooltip that you wake farther while you carry it. The Eternal Sword, Axe and Pickaxe also say that each death costs them 7% durability, and each Eternal tool names its ability.
 - Navigator's Amulet: sneak and use it on a bed or a lodestone in the Overworld to set your Home. Until you do, your Home is your respawn point (if it is in the Overworld), or the world spawn. Your Home stays with you through death.
 - Navigator's Amulet: a star reading now draws a short constellation in the night sky, real stars linked from high overhead down to the horizon in the direction of Home. Only you see it; it fades after about ten seconds.
@@ -18,9 +18,9 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - The Totem of Undying no longer gives Fire Resistance when it saves you. You still get Regeneration and Absorption.
 - The exile from a respawn anchor in the Nether is now as long, in world terms, as one from a bed in the Overworld. Before, it was eight times longer, because a Nether block counts for 8 Overworld blocks.
 - On 1.21.1, mining a decorated pot with an Eternal Sword, Axe or Pickaxe now breaks it into sherds like with the other tools (it used to drop whole). Silk Touch still keeps it whole.
-- The Eternal Sword, Axe and Pickaxe are now made at the smithing table: Totem of Eternity in the template slot, your netherite sword, axe or pickaxe, and an echo shard. The tool keeps its enchantments, name and wear. The dragon egg is no longer needed, and the old crafting table recipes are gone.
-- New Eternal Bundle recipe: string, gold ingots, leather, netherite scrap and a Totem of Eternity. It no longer needs a vanilla bundle.
-- Eternal tools are repaired with gold blocks at the anvil instead of a Totem of Eternity.
+- The Eternal Sword, Axe and Pickaxe are now made at the smithing table: Totem of Eternal Life in the template slot, your netherite sword, axe or pickaxe, and an echo shard. The tool keeps its enchantments, name and wear. The dragon egg is no longer needed, and the old crafting table recipes are gone.
+- New Eternal Bundle recipe: string, gold ingots, leather, netherite scrap and a Totem of Eternal Life. It no longer needs a vanilla bundle.
+- Eternal tools are repaired with gold blocks at the anvil instead of a Totem of Eternal Life.
 - The Eternal Bundle wears a small gold ring charm on its drawstring, empty or full.
 - Navigator's Amulet, rebuilt: its needle now always points north, like a compass that cannot be fooled (Overworld only: it spins in the other dimensions). It has no durability any more, so it no longer takes Unbreaking.
 - Navigator's Amulet: use it at night, under open sky and without rain, to read the stars. A reading shows your coordinates and costs one of its 3 starlight charges (the violet bar under the item). The charges come back at every nightfall, and a reading has a 2 second cooldown. Blindness, Darkness and having your eyes in water, lava or powder snow hide the stars too, and cost nothing.
