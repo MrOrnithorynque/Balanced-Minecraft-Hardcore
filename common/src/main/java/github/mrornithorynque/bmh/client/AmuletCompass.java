@@ -9,8 +9,8 @@ import net.minecraft.world.level.Level;
 
 /**
  * The needle of the Navigator's Amulet: vanilla's compass machinery (its wobble included) aimed at a
- * point far due north of whoever holds it. Client classes: each loader's client setup registers it,
- * a dedicated server never loads it.
+ * point far due north of whoever holds it. Client class: ClientItemProperties registers it (every loader's
+ * client setup calls that), a dedicated server never loads it.
  */
 public class AmuletCompass {
 
