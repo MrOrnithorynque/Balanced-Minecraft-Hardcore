@@ -143,11 +143,16 @@ Steps are numbered, not timed. Started 2026-11-03 21:28 CET (read from `date`).
 
 ## Resume here
 
-Steps 1 to 9 done; both branches pushed (main `74d0b71`, 1.21.1 committed with the same content ported). In progress:
-main-side Gradle `build` queued for a slot (scratchpad `wait_build.sh`, log `build/d-sky-logs/build-main-1.log`). Next:
-Fabric server boot that leaves a night world (`tools/boot-test.sh` + `tools/cmds-fabric-world.txt` in the scratchpad,
-copies of session A's tools with `-verbose:class`), the client screenshot run (`tools/client-shots.sh`), then remove
-`DevSkyShots` and its one call line on both sides, final builds, three server boots per side, audit, report.
+Steps 1 to 14 done, both branches pushed. Main has its final code (dev trigger removed, `f645964`); its final build is
+queued (log `build/d-sky-logs/build-main-final.log`), then three boots (`tools/boot-test.sh` with
+`tools/cmds-plain.txt`: fabric, forge, neoforge, port 25614). 1.21.1 still carries `DevSkyShots` for one client run:
+its Fabric boot that leaves a night world is queued for the server lock (`<wt>-121/build/d-sky-logs/boot-dev/`),
+then `tools/client-shots.sh <wt>-121 /opt/homebrew/opt/openjdk@21 fabric <out>`, then delete `DevSkyShots.java` and
+its call in `StarReadingRenderer.render` (and make `show` private), final 1.21.1 build, three boots. Before the report:
+fetch, merge `origin/redesign/integration` (and `-1.21`) if they moved, `scratchpad/merge_check.sh` on both sides
+(main: only `CHANGELOG.md` conflicts, with every sibling, unavoidable), rebuild if anything merged, push.
+Tools live in this session's scratchpad (`tools/`, `wait_build.sh`, `compile_all.sh`, `prev.sh`); if it is gone,
+session A's originals are in the shared notes folder.
 Regenerate the PNGs into `docs/redesign/sky-previews/` once the look is final:
 `javac -d <tmp> docs/redesign/sky-previews/SkyPreview.java` plus `StarField.java`, `StarChain.java`, `StarTrace.java`
 from `common/src/main/java/github/mrornithorynque/bmh/client/sky/` (not `Star*.java`: that also catches the
