@@ -92,13 +92,15 @@ public final class StarChain {
     }
 
     /**
-     * The sun and the moon turn with the stars: in the star field's frame the sun is a 60-block square at y = 100 and
-     * the moon a 40-block square at y = -100. Vanilla adds the stars over them, so a star there always sits on a
-     * bright disc, where a line would wash out. Same stars at every time of day; 3 blocks of margin.
+     * The sun and the moon turn with the stars: in the star field's frame the sun is a 60-block quad at y = 100 and
+     * the moon a 40-block quad at y = -100, so the stars on them are the same at every time of day. Only the middle
+     * of each texture is bright (sun.png: about 10 of 32 texels, a moon phase: about 8 of 32), the rest is a faint
+     * ring. Vanilla adds the stars over them; a star on the bright disc is lost in it. Excluded: the bright disc plus
+     * 3 blocks (half-sizes 13 and 8 blocks, at 100).
      */
     static boolean behindSunOrMoon(StarField.Star star) {
         double y = Math.abs(star.y);
-        double half = (star.y > 0.0 ? 30.0 + 3.0 : 20.0 + 3.0) / 100.0;
+        double half = (star.y > 0.0 ? 13.0 : 8.0) / 100.0;
         return Math.abs(star.x) <= half * y && Math.abs(star.z) <= half * y;
     }
 
