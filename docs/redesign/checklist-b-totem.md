@@ -7,8 +7,7 @@ tooltip lines) was already exercised headlessly: see `log-b-totem.md`. Give your
 Textures of the Dormant Totem and the Echo Heart are placeholders (the Totem of Eternal Life's first frame, twice) until
 part F's sprites are merged: at first both new items look like the totem.
 
-Known and not part of B: the creative tab's title shows the raw key `itemGroup.BMH_tab` (the code asks for that key, the lang
-files define `itemGroup.bmh_creative_tab`). Look at the tab's content, not at its title.
+The creative tab's title used to show the raw key `itemGroup.BMH_tab`; the integration fixed it (the lang file now has that key).
 
 ## 1. The two new items
 
@@ -33,7 +32,7 @@ files define `itemGroup.bmh_creative_tab`). Look at the tab's content, not at it
 ## 3. The anvil
 
 8. `/xp set @s 38 levels`. Dormant Totem in the left slot, Echo Heart in the right slot: the result is a Totem of
-   Eternity, the cost reads 39 and is red / not takeable at 38 levels.
+   Eternal Life, the cost reads 39 and is red / not takeable at 38 levels.
 9. `/xp set @s 39 levels`: take it. Both inputs are gone, you are back to 0 levels, the anvil may take its usual damage.
 10. Type a name in the name field before taking it: the result is not renamed.
 11. Echo Heart on the left, Dormant Totem on the right: no result.
@@ -53,8 +52,8 @@ files define `itemGroup.bmh_creative_tab`). Look at the tab's content, not at it
     addition slot. The result is the Eternal Sword / Axe / Pickaxe with Sharpness V, Mending, the name "Test blade" and
     the same wear (damage 100 out of 10000). Taking it consumes the totem, the tool and the shard.
 16. A diamond tool, or a diamond instead of the echo shard, gives nothing. The Dormant Totem is not accepted as template.
-17. Tooltips of the three tools: `Heavy with eternity: ...` (gold) then `Each death: -7% durability` (gray), then the
-    enchantments.
+17. Tooltips of the three tools: a dark aqua ability line (added when the parts were merged), `Heavy with eternity: ...`
+    (gold), `Each death: -7% durability` (gray), then the enchantments.
 
 ## 5. Repair and bundle
 

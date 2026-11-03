@@ -39,7 +39,8 @@ and 1.21.1. Reference pictures of what to expect: `docs/redesign/sky-previews/` 
 ## Known, on purpose
 
 - A reading taken while the sky is hidden (Blindness, Darkness, inside powder snow, thick fog) draws nothing: the chain
-  starts only while the stars are drawn, within 2 s of the reading. Part C still spends the charge.
+  starts only while the stars are drawn, within 2 s of the reading. Since the merge, part C refuses such a reading for
+  Blindness, Darkness and eyes in water, lava or powder snow (no charge spent); thick fog still spends it.
 - The chain pauses with the game (singleplayer pause menu) and resumes.
 
 ## If something looks wrong
