@@ -2,6 +2,7 @@ package github.mrornithorynque.bmh.init;
 
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.block.Block;
@@ -38,7 +39,7 @@ public class BMHModTierInit {
 
         @Override
         public Ingredient getRepairIngredient() {
-            return Ingredient.of(ItemInit.TOTEM_OF_ETERNITY.get());
+            return Ingredient.of(Items.GOLD_BLOCK);
         }
     };
 }
