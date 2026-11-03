@@ -5,6 +5,13 @@
     "compatibilityLevel": "JAVA_21",
     "refmap": "bmh.refmap.json",
     "mixins": [
+        "E_BlockDisplayInvoker",
+        "E_DisplayInvoker",
+        "E_DisplayMixin",
+        "E_MinecraftServerMixin",
+        "E_PlayerAttackMixin",
+        "E_ServerPlayerGameModeMixin",
+        "E_ServerPlayerMixin",
         "EnchantmentMixin"
     ],
     "client": [
