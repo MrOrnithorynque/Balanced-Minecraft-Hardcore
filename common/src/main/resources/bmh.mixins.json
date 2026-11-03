@@ -8,7 +8,8 @@
         "EnchantmentMixin"
     ],
     "client": [
-        "CreateWorldGameTabMixin"
+        "CreateWorldGameTabMixin",
+        "D_LevelRendererSkyMixin"
     ],
     "injectors": {
         "defaultRequire": 1
