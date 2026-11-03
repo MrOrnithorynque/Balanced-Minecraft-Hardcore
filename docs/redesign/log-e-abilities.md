@@ -8,9 +8,9 @@ Part E of `docs/redesign/BRIEF.md`: Echo Strike (sword), smash (axe), Echo Sense
 
 ## Resume here
 
-Main side: first code committed (`c390595`), then an adversarial review found a blocker and several fixes (see "Review round"); the fixes are in the working tree, not committed yet. Both sides compile (javac matrix). The 1.21.1 worktree has the same files with its three differences (`ResourceLocation.fromNamespaceAndPath`, tag folder `tags/block`, mixin list), not built yet.
-A throwaway headless self-test (fake ServerPlayer driven by the server tick, never committed, kept as a patch under `docs/redesign/e-selftest/`) is applied in both worktrees. REMOVE IT BEFORE ANY COMMIT of code: `E_SelfTestMixin` in `bmh.mixins.json` crashes every loader (`required: true`) and the `selftest/` folder must not ship.
-Next: run the self-test boots on main (Forge, Fabric, NeoForge), then build and boot the 1.21.1 side, strip the harness, commit, merge `origin/redesign/integration*`, `merge-tree` against siblings, push, report.
+State: both sides coded, review fixes applied, committed and pushed (main `redesign/e-abilities` `9d3d050`, 1.21.1 `redesign/e-abilities-1.21` `3079dc9`; the later commits of this log may move the main sha). Headless self-test green on all six loader/side combinations (see Verification item 6; Forge main re-run with the husk fix may still be pending).
+The scratch working trees still carry the throwaway self-test (`E_SelfTestMixin` line in `bmh.mixins.json`, folder `selftest/`) as uncommitted changes: strip it with `docs/redesign/e-selftest/remove.sh <abs worktree>` before building the final jars, and never commit it.
+Left to do: (1) strip the harness; (2) `git fetch`, merge `origin/redesign/integration` into the main branch and `origin/redesign/integration-1.21` into the 1.21 branch (both were still at the brief commit when last looked); (3) final `sh gradlew build` per side and a plain dedicated-server boot per loader (`runservers.sh ... plain forge fabric neoforge`), check the jars hold `bmh.refmap.json` (Forge and Fabric) and no `SelfTest`; (4) `git merge-tree --write-tree HEAD origin/redesign/<sibling>` for every sibling already pushed (only CHANGELOG.md and bmh.mixins.json conflict, both expected); (5) push, `get_usage`, report with the status line of rule 11.
 
 ## Design (calls made, with reasons)
 
