@@ -4,6 +4,9 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Changed
+- The Eternal Bundle wears a small gold ring charm on its drawstring, empty or full.
+
 ## [1.4.0] - 2026-11-02
 
 ### Added
