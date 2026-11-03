@@ -11,7 +11,7 @@ then switch to survival where a step says so. Give yourself the tools first:
 
 The server log shows one line at start: `[BalancedMcHardcoreMain] Echo Sense: tag bmh:echo_sense_ores lists 19 blocks.`
 (`latest.log`). If it says "empty or missing", stop: the ore tag did not load.
-Per-use lines (`Echo Strike: ...`, `Smash: ...`, `Echo Sense: ...`) are DEBUG, in `debug.log` on Forge and NeoForge.
+Per-use lines (`Echo Strike: ...`, `Smash: ...`, `Echo Sense: ...`) are DEBUG: in `debug.log` on Forge and NeoForge, not shown on Fabric.
 
 ## 1. Sword: Echo Strike
 
@@ -26,7 +26,7 @@ sun, so they make good test dummies. Setup, two of them 3 blocks apart:
 1. Hold the Eternal Sword and hit husk A once, waiting until the attack indicator under the crosshair is full.
    You should see: about a quarter of a second after the hit, a cyan dotted line from A to B, small sparks on B, a soft
    chime, and B losing hearts. Check with `/data get entity @e[tag=bmh_b,limit=1] Health`: B had 20, it should now be
-   14.5 (the hit does 11, the echo 5.5, a bit less because the husk wears natural armor: about 14.6).
+   about 14.6 (the hit does 11, the echo is half of it, 5.5, and the husk's natural armor takes a little off: 5.41).
 2. Hit husk A with a rushed swing (click again right away, indicator not full). No cyan line, B untouched.
 3. Kill A with a full hit, then hit B alone: no line (no other creature around), no error in the log.
 4. The echo must never go to: you; another player; a villager (`/summon minecraft:villager ~ ~ ~3 {NoAI:1b}` next to A);
@@ -47,8 +47,10 @@ Use an iron golem so the damage shows in its health (100 hp, it does not move wi
 /summon minecraft:iron_golem ~ ~ ~ {NoAI:1b}
 ```
 
-Stand 3, 10 or 30 blocks above it (`/tp @s ~ ~10 ~`, you fall from there; a teleport resets the fall), fall onto it and
-hit it with the Eternal Axe just before you reach it, with the attack indicator full. Read
+Teleport above it (`/tp @s ~ ~10 ~` puts you 10 blocks up and resets the fall), fall onto it and hit it with the
+Eternal Axe just before you reach it, with the attack indicator full. The fall counts up to the moment of the hit, which
+is about 3 blocks (your reach) before the ground, so teleport 3 blocks higher than the fall you want: `~ ~6 ~` for a
+3 block fall, `~ ~13 ~` for 10, `~ ~33 ~` for 30. Read
 `/data get entity @e[type=iron_golem,limit=1] Health` (use `/data merge entity @e[type=iron_golem,limit=1] {Health:100f}` to reset).
 
 | Fall before the hit | Multiplier | Expected loss, hit without crit (sprinting) | Expected loss, vanilla crit (not sprinting) |
@@ -75,20 +77,20 @@ Build a small test wall (so the ores are behind stone, not in sight), standing o
 /setblock ~3 ~1 ~3 minecraft:iron_ore
 /setblock ~5 ~1 ~3 minecraft:deepslate_iron_ore
 /setblock ~3 ~3 ~5 minecraft:iron_ore
-/setblock ~8 ~2 ~8 minecraft:iron_ore
+/setblock ~12 ~1 ~3 minecraft:iron_ore
 /setblock ~4 ~2 ~4 minecraft:gold_ore
 /setblock ~2 ~1 ~3 minecraft:iron_ore
 ```
 
 1. Mine the iron ore at `~2 ~1 ~3` with the Eternal Pickaxe. You should hear an amethyst chime and see a cyan outline
    around the two other iron ores near it (`~3 ~1 ~3` stone variant and `~5 ~1 ~3` deepslate variant) and `~3 ~3 ~5`,
-   through the stone, for 5 seconds. The gold ore does not glow, and neither does the iron ore at `~8 ~2 ~8` if it is
-   more than 8 blocks away from the one you mined.
+   through the stone, for 5 seconds. The gold ore does not glow, and neither does the iron ore at `~12 ~1 ~3`, 10 blocks
+   from the one you mined (it stands in the open: a case for item 9).
 2. After 5 seconds the outlines disappear by themselves.
 3. Mine a stone block, then the gold ore with a normal iron pickaxe: nothing glows.
 4. Quit to the title screen 2 seconds after an Echo Sense (or leave the server), come back: no ore keeps glowing.
    If one does, `/kill @e[type=block_display,tag=bmh_echo]` removes it, and tell me.
-5. At most 64 at once: `/fill ~2 ~ ~2 ~9 ~4 ~9 minecraft:coal_ore` (about 160 ores), break one, then count the glowing
+5. At most 64 at once: `/fill ~2 ~ ~2 ~9 ~4 ~9 minecraft:coal_ore` (about 300 ores), break one, then count the glowing
    ones:
    ```
    /scoreboard objectives add bmh dummy
