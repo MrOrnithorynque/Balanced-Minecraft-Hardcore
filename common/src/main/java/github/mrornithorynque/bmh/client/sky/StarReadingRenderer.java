@@ -1,5 +1,6 @@
 package github.mrornithorynque.bmh.client.sky;
 
+import java.lang.ref.WeakReference;
 import java.util.Locale;
 
 import org.joml.Matrix4f;
@@ -45,6 +46,7 @@ public final class StarReadingRenderer {
     private static final float FULL_NIGHT_STARS = 0.5F;
 
     private static long lastShownTime = Long.MIN_VALUE;
+    private static WeakReference<ClientLevel> lastLevel = new WeakReference<>(null);
     private static Shown shown;
 
     static {
@@ -56,29 +58,36 @@ public final class StarReadingRenderer {
                 Math.round(north[0] * 100), Math.round(north[1] * 100), Math.round(east[0] * 100), Math.round(east[1] * 100)));
     }
 
-    private record Shown(ClientLevel level, int[] chain, double startTick) {
+    private record Shown(int[] chain, double startTick) {
     }
 
     private StarReadingRenderer() {
     }
 
     public static void render(ClientLevel level, Matrix4f starPose, float partialTick) {
-        LocalPlayer player = Minecraft.getInstance().player;
+        Minecraft minecraft = Minecraft.getInstance();
+        LocalPlayer player = minecraft.player;
         if (player == null) {
             return;
         }
-        double now = level.getGameTime() + partialTick;
-        startFreshReading(level, player, now, partialTick);
-        if (DevSkyShots.ENABLED) {
-            DevSkyShots.frame(level, player, now, partialTick);
+        if (lastLevel.get() != level) {
+            // Another world or dimension: another game time, and a chain belongs to the sky it was read in. Weak, so
+            // a world left behind is not kept in memory.
+            lastLevel = new WeakReference<>(level);
+            lastShownTime = Long.MIN_VALUE;
+            shown = null;
         }
+        // The animation runs on client ticks: the client's game time snaps back at each server time sync when the
+        // server lags, which would retract the lines.
+        double now = minecraft.gui.getGuiTicks() + partialTick;
+        startFreshReading(level, player, now, partialTick);
 
         Shown reading = shown;
         if (reading == null) {
             return;
         }
         double seconds = (now - reading.startTick()) / 20.0;
-        if (reading.level() != level || seconds > StarTrace.duration(reading.chain().length)) {
+        if (seconds > StarTrace.duration(reading.chain().length)) {
             shown = null;
             return;
         }
@@ -91,8 +100,9 @@ public final class StarReadingRenderer {
         }
     }
 
-    // A reading starts the moment the player holds an amulet carrying one this client has not shown yet. Once started
-    // it plays to the end, amulet in hand or not.
+    // A reading starts the moment the player holds an amulet carrying one newer than the last shown (with an amulet in
+    // each hand, the newest wins instead of the two taking turns). Once started it plays to the end, amulet in hand or
+    // not.
     private static void startFreshReading(ClientLevel level, LocalPlayer player, double now, float partialTick) {
         for (InteractionHand hand : InteractionHand.values()) {
             ItemStack stack = player.getItemInHand(hand);
@@ -103,7 +113,7 @@ public final class StarReadingRenderer {
             }
             CompoundTag reading = tag.getCompound(READING);
             long time = reading.getLong(TIME);
-            if (time == lastShownTime || Math.abs(level.getGameTime() - time) >= FRESH_TICKS) {
+            if (time <= lastShownTime || Math.abs(level.getGameTime() - time) >= FRESH_TICKS) {
                 continue;
             }
             lastShownTime = time;
@@ -112,11 +122,11 @@ public final class StarReadingRenderer {
         }
     }
 
-    static void show(ClientLevel level, float azimuth, double now, float partialTick) {
+    private static void show(ClientLevel level, float azimuth, double now, float partialTick) {
         // The sky as it stands now; within the 40 fresh ticks it turns less than a degree.
         float timeOfDay = level.getTimeOfDay(partialTick);
         int[] chain = StarChain.pick(StarField.stars(), azimuth, timeOfDay);
-        shown = chain.length > 0 ? new Shown(level, chain, now) : null;
+        shown = chain.length > 0 ? new Shown(chain, now) : null;
         if (chain.length > 0) {
             StarField.Star star = StarField.stars().get(chain[chain.length - 1]);
             double[] last = StarChain.toWorld(star.x, star.y, star.z, timeOfDay);

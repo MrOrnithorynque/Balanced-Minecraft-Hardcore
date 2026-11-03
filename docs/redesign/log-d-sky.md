@@ -84,6 +84,24 @@ Steps are numbered, not timed. Started 2026-11-03 21:28 CET (read from `date`).
       the centre); the preview rasterizer culls back faces like GL, and still shows vanilla's stars, so its convention
       matches the game's.
 
+13. Adversarial audit (fresh sub-agent, read-only, evidence in the scratchpad `audit/` folder of this session): 7 of
+    8 claims hold (sky transform within 0.031 degrees of a JOML pose over 780 stars x 41 times; azimuth; injection
+    point on vanilla 1.20 to 1.21.1 and all six Forge-patched jars; 1.21.1 pose; model-view identity during the sky
+    on both versions; trigger cannot throw; 22680 picks all valid, 196200 night picks never empty on both sides;
+    client/server split; RNG bit-exact on six versions). Claim 5 broke on culling (`Minecraft.runTick` calls
+    `RenderSystem.enableCull()` every frame): the halos, already fixed at step 12; the agent re-checked 118 of 118
+    triangles front-facing after the fix. Three minor defects, fixed on both sides:
+    - the animation clock was the client's game time, which snaps back at each server time sync under lag: now
+      `Minecraft.gui.getGuiTicks()` (exists 1.20 to 1.21.1, counts only unpaused client ticks);
+    - the static `shown` held the `ClientLevel` until a later star pass: now a `WeakReference` to the last level,
+      and a level change resets the state;
+    - two amulets with fresh readings restarted each other every frame (`time != last`): now only a newer reading
+      starts (`time > last`), reset on level change.
+    Kept as is, in the checklist: a reading taken while the sky is hidden (Blindness, Darkness, powder snow, fog)
+    draws nothing.
+14. Development trigger removed on main (`DevSkyShots` and its call); `show` back to private. Common tree compiles
+    on 1.20 to 1.20.4.
+
 ## Calls made (and why)
 
 1. **Picker = dynamic programming, not greedy.** Candidates within the off-plane limit, sorted high to low; the DP

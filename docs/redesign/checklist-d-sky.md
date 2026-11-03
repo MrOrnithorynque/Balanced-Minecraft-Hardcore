@@ -25,7 +25,8 @@ and 1.21.1. Reference pictures of what to expect: `docs/redesign/sky-previews/` 
    stays on them (with `doDaylightCycle` on, the sky turns about 4 degrees during a reading: the chain turns with it).
 5. **Offhand.** Put the amulet in the offhand and use it: same drawing.
 6. **Pocketing it.** Use it, then switch to another item at once: the drawing still plays to the end.
-7. **A second reading** (after the 2 s cooldown): the old chain disappears, a new one traces.
+7. **A second reading** (after the 2 s cooldown): the old chain disappears, a new one traces. With an amulet in each
+   hand, using one then the other: the newer reading shows, the two never flicker back and forth.
 8. **Rain dims it.** Use it, then `/weather rain` while the chain holds: it dims with the stars.
 9. **Late night.** `/time set 22000` and use it facing north, east, south, west in turn: a chain every time. The moon
    is low in the west then; a reading toward the west may run its line across the moon (it stays visible, whiter).
@@ -34,6 +35,12 @@ and 1.21.1. Reference pictures of what to expect: `docs/redesign/sky-previews/` 
 12. **Dedicated server.** On a dedicated server the reading still draws on the client of the player who used it.
 13. **Shader packs** (Iris or Oculus, only if you use them): best effort. A pack that draws its own sky may hide the
     chain or tint it; not a blocker.
+
+## Known, on purpose
+
+- A reading taken while the sky is hidden (Blindness, Darkness, inside powder snow, thick fog) draws nothing: the chain
+  starts only while the stars are drawn, within 2 s of the reading. Part C still spends the charge.
+- The chain pauses with the game (singleplayer pause menu) and resumes.
 
 ## If something looks wrong
 
