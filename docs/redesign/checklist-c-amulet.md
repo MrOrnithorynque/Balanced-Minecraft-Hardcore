@@ -25,7 +25,10 @@ BMH hides the coordinates from F3 in survival: for the checks that compare again
 6. **A reading.** `/time set midnight`, `/weather clear`, open sky, right click. You hear an amethyst chime, your arm swings,
    the action bar says `X <x> · Y <y> · Z <z>` with your block coordinates (check against `/data get entity @s Pos`), the item bar drops to two
    thirds and the tooltip says `Starlight 2/3`. A second right click within 2 seconds does nothing (the item shows the
-   cooldown sweep). Nothing shows Home's coordinates or distance, anywhere.
+   cooldown sweep). Nothing shows Home's coordinates or distance, anywhere. With a shield, a torch or a bucket in the off hand
+   and the amulet in the main hand, the click reads the stars and does not raise the shield, place the torch or empty the
+   bucket (during the 2 second cooldown the off-hand item does work, like for any vanilla item on cooldown). Also try
+   holding the amulet in the off hand with a sword in the main hand: the click still reads the stars.
 7. **Charges.** Read two more times (2 seconds apart): `Starlight 0/3`, empty bar. The next right click says
    "No starlight left tonight." and plays nothing. Then `/time add 24000` (a new nightfall went by): within a second the bar
    is full and the tooltip says `Starlight 3/3` again. Sleeping through a night does not refill: only the next dusk does.

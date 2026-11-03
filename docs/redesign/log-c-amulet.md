@@ -64,9 +64,17 @@ sub-agent, running), then merge `origin/redesign/integration*`, rebuild, `git me
 - **Creative.** Readings in creative spend nothing (testing), the 2 s cooldown still applies.
 - **Cooldown.** Vanilla item cooldown (the sweep shows, held right click is throttled by the game itself): 40 ticks after a reading,
   20 ticks after setting Home. A refused reading sets no cooldown.
-- **Client prediction.** The client `use()` passes and the server answers `success` (which swings the arm) or `fail`; no state is
-  predicted. `useOn` decides on both sides (sneak and a bed or lodestone) so that the client does not also send a `use()` for the
-  click that set Home. In other dimensions the same click says Home is Overworld only, so the bed never explodes in the Nether.
+- **Client side of a click.** The client `use()` returns `consume` and decides nothing; the server answers `success` (which swings the
+  arm) or `fail`. Found by the audit (read in `Minecraft.startUseItem`, 1.20.4 and 1.21.1): after `useItem` the loop over both hands only
+  stops on a consuming result, so a client `pass` would use the other hand in the same click (shield, bucket, pearl) while the
+  server does the reading. The old amulet had that flaw too. Price: while the amulet is in the main hand, a right click that nothing
+  else wanted is the amulet's (an off-hand item still works during the 2 s cooldown, as for any vanilla item on cooldown).
+  `useOn` decides on both sides (sneak and a bed or lodestone) so that the client does not also send a `use()` for the click that set
+  Home. In other dimensions the same click says Home is Overworld only, so the bed never explodes in the Nether.
+- **Known limits, left as they are.** Adventure mode never reaches `useOn` (vanilla returns early), so there a sneak click on a bed
+  reads the stars instead of setting Home. A bed inside the server's spawn protection, or out of reach, gives the arm swing and no
+  Home (vanilla does the same for sleeping). A held right click repeats every 4 ticks, so holding it for 4 s spends the 3 charges
+  (an ender pearl does the same). Glass lets the stars through (skylight 15), leaves and water do not.
 - **Messages.** One message per reason (`bmh.amulet.hidden.dimension/rain/day/roof`) instead of one generic line: with four conditions
   a player cannot guess which one fails. All strings are lang keys; only `en_us.json` has them (other languages fall back to it).
 - **Bar.** Always visible (3 states are the information), violet `0xB58CFF` (the amethyst edge colour part D draws with).
@@ -77,7 +85,8 @@ sub-agent, running), then merge `origin/redesign/integration*`, rebuild, `git me
   item constructor logs the self-check of the brief once per game start (see the verification section).
 - **Enchanting hooks.** Removed `canApplyAtEnchantingTable`, `supportsEnchantment`, the Fabric `EnchantmentMixin` and its config line
   (main side) and the common `EnchantmentMixin` (1.21.1). Without a durability the vanilla rules refuse every enchantment, so
-  nothing is needed. An amulet from an older version keeps its stale `Damage`/`Enchantments` tags, which do nothing. The two docs
+  nothing is needed. An amulet from an older version keeps its stale tags: `Damage` is ignored, an `Enchantments` entry (Unbreaking)
+  still gives the glint and the tooltip line but does nothing (left alone on purpose). The two docs
   that described these hooks (`.claude/CLAUDE.md`, `add-mixin` skill) were corrected on both sides and a Code map bullet added.
 - **Client registration.** Part A has not delivered the shared mod-bus client listener yet, so each loader has a small class of its
   own (`ForgeAmuletClient`, `NeoForgeAmuletClient`) registered with one `addListener` line behind `FMLEnvironment.dist.isClient()`,
