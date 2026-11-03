@@ -125,7 +125,9 @@ public final class StarTrace {
         }
     }
 
-    // A soft disc around a point of the sphere: bright centre, transparent violet rim, tangent to the sphere.
+    // A soft disc around a point of the sphere: bright centre, transparent violet rim, tangent to the sphere. The sky
+    // is drawn with back faces culled: every triangle here winds counter-clockwise as seen from the camera at the
+    // sphere's centre (the ribbons and vanilla's own star quads do too).
     private static void halo(Buffer out, double x, double y, double z, double radius, float[] colour, float alpha) {
         double r = Math.sqrt(x * x + y * y + z * z);
         double nx = x / r, ny = y / r, nz = z / r;
@@ -144,7 +146,7 @@ public final class StarTrace {
             double cos = Math.cos(angle) * radius, sin = Math.sin(angle) * radius;
             double[] rim = { x + ex * cos + fx * sin, y + ey * cos + fy * sin, z + ez * cos + fz * sin };
             if (previous != null) {
-                out.triangle(centre, previous, rim, colour, alpha, EDGE, 0.0F, EDGE, 0.0F);
+                out.triangle(centre, rim, previous, colour, alpha, EDGE, 0.0F, EDGE, 0.0F);
             }
             previous = rim;
         }

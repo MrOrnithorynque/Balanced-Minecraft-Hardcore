@@ -375,10 +375,12 @@ public class SkyPreview {
             fill(s[0], s[1], s[2], c[0], a[0], c[1], a[1], c[2], a[2]);
         }
 
-        // Barycentric fill, 4x4 supersampled for coverage, colours interpolated per vertex like GL's.
+        // Barycentric fill, 4x4 supersampled for coverage, colours interpolated per vertex like GL's. Back faces are
+        // culled like the game's sky pass: GL keeps counter-clockwise triangles (y up), which are clockwise here (y
+        // down), so a positive area is a back face.
         void fill(double[] p0, double[] p1, double[] p2, float[] c0, float a0, float[] c1, float a1, float[] c2, float a2) {
             double area = (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p2[0] - p0[0]) * (p1[1] - p0[1]);
-            if (Math.abs(area) < 1e-12) {
+            if (area > -1e-12) {
                 return;
             }
             int minX = (int) Math.max(0, Math.floor(Math.min(p0[0], Math.min(p1[0], p2[0]))));
