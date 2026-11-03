@@ -91,8 +91,10 @@ public class NavigatorAmuletItem extends Item {
 
         ItemStack itemStack = player.getItemInHand(interactionHand);
 
+        // The client claims the click without deciding anything: on a PASS vanilla goes on with the other hand in the
+        // same click (a shield, a bucket, an ender pearl) while the server does the reading.
         if (!(player instanceof ServerPlayer serverPlayer)) {
-            return InteractionResultHolder.pass(itemStack);
+            return InteractionResultHolder.consume(itemStack);
         }
 
         String hiddenReason = AmuletReading.hiddenReason(serverPlayer);
