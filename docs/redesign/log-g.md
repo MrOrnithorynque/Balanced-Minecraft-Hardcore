@@ -69,8 +69,32 @@ Steps are numbered, not timed (this session reads no clock unless it runs `date`
 
 | Part | Main-side sha merged | 1.21 sha merged | Integration after (main / 1.21) | Builds | Conflicts resolved |
 |---|---|---|---|---|---|
-| none yet | | | | | |
+| A fixes | `4353418` | `ebf5363` | `54299cc` / `29f506c` | main 50 s, 1.21 49 s, both green | none (clean merge on both sides) |
+
+## Orders of the coordinator (wake of 2026-11-04, one turn, no report between steps)
+
+All six parts reported DONE at: A `4353418` / `ebf5363`, B `20c3e07` / `242a55c`, C `09fee5e` / `660976a`, D `7d42e91` / `b41955c`,
+E `8bef4bb` / `3079dc9`, F `5fd953a` / `664ca7e` (main / 1.21). Hand-over notes of the parts are in the shared notes folder.
+
+1. Merge in the order A, B, F, C, D, E, each with `--no-ff` on both sides, both sides built, both integration branches pushed, a ledger line here.
+   - `CHANGELOG.md`: one `## [Unreleased]` with a single Added, Changed and Fixed, every line kept.
+   - `bmh.mixins.json`: union of every part's names (A, B, C, E in `mixins`, D in `client`); on 1.21.1 drop `EnchantmentMixin` (C deleted the class).
+   - `dormant_totem.png`, `echo_heart.png`: F's files win.
+   - Forge `BalancedMcHardcoreMain` and `BalancedMcHardcoreFabricClient`: A and C both add hooks, keep both until call 2a.
+   - Once C and D are in, grep both sides for `bmh_reading`: every key C writes must be a key D reads, same name and type.
+2. Five integration calls, one commit each on both sides, then build both sides:
+   - 2a: C's needle registration moves into A's `ClientItemProperties.registerAll` (`minecraft:`-namespaced `angle`); delete `ForgeAmuletClient`, `NeoForgeAmuletClient`, `FabricAmuletClient` and their hooks.
+   - 2b: a star reading is refused, no charge spent, when the player cannot see the sky (Blindness, Darkness, eyes in water or lava, powder snow); reuse C's no-open-sky message.
+   - 2c: one DARK_AQUA ability line per Eternal tool in `EternalTooltips` style, before B's gold line (`tooltip.bmh.ability.eternal_sword|axe|pickaxe`); B's tooltip changelog line gains "and each Eternal tool names its ability".
+   - 2d: keep "The Totem of Eternal Life"; the new item becomes "Dormant Totem of Eternal Life" (lang, B's checklist, changelog).
+   - 2e: the creative tab title shows a raw key (the tab asks for `itemGroup.BMH_tab`): add that lang key and a `### Fixed` changelog line.
+3. Re-run B's 73 checks and E's 44 checks on the merged integration, both sides, Forge, Fabric, NeoForge, one suite after the other, never committed. A check that asserts the old dormant name or a changed tooltip line count: fix the test, not the code. Another failure: fix on `redesign/g(-1.21)` if the cause is clear, else `BLOCKED: <failing line>`.
+4. Port (brief G.2) and build the five ports. No server boots and no refmap/javap jar checks (the coordinator runs them after DONE). A port that does not compile: fix the cause on the integration side and port again.
+5. One `docs/redesign/CHECKLIST.md` (brief G.4) with two added sections: "Coordinator's calls" (2b to 2e with reasons) and "Open before release" (README crafting-grid pictures still show the old recipes; NeoForge 1.20.1 runs the Forge jar without its own boot). Then report DONE with every branch and sha, build results, self-test counts per loader and side, conflicts resolved.
+
+Tools (scratchpad of this session, patched copies of the parts' tools): `gradle-run.sh` (slot rule, log to a file), B's `boot.py`/`chain.sh`/`selftest.sh`, `fold_changelog.py`, `merge_mixins.py`. E's self-test is in the repo (`docs/redesign/e-selftest/` once E is merged).
+Builds take about 50 s per side on a warm machine.
 
 ## Resume here
 
-READY sent after setup. Waiting for the coordinator's `merge <part>` messages, then `port`. On every wake: tree guard, `git fetch origin --prune`, re-read the brief from `origin/redesign/integration`, then follow the recipe above.
+Step 1 of the orders in progress: A merged and built on both sides (ledger above). Next: push A, then merge B, F, C, D, E in that order. If this log is all you have: `git fetch origin --prune`, read the ledger to see which parts are in `origin/redesign/integration*`, continue from the next part.
