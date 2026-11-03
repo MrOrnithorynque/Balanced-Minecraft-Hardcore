@@ -23,7 +23,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - Eternal tools are repaired with gold blocks at the anvil instead of a Totem of Eternity.
 - The Eternal Bundle wears a small gold ring charm on its drawstring, empty or full.
 - Navigator's Amulet, rebuilt: its needle now always points north, like a compass that cannot be fooled (Overworld only: it spins in the other dimensions). It has no durability any more, so it no longer takes Unbreaking.
-- Navigator's Amulet: use it at night, under open sky and without rain, to read the stars. A reading shows your coordinates and costs one of its 3 starlight charges (the violet bar under the item). The charges come back at every nightfall, and a reading has a 2 second cooldown.
+- Navigator's Amulet: use it at night, under open sky and without rain, to read the stars. A reading shows your coordinates and costs one of its 3 starlight charges (the violet bar under the item). The charges come back at every nightfall, and a reading has a 2 second cooldown. Blindness, Darkness and having your eyes in water, lava or powder snow hide the stars too, and cost nothing.
 - Navigator's Amulet: new recipe, string, 2 copper ingots, a compass and a spyglass.
 
 ### Fixed
