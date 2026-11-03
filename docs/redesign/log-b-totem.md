@@ -7,9 +7,11 @@ Steps are numbered, no clock times (I cannot see the clock).
 
 ## Resume here
 
-Both sides are written, built, boot-tested on the three loaders and pushed (main `6e33704`, 1.21.1 `f4611da`); steps 1 to 8 are done.
-Left: act on the audit's findings (step 9), merge `origin/redesign/integration` and `origin/redesign/integration-1.21` (neither had moved at the
-time of writing), rebuild if anything changed, push, report.
+Part B is finished on both sides: nothing is left to do except what is listed for Louis (checklist section 6) and what G does when it merges.
+Final heads at the time of the report: `redesign/b-totem` = the commit that carries this line (its parent `c10e29a` is the last code and checklist state),
+`redesign/b-totem-1.21` = `242a55c`. `origin/redesign/integration` (`432d0a2`) and `origin/redesign/integration-1.21` (`a886d42`) had not moved, so there was
+nothing to merge into either branch. Final builds on the final trees: main `BUILD SUCCESSFUL in 3m 3s` (43 tasks, JDK 17), 1.21.1 `BUILD SUCCESSFUL in 2m 15s`
+(39 tasks, JDK 21). The only change after the first green builds is the hint wording in `en_us.json`.
 The temporary self-test (see Verification) is NOT in the repo: its sources live in the session scratchpad. If you redo it, install the two files
 (`BmhSelfTest.java` in `common/.../bmh/`, `B_SelfTestMixin.java` in `common/.../bmh/mixin/`) plus one `"B_SelfTestMixin"` entry in `bmh.mixins.json`,
 never commit them, never `git add -A`.
