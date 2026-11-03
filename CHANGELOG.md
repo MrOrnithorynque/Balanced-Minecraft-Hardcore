@@ -8,6 +8,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - Dormant Totem of Eternity and Echo Heart. The Totem of Eternity is now made in steps: the old Totem of Eternity recipe makes a Dormant Totem, the Echo Heart is crafted from 4 crying obsidian, 4 echo shards and a nether star, and the two meet at an anvil (Dormant Totem on the left, Echo Heart on the right, 39 levels). The name field is ignored.
 - The Totem of Eternity glows like an enchanted item and says "Eternity" in its tooltip. It is not a real enchantment, so a grindstone cannot remove it.
 - Every Eternal Item now says in its tooltip that you wake farther while you carry it. The Eternal Sword, Axe and Pickaxe also say that each death costs them 7% durability.
+- Navigator's Amulet: sneak and use it on a bed or a lodestone in the Overworld to set your Home. Until you do, your Home is your respawn point (if it is in the Overworld), or the world spawn. Your Home stays with you through death.
 
 ### Changed
 - The Totem of Undying no longer gives Fire Resistance when it saves you. You still get Regeneration and Absorption.
@@ -17,10 +18,14 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - New Eternal Bundle recipe: string, gold ingots, leather, netherite scrap and a Totem of Eternity. It no longer needs a vanilla bundle.
 - Eternal tools are repaired with gold blocks at the anvil instead of a Totem of Eternity.
 - The Eternal Bundle wears a small gold ring charm on its drawstring, empty or full.
+- Navigator's Amulet, rebuilt: its needle now always points north, like a compass that cannot be fooled (Overworld only: it spins in the other dimensions). It has no durability any more, so it no longer takes Unbreaking.
+- Navigator's Amulet: use it at night, under open sky and without rain, to read the stars. A reading shows your coordinates and costs one of its 3 starlight charges (the violet bar under the item). The charges come back at every nightfall, and a reading has a 2 second cooldown.
+- Navigator's Amulet: new recipe, string, 2 copper ingots, a compass and a spyglass.
 
 ### Fixed
 - The Eternal Bundle now shows its filled texture when it holds items.
 - On 1.21.1, the Eternal Sword, Axe and Pickaxe no longer refuse enchantments (Mending, Unbreaking and the rest of what their netherite versions take).
+- The Navigator's Amulet coordinates now show on dedicated servers too.
 
 ## [1.4.0] - 2026-11-02
 
