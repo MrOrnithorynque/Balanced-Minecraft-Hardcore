@@ -87,10 +87,10 @@ never commit them, never `git add -A`.
   blasting and vanilla bundle recipes remain; gold block repairs an eternal sword by 25% at the anvil and the totem does not; the tooltip lines, their
   colours and their order on all seven items; `hasFoil` only on the awakened totem; the pickup rule; the seven lang keys; models and textures on the classpath.
   - NeoForge 1.20.4 (`:neoforge:runServer`): `Done`, `pass=73 fail=0`.
-  - Forge 1.20.4 (`:forge:runServer`) and Fabric 1.20.4 (`:fabric:runServer`): `Done`; the first 15 checks passed (everything about the anvil, plus the sword's
-    smithing); the run then crashed inside my harness, not the mod: `SmithingMenu.onTake` calls `awardUsedRecipes`, which needs the player's network
-    connection, and a fake player has none. I replaced that check by `mayPickup` and did not rerun Forge and Fabric (the remaining checks are common code
-    and data, and NeoForge ran them all). Forge logged `Mixing B_AnvilMenuMixin from bmh.mixins.json into net.minecraft.world.inventory.AnvilMenu`.
+  - Forge 1.20.4 (`:forge:runServer`) and Fabric 1.20.4 (`:fabric:runServer`): first run `Done`, but only 15 checks passed (everything about the anvil, plus the
+    sword's smithing); the run then crashed inside my harness, not the mod: `SmithingMenu.onTake` calls `awardUsedRecipes`, which needs the player's network
+    connection, and a fake player has none. I replaced that check by `mayPickup` and, after the last edits (commit `ab0ff18`), reran both:
+    Forge `Done`, `pass=73 fail=0`; Fabric `Done`, `pass=73 fail=0`. Forge logged `Mixing B_AnvilMenuMixin from bmh.mixins.json into net.minecraft.world.inventory.AnvilMenu`.
   - No `invalid dist` line on any of the three, no recipe parse error, no mixin error. Red that is not mine: Fabric logs `Couldn't parse element
     loot_tables:bmh:blocks/test_block` (the test loot table names a block that does not exist) and `No key layers in MapLike[{}]` (my flat-world
     `server.properties` without `generator-settings`); Forge and NeoForge log the dev-only `Reference map 'bmh.refmap.json' ... could not be read`.
@@ -106,6 +106,10 @@ never commit them, never `git add -A`.
   No Java, lang or recipe conflict (`ItemInit.java` and `en_us.json` auto-merge with C). Nothing I could avoid on my side.
 - Em-dash / en-dash check on every line I added (global rule): none.
 
+- Machine-wide locks (rule 3), for whoever reads the other sessions' logs: my boot waiter lost the run-server lock once to another session's script (my lock
+  directory was replaced by theirs while I waited for a Gradle slot, so their cleanup seems to treat a lock whose server port is still closed as stale) and
+  it starved for a long time behind another session's back-to-back boots. I made my script poll every second and release only a lock that still names me.
+
 ## Audit (step 9)
 
 One read-only agent (opus, brief and evidence list in my prompt, raw outputs kept in the session scratchpad `audit-b/`, not in the repo) tried to refute eight
@@ -116,7 +120,8 @@ production-remapped jars (not a production run) and re-checked every vanilla mem
   and "Awakens a Dormant Totem at an anvil: totem left, heart right" (text only, no code change).
 - F2 minor, README still shows the deleted crafting grids: not changed (the pictures are Louis' screenshots, no client here to retake them); tracked in the
   checklist, section 6, and in my report.
-- F3 minor, Forge and Fabric 1.20.4 ran only 15 of 73 checks: rerun after the last edits, result in the next section.
+- F3 minor, Forge and Fabric 1.20.4 ran only 15 of 73 checks: rerun after the last edits, both `pass=73 fail=0` (see Verification). Every one of the six
+  loader and side combinations now has a complete self-test pass.
 - F4 nit, the checklist promised the tab title "BMH Tab" but the code asks for `itemGroup.BMH_tab`: checklist corrected (the bug itself is pre-existing, left).
 - F5 nit, grindstone step could not be done as written: corrected (verified in the patched `GrindstoneMenu`: `mayPlace` needs a damageable or enchanted item).
 - F6 nit, the bundle's contents preview sits under the name, above the text lines (vanilla inserts the tooltip image at index 1): checklist corrected.
