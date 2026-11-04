@@ -47,8 +47,8 @@ public class SleepHandler {
 
             if (playerHealth >= 20f /* 100% */) {
 
-                MobEffectInstance digSpeed = new MobEffectInstance(MobEffects.DIG_SPEED, 3600, 1, false, true);
-                MobEffectInstance resistance = new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 3600, 1, false, true);
+                MobEffectInstance digSpeed = new MobEffectInstance(MobEffects.DIG_SPEED, 3600, 1, false, false, true);
+                MobEffectInstance resistance = new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 3600, 1, false, false, true);
 
                 player.addEffect(digSpeed);
                 player.addEffect(resistance);
