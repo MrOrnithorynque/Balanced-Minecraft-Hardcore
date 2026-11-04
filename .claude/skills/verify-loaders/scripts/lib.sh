@@ -7,8 +7,8 @@
 #   BMH_BOT_MODULES  the node_modules folder that holds mineflayer (see ../SKILL.md, Setup)
 #   BMH_VERIFY_OUT   logs, screenshots and summary.txt (default /private/tmp/bmh-verify)
 #   BMH_REPO         the main checkout the verification worktrees hang off (default: found from this script's repository)
-#   BMH_PORT         the dedicated server's port (default 25618; upgrade.sh takes BMH_UPGRADE_PORT, default 25619).
-#                    RCON is always port + 100, password bmh: the bots compute it the same way.
+#   BMH_PORT         the dedicated server's port (default 25618; upgrade.sh sets it from BMH_UPGRADE_PORT, default 25619).
+#                    A plain PORT variable is ignored. RCON is always port + 100, password bmh: the bots compute it the same way.
 #   BMH_JDK17, BMH_JDK21   JDK homes (default Homebrew's openjdk@17 and openjdk@21)
 #   BMH_LOCK_DIR, BMH_SLOT_PREFIX   the lock paths (default /private/tmp/bmh-runserver.lock and /private/tmp/bmh-gradle,
 #                    slots <prefix>.1 and <prefix>.2). Other sessions of the same machine must use the same ones.
@@ -19,7 +19,7 @@ REPO=${BMH_REPO:-$(dirname "$(git -C "$SCRIPTS" rev-parse --path-format=absolute
 OUTROOT=${BMH_VERIFY_OUT:-/private/tmp/bmh-verify}
 BOT_MODULES=${BMH_BOT_MODULES:?set BMH_BOT_MODULES to the node_modules folder that holds mineflayer (see SKILL.md, Setup)}
 export BOT_MODULES
-PORT=${PORT:-${BMH_PORT:-25618}}
+PORT=${BMH_PORT:-25618}
 RPORT=$((PORT + 100))
 LOCKDIR=${BMH_LOCK_DIR:-/private/tmp/bmh-runserver.lock}
 SLOTPREFIX=${BMH_SLOT_PREFIX:-/private/tmp/bmh-gradle}
@@ -84,11 +84,12 @@ fresh_tree() {
   git -C "$1" checkout -q -f --detach "$2" && git -C "$1" clean -q -fd
 }
 
-# <run dir> [extra property lines]: a fresh flat world's settings, offline mode, RCON on port + 100
+# <run dir> [extra property lines]: a fresh flat world's settings, offline mode, RCON on port + 100. The server listens on
+# 127.0.0.1 only (server-ip, which RCON follows): the RCON password is published in this skill, and the bots connect locally.
 write_server_properties() {
   local run=$1; shift
   mkdir -p "$run"; echo "eula=true" > "$run/eula.txt"
-  printf '%s\n' "server-port=$PORT" online-mode=false enforce-secure-profile=false enable-rcon=true "rcon.port=$RPORT" \
+  printf '%s\n' "server-port=$PORT" server-ip=127.0.0.1 online-mode=false enforce-secure-profile=false enable-rcon=true "rcon.port=$RPORT" \
     rcon.password=bmh level-type=flat gamemode=survival difficulty=peaceful spawn-protection=0 view-distance=6 \
     simulation-distance=4 max-tick-time=-1 "$@" > "$run/server.properties"
 }

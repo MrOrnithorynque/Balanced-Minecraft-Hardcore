@@ -10,7 +10,7 @@ set -u
 [ $# -eq 5 ] || { echo "usage: upgrade.sh <old origin branch or tag> <new origin branch or tag> <minecraft version> <loader> <label>" >&2; exit 2; }
 OLD=$1; NEW=$2; MCV=$3; L=$4; LABEL=$5
 SCRIPTS=$(cd "$(dirname "$0")" && pwd)
-PORT=${BMH_UPGRADE_PORT:-25619}
+BMH_PORT=${BMH_UPGRADE_PORT:-25619}   # lib.sh reads BMH_PORT
 . "$SCRIPTS/lib.sh"
 JH=$(jdk_for "$MCV")
 OUT=$OUTROOT/upgrade-$LABEL; mkdir -p "$OUT"
