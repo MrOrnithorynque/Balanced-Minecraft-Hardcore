@@ -8,5 +8,7 @@
     "itemGroup.bmh_creative_tab": "BMH-Tab",
     "itemGroup.BMH_tab": "BMH-Tab",
     "item.bmh.dormant_totem": "Schlafendes Totem des Ewigen Lebens",
-    "item.bmh.echo_heart": "Echo-Herz"
+    "item.bmh.echo_heart": "Echo-Herz",
+
+    "bmh.journey.message": "Eine neue Reise beginnt für dich, %s."
 }

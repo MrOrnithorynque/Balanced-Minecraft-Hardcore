@@ -1,57 +1,51 @@
 package github.mrornithorynque.bmh.handlers;
 
-import org.slf4j.Logger;
-
-import com.mojang.logging.LogUtils;
-
-import github.mrornithorynque.bmh.client.LocalPlayerText;
 import github.mrornithorynque.bmh.init.SoundInit;
-import github.mrornithorynque.bmh.platform.Services;
+import github.mrornithorynque.bmh.mixin.F_ServerPlayerAccessor;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
 public class RespawnEffectHandler {
 
-    private static final Logger LOGGER = LogUtils.getLogger();
+    // The client cinematic lasts about 5 s after the respawn, and longer while the terrain loads. Vanilla gives 60 ticks.
+    private static final int JOURNEY_INVULNERABLE_TICKS = 200;
 
     // Called on the server after a respawn, once the position and the kept items are settled.
     public static void onPlayerRespawn(Player player, boolean endConquered) {
 
         // Leaving the End is a vanilla respawn too, but not a new journey.
-        if (endConquered) {
+        if (endConquered || !(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
 
-        // The event fires on the server side, so the sound is played from there for everyone nearby.
-        Level level = player.level();
-
-        // Same conditions as the distant respawn itself: no BMH respawn, no BMH effects.
-        if (!level.getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)
-                || player.isCreative() || player.isSpectator()) {
+        // Only a respawn that got a distant position is a new journey. In a hardcore world the player is a spectator now.
+        if (!RespawnPositionHandler.takeExiled(serverPlayer) || serverPlayer.server.isHardcore()) {
             return;
         }
 
-        playRespawnSound(player);
+        // The player cannot see or move during the cinematic.
+        ((F_ServerPlayerAccessor) serverPlayer).bmh$setSpawnInvulnerableTime(JOURNEY_INVULNERABLE_TICKS);
 
-        if (Services.PLATFORM.isPhysicalClient()
-                && level.getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN)) {
+        playRespawnSound(serverPlayer);
 
-            LocalPlayerText.showToLocalPlayer(player, "A new journey begin for you, " + player.getName().getString() + ".");
-        }
+        JourneySignal.sendArrival(serverPlayer,
+                serverPlayer.serverLevel().getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN));
     }
 
-    private static void playRespawnSound(Player player) {
+    // For the other players nearby. The respawned player hears the sounds from the cinematic on its own client.
+    private static void playRespawnSound(ServerPlayer serverPlayer) {
 
-        Level level = player.level();
+        Level level = serverPlayer.level();
 
         level.playSeededSound(
-                null,
-                player.blockPosition().getX(),
-                player.blockPosition().getY(),
-                player.blockPosition().getZ(),
+                serverPlayer,
+                serverPlayer.blockPosition().getX(),
+                serverPlayer.blockPosition().getY(),
+                serverPlayer.blockPosition().getZ(),
                 SoundInit.BELL_SOUND.get(),
                 SoundSource.PLAYERS,
                 1.0F,
@@ -59,10 +53,10 @@ public class RespawnEffectHandler {
                 0);
 
         level.playSeededSound(
-                null,
-                player.blockPosition().getX(),
-                player.blockPosition().getY(),
-                player.blockPosition().getZ(),
+                serverPlayer,
+                serverPlayer.blockPosition().getX(),
+                serverPlayer.blockPosition().getY(),
+                serverPlayer.blockPosition().getZ(),
                 SoundInit.RESPAWN_SOUND.get(),
                 SoundSource.PLAYERS,
                 0.3F,
