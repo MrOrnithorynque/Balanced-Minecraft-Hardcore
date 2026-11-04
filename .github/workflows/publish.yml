@@ -118,12 +118,15 @@ jobs:
       # A platform with an empty token is skipped by mc-publish: a tag push sends every token,
       # a manual run only the ticked ones. github.event.inputs is always a string (empty on a
       # push), so the comparisons never mistake a "false" for true.
+      # Modrinth goes first. A refused Modrinth token must not stop CurseForge and GitHub, so a failed
+      # Modrinth upload is skipped. Look for "Successfully published the assets to" in the log after each run.
       - name: Publish Forge
         if: github.event_name == 'push' || github.event.inputs.loader == 'all' || github.event.inputs.loader == 'forge'
         uses: Kira-NT/mc-publish@v3
         with:
           modrinth-id: dc7VO9FK
           modrinth-token: ${{ (github.event_name == 'push' || github.event.inputs.modrinth == 'true') && secrets.MODRINTH_TOKEN || '' }}
+          modrinth-fail-mode: skip
           curseforge-id: 982343
           curseforge-token: ${{ (github.event_name == 'push' || github.event.inputs.curseforge == 'true') && secrets.CURSEFORGE_TOKEN || '' }}
           github-token: ${{ (github.event_name == 'push' || github.event.inputs.github == 'true') && secrets.GITHUB_TOKEN || '' }}
@@ -148,6 +151,7 @@ jobs:
         with:
           modrinth-id: dc7VO9FK
           modrinth-token: ${{ (github.event_name == 'push' || github.event.inputs.modrinth == 'true') && secrets.MODRINTH_TOKEN || '' }}
+          modrinth-fail-mode: skip
           curseforge-id: 982343
           curseforge-token: ${{ (github.event_name == 'push' || github.event.inputs.curseforge == 'true') && secrets.CURSEFORGE_TOKEN || '' }}
           github-token: ${{ (github.event_name == 'push' || github.event.inputs.github == 'true') && secrets.GITHUB_TOKEN || '' }}
@@ -172,6 +176,7 @@ jobs:
         with:
           modrinth-id: dc7VO9FK
           modrinth-token: ${{ (github.event_name == 'push' || github.event.inputs.modrinth == 'true') && secrets.MODRINTH_TOKEN || '' }}
+          modrinth-fail-mode: skip
           curseforge-id: 982343
           curseforge-token: ${{ (github.event_name == 'push' || github.event.inputs.curseforge == 'true') && secrets.CURSEFORGE_TOKEN || '' }}
           github-token: ${{ (github.event_name == 'push' || github.event.inputs.github == 'true') && secrets.GITHUB_TOKEN || '' }}
