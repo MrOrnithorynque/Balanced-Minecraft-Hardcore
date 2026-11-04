@@ -27,7 +27,7 @@ done
 gh secret list    # CURSEFORGE_TOKEN required, MODRINTH_TOKEN optional (see below)
 ```
 
-- Every branch is level with `origin` (`0	0`). Anything ahead means unpushed work; anything behind means pull first. A branch never pushed yet (`dev-52.1.20` before its first push) has no `origin/` ref and prints a fatal here: that is expected, step 5 pushes it.
+- Every branch is level with `origin` (`0	0`). Anything ahead means unpushed work; anything behind means pull first. A branch never pushed yet (`dev-52.1.20` before its first push) has no `origin/` ref and prints a fatal here. Steps 3 and 5 start from `origin/<b>`, so push a new branch once before step 3: `git -C /Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore push -u origin <b>`.
 - Everything but `forge/build.gradle`, `gradle.properties`, `README.md` and `.vscode` is identical on every 1.20.x branch (`mods.toml` excluded: `dev-46.0.14` lacks a commented-out template block, nothing else). If a branch differs, a change was not ported: port it (cherry-pick from `main`) before releasing. `dev-52.1.20` (1.21.1) has its own sources and is skipped by that check: compare `git log` of `main` and of `dev-52.1.20` since the last `mc-1.20.4-v*` tag instead, and make sure every change since then reached it (ported by hand where the 1.21.1 code differs, see `.claude/CLAUDE.md`).
 - The publish workflow exists **on every branch**. A tag only publishes if the workflow file is in the tagged commit. A branch without it releases nothing, silently.
 - `CURSEFORGE_TOKEN` is set. If `MODRINTH_TOKEN` is missing, `mc-publish` **silently skips Modrinth** (it skips every platform whose token is empty) and the run still goes green: tell the user and get their OK before tagging. Modrinth can get the version later with the manual trigger in step 8. Never set secrets yourself: the user does.
@@ -40,11 +40,20 @@ Check it is free: `git tag -l "mc-*-v<version>"` must be empty.
 
 ## 2. Changelog and version bump, on main first
 
-In one commit on `main`:
+Work in detached scratch worktrees, never in the main checkout. That checkout sits on one of the release branches, and `git worktree add <dir> <branch>` refuses a branch that is checked out anywhere (`fatal: '<branch>' is already used by worktree`).
+
+```bash
+R=/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore
+W=<absolute scratchpad path>/wt
+git -C "$R" fetch origin --tags
+git -C "$R" worktree add -q --detach "$W/main" origin/main
+```
+
+In one commit in `$W/main`:
 
 - `gradle.properties`: `mod_version=<version>`.
-- `CHANGELOG.md`: rename `## [Unreleased]` to `## [<version>] - <YYYY-MM-DD>` and add a fresh empty `## [Unreleased]` above it. If the section is empty or thin, write it from `git log <last tag>..main` (the last `mc-1.20.4-v*` tag): one line per change a player would notice, in player words.
-- If a recipe changed since the last release, regenerate its README picture from the recipe JSON: `python3 -I .claude/skills/release/make_grids.py resources` (`git diff --stat resources` shows which pictures moved).
+- `CHANGELOG.md`: rename `## [Unreleased]` to `## [<version>] - <YYYY-MM-DD>` and add a fresh empty `## [Unreleased]` above it. If the section is empty or thin, write it from `git log <last tag>..HEAD` (the last `mc-1.20.4-v*` tag): one line per change a player would notice, in player words.
+- If a recipe changed since the last release, regenerate its README picture from the recipe JSON, in `$W/main`: `python3 -I .claude/skills/release/make_grids.py resources` (`git diff --stat resources` shows which pictures moved).
 
 The workflow publishes that `## [<version>]` section, and only that section, as the changelog on Modrinth, CurseForge and the GitHub release. Players read it there, so it must stand on its own. If the heading is missing or the section is empty, the run fails before building.
 
@@ -52,15 +61,20 @@ Commit message: `release: <version>`.
 
 ## 3. Port to every version branch
 
-Cherry-pick that commit onto each `dev-*` branch, in scratch worktrees so the main checkout is not switched around:
+Cherry-pick that commit onto each `dev-*` branch, each in its own detached scratch worktree:
 
 ```bash
-cd /Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore
+#!/bin/bash
+R=/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore
 W=<absolute scratchpad path>/wt
-for b in $(git for-each-ref --format='%(refname:short)' 'refs/heads/dev-*'); do
-  git worktree add -q "$W/$b" "$b" && git -C "$W/$b" cherry-pick <release-commit> || echo "CONFLICT on $b"
+C=$(git -C "$W/main" rev-parse HEAD)   # the release commit of step 2
+for b in dev-52.1.20 dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14; do   # the real list from step 0
+  git -C "$R" worktree add -q --detach "$W/$b" "origin/$b" || { echo "$b: no worktree, stop and look"; continue; }
+  git -C "$W/$b" cherry-pick "$C" || echo "CONFLICT on $b"
 done
 ```
+
+To ship work that sits on a coordinated run's branches (one integration branch per codebase and one port branch per `dev-*`, as in 1.5.0), start each worktree from the run's branch instead of `origin/<b>`, `$W/main` included. The push in step 5 stays a fast-forward as long as the run's branch contains `origin/<b>`.
 
 `mod_version` sits far from the per-branch lines of `gradle.properties` and `CHANGELOG.md` is identical everywhere, so this should apply cleanly. If a conflict appears (`forge/build.gradle`, `gradle.properties` and `README.md` all differ per branch), keep the branch's own version of every line the release commit did not touch and apply only that commit's hunks. Never resolve by taking `main`'s whole file: `dev-46.0.14`'s and `dev-52.1.20`'s `forge/build.gradle` have a different layout.
 
@@ -92,11 +106,29 @@ Run it in the background (the first build of an old Minecraft version downloads 
 
 ## 5. Push the branches
 
+Check that each worktree's commit is a fast-forward of its branch, push them all in one atomic push, then move the local branches:
+
 ```bash
-git push origin main dev-52.1.20 dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14   # the real list from step 0
+#!/bin/bash
+R=/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore
+W=<absolute scratchpad path>/wt
+B="main dev-52.1.20 dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14"   # the real list from step 0
+git -C "$R" fetch origin
+specs=()
+for b in $B; do
+  sha=$(git -C "$W/$b" rev-parse HEAD)
+  git -C "$R" merge-base --is-ancestor "origin/$b" "$sha" || { echo "$b: not a fast-forward of origin/$b, stop and look"; exit 1; }
+  specs+=("$sha:refs/heads/$b")
+done
+git -C "$R" push --atomic origin "${specs[@]}" || exit 1
+for b in $B; do
+  sha=$(git -C "$W/$b" rev-parse HEAD)
+  git -C "$R" merge-base --is-ancestor "refs/heads/$b" "$sha" && git -C "$R" branch -f "$b" "$sha" \
+    || echo "$b: local branch not moved (checked out somewhere, or it has commits the release lacks)"
+done
 ```
 
-No force push. If a push is rejected, someone pushed meanwhile: stop and look.
+No force push. If the push is rejected, someone pushed meanwhile: stop and look. Once pushed, tell the user to pull in their checkout: the branch it has checked out keeps its old commit.
 
 Run `bash .claude/skills/verify-loaders/scripts/matrix.sh` (as the `verify-loaders` skill says); every cell green before tagging.
 
@@ -105,13 +137,19 @@ Run `bash .claude/skills/verify-loaders/scripts/matrix.sh` (as the `verify-loade
 One annotated tag per `dev-*` branch, named from **that branch's** `gradle.properties` (the workflow fails a tag that does not match it):
 
 ```bash
-for b in $(git for-each-ref --format='%(refname:short)' 'refs/heads/dev-*'); do
-  mc=$(git show "${b}:gradle.properties" | grep '^minecraft_version=' | cut -d= -f2)
-  mod=$(git show "${b}:gradle.properties" | grep '^mod_version=' | cut -d= -f2)
-  git tag -a "mc-${mc}-v${mod}" "$b" -m "Balanced Minecraft Hardcore ${mod} for Minecraft ${mc}"
+#!/bin/bash
+cd /Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore
+W=<absolute scratchpad path>/wt
+git fetch origin
+for b in dev-52.1.20 dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14; do   # the real list from step 0
+  [ "$(git rev-parse "origin/${b}")" = "$(git -C "$W/$b" rev-parse HEAD)" ] || { echo "$b: origin/$b is not the commit step 5 pushed, stop and look"; continue; }
+  mc=$(git show "origin/${b}:gradle.properties" | grep '^minecraft_version=' | cut -d= -f2)
+  mod=$(git show "origin/${b}:gradle.properties" | grep '^mod_version=' | cut -d= -f2)
+  git tag -a "mc-${mc}-v${mod}" "origin/${b}" -m "Balanced Minecraft Hardcore ${mod} for Minecraft ${mc}"
 done
 ```
 
+- Tag `origin/<b>` after a fetch, and only where it is the commit step 5 pushed. Never tag the local branch: the one checked out in the main checkout still points at its old commit, which would give the old version's tag.
 - Tag the `dev-*` branches, not `main`: `main` is the same Minecraft version as `dev-49.0.31`, and the same tag name cannot sit on two commits.
 - Format is exactly `mc-<mc>-v<mod>`. Any `mc-*` tag starts the workflow, but only a name matching the commit's `gradle.properties` publishes. The old `mc-1.20.2/v1.0.0` (with a slash) was a mistake and never triggers it.
 
@@ -134,7 +172,8 @@ gh run view <run-id> --log-failed     # for any failure
 ```
 
 - Green only means nothing failed. The `Successfully published the assets to ...` lines (one per loader step) say where each jar actually went (e.g. `CurseForge, GitHub` when Modrinth was skipped for lack of a token). Report that list per Minecraft version and loader, not "published everywhere".
-- The loader steps run independently (Fabric and NeoForge run even when Forge failed). If one failed, the others' versions are already public: publish only the failed loader with step 8 (`-f loader=fabric`, `forge` or `neoforge`), ticking only the platforms its `Successfully published` line does not list. Never re-run the whole run.
+- The loader steps run independently (Fabric and NeoForge run even when Forge failed). If one failed, the others' versions are already public. Never re-run the whole run.
+- A failed step can have published too. It uploads to one platform after the other and logs `Successfully published assets to <platform>` after each one (`gh run view <run-id> --log | grep -F 'Publish Forge' | grep -E 'Uploading assets|Successfully published assets|HttpError'`). A GitHub 5xx can also come after the file went through, so check the release as well: `gh release view <tag> --json assets`, then `gh release download` the jar and `unzip -tq` it. In 1.5.0 the 1.20.4 Forge step reached CurseForge; then GitHub answered 502, mc-publish retried and the jar went through, and a 500 came after it: nothing was missing. Publish only what is really missing, with step 8 (`-f loader=fabric`, `forge` or `neoforge`, ticking only the missing platforms).
 - A red "Tag ... does not match gradle.properties" run means the tag was made on the wrong branch or before the bump.
 - A red "CHANGELOG.md has no non-empty '## [<version>]' section" run means step 2 did not reach that branch: fix the changelog on every branch, push, then move the tag (delete and re-create it, after asking).
 - No run at all for a tag means it went out in a push with more than three tags: delete it on the remote (`git push origin :refs/tags/<tag>`, after asking) and push it again alone.
