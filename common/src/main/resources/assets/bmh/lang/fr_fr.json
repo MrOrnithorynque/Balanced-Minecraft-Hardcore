@@ -11,5 +11,7 @@
     "item.bmh.echo_heart": "Cœur d'Écho",
 
     "bmh.createWorld.balancedHardcore": "Balanced Hardcore",
-    "bmh.createWorld.balancedHardcore.info": "Réapparition lointaine et objets éternels. Le désactiver coupe toutes les règles de jeu BMH pour ce monde."
+    "bmh.createWorld.balancedHardcore.info": "Réapparition lointaine et objets éternels. Le désactiver coupe toutes les règles de jeu BMH pour ce monde.",
+
+    "bmh.journey.message": "Un nouveau voyage commence pour vous, %s."
 }

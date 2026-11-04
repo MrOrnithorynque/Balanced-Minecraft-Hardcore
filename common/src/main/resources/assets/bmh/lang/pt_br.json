@@ -8,5 +8,7 @@
     "itemGroup.bmh_creative_tab": "Aba BMH",
     "itemGroup.BMH_tab": "Aba BMH",
     "item.bmh.dormant_totem": "Totem Adormecido da Vida Eterna",
-    "item.bmh.echo_heart": "Coração de Eco"
+    "item.bmh.echo_heart": "Coração de Eco",
+
+    "bmh.journey.message": "Uma nova jornada começa para você, %s."
 }
