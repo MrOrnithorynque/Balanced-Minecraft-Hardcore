@@ -1,12 +1,16 @@
 package github.mrornithorynque.bmh.client;
 
+import java.lang.reflect.Proxy;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.server.IntegratedServer;
+import net.minecraft.client.sounds.SoundEventListener;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 
@@ -42,11 +46,15 @@ public final class JourneySmoke {
         if (ticks == 0) {
             log("world joined at " + pos(mc.player) + " worldSpawn=" + mc.level.getSharedSpawnPos().toShortString());
             // Every BMH sound the client plays, with its time after the Respawn press.
-            mc.getSoundManager().addListener((sound, events, range) -> {
-                if ("bmh".equals(sound.getLocation().getNamespace()) || sound.getLocation().getPath().contains("amethyst")) {
-                    log("sound " + sound.getLocation() + " t+" + (System.currentTimeMillis() - pressMillis) + "ms");
-                }
-            });
+            // A proxy, not a lambda: onPlaySound takes 2 arguments up to 1.20.2 and 3 from 1.20.3. Dev runs keep the name.
+            mc.getSoundManager().addListener((SoundEventListener) Proxy.newProxyInstance(
+                    SoundEventListener.class.getClassLoader(), new Class<?>[] { SoundEventListener.class }, (proxy, method, args) -> {
+                        if ("onPlaySound".equals(method.getName()) && args[0] instanceof SoundInstance sound
+                                && ("bmh".equals(sound.getLocation().getNamespace()) || sound.getLocation().getPath().contains("amethyst"))) {
+                            log("sound " + sound.getLocation() + " t+" + (System.currentTimeMillis() - pressMillis) + "ms");
+                        }
+                        return null;
+                    }));
         } else if (ticks == 40) {
             run(server, "difficulty peaceful", "gamerule doDaylightCycle false", "gamerule doWeatherCycle false",
                     "weather clear", "time set " + TIME, "gamerule doImmediateRespawn " + IMMEDIATE,
@@ -119,7 +127,7 @@ public final class JourneySmoke {
         }
     }
 
-    // JourneyCinematic.waitingPlayer, read by name: dev runs use the source names.
+    // JourneyCinematic.waitingPlayer is private: read it by reflection.
     private static String waiting() {
         try {
             java.lang.reflect.Field f = Class.forName("github.mrornithorynque.bmh.client.journey.JourneyCinematic").getDeclaredField("waitingPlayer");
