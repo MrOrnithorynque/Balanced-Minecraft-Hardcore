@@ -3,7 +3,9 @@
 # jar (vanilla Minecraft with Mojang names) plus the libraries it needs from the Gradle cache. It proves that every vanilla
 # signature the shared code uses exists on that version. It does not prove that a mixin still hits its target, nor the
 # loaders' own code: the real build does.
-# usage: compile_check.sh [<minecraft version>...]       default: 1.20 1.20.1 1.20.2 1.20.3 1.20.4
+# usage: compile_check.sh [<minecraft version>...]
+#   With no version it reads minecraft_version in $TREE/gradle.properties: a value starting with 1.21 gives 1.21.1, anything
+#   else gives 1.20 1.20.1 1.20.2 1.20.3 1.20.4.
 #   BMH_TREE=<worktree>   the checkout to compile (default: the one that holds this script)
 #   BMH_JDK17, BMH_JDK21  JDK homes (default Homebrew's openjdk@17 and openjdk@21; 1.21.x uses 21)
 # A Loom jar is in ~/.gradle only after some branch of that version was built once with Gradle. Run it with bash: a file
@@ -17,7 +19,13 @@ LIBS=$GH/caches/modules-2/files-2.1
 LOOM=$GH/caches/fabric-loom/minecraftMaven/net/minecraft/minecraft-merged
 SRC=$TREE/common/src/main/java
 [ -d "$SRC" ] || { echo "no $SRC" >&2; exit 2; }
-[ $# -gt 0 ] || set -- 1.20 1.20.1 1.20.2 1.20.3 1.20.4
+if [ $# -eq 0 ]; then
+  MCV=$(sed -n 's/^minecraft_version=//p' "$TREE/gradle.properties" 2>/dev/null | head -1 | tr -d '[:space:]')
+  case "$MCV" in
+    1.21*) set -- 1.21.1 ;;
+    *) set -- 1.20 1.20.1 1.20.2 1.20.3 1.20.4 ;;
+  esac
+fi
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/bmh-compile-check.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 find "$SRC" -name '*.java' | sort | sed 's/.*/"&"/' > "$WORK/sources.txt"

@@ -8,7 +8,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import github.mrornithorynque.bmh.client.SmokeClient;
 import net.minecraft.client.Minecraft;
 
-/** THROWAWAY verification hook, never committed: drives {@link SmokeClient} once per client tick. */
+/**
+ * THROWAWAY verification hook (its copy in common/src is never committed, see SmokeClient): drives {@link SmokeClient}
+ * once per client tick.
+ */
 @Mixin(Minecraft.class)
 public class Z_SmokeClientMixin {
 
