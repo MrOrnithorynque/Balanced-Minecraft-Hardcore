@@ -64,6 +64,10 @@ Paths under `common/src/main/java/github/mrornithorynque/bmh/` unless stated.
 - `mixin/CreateWorldGameTabMixin.java`: the "Balanced Hardcore: ON/OFF" button on the Create New World screen, registered in `common/src/main/resources/bmh.mixins.json` (every loader; NeoForge lists it in its mods.toml). Fabric-only mixins are in `fabric/src/main/resources/bmh.fabric.mixins.json`. `forge/.../mixin/ForgeGuiMixin.java` is dead (body commented out, not registered; gone on `dev-52.1.20`). To add one, use the `add-mixin` skill.
 - `client/LocalPlayerText.java` and `github/mrornithorynque/utilities/TextDrawer.java` (outside `bmh/`) draw on the client of the same JVM: on-screen text works in singleplayer and for a LAN host, not for other players.
 
+## Writing style
+
+Changelog entries and code comments you write or change use Simplified Technical English (ASD-STE100): short sentences (at most 25 words, 20 in a procedure), one idea per sentence, active voice, simple present tense, plain common words, the same word for the same thing, no idioms. Keep the articles (the, a). Example: "The totem no longer gives Fire Resistance." Do not rewrite old text only to change its style.
+
 ## Changelog
 
 `CHANGELOG.md` at the repo root, same file on every branch. Any change a player could notice adds a line under `## [Unreleased]` in the same commit, written for players (what changed in game, not which class). Adding an item to a vanilla tag changes every reader of that tag, so scan the version's vanilla data and Java for it and give each player-visible reader a line (1.21.1: our tools sit in `swords`, `axes` and `pickaxes`, which `breaks_decorated_pots` reads, so they shatter decorated pots). A release turns that section into the version's entry (see the `release` skill), and `publish.yml` posts exactly that entry as the changelog on Modrinth, CurseForge and the GitHub release.
