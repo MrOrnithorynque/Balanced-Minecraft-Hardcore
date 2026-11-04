@@ -44,6 +44,7 @@ In one commit on `main`:
 
 - `gradle.properties`: `mod_version=<version>`.
 - `CHANGELOG.md`: rename `## [Unreleased]` to `## [<version>] - <YYYY-MM-DD>` and add a fresh empty `## [Unreleased]` above it. If the section is empty or thin, write it from `git log <last tag>..main` (the last `mc-1.20.4-v*` tag): one line per change a player would notice, in player words.
+- If a recipe changed since the last release, regenerate its README picture from the recipe JSON: `python3 -I .claude/skills/release/make_grids.py resources` (`git diff --stat resources` shows which pictures moved).
 
 The workflow publishes that `## [<version>]` section, and only that section, as the changelog on Modrinth, CurseForge and the GitHub release. Players read it there, so it must stand on its own. If the heading is missing or the section is empty, the run fails before building.
 
