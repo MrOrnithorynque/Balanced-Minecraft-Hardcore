@@ -2,7 +2,7 @@
 
 <img src="resources\bmh_title.png" align="center"> </h1>
 
-[![Discord](https://img.shields.io/discord/1213624965656739912?label=Discord)](https://discord.gg/AcdnVpVSZw)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/Czn9JQxMjT)
 
 Balanced Minecraft Hardcore (BMH) gives you flexibility in difficulty by replacing death by distant respawn based on your difficulty and **Eternal Items** possessed. BMH is the perfect middle ground between normal Minecraft gameplay and hardcore minecraft gameplay.
 
