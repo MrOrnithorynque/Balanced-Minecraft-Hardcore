@@ -5,5 +5,8 @@
     "item.bmh.totem_of_eternity": "永遠の命のトーテム",
     "item.bmh.navigator_amulet": "航海士のアミュレット",
     "item.bmh.eternal_sword": "永遠の剣",
-    "itemGroup.bmh_creative_tab": "BMHタブ"
+    "itemGroup.bmh_creative_tab": "BMHタブ",
+    "itemGroup.BMH_tab": "BMHタブ",
+    "item.bmh.dormant_totem": "眠れる永遠の命のトーテム",
+    "item.bmh.echo_heart": "残響の心臓"
 }

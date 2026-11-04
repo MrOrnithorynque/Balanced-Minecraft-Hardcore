@@ -5,5 +5,8 @@
     "item.bmh.totem_of_eternity": "De Totem van Eeuwig Leven",
     "item.bmh.navigator_amulet": "Amulet van de Navigator",
     "item.bmh.eternal_sword": "Het Zwaard der Eeuwigheid",
-    "itemGroup.bmh_creative_tab": "BMH Tabblad"
+    "itemGroup.bmh_creative_tab": "BMH Tabblad",
+    "itemGroup.BMH_tab": "BMH Tabblad",
+    "item.bmh.dormant_totem": "Slapende Totem van Eeuwig Leven",
+    "item.bmh.echo_heart": "Echohart"
 }
