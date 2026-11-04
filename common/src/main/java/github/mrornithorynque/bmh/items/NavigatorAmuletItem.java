@@ -125,11 +125,12 @@ public class NavigatorAmuletItem extends Item {
         return InteractionResultHolder.success(itemStack);
     }
 
-    // Once a second on the server: the charges are back when a new night has begun.
+    // Once a second on the server: a 1.4.0 amulet sheds its old data, and the charges are back when a new night has begun.
     @Override
     public void inventoryTick(@Nonnull ItemStack stack, @Nonnull Level level, @Nonnull Entity entity, int slot, boolean selected) {
 
         if (!level.isClientSide && level.getGameTime() % 20 == 0) {
+            AmuletReading.dropLegacyData(stack);
             AmuletReading.refill(stack, level);
         }
     }

@@ -17,6 +17,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 
@@ -38,6 +40,9 @@ public class AmuletReading {
     public static final String TIME_TAG = "time";
     public static final String CHARGES_TAG = "bmh_starlight";
     public static final String NIGHT_TAG = "bmh_night";
+
+    // 1.4.0's amulet (10 durability, Unbreaking allowed) stamped each use here, in its custom data.
+    private static final String LEGACY_LAST_USE_TAG = "LastUseTime";
 
     private static final long DAY_LENGTH = 24000L;
     // The night index goes up at this time of the day. Reading itself waits for isNight(), a little later.
@@ -130,6 +135,31 @@ public class AmuletReading {
         }
 
         return Mth.clamp(data.getUnsafe().getInt(CHARGES_TAG), 0, MAX_CHARGES);
+    }
+
+    /**
+     * An amulet carried over from 1.4.0 drops what that version wrote and this one never reads: its wear,
+     * its last-use stamp, and Unbreaking or Mending, which do nothing without durability. Curses stay.
+     */
+    public static void dropLegacyData(ItemStack stack) {
+
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+
+        if (data != null && data.contains(LEGACY_LAST_USE_TAG)) {
+            CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.remove(LEGACY_LAST_USE_TAG));
+        }
+
+        if (stack.has(DataComponents.DAMAGE)) {
+            stack.remove(DataComponents.DAMAGE);
+        }
+
+        boolean useless = stack.getEnchantments().keySet().stream()
+                .anyMatch(enchantment -> enchantment.is(Enchantments.UNBREAKING) || enchantment.is(Enchantments.MENDING));
+
+        if (useless) {
+            EnchantmentHelper.updateEnchantments(stack, enchantments -> enchantments.removeIf(
+                    enchantment -> enchantment.is(Enchantments.UNBREAKING) || enchantment.is(Enchantments.MENDING)));
+        }
     }
 
     /** Charges come back at each nightfall: a stack counted for another night is full again. */
