@@ -2,6 +2,7 @@ package github.mrornithorynque.bmh.forge;
 
 import github.mrornithorynque.bmh.handlers.DisableDebugInfo;
 import github.mrornithorynque.bmh.handlers.EternalItemHandler;
+import github.mrornithorynque.bmh.handlers.JourneySignal;
 import github.mrornithorynque.bmh.handlers.KeepItemAfterDeath;
 import github.mrornithorynque.bmh.handlers.RespawnEffectHandler;
 import github.mrornithorynque.bmh.handlers.RespawnPositionHandler;
@@ -20,8 +21,9 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 /**
  * Forge side of the common handlers. The priorities give the order the handlers rely on: the
- * respawn distance is measured before the Eternal Items leave the inventory, and the player is
- * moved before the kept items come back and the respawn effects play.
+ * respawn distance is measured before the Eternal Items leave the inventory, and the respawn
+ * effects play after the kept items come back. The distant respawn position is not an event:
+ * mixin/F_PlayerListRespawnMixin puts it into vanilla's respawn.
  */
 public class ForgeEvents {
 
@@ -41,11 +43,12 @@ public class ForgeEvents {
         }
     }
 
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public static void moveRespawnedPlayer(PlayerEvent.PlayerRespawnEvent event) {
+    // Last, and only when no listener cancelled the death: a revived player must not see the journey.
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void announceJourney(LivingDeathEvent event) {
 
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
-            RespawnPositionHandler.onPlayerRespawn(serverPlayer, event.isEndConquered());
+            JourneySignal.onPlayerDeath(serverPlayer);
         }
     }
 

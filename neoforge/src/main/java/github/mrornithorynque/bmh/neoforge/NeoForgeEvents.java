@@ -2,6 +2,7 @@ package github.mrornithorynque.bmh.neoforge;
 
 import github.mrornithorynque.bmh.handlers.DisableDebugInfo;
 import github.mrornithorynque.bmh.handlers.EternalItemHandler;
+import github.mrornithorynque.bmh.handlers.JourneySignal;
 import github.mrornithorynque.bmh.handlers.KeepItemAfterDeath;
 import github.mrornithorynque.bmh.handlers.RespawnEffectHandler;
 import github.mrornithorynque.bmh.handlers.RespawnPositionHandler;
@@ -20,8 +21,9 @@ import net.neoforged.neoforge.event.TickEvent.PlayerTickEvent;
 
 /**
  * NeoForge side of the common handlers, same order as forge/ForgeEvents: the respawn distance is
- * measured before the Eternal Items leave the inventory, and the player is moved before the kept
- * items come back and the respawn effects play.
+ * measured before the Eternal Items leave the inventory, and the respawn effects play after the
+ * kept items come back. mixin/F_PlayerListRespawnMixin puts the distant respawn position into
+ * vanilla's respawn.
  */
 public class NeoForgeEvents {
 
@@ -41,11 +43,12 @@ public class NeoForgeEvents {
         }
     }
 
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public static void moveRespawnedPlayer(PlayerEvent.PlayerRespawnEvent event) {
+    // Last, and only when no listener cancelled the death: a revived player must not see the journey.
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void announceJourney(LivingDeathEvent event) {
 
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
-            RespawnPositionHandler.onPlayerRespawn(serverPlayer, event.isEndConquered());
+            JourneySignal.onPlayerDeath(serverPlayer);
         }
     }
 
