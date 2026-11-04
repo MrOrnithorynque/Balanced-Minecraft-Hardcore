@@ -98,6 +98,8 @@ git push origin main dev-52.1.20 dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 de
 
 No force push. If a push is rejected, someone pushed meanwhile: stop and look.
 
+Run `bash .claude/skills/verify-loaders/scripts/matrix.sh` (as the `verify-loaders` skill says); every cell green before tagging.
+
 ## 6. Tag every version branch (CurseForge, plus Modrinth with a token)
 
 One annotated tag per `dev-*` branch, named from **that branch's** `gradle.properties` (the workflow fails a tag that does not match it):
