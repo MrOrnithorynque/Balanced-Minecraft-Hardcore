@@ -5,7 +5,8 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 ## [Unreleased]
 
 ### Fixed
-- Turning off the `removeCoordinatesInSurvival` game rule, or having nobody left in survival, now brings the full F3 screen (with coordinates) back at once. Before, it stayed reduced until you also set `reducedDebugInfo` to false. A world saved and reloaded while the rule was on still needs `/gamerule reducedDebugInfo false` once.
+- When you turn off the `removeCoordinatesInSurvival` game rule, the full F3 screen with coordinates comes back at once. It also comes back when no player is in survival. Before, it stayed reduced until you set `reducedDebugInfo` to false.
+- If you reload a world while the rule is on and then turn the rule off, the F3 screen stays reduced. Run `/gamerule reducedDebugInfo false` one time to fix it.
 
 ## [1.5.0] - 2026-11-04
 

@@ -17,10 +17,10 @@ public class DisableDebugInfo {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    // reducedDebugInfo is a world game rule, so forcing it on is saved with the world. We remember
-    // that we did, and what it was before, to give it back when the rule is off or nobody is in
-    // survival. A weak reference keeps a world we left from being held in memory. After a reload we
-    // no longer know we forced it, so a world saved while forced keeps it until the player resets it.
+    // The game rule reducedDebugInfo is part of the world, so the world saves it when we force it on.
+    // We remember the value from before. We restore it when our rule is off or no player is in survival.
+    // After a reload we forget this, so the player must reset the game rule by hand.
+    // The weak reference lets the game free a world that the player left.
     private static WeakReference<MinecraftServer> forcedServer = new WeakReference<>(null);
     private static boolean forcing = false;
     private static boolean valueBeforeForcing = false;
@@ -33,7 +33,7 @@ public class DisableDebugInfo {
         if (minecraftServer == null)
             return;
 
-        // The state belongs to another world (singleplayer: left one, joined another).
+        // This state is from another world: the player left one and joined another.
         if (forcing && forcedServer.get() != minecraftServer)
             forcing = false;
 
@@ -50,7 +50,7 @@ public class DisableDebugInfo {
                 forcedServer = new WeakReference<>(minecraftServer);
                 valueBeforeForcing = ruleReduceDebugInfo.get();
             }
-            // set() tells every client, so only call it on a change.
+            // set() sends a packet to every client, so call it only when the value changes.
             if (!ruleReduceDebugInfo.get())
                 ruleReduceDebugInfo.set(true, minecraftServer);
         } else if (forcing) {
