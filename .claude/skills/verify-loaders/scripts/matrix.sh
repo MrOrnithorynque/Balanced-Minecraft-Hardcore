@@ -5,7 +5,8 @@
 #        matrix.sh -f <table file>                   the cells of another table (one triple per line, # starts a comment)
 #        matrix.sh <branch> <mc version> <label> [<branch> <mc version> <label> ...]
 # Summary: $BMH_VERIFY_OUT/summary.txt (one line per cell). Needs BMH_BOT_MODULES (see ../SKILL.md).
-# Overnight: caffeinate -i bash matrix.sh ...   (a sleeping Mac suspends every timeout and turns a cell red)
+# Overnight: charger in and lid open (a closed lid sleeps the Mac even under caffeinate -i, which covers idle sleep only,
+# and a sleeping Mac suspends every timeout). Afterwards: pmset -g log | grep 'Entering Sleep' over the run's window.
 set -u
 SCRIPTS=$(cd "$(dirname "$0")" && pwd)
 . "$SCRIPTS/lib.sh"
