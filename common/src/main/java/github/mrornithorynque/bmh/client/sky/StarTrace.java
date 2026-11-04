@@ -11,10 +11,10 @@ import java.util.List;
  */
 public final class StarTrace {
 
-    public static final double SEGMENT_SECONDS = 0.3;
+    public static final double SEGMENT_SECONDS = 0.6;
     public static final double HOLD_SECONDS = 8.0;
     public static final double FADE_SECONDS = 2.0;
-    private static final double STAR_FADE_IN_SECONDS = 0.15;
+    private static final double STAR_FADE_IN_SECONDS = 0.3;
 
     /** Floats per vertex in {@link #triangles}: x, y, z, red, green, blue, alpha. */
     public static final int STRIDE = 7;
