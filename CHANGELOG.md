@@ -4,6 +4,8 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-04
+
 ### Added
 - A distant respawn now plays a short journey scene. The death screen fades to black, and a night sky comes in. A star lights up for your home. Then a line goes from star to star, like a star reading of the Navigator's Amulet, and the view follows it far away. An amethyst chime rings at each star. The message "A new journey begins for you" shows. At the last star, the sky breaks into pixel blocks over your new place, and the bell rings.
 
