@@ -71,6 +71,11 @@ Steps are numbered, not timed (this session reads no clock unless it runs `date`
 7. Call 2d: lang, changelog and B's checklist say "Dormant Totem of Eternal Life". Scope call: the changelog's other bullets said "Totem of Eternity" for the awakened item, whose in-game name is "The Totem of Eternal Life"; they now say "Totem of Eternal Life" too, so a player finds the item under the name the game shows. Registry ids (`bmh:totem_of_eternity`), the "Eternity" tooltip line, the README's Totem section and the brief are untouched. B's checklist section 6 (its two open points) now says both points are settled.
 8. Call 2e: both sides ask for `itemGroup.BMH_tab` (`CreativeTabInit`); the key is added next to the old unused `itemGroup.bmh_creative_tab` (kept), value "BMH Tab", plus a `### Fixed` bullet.
 
+9. Self-test harness: B's `selftest.sh` assumed `B_AnvilMenuMixin` is the last entry of the mixins list (it is not any more once C and E are in), so the install is my own script (`bselftest.py`: copies the two files, lists the mixin right after `B_AnvilMenuMixin`, remove undoes it). B's test copies are patched in the scratchpad only: the three tool tooltip checks now expect the dark aqua ability line first, and six checks were added (three ability keys, `itemGroup.BMH_tab`, the dormant name "Dormant Totem of Eternal Life", the awakened name "The Totem of Eternal Life"): 73 become 79. E's suite is unchanged (44). One suite installed at a time, removed afterwards: `git status` clean and `bmh.mixins.json` equal to HEAD on both sides.
+10. The ports were built right after their cherry-pick; the commits added afterwards (CHECKLIST.md, log lines, two checklist fixes) are docs only, so they are cherry-picked on top without a second build.
+11. The coordinator's own boots held the run lock for about ten minutes while my E suite was queued (queued 01:02, lock taken 01:12). Nothing of mine was left behind: no slot, no lock, no server on port 25617.
+12. Waiting: the shell tool blocks a foreground `sleep` of about 50 s or more; an `until <check>; do sleep 3; done` loop (timeout under 10 minutes) works.
+
 ## Merge ledger
 
 | Part | Main-side sha merged | 1.21 sha merged | Integration after (main / 1.21) | Builds | Conflicts resolved |
@@ -82,6 +87,32 @@ Steps are numbered, not timed (this session reads no clock unless it runs `date`
 | D sky | `7d42e91` | `b41955c` | `3c58bfc` / `7c71c74` | main 17 s, 1.21 15 s, both green | `CHANGELOG.md` folded; `bmh.mixins.json` auto-merged (D's `client` entry). Reading contract cross-check, both sides: C writes `bmh_reading` {`azimuth` float, `time` long} (main: stack NBT, 1.21: `CUSTOM_DATA`), D reads `getCompound("bmh_reading")`, `getFloat("azimuth")`, `getLong("time")` from the same places: same names, same types |
 | E abilities | `8bef4bb` | `3079dc9` | `37ea980` / `8ed0272` | main 25 s, 1.21 15 s, both green | `CHANGELOG.md` folded; `bmh.mixins.json` unioned on both sides (E's 7 `E_` names in `mixins`). E's `docs/redesign/e-selftest/` came with it (throwaway test, never installed in the commits) |
 | calls 2a to 2e | five commits | five commits | main `6c0fe9b` `b760fb6` `ec1e0b5` `274ed22` `66210ea` / 1.21 `71e74f7` `56d4d92` `fbf388c` `fe9d98c` `a9e5a2a` | main 17 s, 1.21 14 s, both green | none (no merge involved); see Calls made 4 to 8 |
+
+
+## Self-tests on the merged integration (orders step 3)
+
+All on `origin/redesign/integration` / `-1.21` as pushed (tips `cde0722` / `a9e5a2a`), dedicated server, port 25617, each cell is pass / fail:
+
+| Suite | Side | Forge | Fabric | NeoForge |
+|---|---|---|---|---|
+| B (79 checks, 73 original + 6 added) | main, 1.20.4 | 79 / 0 | 79 / 0 | 79 / 0 |
+| B (79 checks) | 1.21.1 | 79 / 0 | 79 / 0 | 79 / 0 |
+| E (44 checks) | main, 1.20.4 | 44 / 0 | 44 / 0 | 44 / 0 |
+| E (44 checks) | 1.21.1 | 44 / 0 | 44 / 0 | 44 / 0 |
+
+Every boot reached `Done`, so registration, the client/server split and the mixins of all six parts hold on the six server setups. No source fix was needed.
+
+## Ports (orders step 4)
+
+`redesign/port-<dev branch>` from `origin/<dev branch>`, `git cherry-pick -m 1` over the 22 commits of `git rev-list --reverse --first-parent origin/main..origin/redesign/integration` (then the docs commits added since, same command from the last picked commit). No conflict on any branch, `forge/build.gradle`, `gradle.properties`, `README.md`, `mods.toml` and `.vscode` untouched except the README hunks of part C, which merged on their own. Empty-diff check against `origin/redesign/integration` (pathspec of the repo CLAUDE.md): 0 lines on all five. The branches' own lines in the excluded files are exactly their old differences from `main`. Builds (JDK 17, `build`), no boots and no jar checks (the coordinator runs them):
+
+| Branch | Minecraft | Build | Jars |
+|---|---|---|---|
+| `redesign/port-dev-49.0.31` | 1.20.4 | green, 40 s | forge, fabric, neoforge |
+| `redesign/port-dev-49.0.2` | 1.20.3 | green, 44 s | forge, fabric |
+| `redesign/port-dev-48.1.0` | 1.20.2 | green, 48 s | forge, fabric |
+| `redesign/port-dev-47.2.0` | 1.20.1 | green, 40 s | forge, fabric (NeoForge runs the Forge jar) |
+| `redesign/port-dev-46.0.14` | 1.20 | green, 34 s | forge, fabric |
 
 ## Orders of the coordinator (wake of 2026-11-04, one turn, no report between steps)
 
@@ -109,4 +140,4 @@ Builds take about 50 s per side on a warm machine.
 
 ## Resume here
 
-Orders step 1 and 2 are done and pushed: all six parts and the five calls are in `origin/redesign/integration` and `origin/redesign/integration-1.21` (both build green). Next: step 3, re-run B's 73 checks (tools in the shared notes folder, `b-totem-tools/`) and E's 44 checks (`docs/redesign/e-selftest/`) on both sides and three loaders, one suite after the other, never committed. Then step 4 (ports), step 5 (CHECKLIST.md, report DONE). If this log is all you have: `git fetch origin --prune`, read the ledger, continue from the first step not marked done here.
+Orders steps 1 to 5 are done: merges, calls, self-tests, ports built, CHECKLIST.md written. What is left is the push of the final tips and the DONE report. If this log is all you have: `git fetch origin --prune`, compare `origin/redesign/integration` with `redesign/g` and each `origin/redesign/port-*` with its worktree (`<main worktree>-port-<dev branch>`), push what is not on origin yet (only `redesign/*` branches, fast-forward only for the integration ones), then report DONE.
