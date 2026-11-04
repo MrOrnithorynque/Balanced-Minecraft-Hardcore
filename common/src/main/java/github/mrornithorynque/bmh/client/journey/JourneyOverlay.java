@@ -97,6 +97,7 @@ public final class JourneyOverlay extends Overlay {
     private final double[] chainV = new double[SEGMENTS + 1];
     private final double[] chainLength = new double[SEGMENTS + 1];
 
+    private final JourneyMusic music = new JourneyMusic();
     private boolean respawnSent;
     private long respawnedAt = -1;
     private boolean arrived;
@@ -243,6 +244,11 @@ public final class JourneyOverlay extends Overlay {
         if (this.minecraft.level == null || this.minecraft.player == null) {
             this.minecraft.setOverlay(null);
             return false;
+        }
+
+        // The game music fades out with the screen. The bell and the cinematic sounds are other sounds and stay.
+        if (this.deadPlayer != null) {
+            this.music.fade(1.0F - ease((float) (now - this.start) / FADE_OUT));
         }
 
         if (!this.respawnSent && now >= this.darkStart) {

@@ -4,6 +4,11 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Changed
+- The game music now fades out when you click Respawn on a distant respawn. It fades at the same time as the screen goes black. The bell and the other journey sounds do not change.
+- The Haste and Resistance you get from a good sleep no longer show potion particles. The effect icons stay on the screen.
+- The star reading of the Navigator's Amulet is twice as slow. The line takes more time to go from star to star.
+
 ## [1.6.1] - 2026-11-04
 
 ### Changed
