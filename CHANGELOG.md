@@ -4,6 +4,8 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-04
+
 ### Added
 - Dormant Totem of Eternal Life and Echo Heart. The Totem of Eternal Life is now made in steps: the old Totem of Eternal Life recipe makes a Dormant Totem, the Echo Heart is crafted from 4 crying obsidian, 4 echo shards and a nether star, and the two meet at an anvil (Dormant Totem on the left, Echo Heart on the right, 39 levels). The name field is ignored.
 - The Totem of Eternal Life glows like an enchanted item and says "Eternity" in its tooltip. It is not a real enchantment, so a grindstone cannot remove it.
