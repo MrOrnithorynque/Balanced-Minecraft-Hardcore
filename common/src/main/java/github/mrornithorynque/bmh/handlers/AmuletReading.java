@@ -1,5 +1,7 @@
 package github.mrornithorynque.bmh.handlers;
 
+import java.util.Map;
+
 import javax.annotation.Nullable;
 
 import org.slf4j.Logger;
@@ -15,6 +17,9 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 
@@ -36,6 +41,11 @@ public class AmuletReading {
     public static final String TIME_TAG = "time";
     public static final String CHARGES_TAG = "bmh_starlight";
     public static final String NIGHT_TAG = "bmh_night";
+
+    // 1.4.0's amulet (10 durability, Unbreaking allowed) stamped each use here.
+    private static final String LEGACY_LAST_USE_TAG = "LastUseTime";
+    private static final String LEGACY_DAMAGE_TAG = "Damage";
+    private static final String ENCHANTMENTS_TAG = "Enchantments";
 
     private static final long DAY_LENGTH = 24000L;
     // The night index goes up at this time of the day. Reading itself waits for isNight(), a little later.
@@ -127,6 +137,34 @@ public class AmuletReading {
         }
 
         return Mth.clamp(tag.getInt(CHARGES_TAG), 0, MAX_CHARGES);
+    }
+
+    /**
+     * An amulet carried over from 1.4.0 drops what that version wrote and this one never reads: its wear,
+     * its last-use stamp, and Unbreaking or Mending, which do nothing without durability. Curses stay.
+     */
+    public static void dropLegacyData(ItemStack stack) {
+
+        CompoundTag tag = stack.getTag();
+
+        if (tag == null || !(tag.contains(LEGACY_LAST_USE_TAG) || tag.contains(LEGACY_DAMAGE_TAG) || tag.contains(ENCHANTMENTS_TAG))) {
+            return;
+        }
+
+        tag.remove(LEGACY_LAST_USE_TAG);
+        tag.remove(LEGACY_DAMAGE_TAG);
+
+        Map<Enchantment, Integer> enchantments = EnchantmentHelper.getEnchantments(stack);
+        boolean unbreaking = enchantments.remove(Enchantments.UNBREAKING) != null;
+        boolean mending = enchantments.remove(Enchantments.MENDING) != null;
+
+        if (unbreaking || mending) {
+            EnchantmentHelper.setEnchantments(enchantments, stack);
+        }
+
+        if (tag.isEmpty()) {
+            stack.setTag(null);
+        }
     }
 
     /** Charges come back at each nightfall: a stack counted for another night is full again. */
