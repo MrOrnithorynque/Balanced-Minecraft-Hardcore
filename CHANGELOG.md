@@ -4,6 +4,9 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Fixed
+- The Eternal Sword, Axe and Pickaxe look correct in your left hand. Before, they tilted and moved to the side, and were not mirrored.
+
 ## [1.6.0] - 2026-11-04
 
 ### Added
