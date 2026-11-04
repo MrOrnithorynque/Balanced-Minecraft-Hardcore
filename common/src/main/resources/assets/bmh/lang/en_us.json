@@ -36,5 +36,7 @@
     "bmh.amulet.home_overworld": "Home can only be set in the Overworld.",
 
     "bmh.createWorld.balancedHardcore": "Balanced Hardcore",
-    "bmh.createWorld.balancedHardcore.info": "Distant respawn and eternal items. Turning it off disables every BMH game rule for this world."
+    "bmh.createWorld.balancedHardcore.info": "Distant respawn and eternal items. Turning it off disables every BMH game rule for this world.",
+
+    "bmh.journey.message": "A new journey begins for you, %s."
 }
