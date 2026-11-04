@@ -8,5 +8,7 @@
     "itemGroup.bmh_creative_tab": "Pestaña BMH",
     "itemGroup.BMH_tab": "Pestaña BMH",
     "item.bmh.dormant_totem": "Tótem dormido de la Vida Eterna",
-    "item.bmh.echo_heart": "Corazón de Eco"
+    "item.bmh.echo_heart": "Corazón de Eco",
+
+    "bmh.journey.message": "Un nuevo viaje comienza para ti, %s."
 }

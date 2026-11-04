@@ -3,7 +3,6 @@ package github.mrornithorynque.bmh;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
-import github.mrornithorynque.bmh.forge.ForgeClientEvents;
 import github.mrornithorynque.bmh.forge.ForgeClientSetup;
 import github.mrornithorynque.bmh.forge.ForgeEvents;
 import github.mrornithorynque.bmh.forge.ForgePlatformHelper;
@@ -47,10 +46,5 @@ public class BalancedMcHardcoreMain {
     private void setup(final FMLCommonSetupEvent event) {
 
         MinecraftForge.EVENT_BUS.register(ForgeEvents.class);
-
-        // The HUD text needs the client classes: never touch them on a dedicated server.
-        if (FMLEnvironment.dist.isClient()) {
-            MinecraftForge.EVENT_BUS.register(ForgeClientEvents.class);
-        }
     }
 }

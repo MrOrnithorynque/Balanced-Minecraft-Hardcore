@@ -5,6 +5,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import github.mrornithorynque.bmh.handlers.JourneySignal;
 import github.mrornithorynque.bmh.handlers.KeepItemAfterDeath;
 import github.mrornithorynque.bmh.handlers.RespawnPositionHandler;
 
@@ -26,5 +27,6 @@ public abstract class ServerPlayerMixin {
         // Distance first: it counts the Eternal Items that the next call takes out of the inventory.
         RespawnPositionHandler.onPlayerDeath(self);
         KeepItemAfterDeath.onPlayerDeath(self);
+        JourneySignal.onPlayerDeath(self);
     }
 }

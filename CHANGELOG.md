@@ -4,7 +4,16 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Added
+- A distant respawn now plays a short journey scene. The death screen fades to black, and a night sky comes in. A star lights up for your home. Then a line goes from star to star, like a star reading of the Navigator's Amulet, and the view follows it far away. An amethyst chime rings at each star. The message "A new journey begins for you" shows. At the last star, the sky breaks into pixel blocks over your new place, and the bell rings.
+
+### Changed
+- The respawn message now shows on a server too. Before, only the player of a singleplayer world or a LAN host saw it.
+- After a distant respawn, you take no damage for 10 seconds while the scene plays. Vanilla gives 3 seconds.
+- Only a distant respawn plays the bell and the message. In Adventure mode or when no safe place is found, the respawn is a normal one.
+
 ### Fixed
+- A distant respawn no longer shows your bed or the world spawn for a moment before it takes you to the new place.
 - When you turn off the `removeCoordinatesInSurvival` game rule, the full F3 screen with coordinates comes back at once. It also comes back when no player is in survival. Before, it stayed reduced until you set `reducedDebugInfo` to false.
 - If you reload a world while the rule is on and then turn the rule off, the F3 screen stays reduced. Run `/gamerule reducedDebugInfo false` one time to fix it.
 
