@@ -5,5 +5,8 @@
     "item.bmh.totem_of_eternity": "Тотем вечной жизни",
     "item.bmh.navigator_amulet": "Амулет Навигатора",
     "item.bmh.eternal_sword": "Меч Вечности",
-    "itemGroup.bmh_creative_tab": "Вкладка BMH"
+    "itemGroup.bmh_creative_tab": "Вкладка BMH",
+    "itemGroup.BMH_tab": "Вкладка BMH",
+    "item.bmh.dormant_totem": "Спящий тотем вечной жизни",
+    "item.bmh.echo_heart": "Сердце эха"
 }
