@@ -4,6 +4,8 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-11-04
+
 ### Changed
 - The Eternal Sword is bigger in your hands. Its texture had more pixels than other items, so it looked small. The blade is now a little shorter, and its pixels have the same size as the pixels of a vanilla sword.
 
