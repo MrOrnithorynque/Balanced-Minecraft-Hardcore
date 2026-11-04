@@ -1,5 +1,5 @@
 #!/bin/bash
-# Shared by branch.sh, matrix.sh, server_only.sh and upgrade.sh: source it (". lib.sh"), never run it.
+# Shared by branch.sh, matrix.sh, server_only.sh, upgrade.sh and death_client.sh: source it (". lib.sh"), never run it.
 # Paths, the JDK per Minecraft version, the two locks every server boot goes through (the server lock first, then a Gradle
 # slot, each a directory with an owner file, polled every second) and the boot and stop of a dedicated server.
 #
