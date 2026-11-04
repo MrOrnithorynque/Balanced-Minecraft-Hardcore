@@ -25,15 +25,28 @@ results = []
 # Members the hand-overs of parts A, B and E name for a production install (stable ids across 1.20 to 1.21.1).
 REFMAP_IDS = {
     "forge": {"A_LivingEntityTotemMixin": ["m_21262_"], "B_AnvilMenuMixin": ["m_6640_"],
-              "E_PlayerAttackMixin": ["m_5706_", "m_6469_", "m_36399_"]},
+              "E_PlayerAttackMixin": ["m_5706_", "m_6469_", "m_36399_"],
+              "F_PlayerListRespawnMixin": ["m_11236_"], "F_ServerPlayerAccessor": ["f_8921_"],
+              "F_GuiTitleMixin": ["m_168714_"], "F_LocalPlayerRespawnMixin": ["m_7583_"],
+              "F_MinecraftOverlayMixin": ["m_91150_"]},
     "fabric": {"A_LivingEntityTotemMixin": ["method_6095"], "B_AnvilMenuMixin": ["method_24928"],
-               "E_PlayerAttackMixin": ["method_7324", "method_5643", "method_7322"]},
+               "E_PlayerAttackMixin": ["method_7324", "method_5643", "method_7322"],
+               "F_PlayerListRespawnMixin": ["method_14556"], "F_ServerPlayerAccessor": ["field_13998"],
+               "F_GuiTitleMixin": ["method_34004"], "F_LocalPlayerRespawnMixin": ["method_7331"],
+               "F_MinecraftOverlayMixin": ["method_18502"]},
 }
+# The distant respawn hook's other target differs per codebase: noCollision on 1.20.x, findRespawnPositionAndUseSpawnBlock
+# on 1.21.1 (Fabric only there: Forge 1.21.1 ships no refmap).
+if V121:
+    REFMAP_IDS["fabric"]["F_PlayerListRespawnMixin"].append("method_60590")
+else:
+    REFMAP_IDS["forge"]["F_PlayerListRespawnMixin"].append("m_45786_")
+    REFMAP_IDS["fabric"]["F_PlayerListRespawnMixin"].append("method_17892")
 SHADOW_FIELDS = {
     "forge": {"B_AnvilMenuMixin": ["f_39000_", "f_39002_"], "E_ServerPlayerGameModeMixin": ["f_9245_"]},
     "fabric": {"B_AnvilMenuMixin": ["field_7776", "field_7770"], "E_ServerPlayerGameModeMixin": ["field_14008"]},
 }
-THROWAWAY = re.compile(r"(SelfTest|DevSkyShots|SmokeClient|Z_Smoke)")
+THROWAWAY = re.compile(r"(SelfTest|DevSkyShots|SmokeClient|Z_Smoke|JourneySmoke|Z_Journey)")
 
 
 def check(name, ok, detail=""):
