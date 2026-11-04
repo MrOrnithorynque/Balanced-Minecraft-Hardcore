@@ -1,6 +1,6 @@
 // Drives a dedicated server like a (vanilla) client would, to check the Navigator's Amulet's server side (28 checks):
 // BOT_MODULES=<node_modules folder that holds mineflayer> node amulet_scenario.js <port> <mc version>
-// (same file as docs/redesign/c-amulet-tools/amulet_scenario.js). The server needs online-mode=false and RCON on
+// (the same checks as docs/redesign/c-amulet-tools/amulet_scenario.js). The server needs online-mode=false and RCON on
 // <port> + 100 with password bmh. The bot sees nothing of the modded items; it only sends "use item" / "use item on block"
 // packets and reads the action bar. Prints PASS/FAIL lines, then "<passed>/<total> checks passed".
 const MODULES = process.env.BOT_MODULES || (__dirname + '/node_modules')

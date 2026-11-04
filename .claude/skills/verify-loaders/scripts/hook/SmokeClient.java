@@ -10,7 +10,8 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * THROWAWAY verification hook, never committed (branch.sh copies it into its own worktree and removes it at the end).
+ * THROWAWAY verification hook. This file ships with the verify-loaders skill (scripts/hook/); its copy in common/src is
+ * never committed: branch.sh copies it into its verify worktree and removes it at the end.
  * Only with BMH_SMOKE=1 in a singleplayer runClient: gives every BMH item, takes a real star reading at midnight (client
  * use, server item logic, client sky renderer), saves two screenshots and quits the game. Every step logs a
  * "[BMH-SMOKE]" line.
