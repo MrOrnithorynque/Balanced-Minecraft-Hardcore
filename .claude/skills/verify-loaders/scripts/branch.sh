@@ -1,12 +1,12 @@
 #!/bin/bash
-# Verifies one BMH branch on every loader with nobody at the keyboard: a pristine build and its jar checks, then for each
+# Verifies one BMH branch on every loader with nobody at the keyboard: a clean-checkout build and its jar checks, then for each
 # loader a dedicated server (the amulet scenario, then smoke_bot.js) and a singleplayer client with the throwaway smoke
 # hook (hook/), run on a copy of that server's world. It works in its own worktree <repo>/.claude/worktrees/verify-<label>,
 # never commits, and removes the hook at the end (also when it is interrupted).
 # usage: branch.sh <origin branch or tag> <minecraft version> <label> [loaders...]
 #   loaders default to forge fabric, plus neoforge when the build made a NeoForge jar.
 # Results: $BMH_VERIFY_OUT/<label>/ (logs, screenshots, steps.txt) and one line in $BMH_VERIFY_OUT/summary.txt.
-# Needs BMH_BOT_MODULES (see ../SKILL.md). Unattended: caffeinate -i bash branch.sh ...
+# Needs BMH_BOT_MODULES (see ../SKILL.md). Unattended: charger in and lid open (caffeinate -i covers idle sleep only, see ../SKILL.md).
 set -u
 [ $# -ge 3 ] || { echo "usage: branch.sh <origin branch or tag> <minecraft version> <label> [loaders...]" >&2; exit 2; }
 BR=$1; MCV=$2; LABEL=$3; shift 3
@@ -33,7 +33,7 @@ fresh_tree "$WT" "$REF"
 say "== $LABEL: $BR at $SHA, Minecraft $MCV, $(date '+%H:%M:%S')"
 rm -rf "$WT"/forge/build/libs "$WT"/fabric/build/libs "$WT"/neoforge/build/libs
 
-# 2. Pristine build and the jar checks
+# 2. Clean-checkout build and the jar checks
 take_slot
 ( cd "$WT" && JAVA_HOME=$JH sh ./gradlew build --max-workers=2 ) > "$OUT/build.log" 2>&1
 release
@@ -50,7 +50,7 @@ if [ -z "$LOADERS" ]; then
   LOADERS="forge fabric"; ls "$WT"/neoforge/build/libs/*.jar >/dev/null 2>&1 && LOADERS="$LOADERS neoforge"
 fi
 
-# 3. The throwaway client hook (never committed; unhook removes it)
+# 3. The throwaway client hook: its copy in common/src is never committed, unhook removes it (the source stays in scripts/hook/)
 cp "$SCRIPTS/hook/SmokeClient.java" "$WT/$BMH_SRC/client/SmokeClient.java"
 cp "$SCRIPTS/hook/Z_SmokeClientMixin.java" "$WT/$BMH_SRC/mixin/Z_SmokeClientMixin.java"
 python3 -I - "$WT/common/src/main/resources/bmh.mixins.json" <<'PY'

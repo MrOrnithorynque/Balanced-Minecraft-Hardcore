@@ -2,8 +2,9 @@
 
     python3 -I .claude/skills/release/make_grids.py <out dir> [<repo root>]
 
-Pass `resources` as the out dir to replace the pictures the README shows. Everything it reads is in the repo or in the
-Gradle cache, nothing to extract by hand:
+Pass `resources` as the out dir to replace the pictures the README shows. A picture whose pixels are already identical is
+not rewritten, so `git diff --stat resources` lists only the pictures that really changed. Everything it reads is in the
+repo or in the Gradle cache, nothing to extract by hand:
   recipes   common/src/main/resources/data/bmh/recipes/ (recipe/ on 1.21.1). Every crafting_shaped file gives
             <result>_crafting_grid.png and every smithing_transform file <result>_smithing.png; other types are skipped.
   stamps    the slot, the result slot and the arrow are cut from resources/dormant_totem_crafting_grid.png (the first
@@ -22,7 +23,7 @@ import re
 import sys
 import zipfile
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 OUT = sys.argv[1]
 ROOT = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 else os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -135,6 +136,23 @@ def put_result(canvas, x, y, item):
     canvas.alpha_composite(icon(item), (x + 16, y + 16))
 
 
+PICTURES, WRITTEN = [], []
+
+
+def save(canvas, out):
+    """Write the picture, unless the file there already holds exactly these pixels (the file stays untouched for git)."""
+    PICTURES.append(out)
+    path = os.path.join(OUT, out)
+    if os.path.exists(path):
+        with Image.open(path) as existing:
+            old = existing.convert("RGBA")
+        # getbbox() of an RGBA image looks at the alpha channel only, so test every band of the difference
+        if old.size == canvas.size and all(band.getbbox() is None for band in ImageChops.difference(old, canvas).split()):
+            return
+    canvas.save(path)
+    WRITTEN.append(out)
+
+
 def crafting(pattern, key, result, out):
     canvas = Image.new("RGBA", (484, 256), BG)
     for r, row in enumerate(pattern):
@@ -142,7 +160,7 @@ def crafting(pattern, key, result, out):
             put_slot(canvas, 20 + 72 * c, 20 + 72 * r, key.get(ch))
     canvas.alpha_composite(arrow_stamp, (272, 102))
     put_result(canvas, 368, 80, result)
-    canvas.save(os.path.join(OUT, out))
+    save(canvas, out)
 
 
 def glyph_text(canvas, text, x, y, scale, color):
@@ -176,7 +194,7 @@ def smithing(template_item, base, addition, result, out):
         put_slot(canvas, 20 + 72 * i, 32, item)
     canvas.alpha_composite(arrow_stamp, (272, 42))
     put_result(canvas, 368, 20, result)
-    canvas.save(os.path.join(OUT, out))
+    save(canvas, out)
 
 
 def anvil(left, right, result, cost, out):
@@ -189,7 +207,7 @@ def anvil(left, right, result, cost, out):
     canvas.alpha_composite(arrow_stamp, (272, 42))
     put_result(canvas, 368, 20, result)
     glyph_text(canvas, "Enchantment Cost: %d" % cost, 242, 124, 3, (128, 255, 32, 255))
-    canvas.save(os.path.join(OUT, out))
+    save(canvas, out)
 
 
 os.makedirs(OUT, exist_ok=True)
@@ -212,4 +230,5 @@ for path in sorted(glob.glob(os.path.join(RES, "data", "bmh", recipes[0], "*.jso
 cost_source = open(os.path.join(ROOT, "common", "src", "main", "java", "github", "mrornithorynque", "bmh", "handlers",
                                 "TotemAwakeningHandler.java")).read()
 anvil(*ANVIL, int(re.search(r"\bCOST\s*=\s*(\d+)", cost_source).group(1)), ANVIL[2].split(":")[1] + "_anvil.png")
-print("written:", sorted(os.listdir(OUT)))
+print("written:", sorted(WRITTEN))
+print("identical, left alone:", sorted(set(PICTURES) - set(WRITTEN)))
