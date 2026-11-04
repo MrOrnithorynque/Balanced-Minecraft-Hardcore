@@ -4,8 +4,9 @@
 # amethyst sound with its time after the press, saves a frame every 3 ticks and quits. The hook is copied into the tree
 # and removed at the end (interrupted or not); the tree's own changes stay.
 # usage: death_client.sh <worktree> <label> <loader> [time of day] [level type] [immediate 0|1] [reload 0|1]
-#   level type: minecraft:flat by default. A copied normal world can crash Forge 52.1.20 on its first tick (falling
-#   sand drops an item before LootModifierManager is loaded): not a BMH bug.
+#   level type: minecraft:flat by default. A copied normal world can crash Forge 52.1.20 on its first tick: a landing
+#   falling block breaks a neighbour whose loot drop asks for LootModifierManager before it is loaded. Not a BMH bug.
+#   Every run makes a fresh world, so the level type always applies.
 #   immediate=1 sets doImmediateRespawn (no death screen); reload=1 reloads the resource packs during the fade.
 # Read <out>/journey.log: the first "position packet" after the "respawn packet" must be the far place, the
 # "overlay gone" line must come, and "final respawned=true alive=true screen=- overlay=-" ends a good run.
@@ -26,28 +27,30 @@ MIXINS=$WT/common/src/main/resources/bmh.mixins.json
 mkdir -p "$OUT"
 say() { echo "[$LABEL $(date '+%H:%M:%S')] $*" | tee -a "$OUT/run.log"; }
 
-# The hook, removed on any exit
+NEO_ORIG=""
+unhook() {
+  release
+  rm -f "$SRC/client/JourneySmoke.java" "$SRC/mixin/Z_JourneySmokeClientMixin.java" "$SRC/mixin/Z_JourneySmokePacketMixin.java"
+  [ -f "$OUT/bmh.mixins.json.orig" ] && cp "$OUT/bmh.mixins.json.orig" "$MIXINS"
+  [ -n "$NEO_ORIG" ] && cp "$NEO_ORIG" "$WT/neoforge/build.gradle"
+}
+# The hook, removed on any exit: the trap is set before the first copy.
+trap unhook EXIT
+cp "$MIXINS" "$OUT/bmh.mixins.json.orig"
 cp "$HOOK/JourneySmoke.java" "$SRC/client/JourneySmoke.java"
 cp "$HOOK/Z_JourneySmokeClientMixin.java" "$HOOK/Z_JourneySmokePacketMixin.java" "$SRC/mixin/"
-cp "$MIXINS" "$OUT/bmh.mixins.json.orig"
 python3 -I - "$MIXINS" <<'PY'
 import sys, json
 p = sys.argv[1]; s = open(p).read()
 t = s.replace('"client": [\n', '"client": [\n        "Z_JourneySmokeClientMixin",\n        "Z_JourneySmokePacketMixin",\n', 1)
 assert t != s; json.loads(t); open(p, "w").write(t)
 PY
-NEO_ORIG=""
-unhook() {
-  release
-  rm -f "$SRC/client/JourneySmoke.java" "$SRC/mixin/Z_JourneySmokeClientMixin.java" "$SRC/mixin/Z_JourneySmokePacketMixin.java"
-  cp "$OUT/bmh.mixins.json.orig" "$MIXINS"
-  [ -n "$NEO_ORIG" ] && cp "$NEO_ORIG" "$WT/neoforge/build.gradle"
-}
-trap unhook EXIT
+[ $? = 0 ] || { echo "the mixins json patch failed"; exit 6; }
 
 RUN=$WT/$L/run
 say "mc=$MCV loader=$L jdk=$JH"
 # 1. A dedicated server makes the world
+rm -rf "$RUN/world"
 if [ ! -f "$RUN/world/level.dat" ]; then
   write_server_properties "$RUN" spawn-monsters=false "motd=bmh journey" level-type=$LEVELTYPE level-seed=bmh-journey
   take_lock; take_slot
