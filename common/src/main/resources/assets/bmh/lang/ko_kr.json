@@ -5,5 +5,8 @@
     "item.bmh.totem_of_eternity": "영원한 생명의 토템",
     "item.bmh.navigator_amulet": "항해사의 부적",
     "item.bmh.eternal_sword": "영원의 검",
-    "itemGroup.bmh_creative_tab": "BMH 탭"
+    "itemGroup.bmh_creative_tab": "BMH 탭",
+    "itemGroup.BMH_tab": "BMH 탭",
+    "item.bmh.dormant_totem": "잠든 영원한 생명의 토템",
+    "item.bmh.echo_heart": "메아리의 심장"
 }

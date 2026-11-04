@@ -5,5 +5,8 @@
     "item.bmh.totem_of_eternity": "Das Totem des Ewigen Lebens",
     "item.bmh.navigator_amulet": "Amulett des Navigators",
     "item.bmh.eternal_sword": "Das Schwert der Ewigkeit",
-    "itemGroup.bmh_creative_tab": "BMH-Tab"
+    "itemGroup.bmh_creative_tab": "BMH-Tab",
+    "itemGroup.BMH_tab": "BMH-Tab",
+    "item.bmh.dormant_totem": "Schlafendes Totem des Ewigen Lebens",
+    "item.bmh.echo_heart": "Echo-Herz"
 }
