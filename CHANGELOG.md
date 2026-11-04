@@ -4,6 +4,9 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Changed
+- The Eternal Sword is bigger in your hands. Its texture had more pixels than other items, so it looked small. The blade is now a little shorter, and its pixels have the same size as the pixels of a vanilla sword.
+
 ### Fixed
 - The Eternal Sword, Axe and Pickaxe look correct in your left hand. Before, they tilted and moved to the side, and were not mirrored.
 
