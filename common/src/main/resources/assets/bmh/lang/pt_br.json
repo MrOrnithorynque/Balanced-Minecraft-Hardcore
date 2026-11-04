@@ -5,5 +5,8 @@
     "item.bmh.totem_of_eternity": "O Totem da Vida Eterna",
     "item.bmh.navigator_amulet": "Amuleto do Navegador",
     "item.bmh.eternal_sword": "A Espada da Eternidade",
-    "itemGroup.bmh_creative_tab": "Aba BMH"
+    "itemGroup.bmh_creative_tab": "Aba BMH",
+    "itemGroup.BMH_tab": "Aba BMH",
+    "item.bmh.dormant_totem": "Totem Adormecido da Vida Eterna",
+    "item.bmh.echo_heart": "Coração de Eco"
 }
