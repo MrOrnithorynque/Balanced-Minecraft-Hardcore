@@ -8,7 +8,6 @@ import github.mrornithorynque.bmh.handlers.DisableDebugInfo;
 import github.mrornithorynque.bmh.handlers.EternalItemHandler;
 import github.mrornithorynque.bmh.handlers.KeepItemAfterDeath;
 import github.mrornithorynque.bmh.handlers.RespawnEffectHandler;
-import github.mrornithorynque.bmh.handlers.RespawnPositionHandler;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -39,10 +38,10 @@ public class BalancedMcHardcoreFabric implements ModInitializer {
             }
         });
 
-        // Same order as the Forge priorities: move the player, give the items back, then the effects.
+        // Same order as the Forge priorities: give the items back, then the effects. The position is
+        // already set: mixin/F_PlayerListRespawnMixin puts it into vanilla's respawn.
         // "alive" is true when the player comes back from the End, Forge's isEndConquered.
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
-            RespawnPositionHandler.onPlayerRespawn(newPlayer, alive);
             KeepItemAfterDeath.onPlayerRespawn(newPlayer);
             RespawnEffectHandler.onPlayerRespawn(newPlayer, alive);
         });

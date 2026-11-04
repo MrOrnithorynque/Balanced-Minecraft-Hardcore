@@ -8,5 +8,7 @@
     "itemGroup.bmh_creative_tab": "BMH Tabblad",
     "itemGroup.BMH_tab": "BMH Tabblad",
     "item.bmh.dormant_totem": "Slapende Totem van Eeuwig Leven",
-    "item.bmh.echo_heart": "Echohart"
+    "item.bmh.echo_heart": "Echohart",
+
+    "bmh.journey.message": "Een nieuwe reis begint voor jou, %s."
 }

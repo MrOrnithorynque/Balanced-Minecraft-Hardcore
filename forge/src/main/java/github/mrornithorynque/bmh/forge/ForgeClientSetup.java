@@ -7,8 +7,8 @@ import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 /**
- * Mod bus, client only. FMLClientSetupEvent never fires on the game bus where ForgeClientEvents sits, so
- * the constructor of the @Mod class hooks this one up with addListener, behind the client check.
+ * Mod bus, client only. FMLClientSetupEvent never fires on the game bus, so the constructor of the @Mod
+ * class hooks this one up with addListener, behind the client check.
  */
 public class ForgeClientSetup {
 

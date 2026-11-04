@@ -1,7 +1,9 @@
 package github.mrornithorynque.bmh.handlers;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -43,11 +45,8 @@ public class RespawnPositionHandler {
     // One entry per player, filled on death and consumed on respawn.
     private static final Map<UUID, Integer> distancesFromBed = new HashMap<>();
 
-    // Called first on respawn, before the kept items come back.
-    public static void onPlayerRespawn(ServerPlayer serverPlayer, boolean endConquered) {
-
-        setNewRespawnPosition(serverPlayer, endConquered);
-    }
+    // The players that got a distant respawn position, until the respawn effects read it.
+    private static final Set<UUID> exiledPlayers = new HashSet<>();
 
     // Called first on death, while the Eternal Items are still in the inventory.
     public static void onPlayerDeath(ServerPlayer serverPlayer) {
@@ -55,55 +54,75 @@ public class RespawnPositionHandler {
         distancesFromBed.put(serverPlayer.getUUID(), calculateDistanceFromBed(serverPlayer));
     }
 
-    private static void setNewRespawnPosition(ServerPlayer serverPlayer, boolean endConquered) {
+    // The conditions of a distant respawn. The game rules are the same in every level.
+    public static boolean isDistantRespawn(ServerPlayer serverPlayer) {
+
+        return serverPlayer.serverLevel().getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)
+                && serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL;
+    }
+
+    // True once for a player that got a distant respawn position.
+    public static boolean takeExiled(ServerPlayer serverPlayer) {
+
+        return exiledPlayers.remove(serverPlayer.getUUID());
+    }
+
+    /**
+     * Called by F_PlayerListRespawnMixin while vanilla respawns a player, before vanilla sends a position to the
+     * client. On 1.21.1 the player is the old player, because the new one does not exist yet. On 1.20.x it is the new
+     * player. Returns the feet position of the distant respawn in respawnLevel, or null to keep the vanilla position.
+     */
+    public static BlockPos findRespawnPosition(ServerPlayer serverPlayer, ServerLevel respawnLevel,
+            boolean missingRespawnBlock, boolean endConquered) {
 
         // Leaving the End through the exit portal is also a "respawn" in vanilla.
         if (endConquered) {
 
             LOGGER.info("[BalancedMcHardcoreMain] Player is coming back from the End, using default respawn position");
-            return;
+            return null;
         }
 
         // Computed at death; fall back to the current inventory if the server restarted in between.
         Integer storedDistance = distancesFromBed.remove(serverPlayer.getUUID());
         int distanceFromBed = storedDistance != null ? storedDistance : calculateDistanceFromBed(serverPlayer);
 
-        ServerLevel serverLevel = serverPlayer.serverLevel();
-
-        if (!serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)) {
+        if (!respawnLevel.getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)) {
 
             LOGGER.info("[BalancedMcHardcoreMain] Game rule randomDeathSpawnPoint is false, using default respawn position");
-            return;
+            return null;
         }
 
         if (serverPlayer.gameMode.getGameModeForPlayer() != GameType.SURVIVAL) {
 
             LOGGER.info("[BalancedMcHardcoreMain] Player is not in survival mode, using default respawn position");
-            return;
+            return null;
         }
 
-        BlockPos bedLocation = serverPlayer.getRespawnPosition();
+        // Vanilla forgets a bed or anchor that is gone, so the exile is then around the world spawn.
+        BlockPos bedLocation = missingRespawnBlock ? null : serverPlayer.getRespawnPosition();
 
-        if (bedLocation == null || serverPlayer.getRespawnDimension() != serverLevel.dimension()) {
+        if (bedLocation == null || serverPlayer.getRespawnDimension() != respawnLevel.dimension()) {
 
-            bedLocation = serverLevel.getSharedSpawnPos();
+            bedLocation = respawnLevel.getSharedSpawnPos();
             LOGGER.info("[BalancedMcHardcoreMain] No bed in this dimension, using world spawn as center");
         }
 
-        int exileDistance = toLevelBlocks(serverLevel, distanceFromBed);
-        BlockPos respawnPosition = calculateRandomPosition(serverLevel, bedLocation, exileDistance);
+        int exileDistance = toLevelBlocks(respawnLevel, distanceFromBed);
+        BlockPos respawnPosition = calculateRandomPosition(respawnLevel, bedLocation, exileDistance);
 
         if (respawnPosition == null) {
 
             LOGGER.warn("[BalancedMcHardcoreMain] No safe respawn position found after " + MAX_POSITION_ATTEMPTS
                     + " attempts, using default respawn position");
-            return;
+            return null;
         }
 
         LOGGER.info("[BalancedMcHardcoreMain] new respawn pos and bed : " + respawnPosition + ", " + bedLocation);
 
-        // Only move the player: the bed (or anchor) spawn point stays exactly as vanilla left it.
-        serverPlayer.teleportTo(respawnPosition.getX() + 0.5, respawnPosition.getY(), respawnPosition.getZ() + 0.5);
+        exiledPlayers.add(serverPlayer.getUUID());
+
+        // Only the position changes: the bed (or anchor) spawn point stays exactly as vanilla left it.
+        return respawnPosition;
     }
 
     // The distance is measured in Overworld blocks, but a Nether block covers 8 of them. Dividing by the

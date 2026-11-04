@@ -14,11 +14,16 @@
         "E_MinecraftServerMixin",
         "E_PlayerAttackMixin",
         "E_ServerPlayerGameModeMixin",
-        "E_ServerPlayerMixin"
+        "E_ServerPlayerMixin",
+        "F_PlayerListRespawnMixin",
+        "F_ServerPlayerAccessor"
     ],
     "client": [
         "CreateWorldGameTabMixin",
-        "D_LevelRendererSkyMixin"
+        "D_LevelRendererSkyMixin",
+        "F_GuiTitleMixin",
+        "F_LocalPlayerRespawnMixin",
+        "F_MinecraftOverlayMixin"
     ],
     "injectors": {
         "defaultRequire": 1
