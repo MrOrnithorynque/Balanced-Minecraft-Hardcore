@@ -13,7 +13,8 @@ import net.minecraft.world.item.ItemStack;
  * THROWAWAY verification hook. This file ships with the verify-loaders skill (scripts/hook/); its copy in common/src is
  * never committed: branch.sh copies it into its verify worktree and removes it at the end.
  * Only with BMH_SMOKE=1 in a singleplayer runClient: gives every BMH item, takes a real star reading at midnight (client
- * use, server item logic, client sky renderer), saves two screenshots and quits the game. Every step logs a
+ * use, server item logic, client sky renderer), holds the Eternal Sword, lets the Totem of Eternity save the player,
+ * saves four screenshots and quits the game. Every step logs a
  * "[BMH-SMOKE]" line.
  */
 public final class SmokeClient {
@@ -69,7 +70,20 @@ public final class SmokeClient {
             shot(mc, "bmh-smoke-2-sky.png");
         } else if (ticks == 215) {
             mc.options.hideGui = false;
+            // The Eternal Sword (hotbar slot 1) in the hand: its 20x20 model there, its 16x16 one in the hotbar.
+            mc.player.getInventory().selected = 1;
+            run(server, "gamemode survival @a", "effect clear @a");
+        } else if (ticks == 235) {
+            shot(mc, "bmh-smoke-3-sword.png");
         } else if (ticks == 240) {
+            // Nothing in the hands saves the player, so the Totem of Eternity (slot 5) does, with its own animation.
+            run(server, "damage @a 1000 minecraft:generic");
+        } else if (ticks == 252) {
+            shot(mc, "bmh-smoke-4-totem.png");
+        } else if (ticks == 270) {
+            String slot5 = String.valueOf(BuiltInRegistries.ITEM.getKey(mc.player.getInventory().getItem(5).getItem()));
+            log("after the totem: health=" + mc.player.getHealth() + " slot5=" + slot5);
+        } else if (ticks == 280) {
             log("stopping");
             mc.stop();
         }
