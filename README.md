@@ -14,7 +14,7 @@ Balanced Minecraft Hardcore (BMH) gives you flexibility in difficulty by replaci
 
 ### Eternal Items
 
-Eternal items stay with even after you die, but loose some durability when you die. They are very very powerful items and you can only carry one type at the time. Each one you carry also pushes your next respawn farther away.
+Eternal Items stay with you after you die. Each death costs the Eternal tools 7% of their durability, but they never break. They are very very powerful items and you can only carry one type at the time. Each one you carry also pushes your next respawn farther away.
 
 On the ground, an Eternal Item never despawns, and explosions and cactus do not destroy it. The void still does.
 
@@ -58,7 +58,7 @@ Carried anywhere in your inventory, the totem saves you from death once, like a 
 
 #### Eternal Tools
 
-Upgrade a netherite sword, axe or pickaxe at a smithing table: Totem of Eternal Life in the template slot, then the tool, then an echo shard. The tool keeps its enchantments, its name and its wear. Repair Eternal tools at an anvil with gold blocks. Each one has its own ability:
+Upgrade a netherite sword, axe or pickaxe at a smithing table: Totem of Eternal Life in the template slot, then the tool, then an echo shard. The tool keeps its enchantments, its name and its wear. Eternal tools never break. At their last point of durability they are worn out: they deal half damage, mine at the speed of a stone tool and lose their ability. Repair them at an anvil with gold blocks (always 15 levels, and never "Too Expensive") or with Mending. Each one has its own ability:
 
 - **Eternal Sword, Echo Strike:** a full-strength hit echoes onto the nearest other hostile mob within 5 blocks, for half the damage.
 - **Eternal Axe, Smash:** a hit while you fall lands harder the longer the fall, up to 3 times the damage, and the blow halves your fall damage.
