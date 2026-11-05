@@ -12,6 +12,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.FloatTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -30,8 +31,9 @@ import net.minecraft.world.level.block.Blocks;
  * stack (the contract the sky renderer reads) and the charges that limit readings.
  *
  * The contract, in the stack's NBT: the compound bmh_reading with azimuths (a list of floats, one per
- * point of the amulet, see AmuletPoints: degrees clockwise from north, from the player to the point) and
- * time (long, game time of the reading). Next to it live
+ * point of the amulet, see AmuletPoints: degrees clockwise from north, from the player to the point),
+ * names (a list of strings in the same order, empty for a point with no name: the spyglass shows them)
+ * and time (long, game time of the reading). Next to it live
  * bmh_starlight (int, charges left) and bmh_night (long, the night those charges were counted for).
  * A stack that never read has neither charge tag: it is full.
  */
@@ -41,6 +43,7 @@ public class AmuletReading {
 
     public static final String READING_TAG = "bmh_reading";
     public static final String AZIMUTHS_TAG = "azimuths";
+    public static final String NAMES_TAG = "names";
     public static final String TIME_TAG = "time";
     public static final String CHARGES_TAG = "bmh_starlight";
     public static final String NIGHT_TAG = "bmh_night";
@@ -80,14 +83,6 @@ public class AmuletReading {
         if (north != 0.0F || east != 90.0F) {
             LOGGER.error("[BalancedMcHardcoreMain] Azimuth self-check failed: the sky renderer would point the wrong way");
         }
-    }
-
-    private static final String[] DIRECTIONS = { "n", "ne", "e", "se", "s", "sw", "w", "nw" };
-
-    /** The lang key of the nearest of the 8 directions to an azimuth: bmh.direction.n, bmh.direction.ne, and so on. */
-    public static String directionKey(float azimuth) {
-
-        return "bmh.direction." + DIRECTIONS[Math.floorMod(Math.round(azimuth / 45.0F), 8)];
     }
 
     /** Goes up by one at each nightfall, so a stack knows which night its charges were counted for. */
@@ -198,19 +193,22 @@ public class AmuletReading {
 
     /**
      * Writes a reading on the stack: the contract, and one charge less (creative readings are free).
-     * The points are read here and go nowhere but into the azimuths: no coordinates, no distance.
+     * The points are read here and go nowhere but into the azimuths and their names: no coordinates, no distance.
      */
     public static void record(ServerPlayer player, ItemStack stack) {
 
         Level level = player.level();
         ListTag azimuths = new ListTag();
+        ListTag names = new ListTag();
 
-        for (BlockPos target : AmuletPoints.targets(player)) {
-            azimuths.add(FloatTag.valueOf(azimuth(player.getX(), player.getZ(), target.getX() + 0.5, target.getZ() + 0.5)));
+        for (AmuletPoints.Point target : AmuletPoints.targets(player)) {
+            azimuths.add(FloatTag.valueOf(azimuth(player.getX(), player.getZ(), target.pos().getX() + 0.5, target.pos().getZ() + 0.5)));
+            names.add(StringTag.valueOf(target.name()));
         }
 
         CompoundTag reading = new CompoundTag();
         reading.put(AZIMUTHS_TAG, azimuths);
+        reading.put(NAMES_TAG, names);
         reading.putLong(TIME_TAG, level.getGameTime());
 
         CompoundTag tag = stack.getOrCreateTag();
