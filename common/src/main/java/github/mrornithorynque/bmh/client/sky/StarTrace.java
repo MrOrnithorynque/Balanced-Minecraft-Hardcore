@@ -12,7 +12,7 @@ import java.util.List;
 public final class StarTrace {
 
     public static final double SEGMENT_SECONDS = 0.6;
-    public static final double HOLD_SECONDS = 8.0;
+    public static final double HOLD_SECONDS = 30.0;
     public static final double FADE_SECONDS = 2.0;
     private static final double STAR_FADE_IN_SECONDS = 0.3;
 
