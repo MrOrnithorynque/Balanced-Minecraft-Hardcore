@@ -21,6 +21,8 @@ Balanced Minecraft Hardcore (BMH) gives you flexibility in difficulty by replaci
 
 Eternal items stay with even after you die, but loose some durability when you die. They are very very powerful items and you can only carry one type at the time. Each one you carry also pushes your next respawn farther away.
 
+On the ground, an Eternal Item never despawns, and explosions and cactus do not destroy it. The void still does.
+
 ### Totem of Undying
 
 The Totem of Undying still saves you with Regeneration and Absorption, but it no longer gives Fire Resistance.
@@ -46,6 +48,8 @@ The heart of every Eternal Item, made in three steps:
 3. Awaken the totem at an anvil: Dormant Totem on the left, Echo Heart on the right, for 39 levels.
 
 The awakened totem glows like an enchanted item. It is the smithing template of the Eternal tools and the core of the Eternal Bundle.
+
+Carried anywhere in your inventory, the totem saves you from death once, like a Totem of Undying in your hand. A Totem of Undying in your hand is used first. After it saves you, it turns back into a Dormant Totem: awaken it again with a new Echo Heart. You carry one at most, and a chest, a shulker box or any other container holds one at most.
 
 <p align="center">
   <img src="resources/dormant_totem_crafting_grid.png" alt="dormant_totem_crafting_grid" width="200" style="margin-right: 10px;">
