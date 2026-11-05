@@ -55,6 +55,34 @@ public class TotemOfEternityHandler {
         return false;
     }
 
+    // Called by EternalItemHandler.onPlayerTick, whatever the game rule and the game mode. Slot.mayPlace does not
+    // see every way into the inventory: a number key swap writes the hotbar slot directly, and a closed menu puts
+    // the stack on the cursor back. So the tick drops every Totem of Eternity after the first. The pickup block
+    // (EternalItemHandler.shouldBlockPickup) keeps the player from picking it up again.
+    public static void dropExtraTotems(ServerPlayer player) {
+
+        if (player.isSpectator()) {
+            return;
+        }
+
+        Inventory inventory = player.getInventory();
+        boolean found = false;
+
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+
+            ItemStack stack = inventory.getItem(i);
+
+            if (stack.getItem() instanceof TotemOfEternityItem) {
+                if (found) {
+                    player.drop(stack.copy(), false);
+                    inventory.setItem(i, ItemStack.EMPTY);
+                } else {
+                    found = true;
+                }
+            }
+        }
+    }
+
     // True when the stack is a Totem of Eternity and the container already holds another one in a different slot.
     // A swap inside one container moves the same stack, so the check skips that stack.
     public static boolean holdsAnotherTotem(Container container, int slot, ItemStack placed) {
@@ -73,5 +101,33 @@ public class TotemOfEternityHandler {
         }
 
         return false;
+    }
+
+    // The same test for one half of a double chest, which a hopper asks alone: it counts the totems of both halves,
+    // except the one in the target slot of this half.
+    public static boolean holdsAnotherTotem(Container half, Container wholeChest, int slot, ItemStack placed) {
+
+        if (!(placed.getItem() instanceof TotemOfEternityItem)) {
+            return false;
+        }
+
+        int totems = 0;
+
+        for (int i = 0; i < wholeChest.getContainerSize(); i++) {
+
+            ItemStack stack = wholeChest.getItem(i);
+
+            if (stack != placed && stack.getItem() instanceof TotemOfEternityItem) {
+                totems++;
+            }
+        }
+
+        ItemStack target = half.getItem(slot);
+
+        if (target != placed && target.getItem() instanceof TotemOfEternityItem) {
+            totems--;
+        }
+
+        return totems > 0;
     }
 }

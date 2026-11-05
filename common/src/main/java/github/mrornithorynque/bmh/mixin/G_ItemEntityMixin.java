@@ -30,13 +30,14 @@ public abstract class G_ItemEntityMixin {
     }
 
     // Vanilla does not count the age of an item with an unlimited lifetime. The check runs every tick, because an
-    // item entity can change its stack, and an item loaded from a save keeps its old age.
+    // item entity can change its stack, and an item loaded from a save keeps its old age. Server only: the client
+    // counts its own age to spin and bob the item, and the server does not send the age.
     @Inject(method = "tick", at = @At("HEAD"))
     private void bmh$eternalItemNeverDespawns(CallbackInfo ci) {
 
         ItemEntity itemEntity = (ItemEntity) (Object) this;
 
-        if (itemEntity.getItem().getItem() instanceof IEternalItem) {
+        if (!itemEntity.level().isClientSide && itemEntity.getItem().getItem() instanceof IEternalItem) {
             itemEntity.setUnlimitedLifetime();
         }
     }
