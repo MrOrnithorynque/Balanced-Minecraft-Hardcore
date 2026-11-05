@@ -234,7 +234,7 @@ async function main () {
       rcon('data get block ' + at(7, 0, -3) + ' Items'))
 
     // Raw clicks: `give` fills hotbar slot 0, which is window slot 54 of a chest or a shulker box (27 own slots).
-    const shiftIn = async (block, label, expectInChest) => {
+    const shiftIn = async (block, label, expectInChest, expectInInventory) => {
       rcon('clear ' + NAME)
       rcon('give ' + NAME + ' bmh:totem_of_eternity')
       await sleep(500)
@@ -249,7 +249,7 @@ async function main () {
       await sleep(800)
       const inChest = totems(rcon('data get block ' + block.x + ' ' + block.y + ' ' + block.z + ' Items'))
       const inInventory = totems(rcon('data get entity ' + NAME + ' Inventory'))
-      check(label, inChest === expectInChest && inInventory === 2 - expectInChest, 'container ' + inChest + ', inventory ' + inInventory)
+      check(label, inChest === expectInChest && inInventory === expectInInventory, 'container ' + inChest + ', inventory ' + inInventory)
     }
     const full = new Vec3(pc.x - 2, pc.y, pc.z + 3)
     const empty = new Vec3(pc.x + 2, pc.y, pc.z + 3)
@@ -258,10 +258,38 @@ async function main () {
     rcon('setblock ' + empty.x + ' ' + empty.y + ' ' + empty.z + ' minecraft:chest')
     rcon('setblock ' + shulker.x + ' ' + shulker.y + ' ' + shulker.z + ' minecraft:shulker_box{Items:[' + totemNbt + ']}')
     await sleep(1500)
-    await shiftIn(full, 'container: a shift click does not put a second totem into a chest', 1)
-    await shiftIn(shulker, 'container: a shift click does not put a second totem into a shulker box', 1)
-    await shiftIn(empty, 'container: a shift click puts a totem into an empty chest (control)', 2)
+    await shiftIn(full, 'container: a shift click does not put a second totem into a chest', 1, 1)
+    await shiftIn(shulker, 'container: a shift click does not put a second totem into a shulker box', 1, 1)
+    await shiftIn(empty, 'container: a shift click puts a totem into an empty chest (control)', 1, 0)
+
+    // A number key swap takes the chest's totem into an empty hotbar slot without asking the inventory: the player
+    // tick then drops the second totem on the ground. The chest at `full` still holds its totem.
     rcon('clear ' + NAME)
+    rcon('give ' + NAME + ' bmh:totem_of_eternity')
+    await sleep(500)
+    try {
+      const win = await bot.openBlock(bot.blockAt(full))
+      await bot.clickWindow(0, 1, 2)
+      await sleep(800)
+      bot.closeWindow(win)
+    } catch (e) {
+      console.log('swap error', e.message)
+    }
+    await sleep(1500)
+    const swapped = totems(rcon('data get entity ' + NAME + ' Inventory'))
+    const onGround = rcon('data get entity @e[type=minecraft:item,limit=1] Item')
+    check('container: a number key swap leaves one totem in the inventory and drops the other', swapped === 1 && onGround.includes('bmh:totem_of_eternity'), 'inventory ' + swapped + ', ground ' + onGround)
+    rcon('kill @e[type=minecraft:item]')
+    rcon('clear ' + NAME)
+
+    // A hopper asks one half of a double chest at a time: a totem in the left half keeps a second out of the right half.
+    rcon('setblock ' + at(-4, 0, -3) + ' minecraft:chest[facing=north,type=left]{Items:[' + totemNbt + ']}')
+    rcon('setblock ' + at(-3, 0, -3) + ' minecraft:chest[facing=north,type=right]')
+    rcon('setblock ' + at(-3, 1, -3) + ' minecraft:hopper{Items:[' + totemNbt + ']}')
+    await sleep(2500)
+    check('container: a hopper does not push a second totem into the other half of a double chest',
+      totems(rcon('data get block ' + at(-3, 1, -3) + ' Items')) === 1 && totems(rcon('data get block ' + at(-3, 0, -3) + ' Items')) === 0,
+      rcon('data get block ' + at(-3, 0, -3) + ' Items'))
   }
 
   // 9. The Totem of Eternity saves you from any inventory slot, after a Totem of Undying in a hand, and turns dormant.
