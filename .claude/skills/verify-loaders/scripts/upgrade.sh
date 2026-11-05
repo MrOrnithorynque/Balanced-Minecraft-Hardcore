@@ -5,14 +5,15 @@
 # Two worktrees of its own (upgrade-old-<label>, upgrade-new-<label>) under <repo>/.claude/worktrees, the same locks as
 # branch.sh, port 25619 (RCON 25719; BMH_UPGRADE_PORT overrides). upgrade_bot.js gives the items of a long-time player on
 # the old server and checks what carried over on the new one. Results: $BMH_VERIFY_OUT/upgrade-<label>/.
-# Needs BMH_BOT_MODULES (see ../SKILL.md).
+# The bots' mineflayer installs itself (need_bots in lib.sh).
 set -u
 [ $# -eq 5 ] || { echo "usage: upgrade.sh <old origin branch or tag> <new origin branch or tag> <minecraft version> <loader> <label>" >&2; exit 2; }
 OLD=$1; NEW=$2; MCV=$3; L=$4; LABEL=$5
 SCRIPTS=$(cd "$(dirname "$0")" && pwd)
 BMH_PORT=${BMH_UPGRADE_PORT:-25619}   # lib.sh reads BMH_PORT
 . "$SCRIPTS/lib.sh"
-JH=$(jdk_for "$MCV")
+need_bots
+JH=$(jdk_for "$MCV") || exit 2
 OUT=$OUTROOT/upgrade-$LABEL; mkdir -p "$OUT"
 trap release EXIT
 

@@ -16,12 +16,11 @@ WT=$1; LABEL=$2; L=$3; DAYTIME=${4:-1000}; LEVELTYPE=${5:-minecraft:flat}; IMMED
 SCRIPTS=$(cd "$(dirname "$0")" && pwd)
 HOOK=$SCRIPTS/hook/death
 OUT=${BMH_VERIFY_OUT:-/private/tmp/bmh-verify}/death-$LABEL
-# No bot runs here, but lib.sh insists on the variable.
-export BMH_BOT_MODULES=${BMH_BOT_MODULES:-/nonexistent} BMH_PORT=${BMH_PORT:-25620} BMH_SESSION=death-$LABEL
+export BMH_PORT=${BMH_PORT:-25620} BMH_SESSION=death-$LABEL
 . "$SCRIPTS/lib.sh"
 [ "$(git -C "$WT" rev-parse --show-toplevel)" = "$WT" ] || { echo "tree guard failed for $WT"; exit 4; }
 MCV=$(sed -n 's/^minecraft_version=//p' "$WT/gradle.properties" | head -1 | tr -d '[:space:]')
-JH=$(jdk_for "$MCV")
+JH=$(jdk_for "$MCV") || exit 2
 SRC=$WT/common/src/main/java/github/mrornithorynque/bmh
 MIXINS=$WT/common/src/main/resources/bmh.mixins.json
 mkdir -p "$OUT"
