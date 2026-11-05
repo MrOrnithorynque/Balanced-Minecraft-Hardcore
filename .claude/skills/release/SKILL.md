@@ -1,13 +1,13 @@
 ---
 name: release
-description: Release a new version of Balanced Minecraft Hardcore to Modrinth and CurseForge, for every Minecraft version at once. Use when the user wants to release, publish, ship, tag or put out a new version of the mod, bump mod_version, or asks why a release did not show up on Modrinth or CurseForge, or wants a release's changelog posted to Discord.
+description: Release a new version of Balanced Minecraft Hardcore to CurseForge and a GitHub release (Modrinth is paused), for every Minecraft version at once, from this Mac. Use when the user wants to release, publish, ship, tag or put out a new version of the mod, bump mod_version, or asks why a release did not show up on Modrinth or CurseForge, or wants a release's changelog posted to Discord.
 ---
 
 # Releasing BMH
 
 A release is never "main only". The mod ships for every Minecraft version the repo supports, one branch per version (see the table in `.claude/CLAUDE.md`), and every one of those branches gets the same version number, the same changelog and its own tag.
 
-Publishing is automatic: pushing a tag named `mc-<minecraft_version>-v<mod_version>` runs `.github/workflows/publish.yml` on the tagged commit, which builds that commit and uploads every jar to **CurseForge, plus Modrinth when `MODRINTH_TOKEN` is set** (and one GitHub release) in one go: a Forge version (`<mc>-<mod>`), a Fabric version (`<mc>-<mod>-fabric`) and, on 1.20.4 and 1.21.1, a NeoForge version (`<mc>-<mod>-neoforge`). The 1.20.1 Forge version is also listed for NeoForge. One tag per version branch, so one release per Minecraft version and loader on each platform reached. Pushing a tag is the point of no return: the upload is public and cannot be cleanly taken back.
+Publishing runs from this Mac: `.claude/skills/release/publish_local.py`, once per version branch, on that branch's built release worktree. It uploads every jar to **CurseForge** (a Forge file, a Fabric file with Fabric API as a required dependency, and on 1.20.4 and 1.21.1 a NeoForge file; the 1.20.1 Forge file is also listed for NeoForge), creates one **GitHub release** per tag with every jar, and, for the 1.21.1 tag, posts the changelog on **Discord**. Modrinth is not published: its token answered 401 since 2026-11-04. GitHub Actions did this until 2026-11-05 (`publish.yml`); GitHub then locked the account's Actions over billing, so both workflows sit in `.github/disabled-workflows/` (its README says how to turn them back on). A tag no longer publishes anything by itself. An upload is public and cannot be cleanly taken back.
 
 Run every multi-line snippet below as a `bash` script, with absolute paths: write it to a file in the scratchpad and run `bash <file>`. A `#!/bin/bash` first line pasted into a Bash tool call does nothing, zsh runs the code and leaves a list such as `$B` unsplit (2026-11-04: the atomic push of step 5 died that way, nothing pushed). Also: shell variables do not survive between tool calls, and zsh reads `$b:gradle.properties` as `$b` plus the `:g`/`:r` modifiers (`dev-46.0adle.properties`). Always write `"${b}:path"`.
 
@@ -21,19 +21,19 @@ for b in main $(git for-each-ref --format='%(refname:short)' 'refs/heads/dev-*')
   echo "== $b behind/ahead: $(git rev-list --left-right --count "origin/${b}...${b}")"
   # dev-52.1.20 (1.21.1, and any later non-1.20.x branch) has its own sources: skip it here.
   [ "$b" = dev-52.1.20 ] || git diff --stat main "$b" -- . ':!forge/build.gradle' ':!gradle.properties' ':!README.md' ':!forge/src/main/resources/META-INF/mods.toml' ':!.vscode' | tail -1   # must print nothing
-  git cat-file -e "${b}:.github/workflows/publish.yml" 2>/dev/null || echo "   NO publish workflow on $b"
+  git cat-file -e "${b}:.github/workflows/publish.yml" 2>/dev/null && echo "   publish.yml still active on $b: port the move to .github/disabled-workflows first"
   git cat-file -e "${b}:CHANGELOG.md" 2>/dev/null || echo "   NO CHANGELOG.md on $b"
 done
-gh secret list    # CURSEFORGE_TOKEN required, MODRINTH_TOKEN and DISCORD_WEBHOOK_URL optional (see below)
+security find-generic-password -s bmh-curseforge-token >/dev/null 2>&1 && echo "CurseForge token: in the Keychain" || echo "CurseForge token: MISSING"; security find-generic-password -s bmh-discord-webhook >/dev/null 2>&1 && echo "Discord webhook: in the Keychain" || echo "Discord webhook: MISSING"; gh auth status
 ```
 
 - Every branch is level with `origin` (`0	0`). Anything ahead means unpushed work; anything behind means pull first. A branch never pushed yet (`dev-52.1.20` before its first push) has no `origin/` ref and prints a fatal here. Steps 3 and 5 start from `origin/<b>`, so push a new branch once before step 3: `git -C /Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore push -u origin <b>`.
 - Everything but `forge/build.gradle`, `gradle.properties`, `README.md` and `.vscode` is identical on every 1.20.x branch (`mods.toml` excluded: `dev-46.0.14` lacks a commented-out template block, nothing else). If a branch differs, a change was not ported: port it (cherry-pick from `main`) before releasing. `dev-52.1.20` (1.21.1) has its own sources and is skipped by that check: compare `git log` of `main` and of `dev-52.1.20` since the last `mc-1.20.4-v*` tag instead, and make sure every change since then reached it (ported by hand where the 1.21.1 code differs, see `.claude/CLAUDE.md`).
-- The publish workflow exists **on every branch**. A tag only publishes if the workflow file is in the tagged commit. A branch without it releases nothing, silently.
 - Step 5 needs `matrix.sh`, which needs mineflayer. The variable `BMH_BOT_MODULES` is not saved anywhere: find an install (`ls <dir>/node_modules/mineflayer`, see the `verify-loaders` skill, Setup). If there is none, ask the user now whether to install it from npm, not after the builds.
 - Other sessions push to these branches too. Base the release on `origin/<b>` as fetched now, and fetch again right before step 5: a branch that moved means a rebase first.
-- `CURSEFORGE_TOKEN` is set. If `MODRINTH_TOKEN` is missing, `mc-publish` **silently skips Modrinth** (it skips every platform whose token is empty) and the run still goes green: tell the user and get their OK before tagging. Modrinth can get the version later with the manual trigger in step 8. Never set secrets yourself: the user does. A token that Modrinth refuses is worse than none, because each publish step then ends red (`AggregateError`), even with `modrinth-fail-mode: skip`, which still lets CurseForge and GitHub get the jars: since 2026-11-04 `MODRINTH_TOKEN` is set but answers `401 You don't have permission to upload this version!` for project `dc7VO9FK`. Check the last Modrinth run (`gh run list --workflow publish.yml`) and tell the user before tagging.
-- `DISCORD_WEBHOOK_URL` is set if the user wants the changelog on their Discord server. The `mc-1.21.1-v*` tag posts it there, once per release, when that run's build succeeded (also when an upload failed, because the Modrinth 401 makes every upload step red). Without the secret the step logs a warning and posts nothing; the run stays green.
+- The CurseForge author token is in the macOS Keychain (service `bmh-curseforge-token`), and the Discord webhook URL (service `bmh-discord-webhook`) if the user wants the changelog on Discord. Never handle a secret yourself: the user stores it once in their own terminal, `security add-generic-password -a "$USER" -s bmh-curseforge-token -w` (the command asks for the value; it never shows in the shell history). The token comes from https://authors.curseforge.com/#/settings/api-tokens. The webhook URL comes from the Discord server: the #changelog channel's settings, Integrations, Webhooks, Copy URL (a GitHub secret cannot be read back). `gh auth status` shows a login that can create releases on the repository.
+- Modrinth gets nothing from this release path: tell the user before step 6.
+- `.github/workflows/publish.yml` is in no branch (the loop above prints a line otherwise). A branch that still has it would publish twice once GitHub Actions works again: the tag push and the local run.
 
 ## 1. Pick the version
 
@@ -58,7 +58,7 @@ In one commit in `$W/main`:
 - `CHANGELOG.md`: rename `## [Unreleased]` to `## [<version>] - <YYYY-MM-DD>` and add a fresh empty `## [Unreleased]` above it. If the section is empty or thin, write it from `git log <last tag>..HEAD` (the last `mc-1.20.4-v*` tag): one line per change a player would notice, in player words.
 - If a recipe changed since the last release, regenerate its README picture from the recipe JSON, in `$W/main`: `python3 -I .claude/skills/release/make_grids.py resources` (`git diff --stat resources` shows which pictures moved).
 
-The workflow publishes that `## [<version>]` section, and only that section, as the changelog on Modrinth, CurseForge and the GitHub release. Players read it there, so it must stand on its own. If the heading is missing or the section is empty, the run fails before building.
+`publish_local.py` publishes that `## [<version>]` section, and only that section, as the changelog on CurseForge, the GitHub release and, for 1.21.1, Discord. Players read it there, so it must stand on its own. If the heading is missing or the section is empty, the script stops before it checks or uploads anything.
 
 Commit message: `release: <version>`.
 
@@ -135,9 +135,9 @@ No force push. If the push is rejected, someone pushed meanwhile: stop and look.
 
 Run `bash .claude/skills/verify-loaders/scripts/matrix.sh` (as the `verify-loaders` skill says); every cell green before tagging.
 
-## 6. Tag every version branch (CurseForge, plus Modrinth with a token)
+## 6. Tag every version branch
 
-One annotated tag per `dev-*` branch, named from **that branch's** `gradle.properties` (the workflow fails a tag that does not match it):
+One annotated tag per `dev-*` branch, named from **that branch's** `gradle.properties` (`publish_local.py` refuses a tag that does not match it or that is not on the worktree's commit):
 
 ```bash
 #!/bin/bash
@@ -152,60 +152,34 @@ for b in dev-52.1.20 dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14; d
 done
 ```
 
-- Tag `origin/<b>` after a fetch, and only where it is the commit step 5 pushed. Never tag the local branch: the one checked out in the main checkout still points at its old commit, which would give the old version's tag.
+- Tag `origin/<b>` after a fetch, and only where it is the commit step 5 pushed. Never tag the local branch: the one checked out in the main checkout still points at its old commit.
 - Tag the `dev-*` branches, not `main`: `main` is the same Minecraft version as `dev-49.0.31`, and the same tag name cannot sit on two commits.
-- Format is exactly `mc-<mc>-v<mod>`. Any `mc-*` tag starts the workflow, but only a name matching the commit's `gradle.properties` publishes. The old `mc-1.20.2/v1.0.0` (with a slash) was a mistake and never triggers it.
+- Format is exactly `mc-<mc>-v<mod>`.
 
-**Before pushing, show the user the list of tags and the commit each points to, and get a clear yes.** Then push them **one tag per `git push`**. GitHub creates no event at all when more than three tags are pushed at once: no run starts, nothing is published, and nothing turns red.
+**Show the user the list of tags and the commit each points to, and get a clear yes**: a tag is public and slow to move. Then push them (`git push origin <tag> ...`): the GitHub release of step 7 needs its tag on GitHub, and the script checks it before any upload. With the workflows disabled, a tag push starts nothing, so they can go in one push.
 
-```bash
-for t in mc-1.20-v<mod> mc-1.20.1-v<mod> mc-1.20.2-v<mod> mc-1.20.3-v<mod> mc-1.20.4-v<mod> mc-1.21.1-v<mod>; do
-  git push origin "$t"
-done
-```
+## 7. Publish from this Mac
 
-## 7. Check the publish runs
-
-Each run takes about 2 to 2.5 minutes.
+First a dry run on every worktree. It uploads and posts nothing; it runs `jarcheck.py`, then prints each file, its CurseForge name and game version names (with the token, how many CurseForge game versions carry each name: 0 means a typo, and a real run stops on it), the GitHub release and the Discord embed:
 
 ```bash
-gh run list --workflow publish.yml --limit 10
-gh run view <run-id> --log | grep "Successfully published the assets to"   # which platforms were reached
-gh run view <run-id> --log-failed     # for any failure
+W=<absolute scratchpad path>/wt
+# Each worktree's own copy: it carries the release commit (the main checkout may not have the script yet).
+for b in dev-52.1.20 dev-49.0.31 dev-49.0.2 dev-48.1.0 dev-47.2.0 dev-46.0.14; do python3 -I "$W/$b/.claude/skills/release/publish_local.py" "$W/$b" --dry-run; done
 ```
 
-- Green only means nothing failed. The `Successfully published the assets to ...` lines (one per loader step) say where each jar actually went (e.g. `CurseForge, GitHub` when Modrinth was skipped for lack of a token). Report that list per Minecraft version and loader, not "published everywhere".
-- The loader steps run independently (Fabric and NeoForge run even when Forge failed). If one failed, the others' versions are already public. Never re-run the whole run.
-- A failed step can have published too. It uploads to one platform after the other and logs `Successfully published assets to <platform>` after each one (`gh run view <run-id> --log | grep -F 'Publish Forge' | grep -E 'Uploading assets|Successfully published assets|HttpError'`). A GitHub 5xx can also come after the file went through, so check the release as well: `gh release view <tag> --json assets`, then `gh release download` the jar and `unzip -tq` it. In 1.5.0 the 1.20.4 Forge step reached CurseForge; then GitHub answered 502, mc-publish retried and the jar went through, and a 500 came after it: nothing was missing. Publish only what is really missing, with step 8 (`-f loader=fabric`, `forge` or `neoforge`, ticking only the missing platforms).
-- A red "Tag ... does not match gradle.properties" run means the tag was made on the wrong branch or before the bump.
-- A red "CHANGELOG.md has no non-empty '## [<version>]' section" run means step 2 did not reach that branch: fix the changelog on every branch, push, then move the tag (delete and re-create it, after asking).
-- No run at all for a tag means it went out in a push with more than three tags: delete it on the remote (`git push origin :refs/tags/<tag>`, after asking) and push it again alone.
-- The `mc-1.21.1-v*` run ends with `Post to Discord`. `Posted the <mod> changelog to Discord.` in its log means the post went out. The step is skipped when the build failed. Without `DISCORD_WEBHOOK_URL` it runs and posts nothing (a warning in the log). In both cases post with step 9.
+**Show the user the dry run and get a clear yes**, then run the same loop without `--dry-run`. Each line `PUBLISHED curseforge <loader>: file id <n>`, `PUBLISHED github release <tag>` and `PUBLISHED discord` says what went out. On an `ERROR` line (a refused upload shows the server's answer) nothing more is sent for that worktree: fix the cause, then publish only what is missing with step 8 (a second full run uploads the CurseForge files again).
 
-Report each Minecraft version's result to the user, then clean up the scratch worktrees (`git worktree remove`).
+Then check: the CurseForge files page (https://www.curseforge.com/minecraft/mc-mods/balanced-minecraft-hardcore/files) lists each new file once (a new file waits for CurseForge's review before it shows to players), and `gh release view <tag> --repo MrOrnithorynque/Balanced-Minecraft-Hardcore --json assets` lists the jars. Report each Minecraft version and loader. Keep the scratch worktrees until nothing is left to publish (steps 8 and 9 run on them), then remove them (`git worktree remove`).
 
-## 8. Publishing one platform late
+## 8. Publishing one platform or one jar late
 
-When a platform was skipped (Modrinth without a token) or failed, **do not re-run the tag's run**: it would upload again to every platform that already has the file (duplicate CurseForge files). Use the manual trigger instead, one run per tag, choosing only the missing platform:
+`--only curseforge`, `--only github` or `--only discord` (comma separated for several), and `--loader forge`, `fabric` or `neoforge` for one jar. The GitHub step uploads to the release when it exists already (`--clobber` replaces a jar of the same name), so it is safe to repeat; a CurseForge upload is not: each run adds a file. Confirm the list with the user first: it publishes.
 
-```bash
-for t in mc-1.20-v<mod> mc-1.20.1-v<mod> mc-1.20.2-v<mod> mc-1.20.3-v<mod> mc-1.20.4-v<mod> mc-1.21.1-v<mod>; do
-  gh workflow run publish.yml --ref main -f tag="$t" -f modrinth=true -f curseforge=false -f github=false
-done
-```
+## 9. Discord
 
-- Add `-f loader=forge`, `fabric` or `neoforge` to publish one jar only (default `all`; it was `both` before the NeoForge build, so a manual run with `--ref main` takes the new names). A tag from before the Fabric port only has the Forge jar, in `build/libs`; the workflow detects that layout, but `-f loader=fabric` on such a tag publishes nothing and still goes green: use `forge` or `all` there.
-- The manual trigger exists only once this workflow is on `main` (it arrived with the Fabric port); before that, `gh workflow run` fails.
-- `--ref main` on purpose: the workflow definition comes from `main` (older tags predate the trigger), and the job checks out and builds the tagged commit itself.
-- Confirm the tag list and the platform with the user first: it publishes.
-- Check each run with step 7. A platform whose token is still missing is skipped, so `No valid platform tokens found` in the log means nothing was published.
+Only the 1.21.1 worktree posts, and only with `--loader all`: `python3 -I "$W/dev-52.1.20/.claude/skills/release/publish_local.py" "$W/dev-52.1.20" --only discord`. Without the webhook in the Keychain it prints `SKIPPED discord` and posts nothing. Image lines leave the text; the first image becomes the embed's picture (Discord animates a GIF there). Confirm with the user first: the post is public, and a second run posts a second message.
 
-## 9. Posting to Discord late
+## Turning GitHub Actions back on
 
-When the `mc-1.21.1-v*` run posted nothing (a failed build, or no `DISCORD_WEBHOOK_URL` yet), post with the manual trigger. It needs only the changelog of the tag. It uploads nothing (every platform is off by default), but it still builds the tag:
-
-```bash
-gh workflow run publish.yml --ref main -f tag=mc-1.21.1-v<mod> -f discord=true
-```
-
-- Confirm with the user first: the post is public, and a second run posts a second message.
+When the account's Actions work again, move the two files back on every branch (`git mv .github/disabled-workflows/build.yml .github/disabled-workflows/publish.yml .github/workflows/`, then delete `.github/disabled-workflows`), and the tag push publishes again; push the tags one per `git push` then (GitHub starts no run for more than three tags at once), Modrinth included once its token works. The old steps 6 to 9 for the workflow are in the git history of this file (before 2026-11-05).
