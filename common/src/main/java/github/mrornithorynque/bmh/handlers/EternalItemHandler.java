@@ -26,6 +26,8 @@ public class EternalItemHandler {
 
         Player player = serverPlayer;
 
+        TotemOfEternityHandler.dropExtraTotems(serverPlayer);
+
         if (!ruleApplies(serverPlayer))
             return;
 
