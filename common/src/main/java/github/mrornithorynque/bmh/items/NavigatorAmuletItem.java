@@ -5,7 +5,8 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import github.mrornithorynque.bmh.handlers.AmuletHome;
+import github.mrornithorynque.bmh.handlers.AmuletPointSignal;
+import github.mrornithorynque.bmh.handlers.AmuletPoints;
 import github.mrornithorynque.bmh.handlers.AmuletReading;
 
 import net.minecraft.ChatFormatting;
@@ -26,14 +27,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * A compass that only knows north (the needle is a client item property, see client/AmuletCompass),
- * and a navigator's tool: sneak and use it on a bed or a lodestone to set Home, use it at night under
- * open sky to read the stars toward Home. A reading costs one of the 3 starlight charges, back at
- * each nightfall.
+ * and a navigator's tool: sneak and use it on a bed or a lodestone to name a point there (or rename or
+ * remove it), use it at night under open sky to read the stars toward every point. A reading costs one
+ * of the 3 starlight charges, back at each nightfall.
  */
 public class NavigatorAmuletItem extends Item {
 
@@ -42,8 +42,8 @@ public class NavigatorAmuletItem extends Item {
     private static final Style STARLIGHT_STYLE = Style.EMPTY.withColor(STARLIGHT_COLOR);
 
     private static final int READING_COOLDOWN_TICKS = 40;
-    // Keeps a held right click from setting Home, with its chime, four times a second.
-    private static final int HOME_COOLDOWN_TICKS = 20;
+    // Keeps a held right click from opening the naming screen again and again.
+    private static final int POINT_COOLDOWN_TICKS = 20;
 
     public NavigatorAmuletItem(Item.Properties properties) {
 
@@ -52,7 +52,10 @@ public class NavigatorAmuletItem extends Item {
         AmuletReading.logSelfCheck();
     }
 
-    /** Sneak and use on a bed or a lodestone, in the Overworld: that block is now Home. */
+    /**
+     * Sneak and use on a bed or a lodestone, in the Overworld: the server opens the naming screen of that block's point.
+     * The point changes only when the player confirms the screen (handlers/AmuletPointCommand).
+     */
     @Override
     public InteractionResult useOn(@Nonnull UseOnContext context) {
 
@@ -63,8 +66,8 @@ public class NavigatorAmuletItem extends Item {
         boolean bed = state.is(BlockTags.BEDS);
 
         // Anything else falls through to use(): a reading. Both sides decide the same here, so the
-        // client does not also send a use() for a click that just set Home.
-        if (player == null || !context.isSecondaryUseActive() || !(bed || state.is(Blocks.LODESTONE))) {
+        // client does not also send a use() for a click that opens the screen.
+        if (player == null || !context.isSecondaryUseActive() || !AmuletPoints.canHold(state)) {
             return InteractionResult.PASS;
         }
 
@@ -72,14 +75,12 @@ public class NavigatorAmuletItem extends Item {
 
             if (level.dimension() == Level.OVERWORLD) {
 
-                AmuletHome.set(serverPlayer, pos);
-                level.playSound(null, player.getX(), player.getY(), player.getZ(),
-                        SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0F, 0.7F);
-                serverPlayer.displayClientMessage(
-                        Component.translatable(bed ? "bmh.amulet.home_set.bed" : "bmh.amulet.home_set.lodestone"), true);
-                serverPlayer.getCooldowns().addCooldown(this, HOME_COOLDOWN_TICKS);
+                AmuletPoints.Point point = AmuletPoints.at(serverPlayer, pos, state);
+                AmuletPointSignal.open(serverPlayer, pos, point == null ? null : point.name(),
+                        AmuletPoints.get(serverPlayer).size(), AmuletPoints.max(), bed);
+                serverPlayer.getCooldowns().addCooldown(this, POINT_COOLDOWN_TICKS);
             } else {
-                serverPlayer.displayClientMessage(Component.translatable("bmh.amulet.home_overworld"), true);
+                serverPlayer.displayClientMessage(Component.translatable("bmh.point.overworld"), true);
             }
         }
 
@@ -115,6 +116,13 @@ public class NavigatorAmuletItem extends Item {
         }
 
         AmuletReading.record(serverPlayer, itemStack);
+
+        // One chat line per point, for this player only: its name and its direction, never its coordinates.
+        for (AmuletPoints.Point point : AmuletPoints.get(serverPlayer)) {
+            float azimuth = AmuletReading.azimuth(player.getX(), player.getZ(), point.pos().getX() + 0.5, point.pos().getZ() + 0.5);
+            serverPlayer.sendSystemMessage(Component.translatable("bmh.point.line", point.name(),
+                    Component.translatable(AmuletReading.directionKey(azimuth))).withStyle(STARLIGHT_STYLE));
+        }
 
         BlockPos pos = serverPlayer.blockPosition();
 
