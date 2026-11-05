@@ -73,14 +73,14 @@ for L in $LOADERS; do
   if [ $UP = 1 ]; then
     say "$L server up after $(( $(date +%s) - BOOT_START )) s"
     # The amulet scenario of this skill checks the named points. A tree from 1.5.0 to 1.6.x (one Home) runs the Home
-    # version it carries in docs/redesign; a tree before 1.5.0 has no redesigned amulet and gets amulet=-.
+    # version kept on main in docs/redesign (dev-52.1.20 has no docs/redesign); a tree before 1.5.0 gets amulet=-.
     AMBOT=""
     if [ -f "$WT/$BMH_SRC/handlers/AmuletPoints.java" ]; then
       AMBOT=$SCRIPTS/amulet_scenario.js
     elif grep -q 'bmh_starlight' "$WT/$BMH_SRC/handlers/AmuletReading.java" 2>/dev/null \
-        && [ -f "$WT/docs/redesign/c-amulet-tools/amulet_scenario.js" ]; then
+        && git -C "$REPO" show main:docs/redesign/c-amulet-tools/amulet_scenario.js > "$OUT/amulet_scenario_home.js" 2>/dev/null; then
       AMBOT=$OUT/amulet_scenario_home.js
-      cp "$WT/docs/redesign/c-amulet-tools/amulet_scenario.js" "$AMBOT"; cp "$SCRIPTS/rcon.py" "$OUT/rcon.py"
+      cp "$SCRIPTS/rcon.py" "$OUT/rcon.py"
     fi
     if [ -n "$AMBOT" ]; then
       with_timeout 600 node "$AMBOT" $PORT "$MCV" > "$OUT/amulet-$L.log" 2>&1
