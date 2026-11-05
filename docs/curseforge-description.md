@@ -42,7 +42,7 @@ A copper compass that only knows north: its needle always points north in the Ov
 
 ## Eternal Items
 
-Eternal Items stay in your inventory when you die. Each death costs the Eternal tools 7% of their durability. They are very strong, so there is a price: you can carry only one type at a time, and each one you carry sends your next respawn farther away.
+Eternal Items stay in your inventory when you die. Each death costs the Eternal tools 7% of their durability, but they never break. They are very strong, so there is a price: you can carry only one type at a time, and each one you carry sends your next respawn farther away.
 
 On the ground, an Eternal Item never despawns, and explosions and cactus do not destroy it. The void still does.
 
@@ -62,7 +62,7 @@ Carried anywhere in your inventory, the totem saves you from death once, with Re
 
 ### Eternal tools
 
-Upgrade a netherite sword, axe or pickaxe at a smithing table: Totem of Eternal Life in the template slot, then the tool, then an echo shard. The tool keeps its enchantments, its name and its wear. Repair it at an anvil with gold blocks. Each tool has its own ability:
+Upgrade a netherite sword, axe or pickaxe at a smithing table: Totem of Eternal Life in the template slot, then the tool, then an echo shard. The tool keeps its enchantments, its name and its wear. Eternal tools never break. At their last point of durability they are worn out: they deal half damage, mine at the speed of a stone tool and lose their ability. Repair them at an anvil with gold blocks (always 15 levels, and never "Too Expensive") or with Mending. Each tool has its own ability:
 
 - **Eternal Sword, Echo Strike:** a full-strength hit echoes onto the nearest other hostile mob within 5 blocks, for half the damage.
 - **Eternal Axe, Smash:** a hit while you fall lands harder the longer the fall, up to 3 times the damage, and the blow halves your fall damage.
