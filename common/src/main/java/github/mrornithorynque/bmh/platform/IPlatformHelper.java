@@ -30,4 +30,7 @@ public interface IPlatformHelper {
     int minDistanceFromBed();
 
     int maxDistanceFromBed();
+
+    /** The most points a player can keep on the Navigator's Amulet. */
+    int maxAmuletPoints();
 }
