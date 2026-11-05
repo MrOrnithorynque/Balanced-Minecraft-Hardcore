@@ -10,8 +10,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import github.mrornithorynque.bmh.handlers.EternalWear;
 import github.mrornithorynque.bmh.handlers.TotemAwakeningHandler;
+import github.mrornithorynque.bmh.items.IEternalItem;
 
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.DataSlot;
@@ -29,6 +31,10 @@ import net.minecraft.world.item.ItemStack;
  * A repair of an Eternal tool with gold blocks always costs 15 levels and keeps the prior work penalty
  * of the tool. The head puts the penalty aside, so vanilla never finds the repair too expensive. The
  * return puts the penalty back on the tool and on the result, and sets the cost. The client does the same.
+ * <p>
+ * When the player takes the result, the Eternal Item on the left must go. Some mod combinations stop vanilla
+ * from emptying the left slot (Easy Anvils with Stackables), and the item stays there as a free copy (GitHub
+ * issue 5). onTake checks the slot right after vanilla empties it, before the anvil can break.
  */
 @Mixin(AnvilMenu.class)
 public abstract class B_AnvilMenuMixin extends ItemCombinerMenu {
@@ -99,5 +105,17 @@ public abstract class B_AnvilMenuMixin extends ItemCombinerMenu {
         EternalWear.setRepairPenalty(result, penalty);
         this.cost.set(EternalWear.GOLD_REPAIR_COST);
         this.broadcastChanges();
+    }
+
+    // The first read of repairItemCountCost comes right after vanilla empties the left slot, on every loader
+    // and version. The anvil can break later in onTake: the anvil block entity of Easy Anvils then drops what
+    // it holds, so the check must come before that.
+    @Inject(method = "onTake", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/world/inventory/AnvilMenu;repairItemCountCost:I", ordinal = 0))
+    private void bmh$takeEternalFromLeft(Player player, ItemStack stack, CallbackInfo ci) {
+
+        if (this.inputSlots.getItem(0).getItem() instanceof IEternalItem) {
+            this.inputSlots.setItem(0, ItemStack.EMPTY);
+        }
     }
 }
