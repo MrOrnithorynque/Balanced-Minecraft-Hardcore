@@ -17,8 +17,7 @@ import net.minecraft.world.item.ItemStack;
  * never committed: branch.sh copies it into its verify worktree and removes it at the end.
  * Only with BMH_SMOKE=1 in a singleplayer runClient: gives every BMH item, takes a real star reading at midnight (client
  * use, server item logic, client sky renderer), holds the Eternal Sword, lets the Totem of Eternity save the player,
- * saves four screenshots and quits the game. Every step logs a
- * "[BMH-SMOKE]" line.
+ * saves four screenshots and quits the game. Every step logs a "[BMH-SMOKE]" line.
  */
 public final class SmokeClient {
 
