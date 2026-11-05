@@ -32,13 +32,19 @@ A copper compass that only knows north: its needle always points north in the Ov
 - **Read the stars:** at night, under open sky and without rain, use it. Your coordinates show on the action bar, and a line of real stars lights up in the sky, from overhead down to the horizon, toward each of your points, and stays there for 30 seconds. Look at the last star of a line through a spyglass to see the name of its point.
 - A reading costs one of its 3 starlight charges. The charges come back at every nightfall.
 
-![A star reading: your coordinates, and a line of stars toward Home](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_star_reading.png)
+![A star reading: one line of stars toward each named point](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_points_trace.gif)
+
+![Through a spyglass, the last star of a line shows the name of its point](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_points_spyglass.gif)
+
+![The naming screen of a point](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_points_screen.png)
 
 ![Navigator's Amulet recipe](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/navigator_amulet_crafting_grid.png)
 
 ## Eternal Items
 
 Eternal Items stay in your inventory when you die. Each death costs the Eternal tools 7% of their durability. They are very strong, so there is a price: you can carry only one type at a time, and each one you carry sends your next respawn farther away.
+
+On the ground, an Eternal Item never despawns, and explosions and cactus do not destroy it. The void still does.
 
 ### Totem of Eternal Life
 
@@ -47,6 +53,10 @@ The heart of every Eternal Item, made in three steps:
 1. Craft a **Dormant Totem of Eternal Life**.
 2. Craft an **Echo Heart** from a nether star, echo shards and crying obsidian.
 3. Awaken the totem at an anvil: Dormant Totem on the left, Echo Heart on the right, for 39 levels.
+
+Carried anywhere in your inventory, the totem saves you from death once, with Regeneration, Absorption and Fire Resistance. A Totem of Undying in your hand is used first. After it saves you, it turns back into a Dormant Totem: awaken it again with a new Echo Heart. You carry one at most, and a chest, a shulker box or any other container holds one at most.
+
+![The Totem of Eternity saves you from your inventory](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/totem_of_eternity_save.gif)
 
 ![Dormant Totem recipe](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/dormant_totem_crafting_grid.png) ![Echo Heart recipe](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/echo_heart_crafting_grid.png) ![Awakening at the anvil](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/totem_of_eternity_anvil.png)
 
