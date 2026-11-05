@@ -124,6 +124,17 @@ jobs:
         id: build
         run: chmod +x gradlew && ./gradlew build
 
+      # The jar checks of the verify-loaders skill (mixins, refmap, data folders, no test class shipped).
+      # A tag from before the skill or before the Fabric port has no jarcheck.py: it publishes as before.
+      - name: Check the jars
+        id: jars
+        run: |
+          if [ -f .claude/skills/verify-loaders/scripts/jarcheck.py ] && [ -d fabric ]; then
+            python3 -I .claude/skills/verify-loaders/scripts/jarcheck.py "$GITHUB_WORKSPACE" "${{ steps.props.outputs.mc }}" "$JAVA_HOME"
+          else
+            echo "No jarcheck.py in this tag: skipped."
+          fi
+
       # A platform with an empty token is skipped by mc-publish: a tag push sends every token,
       # a manual run only the ticked ones. github.event.inputs is always a string (empty on a
       # push), so the comparisons never mistake a "false" for true.
@@ -154,7 +165,7 @@ jobs:
       # failed (!cancelled() replaces the implicit success()), so one loader never blocks the other.
       - name: Publish Fabric
         if: >-
-          !cancelled() && steps.build.outcome == 'success' && steps.props.outputs.fabric == 'true'
+          !cancelled() && steps.build.outcome == 'success' && steps.jars.outcome == 'success' && steps.props.outputs.fabric == 'true'
           && (github.event_name == 'push' || github.event.inputs.loader == 'all' || github.event.inputs.loader == 'fabric')
         uses: Kira-NT/mc-publish@v3
         with:
@@ -179,7 +190,7 @@ jobs:
       # Same as Fabric: runs even if another loader's step failed.
       - name: Publish NeoForge
         if: >-
-          !cancelled() && steps.build.outcome == 'success' && steps.props.outputs.neoforge == 'true'
+          !cancelled() && steps.build.outcome == 'success' && steps.jars.outcome == 'success' && steps.props.outputs.neoforge == 'true'
           && (github.event_name == 'push' || github.event.inputs.loader == 'all' || github.event.inputs.loader == 'neoforge')
         uses: Kira-NT/mc-publish@v3
         with:
@@ -209,7 +220,7 @@ jobs:
       - name: Post to Discord
         if: >-
           !cancelled() && (
-            (github.event_name == 'push' && steps.build.outcome == 'success' && steps.props.outputs.mc == '1.21.1')
+            (github.event_name == 'push' && steps.build.outcome == 'success' && steps.jars.outcome == 'success' && steps.props.outputs.mc == '1.21.1')
             || (steps.changelog.outcome == 'success' && github.event.inputs.discord == 'true'))
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
