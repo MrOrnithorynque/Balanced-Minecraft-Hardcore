@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release a new version of Balanced Minecraft Hardcore to Modrinth and CurseForge, for every Minecraft version at once. Use when the user wants to release, publish, ship, tag or put out a new version of the mod, bump mod_version, or asks why a release did not show up on Modrinth or CurseForge.
+description: Release a new version of Balanced Minecraft Hardcore to Modrinth and CurseForge, for every Minecraft version at once. Use when the user wants to release, publish, ship, tag or put out a new version of the mod, bump mod_version, or asks why a release did not show up on Modrinth or CurseForge, or wants a release's changelog posted to Discord.
 ---
 
 # Releasing BMH
@@ -24,7 +24,7 @@ for b in main $(git for-each-ref --format='%(refname:short)' 'refs/heads/dev-*')
   git cat-file -e "${b}:.github/workflows/publish.yml" 2>/dev/null || echo "   NO publish workflow on $b"
   git cat-file -e "${b}:CHANGELOG.md" 2>/dev/null || echo "   NO CHANGELOG.md on $b"
 done
-gh secret list    # CURSEFORGE_TOKEN required, MODRINTH_TOKEN optional (see below)
+gh secret list    # CURSEFORGE_TOKEN required, MODRINTH_TOKEN and DISCORD_WEBHOOK_URL optional (see below)
 ```
 
 - Every branch is level with `origin` (`0	0`). Anything ahead means unpushed work; anything behind means pull first. A branch never pushed yet (`dev-52.1.20` before its first push) has no `origin/` ref and prints a fatal here. Steps 3 and 5 start from `origin/<b>`, so push a new branch once before step 3: `git -C /Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore push -u origin <b>`.
@@ -32,7 +32,8 @@ gh secret list    # CURSEFORGE_TOKEN required, MODRINTH_TOKEN optional (see belo
 - The publish workflow exists **on every branch**. A tag only publishes if the workflow file is in the tagged commit. A branch without it releases nothing, silently.
 - Step 5 needs `matrix.sh`, which needs mineflayer. The variable `BMH_BOT_MODULES` is not saved anywhere: find an install (`ls <dir>/node_modules/mineflayer`, see the `verify-loaders` skill, Setup). If there is none, ask the user now whether to install it from npm, not after the builds.
 - Other sessions push to these branches too. Base the release on `origin/<b>` as fetched now, and fetch again right before step 5: a branch that moved means a rebase first.
-- `CURSEFORGE_TOKEN` is set. If `MODRINTH_TOKEN` is missing, `mc-publish` **silently skips Modrinth** (it skips every platform whose token is empty) and the run still goes green: tell the user and get their OK before tagging. Modrinth can get the version later with the manual trigger in step 8. Never set secrets yourself: the user does. A token that Modrinth refuses is worse than none, because `publish.yml` runs Modrinth with `fail-mode: fail`: since 2026-11-04 `MODRINTH_TOKEN` is set but answers `401 You don't have permission to upload this version!` for project `dc7VO9FK`. Check the last Modrinth run (`gh run list --workflow publish.yml`) and tell the user before tagging.
+- `CURSEFORGE_TOKEN` is set. If `MODRINTH_TOKEN` is missing, `mc-publish` **silently skips Modrinth** (it skips every platform whose token is empty) and the run still goes green: tell the user and get their OK before tagging. Modrinth can get the version later with the manual trigger in step 8. Never set secrets yourself: the user does. A token that Modrinth refuses is worse than none, because each publish step then ends red (`AggregateError`), even with `modrinth-fail-mode: skip`, which still lets CurseForge and GitHub get the jars: since 2026-11-04 `MODRINTH_TOKEN` is set but answers `401 You don't have permission to upload this version!` for project `dc7VO9FK`. Check the last Modrinth run (`gh run list --workflow publish.yml`) and tell the user before tagging.
+- `DISCORD_WEBHOOK_URL` is set if the user wants the changelog on their Discord server. The `mc-1.21.1-v*` tag posts it there, once per release, when that run's build succeeded (also when an upload failed, because the Modrinth 401 makes every upload step red). Without the secret the step logs a warning and posts nothing; the run stays green.
 
 ## 1. Pick the version
 
@@ -179,6 +180,7 @@ gh run view <run-id> --log-failed     # for any failure
 - A red "Tag ... does not match gradle.properties" run means the tag was made on the wrong branch or before the bump.
 - A red "CHANGELOG.md has no non-empty '## [<version>]' section" run means step 2 did not reach that branch: fix the changelog on every branch, push, then move the tag (delete and re-create it, after asking).
 - No run at all for a tag means it went out in a push with more than three tags: delete it on the remote (`git push origin :refs/tags/<tag>`, after asking) and push it again alone.
+- The `mc-1.21.1-v*` run ends with `Post to Discord`. `Posted the <mod> changelog to Discord.` in its log means the post went out. The step is skipped when the build failed. Without `DISCORD_WEBHOOK_URL` it runs and posts nothing (a warning in the log). In both cases post with step 9.
 
 Report each Minecraft version's result to the user, then clean up the scratch worktrees (`git worktree remove`).
 
@@ -197,3 +199,13 @@ done
 - `--ref main` on purpose: the workflow definition comes from `main` (older tags predate the trigger), and the job checks out and builds the tagged commit itself.
 - Confirm the tag list and the platform with the user first: it publishes.
 - Check each run with step 7. A platform whose token is still missing is skipped, so `No valid platform tokens found` in the log means nothing was published.
+
+## 9. Posting to Discord late
+
+When the `mc-1.21.1-v*` run posted nothing (a failed build, or no `DISCORD_WEBHOOK_URL` yet), post with the manual trigger. It needs only the changelog of the tag. It uploads nothing (every platform is off by default), but it still builds the tag:
+
+```bash
+gh workflow run publish.yml --ref main -f tag=mc-1.21.1-v<mod> -f discord=true
+```
+
+- Confirm with the user first: the post is public, and a second run posts a second message.
