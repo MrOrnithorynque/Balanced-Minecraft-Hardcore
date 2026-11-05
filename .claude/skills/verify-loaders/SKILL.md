@@ -83,7 +83,7 @@ Proof that the suite catches real bugs (2026-11-05): on the release tag `mc-1.20
 
 ## CI
 
-`.github/workflows/build.yml` builds every jar and runs `jarcheck.py` on each push to `main` or a `dev-*` branch: a red run is a build that does not compile or a jar that fails a check (`jarcheck.py` exits 1 on any FAIL). It starts no Minecraft: the servers, bots and clients run here. `publish.yml` runs the same `jarcheck.py` on a tag before it uploads anything (a tag from before this skill is not checked).
+None at the moment: GitHub locked the account's Actions over billing on 2026-11-05, so `build.yml` (every jar and `jarcheck.py` on each push) and `publish.yml` sit in `.github/disabled-workflows/`. Every check runs here, on this Mac. The `release` skill's `publish_local.py` runs `jarcheck.py` before it uploads anything (`jarcheck.py` exits 1 on any FAIL).
 
 ## Rules the bots learned
 
