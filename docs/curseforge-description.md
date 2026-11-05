@@ -1,36 +1,31 @@
 ![Balanced Minecraft Hardcore](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/bmh_banner.png)
 
-# Balanced Minecraft Hardcore
+Hardcore is too punishing: one death and your world is gone. Balanced Minecraft Hardcore (BMH) is the middle ground between normal Minecraft and Hardcore. When you die, you keep your world, but you wake up far away from home.
 
-**Death is not the end of the run. It is the start of a long walk home.**
+You can go back to where you were. It takes a long time, and you can die again on the way. Or you can start a new adventure in the same world. The **Eternal Items** you carry stay with you and give you a head start.
 
-Balanced Minecraft Hardcore (BMH) sits between normal Minecraft and Hardcore. When you die, you do not lose the world: you wake up thousands of blocks from your bed, with only what you could protect. The harder the difficulty, and the more Eternal Items you carry, the farther you wake.
+**Do not play on hardcore Minecraft: the mod works only on normal Minecraft.**
 
-Play on a normal (non-Hardcore) world. Most features are off in Creative mode.
+## Features
 
-Available for **Forge**, **Fabric** (needs [Fabric API](https://www.curseforge.com/minecraft/mc-mods/fabric-api)) and **NeoForge**, on Minecraft 1.20 to 1.20.4 and 1.21.1.
+### Dying Mechanic
 
----
-
-## The distant respawn
-
-When you die, you respawn far from your bed: from 5,000 to 60,000 blocks away (configurable), on a safe spot of solid ground. The distance grows with the difficulty and with each Eternal Item in your inventory. A respawn anchor in the Nether sends you as far, in world terms, as a bed in the Overworld.
-
-A short journey scene plays on the way. The screen and the music fade to black, a night sky comes in, and a line of stars traces your path from home to your new place. Then the sky breaks into pixels over the new land, and a bell rings. You take no damage for 10 seconds after you arrive.
+When you die, you respawn far from your bed (or from the world spawn), on a safe spot of solid ground, with only what you could protect. The harder the difficulty, and the more Eternal Items you carry, the farther you wake. You take no damage for 10 seconds after the respawn.
 
 ![The journey scene after a distant respawn](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/journey.gif)
 
-## No coordinates
+![Respawn distance by difficulty and number of Eternal Items](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/respawn_distance.png)
 
-The F3 screen hides your coordinates in Survival. To know where you are, and where home is, you need the Navigator's Amulet.
+The distances come from the mod config (`minDistanceFromBed` and `maxDistanceFromBed`).
 
-## The Navigator's Amulet
+### Finding Your Way
 
-A copper compass that only knows north: its needle always points north in the Overworld.
+In Survival, the F3 screen hides your coordinates. The Navigator's Amulet is your only way to know where you are and where your places are, after a distant respawn or after a long exploration.
 
-- **Name your points:** sneak and use it on a bed or a lodestone, and give the point a name. You keep up to 5 points. The same click on a point renames or removes it.
-- **Read the stars:** at night, under open sky and without rain, use it. Your coordinates show on the action bar, and a line of real stars lights up in the sky, from overhead down to the horizon, toward each of your points, and stays there for 30 seconds. Look at the last star of a line through a spyglass to see the name of its point.
-- A reading costs one of its 3 starlight charges. The charges come back at every nightfall.
+- **Mark your places:** sneak and use the amulet on a bed or a lodestone to name a point there. You keep up to 5 points (mod config `maxAmuletPoints`). The same click on a point renames or removes it.
+- **Read the stars:** at night, under open sky and without rain, use the amulet. Your coordinates show on the action bar, and a line of stars points toward each of your points for 30 seconds.
+- **Know which line is which:** look at the last star of a line through a spyglass to see the name of its point.
+- **Limits:** a reading costs one of 3 starlight charges, which come back at every nightfall. The rest of the time, the needle only points north.
 
 ![A star reading: one line of stars toward each named point](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_points_trace.gif)
 
@@ -38,66 +33,89 @@ A copper compass that only knows north: its needle always points north in the Ov
 
 ![The naming screen of a point](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_points_screen.png)
 
-![Navigator's Amulet recipe](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/navigator_amulet_crafting_grid.png)
+### Eternal Items
 
-## Eternal Items
+Eternal Items stay with you after you die. Each death costs the Eternal tools 7% of their durability, but they never break. They are very very powerful items and you can carry only one of each. Each one you carry also pushes your next respawn farther away.
 
-Eternal Items stay in your inventory when you die. Each death costs the Eternal tools 7% of their durability, but they never break. They are very strong, so there is a price: you can carry only one type at a time, and each one you carry sends your next respawn farther away.
+![The five Eternal Items](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/eternal_items.png)
 
 On the ground, an Eternal Item never despawns, and explosions and cactus do not destroy it. The void still does.
 
-### Totem of Eternal Life
+### Totem of Undying
+
+The Totem of Undying still saves you with Regeneration and Absorption, but it no longer gives Fire Resistance.
+
+### Sleeping
+
+Sleeping is now slightly revamped, it can give you buff if you sleep well.
+
+## Items
+
+### Eternal Items
+
+#### Totem of Eternal Life
 
 The heart of every Eternal Item, made in three steps:
 
-1. Craft a **Dormant Totem of Eternal Life**.
+1. Craft a **Dormant Totem of Eternal Life** (the old totem recipe).
 2. Craft an **Echo Heart** from a nether star, echo shards and crying obsidian.
 3. Awaken the totem at an anvil: Dormant Totem on the left, Echo Heart on the right, for 39 levels.
 
-Carried anywhere in your inventory, the totem saves you from death once, with Regeneration, Absorption and Fire Resistance. A Totem of Undying in your hand is used first. After it saves you, it turns back into a Dormant Totem: awaken it again with a new Echo Heart. You carry one at most, and a chest, a shulker box or any other container holds one at most.
+The awakened totem glows like an enchanted item. It is the smithing template of the Eternal tools and the core of the Eternal Bundle.
+
+Carried anywhere in your inventory, the totem saves you from death once, like a Totem of Undying in your hand, and it also gives Fire Resistance. A Totem of Undying in your hand is used first. After it saves you, it turns back into a Dormant Totem: awaken it again with a new Echo Heart. You carry one at most, and a chest, a shulker box or any other container holds one at most.
 
 ![The Totem of Eternity saves you from your inventory](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/totem_of_eternity_save.gif)
 
-![Dormant Totem recipe](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/dormant_totem_crafting_grid.png) ![Echo Heart recipe](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/echo_heart_crafting_grid.png) ![Awakening at the anvil](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/totem_of_eternity_anvil.png)
+![dormant_totem_crafting_grid](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/dormant_totem_crafting_grid.png)
+![echo_heart_crafting_grid](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/echo_heart_crafting_grid.png)
+![totem_of_eternity_anvil](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/totem_of_eternity_anvil.png)
 
-### Eternal tools
+#### Eternal Tools
 
-Upgrade a netherite sword, axe or pickaxe at a smithing table: Totem of Eternal Life in the template slot, then the tool, then an echo shard. The tool keeps its enchantments, its name and its wear. Eternal tools never break. At their last point of durability they are worn out: they deal half damage, mine at the speed of a stone tool and lose their ability. Repair them at an anvil with gold blocks (always 15 levels, and never "Too Expensive") or with Mending. Each tool has its own ability:
+Upgrade a netherite sword, axe or pickaxe at a smithing table: Totem of Eternal Life in the template slot, then the tool, then an echo shard. The tool keeps its enchantments, its name and its wear. Eternal tools never break. At their last point of durability they are worn out: they deal half damage, mine at the speed of a stone tool and lose their ability. Repair them at an anvil with gold blocks (always 15 levels, and never "Too Expensive") or with Mending. Each one has its own ability:
 
 - **Eternal Sword, Echo Strike:** a full-strength hit echoes onto the nearest other hostile mob within 5 blocks, for half the damage.
 - **Eternal Axe, Smash:** a hit while you fall lands harder the longer the fall, up to 3 times the damage, and the blow halves your fall damage.
 - **Eternal Pickaxe, Echo Sense:** breaking an ore makes the same ore within 8 blocks glow through walls for 5 seconds.
 
-![The Eternal Sword](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/eternal_sword.png)
+![eternal_sword_smithing](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/eternal_sword_smithing.png)
+![eternal_axe_smithing](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/eternal_axe_smithing.png)
+![eternal_pickaxe_smithing](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/eternal_pickaxe_smithing.png)
 
-![Eternal Sword](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/eternal_sword_smithing.png) ![Eternal Axe](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/eternal_axe_smithing.png) ![Eternal Pickaxe](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/eternal_pickaxe_smithing.png)
+#### Eternal Bundle
 
-### Eternal Bundle
+Just like the legacy Bundle but keep with you any item inside it even after you die.
 
-A bundle that keeps everything inside it when you die.
+![eternal_bundle_crafting_grid](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/eternal_bundle_crafting_grid.png)
 
-![Eternal Bundle recipe](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/eternal_bundle_crafting_grid.png)
+### Normal Items
 
-## Other changes
+#### Navigator's Amulet
 
-- **Sleeping:** waking up heals you and costs some food. If you go to bed well fed and at full health, you also wake with Haste II and Resistance II for 3 minutes.
-- **Totem of Undying:** it still saves you with Regeneration and Absorption, but it no longer gives Fire Resistance.
-- **Bundle:** the vanilla bundle, craftable on every version.
+How to use it: see Finding Your Way, under Features.
 
-![Bundle recipe](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/bundle_crafting_grid.png)
+![navigator_amulet_crafting_grid](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/navigator_amulet_crafting_grid.png)
 
-## Game rules
+#### Bundle
 
-Every feature can be turned off with a game rule (all on by default). The "Balanced Hardcore" button on the Create New World screen turns them all on or off at once.
+Legacy minecraft bundle implementation.
 
-- `randomDeathSpawnPoint`
-- `displayTextOnRespawn`
-- `foodAndHealthRegenOnWakeUp`
-- `onlyCarryOneEternalItemType`
-- `damageEternalItemWhenDead`
-- `removeCoordinatesInSurvival`
+![bundle_crafting_grid](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/bundle_crafting_grid.png)
 
-## Links
+## GameRules
 
-- Source code and full changelog: [GitHub](https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore)
-- Questions, ideas and bug reports: [Discord](https://discord.gg/Czn9JQxMjT)
+- randomDeathSpawnPoint (default : true)
+- displayTextOnRespawn (default : true)
+- foodAndHealthRegenOnWakeUp (default : true)
+- onlyCarryOneEternalItemType (default : true)
+- damageEternalItemWhenDead (default : true)
+- removeCoordinatesInSurvival (default : true)
+
+## More Information
+
+Most of the features are not actives when in creative mod.
+
+## Loaders
+
+Available for Forge and Fabric (Fabric needs [Fabric API](https://modrinth.com/mod/fabric-api)), from Minecraft 1.20 to 1.20.4, and 1.21.1. NeoForge: 1.20.1 (the Forge version), 1.20.4 and 1.21.1.
