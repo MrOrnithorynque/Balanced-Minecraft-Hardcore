@@ -4,6 +4,9 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Changed
+- Eternal Items on the ground no longer despawn. Explosions, cactus and other damage do not destroy them. Fire and lava already did not. The void still destroys them.
+
 ### Fixed
 - A second Eternal Sword, Axe, Pickaxe or Bundle no longer falls out of your inventory and comes back again and again. You cannot pick up a second copy of an Eternal Item while you carry one, as with the Totem of Eternity. The onlyCarryOneEternalItemType game rule controls this.
 - The Totem of Eternity no longer has a blast furnace recipe. That recipe gave back the same totem after 50 minutes, and JEI showed it as the only way to make the totem. You make the totem at an anvil: put a Dormant Totem on the left and an Echo Heart on the right.
