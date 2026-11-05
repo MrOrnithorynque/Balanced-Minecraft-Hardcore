@@ -1,10 +1,11 @@
 #!/bin/bash
-# Verifies several branches one after the other (branch.sh for each cell). A cell is a triple
+# Verifies several branches one after the other: branch.sh, then selftest.sh, for each cell. A cell is a triple
 # <origin branch or tag> <minecraft version> <label>.
 # usage: matrix.sh                                   the cells of branches.txt, next to this script
 #        matrix.sh -f <table file>                   the cells of another table (one triple per line, # starts a comment)
 #        matrix.sh <branch> <mc version> <label> [<branch> <mc version> <label> ...]
-# Summary: $BMH_VERIFY_OUT/summary.txt (one line per cell). Needs BMH_BOT_MODULES (see ../SKILL.md).
+# Summary: $BMH_VERIFY_OUT/summary.txt (two lines per cell: branch.sh's, then selftest.sh's).
+# BMH_LOCAL=1 takes local branches instead of origin's (no push needed); the default is origin's.
 # Overnight: charger in and lid open (a closed lid sleeps the Mac even under caffeinate -i, which covers idle sleep only,
 # and a sleeping Mac suspends every timeout). Afterwards: pmset -g log | grep 'Entering Sleep' over the run's window.
 set -u
@@ -27,6 +28,7 @@ fi
 
 while [ $# -gt 0 ]; do
   bash "$SCRIPTS/branch.sh" "$1" "$2" "$3"
+  bash "$SCRIPTS/selftest.sh" "$1" "$2" "$3"
   shift 3
 done
 echo "MATRIX DONE $(date '+%H:%M:%S')"

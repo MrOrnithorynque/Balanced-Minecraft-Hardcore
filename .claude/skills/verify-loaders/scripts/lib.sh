@@ -1,10 +1,10 @@
 #!/bin/bash
-# Shared by branch.sh, matrix.sh, server_only.sh, upgrade.sh and death_client.sh: source it (". lib.sh"), never run it.
+# Shared by branch.sh, matrix.sh, selftest.sh, server_only.sh, upgrade.sh and death_client.sh: source it (". lib.sh"), never run it.
 # Paths, the JDK per Minecraft version, the two locks every server boot goes through (the server lock first, then a Gradle
 # slot, each a directory with an owner file, polled every second) and the boot and stop of a dedicated server.
 #
-# Environment (all optional but the first):
-#   BMH_BOT_MODULES  the node_modules folder that holds mineflayer (see ../SKILL.md, Setup)
+# Environment (all optional):
+#   BMH_BOT_MODULES  the node_modules folder that holds mineflayer; default ~/.cache/bmh-bots, filled by need_bots
 #   BMH_VERIFY_OUT   logs, screenshots and summary.txt (default /private/tmp/bmh-verify)
 #   BMH_REPO         the main checkout the verification worktrees hang off (default: found from this script's repository)
 #   BMH_PORT         the dedicated server's port (default 25618; upgrade.sh sets it from BMH_UPGRADE_PORT, default 25619).
@@ -17,8 +17,23 @@
 SCRIPTS=${SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 REPO=${BMH_REPO:-$(dirname "$(git -C "$SCRIPTS" rev-parse --path-format=absolute --git-common-dir)")}
 OUTROOT=${BMH_VERIFY_OUT:-/private/tmp/bmh-verify}
-BOT_MODULES=${BMH_BOT_MODULES:?set BMH_BOT_MODULES to the node_modules folder that holds mineflayer (see SKILL.md, Setup)}
+BOT_MODULES=${BMH_BOT_MODULES:-}
 export BOT_MODULES
+# A script that runs a bot calls this first. selftest.sh and compile_check.sh need no bot. Without BMH_BOT_MODULES it
+# installs the pinned mineflayer once into ~/.cache/bmh-bots (npm, no install scripts) and uses it from then on.
+need_bots() {
+  local cache=${HOME}/.cache/bmh-bots
+  command -v node >/dev/null || { echo "the bots need node: brew install node" >&2; exit 2; }
+  if [ -z "$BOT_MODULES" ]; then
+    if [ ! -d "$cache/node_modules/mineflayer" ]; then
+      command -v npm >/dev/null || { echo "npm is missing: brew install node" >&2; exit 2; }
+      echo "installing mineflayer@4.39.0 into $cache (once)" >&2
+      npm install --silent --no-audit --no-fund --ignore-scripts --prefix "$cache" mineflayer@4.39.0 >&2 || { echo "npm install of mineflayer failed" >&2; exit 2; }
+    fi
+    BOT_MODULES=$cache/node_modules; export BOT_MODULES
+  fi
+  [ -d "$BOT_MODULES/mineflayer" ] || { echo "no mineflayer in $BOT_MODULES" >&2; exit 2; }
+}
 PORT=${BMH_PORT:-25618}
 RPORT=$((PORT + 100))
 LOCKDIR=${BMH_LOCK_DIR:-/private/tmp/bmh-runserver.lock}
@@ -29,11 +44,15 @@ HELD_LOCK=""; HELD_SLOT=""; GPID=""; UP=0; BOOT_START=0
 command -v timeout >/dev/null || command -v gtimeout >/dev/null || { echo "no timeout command: brew install coreutils" >&2; exit 2; }
 with_timeout() { local t=$1; shift; if command -v timeout >/dev/null; then timeout "$t" "$@"; else gtimeout "$t" "$@"; fi; }
 
-jdk_for() { # <minecraft version> -> a JDK home
+command -v python3 >/dev/null || { echo "no python3 on the PATH" >&2; exit 2; }
+jdk_for() { # <minecraft version> -> a JDK home; fails when it has no java (callers: JH=$(jdk_for ...) || exit 2)
+  local home v
   case "$1" in
-    1.21*) echo "${BMH_JDK21:-/opt/homebrew/opt/openjdk@21}" ;;
-    *) echo "${BMH_JDK17:-/opt/homebrew/opt/openjdk@17}" ;;
+    1.21*) v=21; home=${BMH_JDK21:-/opt/homebrew/opt/openjdk@21} ;;
+    *) v=17; home=${BMH_JDK17:-/opt/homebrew/opt/openjdk@17} ;;
   esac
+  [ -x "$home/bin/java" ] || { echo "no JDK $v for Minecraft $1 in $home: brew install openjdk@$v, or set BMH_JDK$v" >&2; exit 2; }
+  echo "$home"
 }
 
 # The server lock, then a Gradle slot, always in that order (two slots and one lock: a waiting boot can only hold the lock
@@ -61,19 +80,21 @@ take_slot() {
     sleep 1
   done
 }
-# Stop what this script started (Gradle, whatever listens on the port) and give both locks back.
+# Stop what this script started (Gradle, and the server on the port while it holds the server lock) and give both locks
+# back. A script that holds only a Gradle slot kills nothing on the port: that server can be another session's.
 release() {
   local p
   [ -n "$GPID" ] && kill "$GPID" 2>/dev/null
-  p=$(lsof -ti tcp:"$PORT" 2>/dev/null); [ -n "$p" ] && kill $p 2>/dev/null
+  if [ -n "$HELD_LOCK" ]; then p=$(lsof -ti tcp:"$PORT" 2>/dev/null); [ -n "$p" ] && kill $p 2>/dev/null; fi
   [ -n "$HELD_LOCK" ] && rm -rf "$HELD_LOCK"; HELD_LOCK=""
   [ -n "$HELD_SLOT" ] && rm -rf "$HELD_SLOT"; HELD_SLOT=""
   GPID=""
 }
 
-# <origin branch or tag> -> a full ref, or a non-zero status
+# <origin branch or tag> -> a full ref, or a non-zero status. With BMH_LOCAL=1 a local branch of that name comes first.
 ref_of() {
-  if git -C "$REPO" rev-parse -q --verify "refs/remotes/origin/$1" >/dev/null; then echo "refs/remotes/origin/$1"
+  if [ "${BMH_LOCAL:-0}" = 1 ] && git -C "$REPO" rev-parse -q --verify "refs/heads/$1" >/dev/null; then echo "refs/heads/$1"
+  elif git -C "$REPO" rev-parse -q --verify "refs/remotes/origin/$1" >/dev/null; then echo "refs/remotes/origin/$1"
   elif git -C "$REPO" rev-parse -q --verify "refs/tags/$1" >/dev/null; then echo "refs/tags/$1"
   else return 1; fi
 }
