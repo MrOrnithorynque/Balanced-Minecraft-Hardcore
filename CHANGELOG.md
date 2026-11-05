@@ -30,6 +30,8 @@ The Navigator's Amulet now remembers several places, and the Totem of Eternity s
 ![The Totem of Eternity saves you from your inventory](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/totem_of_eternity_save.gif)
 
 ### Changed
+- The Eternal Sword, Axe and Pickaxe no longer break. At their last point of durability, they are worn out. A worn-out tool deals half damage, mines at the speed of a stone tool and loses its ability. Its tooltip tells you. Repair it to get its full power back.
+- A repair of the Eternal Sword, Axe or Pickaxe with gold blocks at an anvil always costs 15 levels. It does not make the next use of the anvil more expensive, so the anvil never says "Too Expensive" for it.
 - The line of a star reading stays in the sky for 30 seconds, instead of 8.
 - Your old Home becomes a point named Home. If you go back to an older version of the mod, you lose your points.
 - Eternal Items on the ground no longer despawn. Explosions, cactus and other damage do not destroy them. Fire and lava already did not. The void still destroys them.

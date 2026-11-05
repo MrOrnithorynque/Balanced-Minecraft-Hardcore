@@ -4,11 +4,14 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import github.mrornithorynque.bmh.handlers.EternalWear;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.Tier;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.Level;
 
 public class EternalPickaxeItem extends PickaxeItem implements IEternalItem {
@@ -24,20 +27,21 @@ public class EternalPickaxeItem extends PickaxeItem implements IEternalItem {
         EternalTooltips.addAbility(lines, "tooltip.bmh.ability.eternal_pickaxe");
         EternalTooltips.addHeavy(lines);
         EternalTooltips.addDeathWear(lines);
+        EternalTooltips.addWornOut(stack, lines);
     }
 
     @Override
     public void reduceDurability(ItemStack stack, int percentage) {
 
-        if (percentage < 0 || percentage > 100) {
-            throw new IllegalArgumentException("Percentage must be between 0 and 100");
-        }
+        EternalWear.wear(stack, percentage);
+    }
 
-        int damage = (int) (stack.getMaxDamage() * (percentage / 100.0));
+    // A worn-out tool mines at the speed of a stone tool (EternalWear).
+    @Override
+    public float getDestroySpeed(ItemStack stack, BlockState state) {
 
-        stack.setDamageValue(Math.min(stack.getDamageValue() + damage, stack.getMaxDamage()));
+        float speed = super.getDestroySpeed(stack, state);
 
-        if (stack.getDamageValue() >= stack.getMaxDamage()) {
-        }
+        return EternalWear.isWornOut(stack) ? Math.min(speed, EternalWear.WORN_MINING_SPEED) : speed;
     }
 }

@@ -12,11 +12,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import github.mrornithorynque.bmh.handlers.EchoSenseHandler;
+import github.mrornithorynque.bmh.handlers.EternalWear;
 import github.mrornithorynque.bmh.items.EternalPickaxeItem;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerPlayerGameMode;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -47,7 +49,9 @@ public abstract class E_ServerPlayerGameModeMixin {
             bmh$brokenStates.clear();
         }
 
-        bmh$brokenStates.push(player.getMainHandItem().getItem() instanceof EternalPickaxeItem
+        ItemStack tool = player.getMainHandItem();
+
+        bmh$brokenStates.push(tool.getItem() instanceof EternalPickaxeItem && !EternalWear.isWornOut(tool)
                 ? player.serverLevel().getBlockState(pos)
                 : Blocks.AIR.defaultBlockState());
     }

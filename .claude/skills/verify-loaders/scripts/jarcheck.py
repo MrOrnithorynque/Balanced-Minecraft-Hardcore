@@ -49,6 +49,13 @@ if V121:
 else:
     REFMAP_IDS["forge"]["F_PlayerListRespawnMixin"].append("m_45786_")
     REFMAP_IDS["fabric"]["F_PlayerListRespawnMixin"].append("method_17892")
+# The last point of an Eternal tool: ItemStack.hurt on 1.20.x, the player and slot hurtAndBreak methods on 1.21.1
+# (Fabric only there: Forge 1.21.1 ships no refmap).
+if V121:
+    REFMAP_IDS["fabric"]["L_ItemStackWearMixin"] = ["method_7956", "method_7970"]
+else:
+    REFMAP_IDS["forge"]["L_ItemStackWearMixin"] = ["m_220157_"]
+    REFMAP_IDS["fabric"]["L_ItemStackWearMixin"] = ["method_7970"]
 SHADOW_FIELDS = {
     "forge": {"B_AnvilMenuMixin": ["f_39000_", "f_39002_"], "E_ServerPlayerGameModeMixin": ["f_9245_"]},
     "fabric": {"B_AnvilMenuMixin": ["field_7776", "field_7770"], "E_ServerPlayerGameModeMixin": ["field_14008"]},
