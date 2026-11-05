@@ -28,12 +28,12 @@ REFMAP_IDS = {
               "E_PlayerAttackMixin": ["m_5706_", "m_6469_", "m_36399_"],
               "F_PlayerListRespawnMixin": ["m_11236_"], "F_ServerPlayerAccessor": ["f_8921_"],
               "F_GuiTitleMixin": ["m_168714_"], "F_LocalPlayerRespawnMixin": ["m_7583_"],
-              "F_MinecraftOverlayMixin": ["m_91150_"], "G_ItemEntityMixin": ["m_6469_", "m_8119_"], "H_ItemRendererSwordMixin": ["m_115143_"]},
+              "F_MinecraftOverlayMixin": ["m_91150_"], "G_ItemEntityMixin": ["m_6469_", "m_8119_"], "H_ItemRendererSwordMixin": ["m_115143_"], "I_SlotTotemMixin": ["m_5857_"], "I_ClientPacketListenerTotemMixin": ["m_104927_"]},
     "fabric": {"A_LivingEntityTotemMixin": ["method_6095"], "B_AnvilMenuMixin": ["method_24928"],
                "E_PlayerAttackMixin": ["method_7324", "method_5643", "method_7322"],
                "F_PlayerListRespawnMixin": ["method_14556"], "F_ServerPlayerAccessor": ["field_13998"],
                "F_GuiTitleMixin": ["method_34004"], "F_LocalPlayerRespawnMixin": ["method_7331"],
-               "F_MinecraftOverlayMixin": ["method_18502"], "G_ItemEntityMixin": ["method_5643", "method_5773"], "H_ItemRendererSwordMixin": ["method_23179"]},
+               "F_MinecraftOverlayMixin": ["method_18502"], "G_ItemEntityMixin": ["method_5643", "method_5773"], "H_ItemRendererSwordMixin": ["method_23179"], "I_SlotTotemMixin": ["method_7680"], "I_ClientPacketListenerTotemMixin": ["method_19691"]},
 }
 # The distant respawn hook's other target differs per codebase: noCollision on 1.20.x, findRespawnPositionAndUseSpawnBlock
 # on 1.21.1 (Fabric only there: Forge 1.21.1 ships no refmap).
@@ -45,6 +45,12 @@ else:
 SHADOW_FIELDS = {
     "forge": {"B_AnvilMenuMixin": ["f_39000_", "f_39002_"], "E_ServerPlayerGameModeMixin": ["f_9245_"]},
     "fabric": {"B_AnvilMenuMixin": ["field_7776", "field_7770"], "E_ServerPlayerGameModeMixin": ["field_14008"]},
+}
+# A mixin that only adds a method overriding a vanilla one has no refmap entry: the build renames the method
+# inside the shipped class (I_ContainerTotemMixin adds Container.canPlaceItem). Its runtime name must show in javap.
+ADDED_METHODS = {
+    "forge": {"I_ContainerTotemMixin": ["m_7013_"]},
+    "fabric": {"I_ContainerTotemMixin": ["method_5437"]},
 }
 THROWAWAY = re.compile(r"(SelfTest|DevSkyShots|SmokeClient|Z_Smoke|JourneySmoke|Z_Journey)")
 
@@ -120,7 +126,8 @@ def check_jar(loader, jar):
         for m, entry in all_mixins:
             key = entry[:-len(".class")]
             entries = mappings.get(key, {})
-            check(tag + ": refmap entry for " + m, bool(entries), "absent")
+            if m not in ADDED_METHODS[loader]:
+                check(tag + ": refmap entry for " + m, bool(entries), "absent")
             plain = [k + " -> " + v for k, v in entries.items()
                      if ("(" in v or ":" in v) and not member.search(v) and "<init>" not in v]
             check(tag + ": refmap members of " + m + " are runtime names", not plain, plain)
@@ -136,6 +143,12 @@ def check_jar(loader, jar):
                 out = javap_fields(z, entry)
                 missing = [f for f in fields if f not in out]
                 check(tag + ": " + m + " shadow fields renamed (" + " ".join(fields) + ")", not missing, "missing " + " ".join(missing))
+        for m, methods in ADDED_METHODS[loader].items():
+            entry = "github/mrornithorynque/bmh/mixin/" + m + ".class"
+            if entry in names:
+                out = javap_fields(z, entry)
+                missing = [f for f in methods if f not in out]
+                check(tag + ": " + m + " added methods renamed (" + " ".join(methods) + ")", not missing, "missing " + " ".join(missing))
 
     # Assets: every lang item has a model, every model texture and override exists
     lang = json.loads(z.read("assets/bmh/lang/en_us.json"))
