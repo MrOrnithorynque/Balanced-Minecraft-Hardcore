@@ -46,8 +46,11 @@ public final class StarReadingRenderer {
     private static final String READING = "bmh_reading";
     private static final String AZIMUTHS = "azimuths";
     private static final String NAMES = "names";
-    /** Through a spyglass, a star of a line within this angle of the view's centre shows the line's name. */
-    private static final double AIM_DEGREES = 2.0;
+    /**
+     * Through a spyglass, the last star of a line within this angle of the view's centre shows the line's name. The
+     * spyglass shows about 7 degrees of sky: 0.8 keeps the star close to the cross.
+     */
+    private static final double AIM_DEGREES = 0.8;
     private static final String TIME = "time";
     /** An amulet whose reading is this old when the client first sees it (picked up, relogged) shows nothing. */
     private static final long FRESH_TICKS = 40;
@@ -158,8 +161,9 @@ public final class StarReadingRenderer {
     }
 
     /**
-     * The name of the line the view's centre aims at, or null: a star of a named line still in the sky within AIM_DEGREES
-     * of the camera's direction (the nearest wins where lines meet). mixin/K_GuiSpyglassMixin shows it through a spyglass.
+     * The name of the line the view's centre aims at, or null: the last star of a named line still in the sky (the lowest
+     * one, toward the point) within AIM_DEGREES of the camera's direction, the nearest first. mixin/K_GuiSpyglassMixin
+     * shows it through a spyglass.
      */
     @Nullable
     public static String aimedName(float partialTick) {
@@ -178,17 +182,28 @@ public final class StarReadingRenderer {
             if (reading.names().get(c).isEmpty() || seconds > StarTrace.duration(chain.length)) {
                 continue;
             }
-            for (int index : chain) {
-                StarField.Star star = StarField.stars().get(index);
-                double[] sky = StarChain.toWorld(star.x, star.y, star.z, timeOfDay);
-                double dot = sky[0] * look.x() + sky[1] * look.y() + sky[2] * look.z();
-                if (dot > best) {
-                    best = dot;
-                    name = reading.names().get(c);
-                }
+            StarField.Star star = StarField.stars().get(chain[chain.length - 1]);
+            double[] sky = StarChain.toWorld(star.x, star.y, star.z, timeOfDay);
+            double dot = sky[0] * look.x() + sky[1] * look.y() + sky[2] * look.z();
+            if (dot > best) {
+                best = dot;
+                name = reading.names().get(c);
             }
         }
         return name;
+    }
+
+    /** The sky direction (a unit vector, y up) of the last star of a shown line, or null. */
+    @Nullable
+    public static double[] lastStar(int line, float partialTick) {
+        Minecraft minecraft = Minecraft.getInstance();
+        Shown reading = shown;
+        if (reading == null || minecraft.level == null || line >= reading.chains().size()) {
+            return null;
+        }
+        int[] chain = reading.chains().get(line);
+        StarField.Star star = StarField.stars().get(chain[chain.length - 1]);
+        return StarChain.toWorld(star.x, star.y, star.z, minecraft.level.getTimeOfDay(partialTick));
     }
 
     private static int[] pick(ClientLevel level, float azimuth, float partialTick) {
