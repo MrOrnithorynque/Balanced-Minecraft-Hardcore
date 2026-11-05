@@ -10,6 +10,8 @@ import java.util.Properties;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
+import github.mrornithorynque.bmh.utilities.BMHConfigLimits;
+
 import net.fabricmc.loader.api.FabricLoader;
 
 /**
@@ -21,10 +23,6 @@ public class FabricConfig {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private static final int MIN_DISTANCE_FROM_BED = 5000;
-    private static final int MAX_DISTANCE_FROM_BED = 200000;
-    private static final int MAX_AMULET_POINTS = 16;
-
     private static FabricConfig instance;
 
     public final int minDistanceFromBed;
@@ -33,18 +31,34 @@ public class FabricConfig {
 
     private FabricConfig(Properties properties) {
 
-        this.minDistanceFromBed = readInRange(properties, "minDistanceFromBed", 5000, MIN_DISTANCE_FROM_BED, MAX_DISTANCE_FROM_BED);
-        this.maxDistanceFromBed = readInRange(properties, "maxDistanceFromBed", 60000, MIN_DISTANCE_FROM_BED, MAX_DISTANCE_FROM_BED);
-        this.maxAmuletPoints = readInRange(properties, "maxAmuletPoints", 5, 1, MAX_AMULET_POINTS);
+        this.minDistanceFromBed = readInRange(properties, "minDistanceFromBed", BMHConfigLimits.DEFAULT_MIN_DISTANCE_FROM_BED,
+                BMHConfigLimits.MIN_DISTANCE_FROM_BED, BMHConfigLimits.MAX_DISTANCE_FROM_BED);
+        this.maxDistanceFromBed = readInRange(properties, "maxDistanceFromBed", BMHConfigLimits.DEFAULT_MAX_DISTANCE_FROM_BED,
+                BMHConfigLimits.MIN_DISTANCE_FROM_BED, BMHConfigLimits.MAX_DISTANCE_FROM_BED);
+        this.maxAmuletPoints = readInRange(properties, "maxAmuletPoints", BMHConfigLimits.DEFAULT_AMULET_POINTS,
+                BMHConfigLimits.MIN_AMULET_POINTS, BMHConfigLimits.MAX_AMULET_POINTS);
     }
 
     public static FabricConfig get() {
 
         if (instance == null) {
-            instance = load(FabricLoader.getInstance().getConfigDir().resolve("bmh.properties"));
+            instance = load(file());
         }
 
         return instance;
+    }
+
+    /** The config screen calls it on the client thread: writes the file, then the new values apply. */
+    public static void save(int minDistanceFromBed, int maxDistanceFromBed, int maxAmuletPoints) {
+
+        Properties properties = properties(minDistanceFromBed, maxDistanceFromBed, maxAmuletPoints);
+        store(file(), properties);
+        instance = new FabricConfig(properties);
+    }
+
+    private static Path file() {
+
+        return FabricLoader.getInstance().getConfigDir().resolve("bmh.properties");
     }
 
     private static FabricConfig load(Path file) {
@@ -58,19 +72,33 @@ public class FabricConfig {
                 LOGGER.warn("[BalancedMcHardcoreMain] Could not read " + file + ", using defaults", e);
             }
         } else {
-            properties.setProperty("minDistanceFromBed", "5000");
-            properties.setProperty("maxDistanceFromBed", "60000");
-            properties.setProperty("maxAmuletPoints", "5");
-
-            try (Writer writer = Files.newBufferedWriter(file)) {
-                properties.store(writer, "Distance from bed to respawn, " + MIN_DISTANCE_FROM_BED + " to " + MAX_DISTANCE_FROM_BED
-                        + ". Most points on the Navigator's Amulet, 1 to " + MAX_AMULET_POINTS + ".");
-            } catch (IOException e) {
-                LOGGER.warn("[BalancedMcHardcoreMain] Could not write " + file, e);
-            }
+            properties = properties(BMHConfigLimits.DEFAULT_MIN_DISTANCE_FROM_BED, BMHConfigLimits.DEFAULT_MAX_DISTANCE_FROM_BED,
+                    BMHConfigLimits.DEFAULT_AMULET_POINTS);
+            store(file, properties);
         }
 
         return new FabricConfig(properties);
+    }
+
+    private static Properties properties(int minDistanceFromBed, int maxDistanceFromBed, int maxAmuletPoints) {
+
+        Properties properties = new Properties();
+        properties.setProperty("minDistanceFromBed", String.valueOf(minDistanceFromBed));
+        properties.setProperty("maxDistanceFromBed", String.valueOf(maxDistanceFromBed));
+        properties.setProperty("maxAmuletPoints", String.valueOf(maxAmuletPoints));
+
+        return properties;
+    }
+
+    private static void store(Path file, Properties properties) {
+
+        try (Writer writer = Files.newBufferedWriter(file)) {
+            properties.store(writer, "Distance from bed to respawn, " + BMHConfigLimits.MIN_DISTANCE_FROM_BED + " to "
+                    + BMHConfigLimits.MAX_DISTANCE_FROM_BED + ". Most points on the Navigator's Amulet, "
+                    + BMHConfigLimits.MIN_AMULET_POINTS + " to " + BMHConfigLimits.MAX_AMULET_POINTS + ".");
+        } catch (IOException e) {
+            LOGGER.warn("[BalancedMcHardcoreMain] Could not write " + file, e);
+        }
     }
 
     private static int readInRange(Properties properties, String key, int defaultValue, int min, int max) {
