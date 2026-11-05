@@ -13,6 +13,10 @@ name: Publish
 # Manual run (Actions > Publish > Run workflow, or `gh workflow run publish.yml --ref main -f tag=...`):
 # publishes an existing tag again, only to the platforms ticked. Use it to add a platform that was
 # skipped or failed, without uploading a duplicate to the others.
+#
+# Discord: the 1.21.1 tag also posts the changelog to the Discord server, through the webhook in the
+# DISCORD_WEBHOOK_URL secret. A release pushes one tag per Minecraft version, so only one tag posts.
+# A manual run posts only when "Post to Discord" is ticked.
 on:
   push:
     tags: ['mc-*']
@@ -39,6 +43,10 @@ on:
         type: choice
         options: [all, forge, fabric, neoforge]
         default: all
+      discord:
+        description: 'Post the changelog to Discord'
+        type: boolean
+        default: false
 
 jobs:
   publish:
@@ -92,6 +100,7 @@ jobs:
       # The "## [<mod_version>]" section of CHANGELOG.md becomes the changelog on Modrinth,
       # CurseForge and the GitHub release. No section, no release: fail before building.
       - name: Extract changelog
+        id: changelog
         env:
           MOD: ${{ steps.props.outputs.mod }}
         run: |
@@ -190,3 +199,43 @@ jobs:
           loaders: neoforge
           game-versions: ${{ steps.props.outputs.mc }}
           java: ${{ steps.props.outputs.java }}
+
+      # A tag push posts when the build succeeded, even if an upload failed: a refused Modrinth
+      # token makes every publish step end red, also when CurseForge and GitHub got the jars.
+      # A manual run with "Post to Discord" ticked needs only the changelog.
+      # Only the 1.21.1 tag posts. When you add a newer version branch, move the post to its tag.
+      # The embed description holds at most 4096 characters. A longer changelog is cut, with a
+      # link to the GitHub releases. Headings become bold text, which every Discord client shows.
+      - name: Post to Discord
+        if: >-
+          !cancelled() && (
+            (github.event_name == 'push' && steps.build.outcome == 'success' && steps.props.outputs.mc == '1.21.1')
+            || (steps.changelog.outcome == 'success' && github.event.inputs.discord == 'true'))
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          MOD: ${{ steps.props.outputs.mod }}
+          RELEASES: ${{ github.server_url }}/${{ github.repository }}/releases
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "::warning::The DISCORD_WEBHOOK_URL secret is not set. Nothing was posted to Discord."
+            exit 0
+          fi
+          sed -E 's/^#+[[:space:]]+(.*)$/**\1**/' release-changelog.md | jq -Rs \
+            --arg mod "$MOD" --arg releases "$RELEASES" '
+            (gsub("^\\s+|\\s+$"; "")) as $log
+            | "\n\n[Full changelog](\($releases))" as $more
+            | {
+                allowed_mentions: { parse: [] },
+                embeds: [{
+                  title: "Balanced Minecraft Hardcore \($mod)",
+                  url: "https://www.curseforge.com/minecraft/mc-mods/balanced-minecraft-hardcore",
+                  color: 9330905,
+                  description: (if ($log | length) > 3900 then $log[:3900] + "..." + $more else $log end),
+                  fields: [{
+                    name: "Download",
+                    value: "[CurseForge](https://www.curseforge.com/minecraft/mc-mods/balanced-minecraft-hardcore/files) | [GitHub](\($releases))"
+                  }]
+                }]
+              }' > discord-payload.json
+          curl --fail-with-body -sS -H 'Content-Type: application/json' --data @discord-payload.json "$DISCORD_WEBHOOK_URL"
+          echo "Posted the $MOD changelog to Discord."
