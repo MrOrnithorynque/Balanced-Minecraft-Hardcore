@@ -28,9 +28,10 @@ public class BalancedMcHardcoreNeoForge {
 
         NeoForge.EVENT_BUS.register(NeoForgeEvents.class);
 
-        // The HUD text needs the client classes: never touch them on a dedicated server.
+        // The client setup and the config screen need the client classes: never touch them on a dedicated server.
         if (FMLEnvironment.dist.isClient()) {
             modEventBus.register(NeoForgeClientEvents.class);
+            NeoForgeClientEvents.registerConfigScreen(container);
         }
 
         LOGGER.info("[BalancedMcHardcoreMain] Setup complete.");

@@ -35,9 +35,10 @@ public class BalancedMcHardcoreMain {
 
         modEventBus.addListener(this::setup);
 
-        // The HUD text needs the client classes: never touch them on a dedicated server.
+        // The HUD text and the config screen need the client classes: never touch them on a dedicated server.
         if (FMLEnvironment.dist.isClient()) {
             modEventBus.register(ForgeClientEvents.class);
+            ForgeClientEvents.registerConfigScreen(context);
         }
 
         LOGGER.info("[BalancedMcHardcoreMain] Setup complete.");

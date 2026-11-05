@@ -175,7 +175,7 @@ public class RespawnPositionHandler {
         int eternalItemCount = 0;
 
         if (minDistance > maxDistance) {
-            LOGGER.warn("[BalancedMcHardcoreMain] minDistanceFromBed is greater than maxDistanceFromBed, using default values");
+            LOGGER.warn("[BalancedMcHardcoreMain] minDistanceFromBed is greater than maxDistanceFromBed, using minDistanceFromBed for both");
             maxDistance = minDistance;
         }
 
