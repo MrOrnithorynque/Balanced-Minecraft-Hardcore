@@ -23,23 +23,27 @@ public final class EternalTooltips {
         lines.add(Component.translatable("tooltip.bmh.heavy_with_eternity").withStyle(ChatFormatting.GOLD));
     }
 
-    /** Each tool names what it does beyond being a tool, in dark aqua, above the gold line. */
-    public static void addAbility(List<Component> lines, String key) {
-
-        lines.add(Component.translatable(key).withStyle(ChatFormatting.DARK_AQUA));
-    }
-
-    /** The three tools lose 7% of their durability at each death (KeepItemAfterDeath). */
-    public static void addDeathWear(List<Component> lines) {
-
-        lines.add(Component.translatable("tooltip.bmh.death_wear").withStyle(ChatFormatting.GRAY));
-    }
-
-    /** A worn-out tool says so in red, with how to repair it (EternalWear). */
-    public static void addWornOut(ItemStack stack, List<Component> lines) {
+    /**
+     * Each tool names what it does beyond being a tool, in dark aqua, above the gold line. A worn-out
+     * tool has no ability (EternalWear): a short red line takes the place of the ability line.
+     */
+    public static void addAbility(ItemStack stack, List<Component> lines, String key) {
 
         if (EternalWear.isWornOut(stack)) {
             lines.add(Component.translatable("tooltip.bmh.worn_out").withStyle(ChatFormatting.RED));
+        } else {
+            lines.add(Component.translatable(key).withStyle(ChatFormatting.DARK_AQUA));
         }
+    }
+
+    /**
+     * The durability that is left, and the 7% that each death removes (KeepItemAfterDeath). Vanilla shows
+     * the durability only with advanced tooltips (F3+H).
+     */
+    public static void addDurability(ItemStack stack, List<Component> lines) {
+
+        int left = stack.getMaxDamage() - stack.getDamageValue();
+
+        lines.add(Component.translatable("tooltip.bmh.durability", left, stack.getMaxDamage()).withStyle(ChatFormatting.GRAY));
     }
 }
