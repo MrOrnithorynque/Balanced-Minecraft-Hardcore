@@ -21,8 +21,9 @@ Secrets come from the macOS Keychain, never from the command line or a file:
 Each command asks for the value; it never shows in the shell history. The GitHub release uses gh's login.
 
 --dry-run uploads and posts nothing: it prints the files, names and versions it would send, and, when the
-token is there, how many CurseForge game versions carry each name (a read only request: 0 is a typo, more
-than 1 is worth a look). A real run stops before any upload when a name is unknown.
+token is there, the CurseForge game version id of each name (read only requests). A Minecraft version name
+exists in several CurseForge game version types, so the script sends ids, never bare names, and stops before
+any upload when a name has no match or more than one in its type.
 
 Every line it prints starts with PUBLISHED, SKIPPED, DRY, WARNING or ERROR. ERROR stops the script: what
 was PUBLISHED before it is public, nothing after it was sent.
@@ -117,10 +118,27 @@ def gh(*args):
     return out.stdout
 
 
-def curseforge_check_names(token, names):
-    """Each game version name, with how many CurseForge game versions carry it (read only, documented endpoint)."""
-    versions = request(CURSEFORGE_API + "/game/versions", headers={"X-Api-Token": token})
-    return {name: sum(1 for v in versions if v["name"] == name) for name in names}
+def curseforge_ids(token, names):
+    """The CurseForge game version id of each name, in the right game version type. A Minecraft version name such as
+    1.21.1 exists 3 times (Minecraft 1.21, Addons, and type 1): only the one in a minecraft-* type is right. Loaders are
+    in the modloader type, Java versions in the java type. The version types list is not in CurseForge's upload API
+    page, but mc-publish used it for every release until 1.6.2. Stops on 0 or more than 1 match."""
+    headers = {"X-Api-Token": token}
+    types = {t["id"]: t["slug"] for t in request(CURSEFORGE_API + "/game/version-types", headers=headers)}
+    versions = request(CURSEFORGE_API + "/game/versions", headers=headers)
+    ids = {}
+    for name in names:
+        if name in ("Forge", "Fabric", "NeoForge"):
+            kind = lambda slug: slug == "modloader"
+        elif name.startswith("Java "):
+            kind = lambda slug: slug == "java"
+        else:
+            kind = lambda slug: slug.startswith("minecraft-")
+        match = [v["id"] for v in versions if v["name"] == name and kind(types.get(v["gameVersionTypeID"], ""))]
+        if len(match) != 1:
+            fail("CurseForge game version %r: %d matches in its type" % (name, len(match)))
+        ids[name] = match[0]
+    return ids
 
 
 def curseforge_upload(token, path, metadata):
@@ -235,20 +253,17 @@ def main():
             fail("jarcheck failed: fix the jars before publishing")
 
     if "curseforge" in only and uploads:
-        if token and not dry:
-            missing = {n: c for u in uploads for n, c in curseforge_check_names(token, u["versionNames"]).items() if c == 0}
-            if missing:
-                fail("CurseForge knows no game version named %s" % sorted(missing))
+        # Every id resolved before the first upload: an unknown or ambiguous name stops the run with nothing sent.
+        names = sorted({n for u in uploads for n in u["versionNames"]})
+        ids = curseforge_ids(token, names) if token else {n: "unresolved, no token" for n in names}
         for u in uploads:
-            # gameVersionNames (documented by CurseForge) lets the server find the ids from the names.
             metadata = {"changelog": log, "changelogType": "markdown", "displayName": u["displayName"],
-                        "gameVersionNames": u["versionNames"], "releaseType": "release"}
+                        "gameVersions": [ids[n] for n in u["versionNames"]], "releaseType": "release"}
             if u["relations"]:
                 metadata["relations"] = u["relations"]
             if dry:
-                found = curseforge_check_names(token, u["versionNames"]) if token else {n: "unchecked, no token" for n in u["versionNames"]}
                 print("DRY curseforge %s: %s | %s | versions %s" % (u["loader"], os.path.basename(u["file"]),
-                      u["displayName"], found), flush=True)
+                      u["displayName"], {n: ids[n] for n in u["versionNames"]}), flush=True)
             else:
                 answer = curseforge_upload(token, u["file"], metadata)
                 print("PUBLISHED curseforge %s: file id %s" % (u["loader"], (answer or {}).get("id")), flush=True)
