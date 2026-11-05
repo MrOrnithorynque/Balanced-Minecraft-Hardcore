@@ -92,7 +92,7 @@ public final class SmokeClient {
                 log("before the damage: server health=" + target.getHealth() + " mode=" + target.gameMode.getGameModeForPlayer()
                         + " invulnerable=" + target.getAbilities().invulnerable + " slot5="
                         + BuiltInRegistries.ITEM.getKey(target.getInventory().getItem(5).getItem()));
-                server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "damage @a 1000 minecraft:generic");
+                server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "damage @a[limit=1] 1000 minecraft:generic");
             });
         } else if (ticks == 252) {
             shot(mc, "bmh-smoke-4-totem.png");
