@@ -20,7 +20,8 @@
         "G_ItemEntityMixin",
         "I_ContainerTotemMixin",
         "I_SlotTotemMixin",
-        "J_CommandsMixin"
+        "J_CommandsMixin",
+        "L_ItemStackWearMixin"
     ],
     "client": [
         "CreateWorldGameTabMixin",

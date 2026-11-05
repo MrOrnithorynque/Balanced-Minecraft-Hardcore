@@ -2,8 +2,11 @@ package github.mrornithorynque.bmh.items;
 
 import java.util.List;
 
+import github.mrornithorynque.bmh.handlers.EternalWear;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * The tooltip lines every Eternal Item shares. Static text: a client cannot read the server's
@@ -30,5 +33,13 @@ public final class EternalTooltips {
     public static void addDeathWear(List<Component> lines) {
 
         lines.add(Component.translatable("tooltip.bmh.death_wear").withStyle(ChatFormatting.GRAY));
+    }
+
+    /** A worn-out tool says so in red, with how to repair it (EternalWear). */
+    public static void addWornOut(ItemStack stack, List<Component> lines) {
+
+        if (EternalWear.isWornOut(stack)) {
+            lines.add(Component.translatable("tooltip.bmh.worn_out").withStyle(ChatFormatting.RED));
+        }
     }
 }
