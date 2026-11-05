@@ -37,7 +37,8 @@ public abstract class A_LivingEntityTotemMixin {
 
     // When no Totem of Undying in a hand saved the player, a Totem of Eternity anywhere in the inventory can. It runs
     // after vanilla's check, so a cheap totem in a hand is used first. Damage that bypasses invulnerability (the void,
-    // /kill) still kills, as with vanilla's totem.
+    // /kill) still kills, as with vanilla's totem. The Fire Resistance of this save stays: the injection above runs
+    // first, and it sees false, so it removes nothing.
     @Inject(method = "checkTotemDeathProtection", at = @At("RETURN"), cancellable = true)
     private void bmh$totemOfEternitySave(DamageSource source, CallbackInfoReturnable<Boolean> cir) {
 
