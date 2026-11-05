@@ -46,6 +46,8 @@ public final class StarReadingRenderer {
     private static final String READING = "bmh_reading";
     private static final String AZIMUTHS = "azimuths";
     private static final String NAMES = "names";
+    // The index of the world spawn in both lists: its line is drawn lighter. Missing in a reading from 1.7.0 or older.
+    private static final String SPAWN = "spawn";
     /**
      * Through a spyglass, the last star of a line within this angle of the view's centre shows the line's name. The
      * spyglass shows about 7 degrees of sky: 0.8 keeps the star close to the cross.
@@ -71,7 +73,8 @@ public final class StarReadingRenderer {
     }
 
     // One chain of stars per point of the reading, all started at the same tick, and the point's name for each.
-    private record Shown(List<int[]> chains, List<String> names, double startTick) {
+    // spawnChain is the index in chains of the line toward the world spawn, or -1.
+    private record Shown(List<int[]> chains, List<String> names, int spawnChain, double startTick) {
     }
 
     private StarReadingRenderer() {
@@ -104,9 +107,10 @@ public final class StarReadingRenderer {
                 level.getStarBrightness(partialTick) * (1.0F - level.getRainLevel(partialTick)) / FULL_NIGHT_STARS);
         List<float[]> parts = new ArrayList<>();
         int length = 0;
-        for (int[] chain : reading.chains()) {
+        for (int c = 0; c < reading.chains().size(); c++) {
+            int[] chain = reading.chains().get(c);
             if (seconds <= StarTrace.duration(chain.length)) {
-                float[] part = StarTrace.triangles(StarField.stars(), chain, seconds, skyAlpha);
+                float[] part = StarTrace.triangles(StarField.stars(), chain, seconds, skyAlpha, c == reading.spawnChain());
                 parts.add(part);
                 length += part.length;
             }
@@ -148,14 +152,20 @@ public final class StarReadingRenderer {
             ListTag names = reading.getList(NAMES, Tag.TAG_STRING);
             List<int[]> chains = new ArrayList<>();
             List<String> chainNames = new ArrayList<>();
+            // A reading from 1.7.0 or older has no world spawn line.
+            int spawn = reading.contains(SPAWN, Tag.TAG_INT) ? reading.getInt(SPAWN) : -1;
+            int spawnChain = -1;
             for (int i = 0; i < azimuths.size(); i++) {
                 int[] chain = pick(level, azimuths.getFloat(i), partialTick);
                 if (chain.length > 0) {
+                    if (i == spawn) {
+                        spawnChain = chains.size();
+                    }
                     chains.add(chain);
                     chainNames.add(i < names.size() ? names.getString(i) : "");
                 }
             }
-            shown = chains.isEmpty() ? null : new Shown(chains, chainNames, now);
+            shown = chains.isEmpty() ? null : new Shown(chains, chainNames, spawnChain, now);
             return;
         }
     }

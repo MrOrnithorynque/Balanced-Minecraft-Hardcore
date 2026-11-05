@@ -1,4 +1,4 @@
-// Drives a dedicated server like a (vanilla) client would, to check the Navigator's Amulet's server side (34 checks):
+// Drives a dedicated server like a (vanilla) client would, to check the Navigator's Amulet's server side (40 checks):
 // BOT_MODULES=<node_modules folder that holds mineflayer> node amulet_scenario.js <port> <mc version>
 // (grown from docs/redesign/c-amulet-tools/amulet_scenario.js, the 1.5.0 Home version, which branch.sh still runs on a
 // tree without points). The server needs online-mode=false and RCON on <port> + 100 with password bmh. The bot sees
@@ -127,6 +127,7 @@ async function main () {
   check('night: charge spent (2 left)', num(/bmh_starlight: (\d+)/, s) === 2)
   check('night: night index written', num(/bmh_night: (\d+)L/, s) === 1)
   check('night: reading has azimuths and time', /bmh_reading: \{[^}]*azimuths: \[[-\d.]+f/.test(s) && /time: \d+L/.test(s))
+  check('night: with no point, the reading points to the world spawn alone (spawn 0, no name)', /spawn: 0/.test(s) && /names: \[""\]/.test(s) && /azimuths: \[[-\d.]+f\]/.test(s), s)
 
   // 3. cooldown: a second use right away does nothing
   bars = []
@@ -219,6 +220,31 @@ async function main () {
   check('only the bed point is left', !pts3.includes('Base Camp') && pts3.includes('Bed'), pts3)
   await sleep(1200)
 
+  // 8c. Sneak and use in the air lists the points (a title signal). A delete needs no block: the lodestone is saved
+  // again, broken, and still removed from the list.
+  bot.setControlState('sneak', true)
+  await sleep(500)
+  titles = []
+  await use(bot)
+  const list1 = await waitIn(() => titles, 'bmh.point.list', 2000)
+  check('list: sneak and use in the air sends the list signal with the point', !!list1 && list1.text.includes('Bed'), list1 && list1.text)
+  bot.setControlState('sneak', false)
+  await sleep(1500)
+  lastUse = Date.now()
+  bot.chat('/bmh point save ' + hx + ' ' + hy + ' ' + hz + ' Lost')
+  check('list: a second point saved', !!(await waitBar('bmh.point.saved', 2000)))
+  rcon('setblock ' + hx + ' ' + hy + ' ' + hz + ' minecraft:air')
+  await sleep(1500)
+  titles = []
+  lastUse = Date.now()
+  bot.chat('/bmh point delete ' + hx + ' ' + hy + ' ' + hz)
+  check('delete: removed with the block gone', !!(await waitBar('bmh.point.removed', 2000)))
+  const list2 = await waitIn(() => titles, 'bmh.point.list', 2000)
+  check('delete: the server sends the list again, without the point', !!list2 && list2.text.includes('Bed') && !list2.text.includes('Lost'), list2 && list2.text)
+  const pts4 = rcon('data get entity ' + NAME + ' bmh_points')
+  check('delete: only the bed point is left', !pts4.includes('Lost') && pts4.includes('Bed'), pts4)
+  await sleep(1200)
+
   // 9. azimuth, from four sides of the point (creative: free readings), and the chat line with its name
   rcon('gamemode creative ' + NAME)
   await sleep(500)
@@ -236,7 +262,7 @@ async function main () {
     check('azimuth ' + label + ': ' + expected.toFixed(1), az !== null && Math.abs(az - expected) < 0.01, 'got ' + az)
     if (label === 'south of the point') {
       const st = stack()
-      check('the reading carries the point name for the spyglass, and nothing in chat', /names: \["Bed"\]/.test(st) && !chats.some((c) => c.text.includes('Bed')), st)
+      check('the reading carries the point name and an empty name for the world spawn, and nothing in chat', /names: \["Bed", ""\]/.test(st) && /spawn: 1/.test(st) && !chats.some((c) => c.text.includes('Bed')), st)
     }
     await sleep(2000)
   }
