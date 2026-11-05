@@ -6,15 +6,16 @@
 # usage: branch.sh <origin branch or tag> <minecraft version> <label> [loaders...]
 #   loaders default to forge fabric, plus neoforge when the build made a NeoForge jar.
 # Results: $BMH_VERIFY_OUT/<label>/ (logs, screenshots, steps.txt) and one line in $BMH_VERIFY_OUT/summary.txt.
-# Needs BMH_BOT_MODULES (see ../SKILL.md). Unattended: charger in and lid open (caffeinate -i covers idle sleep only, see ../SKILL.md).
+# The bots' mineflayer installs itself (need_bots in lib.sh). Unattended: charger in and lid open (caffeinate -i covers idle sleep only, see ../SKILL.md).
 set -u
 [ $# -ge 3 ] || { echo "usage: branch.sh <origin branch or tag> <minecraft version> <label> [loaders...]" >&2; exit 2; }
 BR=$1; MCV=$2; LABEL=$3; shift 3
 SCRIPTS=$(cd "$(dirname "$0")" && pwd)
 . "$SCRIPTS/lib.sh"
+need_bots
 WT=$REPO/.claude/worktrees/verify-$LABEL
 OUT=$OUTROOT/$LABEL
-JH=$(jdk_for "$MCV")
+JH=$(jdk_for "$MCV") || exit 2
 BMH_SRC=common/src/main/java/github/mrornithorynque/bmh
 mkdir -p "$OUT"
 say() { echo "$*" | tee -a "$OUT/steps.txt"; }
@@ -27,7 +28,7 @@ trap 'release; unhook' EXIT
 
 # 1. My own worktree at the pushed branch, guarded
 git -C "$REPO" fetch -q origin
-REF=$(ref_of "$BR") || { say "no origin/$BR and no tag $BR"; exit 2; }
+REF=$(ref_of "$BR") || { say "no origin/$BR, no tag $BR$([ "${BMH_LOCAL:-0}" = 1 ] && echo ", no local branch $BR")"; exit 2; }
 SHA=$(git -C "$REPO" rev-parse --short "$REF^{commit}")
 fresh_tree "$WT" "$REF"
 say "== $LABEL: $BR at $SHA, Minecraft $MCV, $(date '+%H:%M:%S')"

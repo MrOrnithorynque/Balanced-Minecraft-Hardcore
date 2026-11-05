@@ -4,15 +4,16 @@
 # usage: server_only.sh <label> <minecraft version> <loader> <bot script: a file of this folder, or an absolute path> <result name>
 #   e.g. server_only.sh 1.20.4 1.20.4 fabric exile_bot.js exile     (the Nether exile check)
 # Results: $BMH_VERIFY_OUT/<label>/server-<loader>-<result name>.log and <result name>-<loader>.log, and a one-line answer.
-# Needs BMH_BOT_MODULES (see ../SKILL.md).
+# The bots' mineflayer installs itself (need_bots in lib.sh).
 set -u
 [ $# -eq 5 ] || { echo "usage: server_only.sh <label> <minecraft version> <loader> <bot script> <result name>" >&2; exit 2; }
 LABEL=$1; MCV=$2; L=$3; BOT=$4; NAME=$5
 SCRIPTS=$(cd "$(dirname "$0")" && pwd)
 . "$SCRIPTS/lib.sh"
+need_bots
 case "$BOT" in /*) ;; *) BOT=$SCRIPTS/$BOT ;; esac
 WT=$REPO/.claude/worktrees/verify-$LABEL
-JH=$(jdk_for "$MCV")
+JH=$(jdk_for "$MCV") || exit 2
 OUT=$OUTROOT/$LABEL; mkdir -p "$OUT"
 [ "$(git -C "$WT" rev-parse --show-toplevel 2>/dev/null)" = "$WT" ] || { echo "tree guard failed for $WT (run branch.sh for label $LABEL first)"; exit 4; }
 trap release EXIT
