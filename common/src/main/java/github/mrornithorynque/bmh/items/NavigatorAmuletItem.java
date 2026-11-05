@@ -32,7 +32,8 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * A compass that only knows north (the needle is a client item property, see client/AmuletCompass),
  * and a navigator's tool: sneak and use it on a bed or a lodestone to name a point there (or rename or
- * remove it), use it at night under open sky to read the stars toward every point. A reading costs one
+ * remove it), sneak and use it anywhere else to list the points and remove one, use it at night under open sky to
+ * read the stars toward every point and the world spawn. A reading costs one
  * of the 3 starlight charges, back at each nightfall.
  */
 public class NavigatorAmuletItem extends Item {
@@ -99,6 +100,15 @@ public class NavigatorAmuletItem extends Item {
             return InteractionResultHolder.consume(itemStack);
         }
 
+        // Sneak and use on anything but a bed or a lodestone: the list of the points, to remove one whose block is gone.
+        if (serverPlayer.isSecondaryUseActive()) {
+
+            AmuletPointSignal.list(serverPlayer, AmuletPoints.get(serverPlayer), AmuletPoints.max());
+            serverPlayer.getCooldowns().addCooldown(this, POINT_COOLDOWN_TICKS);
+
+            return InteractionResultHolder.success(itemStack);
+        }
+
         String hiddenReason = AmuletReading.hiddenReason(serverPlayer);
 
         if (hiddenReason != null) {
@@ -144,6 +154,7 @@ public class NavigatorAmuletItem extends Item {
                 .withStyle(STARLIGHT_STYLE));
         tooltip.add(Component.translatable("bmh.amulet.tooltip.read").withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable("bmh.amulet.tooltip.home").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("bmh.amulet.tooltip.list").withStyle(ChatFormatting.GRAY));
     }
 
     // The item bar is the charges, always shown: full is the state the player wants to see.

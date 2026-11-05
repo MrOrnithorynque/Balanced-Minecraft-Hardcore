@@ -30,9 +30,9 @@ The distances come from the mod config (`minDistanceFromBed` and `maxDistanceFro
 
 In Survival, the F3 screen hides your coordinates. The Navigator's Amulet is your only way to know where you are and where your places are, after a distant respawn or after a long exploration.
 
-- **Mark your places:** sneak and use the amulet on a bed or a lodestone to name a point there. You keep up to 5 points (mod config `maxAmuletPoints`). The same click on a point renames or removes it.
-- **Read the stars:** at night, under open sky and without rain, use the amulet. Your coordinates show on the action bar, and a line of stars points toward each of your points for 30 seconds.
-- **Know which line is which:** look at the last star of a line through a spyglass to see the name of its point.
+- **Mark your places:** sneak and use the amulet on a bed or a lodestone to name a point there. You keep up to 5 points (mod config `maxAmuletPoints`). The same click on a point renames or removes it. Sneak and use the amulet anywhere else to see the list of your points and remove one, even when its bed or lodestone is gone.
+- **Read the stars:** at night, under open sky and without rain, use the amulet. Your coordinates show on the action bar, and a line of stars points toward each of your points and, a little lighter, toward the world spawn (the first place of your world) for 30 seconds.
+- **Know which line is which:** look at the last star of a line through a spyglass to see the name of its point. The line toward the world spawn has no name.
 - **Limits:** a reading costs one of 3 starlight charges, which come back at every nightfall. The rest of the time, the needle only points north.
 
 <p align="center">
