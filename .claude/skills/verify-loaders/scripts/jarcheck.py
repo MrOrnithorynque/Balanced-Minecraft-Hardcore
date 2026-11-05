@@ -28,12 +28,12 @@ REFMAP_IDS = {
               "E_PlayerAttackMixin": ["m_5706_", "m_6469_", "m_36399_"],
               "F_PlayerListRespawnMixin": ["m_11236_"], "F_ServerPlayerAccessor": ["f_8921_"],
               "F_GuiTitleMixin": ["m_168714_"], "F_LocalPlayerRespawnMixin": ["m_7583_"],
-              "F_MinecraftOverlayMixin": ["m_91150_"]},
+              "F_MinecraftOverlayMixin": ["m_91150_"], "G_ItemEntityMixin": ["m_6469_", "m_8119_"]},
     "fabric": {"A_LivingEntityTotemMixin": ["method_6095"], "B_AnvilMenuMixin": ["method_24928"],
                "E_PlayerAttackMixin": ["method_7324", "method_5643", "method_7322"],
                "F_PlayerListRespawnMixin": ["method_14556"], "F_ServerPlayerAccessor": ["field_13998"],
                "F_GuiTitleMixin": ["method_34004"], "F_LocalPlayerRespawnMixin": ["method_7331"],
-               "F_MinecraftOverlayMixin": ["method_18502"]},
+               "F_MinecraftOverlayMixin": ["method_18502"], "G_ItemEntityMixin": ["method_5643", "method_5773"]},
 }
 # The distant respawn hook's other target differs per codebase: noCollision on 1.20.x, findRespawnPositionAndUseSpawnBlock
 # on 1.21.1 (Fabric only there: Forge 1.21.1 ships no refmap).
