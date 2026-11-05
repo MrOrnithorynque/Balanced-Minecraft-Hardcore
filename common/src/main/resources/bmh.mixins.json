@@ -31,7 +31,8 @@
         "F_MusicManagerAccessor",
         "F_SoundInstanceVolumeAccessor",
         "H_ItemRendererSwordMixin",
-        "I_ClientPacketListenerTotemMixin"
+        "I_ClientPacketListenerTotemMixin",
+        "K_GuiSpyglassMixin"
     ],
     "injectors": {
         "defaultRequire": 1

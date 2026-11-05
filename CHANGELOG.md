@@ -6,10 +6,11 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ### Added
 - The Totem of Eternity now saves you from death once, from any slot of your inventory. It does not need to be in your hand. It gives Regeneration, Absorption and Fire Resistance, so it is stronger than a Totem of Undying. A Totem of Undying in your hand is used first. After it saves you, the totem turns back into a Dormant Totem. Awaken it again at an anvil with an Echo Heart.
-- The Navigator's Amulet keeps up to 5 named points instead of one Home. Sneak and use it on a bed or a lodestone: a screen asks for a name. On a bed or a lodestone that is already a point, the same screen lets you rename or remove it. A star reading draws one line of stars toward each point, and the chat lists each name with its direction. The number of points is in the mod config (maxAmuletPoints, 1 to 16).
+- The Navigator's Amulet keeps up to 5 named points instead of one Home. Sneak and use it on a bed or a lodestone: a screen asks for a name. On a bed or a lodestone that is already a point, the same screen lets you rename or remove it. A star reading draws one line of stars toward each point. Look at a line through a spyglass to see the name of its point. The number of points is in the mod config (maxAmuletPoints, 1 to 16).
 - A chest, a shulker box, an ender chest or any other container holds one Totem of Eternity at most. A double chest counts as one container. Hoppers and droppers obey the same limit. Your inventory also holds one at most: a second totem falls to the ground.
 
 ### Changed
+- The line of a star reading stays in the sky for 30 seconds, instead of 8.
 - Your old Home becomes a point named Home. If you go back to an older version of the mod, you lose your points.
 - Eternal Items on the ground no longer despawn. Explosions, cactus and other damage do not destroy them. Fire and lava already did not. The void still destroys them.
 - The Eternal Sword has a new 16x16 picture in the inventory, on the ground and in item frames. Its pixels now have the same size as the pixels of other items. In your hands, the sword does not change.
