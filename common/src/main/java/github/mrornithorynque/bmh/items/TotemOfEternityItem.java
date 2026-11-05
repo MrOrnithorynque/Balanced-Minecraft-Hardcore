@@ -31,6 +31,7 @@ public class TotemOfEternityItem extends Item implements IEternalItem {
 
         super.appendHoverText(stack, context, lines, flag);
         lines.add(Component.translatable("tooltip.bmh.eternity").withStyle(ChatFormatting.GRAY));
+        lines.add(Component.translatable("tooltip.bmh.totem_of_eternity_save").withStyle(ChatFormatting.GRAY));
         EternalTooltips.addHeavy(lines);
     }
 }
