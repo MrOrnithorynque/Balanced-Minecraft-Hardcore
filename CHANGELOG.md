@@ -4,10 +4,30 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-05
+
+The Navigator's Amulet now remembers several places, and the Totem of Eternity saves your life. Thank you to eternalsulfur, who reported the bugs and the ideas of this release (GitHub issue 5).
+
 ### Added
-- The Totem of Eternity now saves you from death once, from any slot of your inventory. It does not need to be in your hand. It gives Regeneration, Absorption and Fire Resistance, so it is stronger than a Totem of Undying. A Totem of Undying in your hand is used first. After it saves you, the totem turns back into a Dormant Totem. Awaken it again at an anvil with an Echo Heart.
-- The Navigator's Amulet keeps up to 5 named points instead of one Home. Sneak and use it on a bed or a lodestone: a screen asks for a name. On a bed or a lodestone that is already a point, the same screen lets you rename or remove it. A star reading draws one line of stars toward each point. Look at the last star of a line through a spyglass to see the name of its point. The number of points is in the mod config (maxAmuletPoints, 1 to 16).
+
+**Named points on the Navigator's Amulet**
+- The amulet keeps up to 5 named points instead of one Home. The number is in the mod config (maxAmuletPoints, 1 to 16).
+- Sneak and use the amulet on a bed or a lodestone: a screen asks for a name. On a bed or a lodestone that is already a point, the same screen lets you rename or remove it.
+- A star reading draws one line of stars toward each of your points.
+- Look at the last star of a line through a spyglass: the name of its point slowly appears.
+
+![A star reading: one line of stars toward each named point](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_points_trace.gif)
+
+![Through a spyglass, the last star of a line shows the name of its point](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_points_spyglass.gif)
+
+![The naming screen of a point](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_points_screen.png)
+
+**The Totem of Eternity saves you**
+- The Totem of Eternity now saves you from death once, from any slot of your inventory. It does not need to be in your hand. It gives Regeneration, Absorption and Fire Resistance, so it is stronger than a Totem of Undying. A Totem of Undying in your hand is used first.
+- After it saves you, the totem turns back into a Dormant Totem. Awaken it again at an anvil with an Echo Heart.
 - A chest, a shulker box, an ender chest or any other container holds one Totem of Eternity at most. A double chest counts as one container. Hoppers and droppers obey the same limit. Your inventory also holds one at most: a second totem falls to the ground.
+
+![The Totem of Eternity saves you from your inventory](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/totem_of_eternity_save.gif)
 
 ### Changed
 - The line of a star reading stays in the sky for 30 seconds, instead of 8.
