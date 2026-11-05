@@ -17,7 +17,9 @@
         "E_ServerPlayerMixin",
         "F_PlayerListRespawnMixin",
         "F_ServerPlayerAccessor",
-        "G_ItemEntityMixin"
+        "G_ItemEntityMixin",
+        "I_ContainerTotemMixin",
+        "I_SlotTotemMixin"
     ],
     "client": [
         "CreateWorldGameTabMixin",
@@ -27,7 +29,8 @@
         "F_MinecraftOverlayMixin",
         "F_MusicManagerAccessor",
         "F_SoundInstanceVolumeAccessor",
-        "H_ItemRendererSwordMixin"
+        "H_ItemRendererSwordMixin",
+        "I_ClientPacketListenerTotemMixin"
     ],
     "injectors": {
         "defaultRequire": 1
