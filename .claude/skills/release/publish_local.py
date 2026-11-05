@@ -121,8 +121,9 @@ def gh(*args):
 def curseforge_ids(token, names):
     """The CurseForge game version id of each name, in the right game version type. A Minecraft version name such as
     1.21.1 exists 3 times (Minecraft 1.21, Addons, and type 1): only the one in a minecraft-* type is right. Loaders are
-    in the modloader type, Java versions in the java type. The version types list is not in CurseForge's upload API
-    page, but mc-publish used it for every release until 1.6.2. Stops on 0 or more than 1 match."""
+    in the modloader type, Java versions in the java type, Client and Server in the environment type (required since
+    2026-11: an upload without one gets error 1021). The version types list is not in CurseForge's upload API page, but
+    mc-publish used it for every release until 1.6.2. Stops on 0 or more than 1 match."""
     headers = {"X-Api-Token": token}
     types = {t["id"]: t["slug"] for t in request(CURSEFORGE_API + "/game/version-types", headers=headers)}
     versions = request(CURSEFORGE_API + "/game/versions", headers=headers)
@@ -132,6 +133,8 @@ def curseforge_ids(token, names):
             kind = lambda slug: slug == "modloader"
         elif name.startswith("Java "):
             kind = lambda slug: slug == "java"
+        elif name in ("Client", "Server"):
+            kind = lambda slug: slug == "environment"
         else:
             kind = lambda slug: slug.startswith("minecraft-")
         match = [v["id"] for v in versions if v["name"] == name and kind(types.get(v["gameVersionTypeID"], ""))]
@@ -237,7 +240,7 @@ def main():
                 "loader": loader,
                 "file": jar(tree, loader),
                 "displayName": "Balanced Minecraft Hardcore %s for %s %s" % (mod, label, mc),
-                "versionNames": [mc, "Java " + java] + listed,
+                "versionNames": [mc, "Java " + java, "Client", "Server"] + listed,
                 "relations": {"projects": [{"slug": "fabric-api", "type": "requiredDependency"}]} if loader == "fabric" else None,
             })
 
