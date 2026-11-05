@@ -21,15 +21,21 @@ public class EternalSwordItem extends SwordItem implements IEternalItem {
     public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> lines, TooltipFlag flag) {
 
         super.appendHoverText(stack, context, lines, flag);
-        EternalTooltips.addAbility(lines, "tooltip.bmh.ability.eternal_sword");
+        EternalTooltips.addAbility(stack, lines, "tooltip.bmh.ability.eternal_sword");
         EternalTooltips.addHeavy(lines);
-        EternalTooltips.addDeathWear(lines);
-        EternalTooltips.addWornOut(stack, lines);
+        EternalTooltips.addDurability(stack, lines);
     }
 
     @Override
     public void reduceDurability(ItemStack stack, int percentage) {
 
         EternalWear.wear(stack, percentage);
+    }
+
+    // The bar keeps one pixel at the last points of durability, so a worn-out tool still shows it.
+    @Override
+    public int getBarWidth(ItemStack stack) {
+
+        return Math.max(1, super.getBarWidth(stack));
     }
 }
