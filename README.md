@@ -52,6 +52,10 @@ The awakened totem glows like an enchanted item. It is the smithing template of 
 Carried anywhere in your inventory, the totem saves you from death once, like a Totem of Undying in your hand, and it also gives Fire Resistance. A Totem of Undying in your hand is used first. After it saves you, it turns back into a Dormant Totem: awaken it again with a new Echo Heart. You carry one at most, and a chest, a shulker box or any other container holds one at most.
 
 <p align="center">
+  <img src="resources/showcase/totem_of_eternity_save.gif" alt="The Totem of Eternity saves you from your inventory" width="640">
+</p>
+
+<p align="center">
   <img src="resources/dormant_totem_crafting_grid.png" alt="dormant_totem_crafting_grid" width="200" style="margin-right: 10px;">
   <img src="resources/echo_heart_crafting_grid.png" alt="echo_heart_crafting_grid" width="200" style="margin-right: 10px;">
   <img src="resources/totem_of_eternity_anvil.png" alt="totem_of_eternity_anvil" width="200">
@@ -90,7 +94,15 @@ Your only way of knowing coordinates in your world, and a compass that only know
 </p>
 
 <p align="center">
-  <img src="resources/star_reading.png" alt="A star reading at midnight: a line through real stars points toward Home" width="640">
+  <img src="resources/showcase/amulet_points_trace.gif" alt="A star reading: one line of stars toward each named point" width="640">
+</p>
+
+<p align="center">
+  <img src="resources/showcase/amulet_points_spyglass.gif" alt="Through a spyglass, the last star of a line shows the name of its point" width="640">
+</p>
+
+<p align="center">
+  <img src="resources/showcase/amulet_points_screen.png" alt="The naming screen of a point" width="480">
 </p>
 
 #### Bundle
