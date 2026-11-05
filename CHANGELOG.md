@@ -4,6 +4,9 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Fixed
+- The Totem of Eternity no longer has a blast furnace recipe. That recipe gave back the same totem after 50 minutes, and JEI showed it as the only way to make the totem. You make the totem at an anvil: put a Dormant Totem on the left and an Echo Heart on the right.
+
 ## [1.6.2] - 2026-11-05
 
 ### Changed
