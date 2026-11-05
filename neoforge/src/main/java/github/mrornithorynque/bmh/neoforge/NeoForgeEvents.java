@@ -7,7 +7,6 @@ import github.mrornithorynque.bmh.handlers.KeepItemAfterDeath;
 import github.mrornithorynque.bmh.handlers.RespawnEffectHandler;
 import github.mrornithorynque.bmh.handlers.RespawnPositionHandler;
 import github.mrornithorynque.bmh.handlers.SleepHandler;
-import github.mrornithorynque.bmh.items.TotemOfEternityItem;
 
 import net.minecraft.server.level.ServerPlayer;
 
@@ -74,7 +73,7 @@ public class NeoForgeEvents {
     @SubscribeEvent
     public static void onItemPickup(ItemEntityPickupEvent.Pre event) {
 
-        if (TotemOfEternityItem.shouldBlockPickup(event.getPlayer(), event.getItemEntity().getItem())) {
+        if (EternalItemHandler.shouldBlockPickup(event.getPlayer(), event.getItemEntity().getItem())) {
             event.setCanPickup(TriState.FALSE);
         }
     }
