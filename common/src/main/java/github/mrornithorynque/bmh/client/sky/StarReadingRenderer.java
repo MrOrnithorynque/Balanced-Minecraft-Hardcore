@@ -1,6 +1,8 @@
 package github.mrornithorynque.bmh.client.sky;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import org.joml.Matrix4f;
@@ -24,6 +26,8 @@ import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
@@ -37,10 +41,10 @@ public final class StarReadingRenderer {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    // The amulet's reading (written server side by the star reading, in the stack's custom data): azimuth in degrees
-    // clockwise from north, from the player to Home, and the level's game time of the reading.
+    // The amulet's reading (written server side by the star reading, in the stack's custom data): one azimuth per
+    // point, in degrees clockwise from north, from the player to the point, and the level's game time of the reading.
     private static final String READING = "bmh_reading";
-    private static final String AZIMUTH = "azimuth";
+    private static final String AZIMUTHS = "azimuths";
     private static final String TIME = "time";
     /** An amulet whose reading is this old when the client first sees it (picked up, relogged) shows nothing. */
     private static final long FRESH_TICKS = 40;
@@ -60,7 +64,8 @@ public final class StarReadingRenderer {
                 Math.round(north[0] * 100), Math.round(north[1] * 100), Math.round(east[0] * 100), Math.round(east[1] * 100)));
     }
 
-    private record Shown(int[] chain, double startTick) {
+    // One chain of stars per point of the reading, all started at the same tick.
+    private record Shown(List<int[]> chains, double startTick) {
     }
 
     private StarReadingRenderer() {
@@ -89,14 +94,28 @@ public final class StarReadingRenderer {
             return;
         }
         double seconds = (now - reading.startTick()) / 20.0;
-        if (seconds > StarTrace.duration(reading.chain().length)) {
+        float skyAlpha = Math.min(1.0F,
+                level.getStarBrightness(partialTick) * (1.0F - level.getRainLevel(partialTick)) / FULL_NIGHT_STARS);
+        List<float[]> parts = new ArrayList<>();
+        int length = 0;
+        for (int[] chain : reading.chains()) {
+            if (seconds <= StarTrace.duration(chain.length)) {
+                float[] part = StarTrace.triangles(StarField.stars(), chain, seconds, skyAlpha);
+                parts.add(part);
+                length += part.length;
+            }
+        }
+        if (parts.isEmpty()) {
             shown = null;
             return;
         }
-
-        float skyAlpha = Math.min(1.0F,
-                level.getStarBrightness(partialTick) * (1.0F - level.getRainLevel(partialTick)) / FULL_NIGHT_STARS);
-        float[] triangles = StarTrace.triangles(StarField.stars(), reading.chain(), seconds, skyAlpha);
+        // One draw call for every chain.
+        float[] triangles = new float[length];
+        int at = 0;
+        for (float[] part : parts) {
+            System.arraycopy(part, 0, triangles, at, part.length);
+            at += part.length;
+        }
         if (triangles.length > 0) {
             draw(starPose, triangles);
         }
@@ -118,16 +137,23 @@ public final class StarReadingRenderer {
                 continue;
             }
             lastShownTime = time;
-            show(level, reading.getFloat(AZIMUTH), now, partialTick);
+            ListTag azimuths = reading.getList(AZIMUTHS, Tag.TAG_FLOAT);
+            List<int[]> chains = new ArrayList<>();
+            for (int i = 0; i < azimuths.size(); i++) {
+                int[] chain = pick(level, azimuths.getFloat(i), partialTick);
+                if (chain.length > 0) {
+                    chains.add(chain);
+                }
+            }
+            shown = chains.isEmpty() ? null : new Shown(chains, now);
             return;
         }
     }
 
-    private static void show(ClientLevel level, float azimuth, double now, float partialTick) {
+    private static int[] pick(ClientLevel level, float azimuth, float partialTick) {
         // The sky as it stands now; within the 40 fresh ticks it turns less than a degree.
         float timeOfDay = level.getTimeOfDay(partialTick);
         int[] chain = StarChain.pick(StarField.stars(), azimuth, timeOfDay);
-        shown = chain.length > 0 ? new Shown(chain, now) : null;
         if (chain.length > 0) {
             StarField.Star star = StarField.stars().get(chain[chain.length - 1]);
             double[] last = StarChain.toWorld(star.x, star.y, star.z, timeOfDay);
@@ -136,6 +162,7 @@ public final class StarReadingRenderer {
                     "[BalancedMcHardcoreMain] Star reading toward %.1f: %d stars, the last at azimuth %.1f, altitude %.1f",
                     azimuth, chain.length, lastAzimuth, Math.toDegrees(Math.asin(last[1]))));
         }
+        return chain;
     }
 
     // Same path as vanilla's sun and moon: vertices through the pose on the CPU, then BufferUploader. Blending stays

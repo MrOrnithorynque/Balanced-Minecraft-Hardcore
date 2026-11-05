@@ -58,4 +58,10 @@ public class FabricPlatformHelper implements IPlatformHelper {
 
         return FabricConfig.get().maxDistanceFromBed;
     }
+
+    @Override
+    public int maxAmuletPoints() {
+
+        return FabricConfig.get().maxAmuletPoints;
+    }
 }
