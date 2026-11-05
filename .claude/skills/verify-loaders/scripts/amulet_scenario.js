@@ -1,8 +1,9 @@
 // Drives a dedicated server like a (vanilla) client would, to check the Navigator's Amulet's server side (34 checks):
 // BOT_MODULES=<node_modules folder that holds mineflayer> node amulet_scenario.js <port> <mc version>
-// (the same checks as docs/redesign/c-amulet-tools/amulet_scenario.js). The server needs online-mode=false and RCON on
-// <port> + 100 with password bmh. The bot sees nothing of the modded items; it only sends "use item" / "use item on block"
-// packets and reads the action bar. Prints PASS/FAIL lines, then "<passed>/<total> checks passed".
+// (grown from docs/redesign/c-amulet-tools/amulet_scenario.js, the 1.5.0 Home version, which branch.sh still runs on a
+// tree without points). The server needs online-mode=false and RCON on <port> + 100 with password bmh. The bot sees
+// nothing of the modded items: it sends "use item" / "use item on block" packets and /bmh point commands, and reads the
+// action bar, the chat and the title packets. Prints PASS/FAIL lines, then "<passed>/<total> checks passed".
 const MODULES = process.env.BOT_MODULES || (__dirname + '/node_modules')
 const RCON_PY = __dirname + '/rcon.py'
 const mineflayer = require(MODULES + '/mineflayer')
@@ -208,8 +209,9 @@ async function main () {
   const pts2 = rcon('data get entity ' + NAME + ' bmh_points')
   check('bed point kept on the head of the bed', pts2.includes('Bed') && pts2.includes('x: ' + bx) && pts2.includes('z: ' + bz), pts2)
 
-  // 8b. Remove the lodestone point: the bed is the only point left
-  await sleep(1200)
+  // 8b. Remove the lodestone point: the bed is the only point left. The server takes one point change per second,
+  // and refuses a faster one without a message: leave a margin for a slow server.
+  await sleep(2000)
   lastUse = Date.now()
   bot.chat('/bmh point remove ' + hx + ' ' + hy + ' ' + hz)
   check('lodestone point removed message', !!(await waitBar('bmh.point.removed', 2000)))
