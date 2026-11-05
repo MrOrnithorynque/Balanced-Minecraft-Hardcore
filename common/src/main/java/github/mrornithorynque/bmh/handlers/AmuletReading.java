@@ -30,9 +30,10 @@ import net.minecraft.world.level.block.Blocks;
  * stack (the contract the sky renderer reads) and the charges that limit readings.
  *
  * The contract, in the stack's custom data (DataComponents.CUSTOM_DATA): the compound bmh_reading with
- * azimuths (a list of floats, one per point of the amulet, see AmuletPoints: degrees clockwise from north,
- * from the player to the point), names (a list of strings in the same order, empty for a point with no
- * name: the spyglass shows them) and time (long, game time of the reading). Next to it live bmh_starlight
+ * azimuths (a list of floats, one per point of the amulet, see AmuletPoints, then one for the world spawn:
+ * degrees clockwise from north, from the player to the place), names (a list of strings in the same order,
+ * empty for the world spawn: the spyglass shows them), spawn (int, the index of the world spawn in both lists;
+ * a reading from 1.7.0 or older has no such tag) and time (long, game time of the reading). Next to it live bmh_starlight
  * (int, charges left) and bmh_night (long, the night those charges were counted for). A stack that never
  * read has neither charge tag: it is full.
  */
@@ -43,6 +44,7 @@ public class AmuletReading {
     public static final String READING_TAG = "bmh_reading";
     public static final String AZIMUTHS_TAG = "azimuths";
     public static final String NAMES_TAG = "names";
+    public static final String SPAWN_TAG = "spawn";
     public static final String TIME_TAG = "time";
     public static final String CHARGES_TAG = "bmh_starlight";
     public static final String NIGHT_TAG = "bmh_night";
@@ -198,10 +200,16 @@ public class AmuletReading {
         ListTag azimuths = new ListTag();
         ListTag names = new ListTag();
 
-        for (AmuletPoints.Point target : AmuletPoints.targets(player)) {
+        for (AmuletPoints.Point target : AmuletPoints.get(player)) {
             azimuths.add(FloatTag.valueOf(azimuth(player.getX(), player.getZ(), target.pos().getX() + 0.5, target.pos().getZ() + 0.5)));
             names.add(StringTag.valueOf(target.name()));
         }
+
+        // The world spawn comes last, with no name. Its index tells the sky renderer which line is the lighter one.
+        BlockPos spawn = AmuletPoints.worldSpawn(player);
+        int spawnIndex = azimuths.size();
+        azimuths.add(FloatTag.valueOf(azimuth(player.getX(), player.getZ(), spawn.getX() + 0.5, spawn.getZ() + 0.5)));
+        names.add(StringTag.valueOf(""));
 
         long gameTime = level.getGameTime();
         long night = nightIndex(level.getDayTime());
@@ -213,6 +221,7 @@ public class AmuletReading {
             CompoundTag reading = new CompoundTag();
             reading.put(AZIMUTHS_TAG, azimuths);
             reading.put(NAMES_TAG, names);
+            reading.putInt(SPAWN_TAG, spawnIndex);
             reading.putLong(TIME_TAG, gameTime);
             tag.put(READING_TAG, reading);
 
