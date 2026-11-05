@@ -6,7 +6,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ### Added
 - The Totem of Eternity now saves you from death once, like a Totem of Undying, from any slot of your inventory. It does not need to be in your hand. A Totem of Undying in your hand is used first. After it saves you, the totem turns back into a Dormant Totem. Awaken it again at an anvil with an Echo Heart.
-- A chest, a shulker box, an ender chest or any other container holds one Totem of Eternity at most. Your inventory also holds one at most. Hoppers and droppers obey the same limit. A double chest holds one in each half when a hopper fills it.
+- A chest, a shulker box, an ender chest or any other container holds one Totem of Eternity at most. A double chest counts as one container. Hoppers and droppers obey the same limit. Your inventory also holds one at most: a second totem falls to the ground.
 
 ### Changed
 - Eternal Items on the ground no longer despawn. Explosions, cactus and other damage do not destroy them. Fire and lava already did not. The void still destroys them.
