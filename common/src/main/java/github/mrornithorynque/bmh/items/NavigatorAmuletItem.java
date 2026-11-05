@@ -116,13 +116,6 @@ public class NavigatorAmuletItem extends Item {
 
         AmuletReading.record(serverPlayer, itemStack);
 
-        // One chat line per point, for this player only: its name and its direction, never its coordinates.
-        for (AmuletPoints.Point point : AmuletPoints.get(serverPlayer)) {
-            float azimuth = AmuletReading.azimuth(player.getX(), player.getZ(), point.pos().getX() + 0.5, point.pos().getZ() + 0.5);
-            serverPlayer.sendSystemMessage(Component.translatable("bmh.point.line", point.name(),
-                    Component.translatable(AmuletReading.directionKey(azimuth))).withStyle(STARLIGHT_STYLE));
-        }
-
         BlockPos pos = serverPlayer.blockPosition();
 
         level.playSound(null, player.getX(), player.getY(), player.getZ(),
