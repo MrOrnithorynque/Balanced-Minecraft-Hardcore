@@ -35,9 +35,10 @@ public class BalancedMcHardcoreMain {
 
         modEventBus.addListener(this::setup);
 
-        // Item properties need the client classes: never touch them on a dedicated server.
+        // Item properties and the config screen need the client classes: never touch them on a dedicated server.
         if (FMLEnvironment.dist.isClient()) {
             modEventBus.addListener(ForgeClientSetup::onClientSetup);
+            ForgeClientSetup.registerConfigScreen();
         }
 
         LOGGER.info("[BalancedMcHardcoreMain] Setup complete.");
