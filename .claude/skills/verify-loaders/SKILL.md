@@ -72,6 +72,7 @@ Then one line per cell from `selftest.sh`: `<label> <sha> selftest | forge up=1 
 | `CoordinatesTest` | `removeCoordinatesInSurvival` forces `reducedDebugInfo` on while a survival player is online and gives the old value back after. |
 | `AxeSmashTest` | The Eternal Axe hits at least 2.5 times harder while falling 10 blocks, and halves the fall. |
 | `MenuTest` | Smithing: netherite sword + Totem of Eternity + echo shard gives the Eternal Sword, Sharpness V kept, inputs used up. Anvil: a gold block repairs the Eternal Pickaxe and the left slot empties (no copy). |
+| `EternalWearTest` | An Eternal tool never breaks: at its last point a hit keeps it, a tool at 0 points gets its last point back, a netherite sword breaks (control). Worn out, the sword hits for about half, the axe neither smashes nor softens the fall, the pickaxe mines at stone speed and lights no ore. A death stops at the last point. A gold block repair costs 15 levels, keeps the prior work penalty and works at penalty 39; a netherite repair keeps its vanilla cost (control). |
 
 The bots keep what needs a real client connection (`smoke_bot.js`: Echo Sense, Echo Strike, the totem nerf, the anvil awakening; `amulet_scenario.js`), and the quick-play clients what needs a screen. Not covered anywhere: the bell other players hear after a respawn, a hardcore world, and other mods (Easy Anvils, JEI).
 

@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import github.mrornithorynque.bmh.handlers.AxeSmashHandler;
 import github.mrornithorynque.bmh.handlers.EchoStrikeHandler;
+import github.mrornithorynque.bmh.handlers.EternalWear;
 import github.mrornithorynque.bmh.items.EternalAxeItem;
 import github.mrornithorynque.bmh.items.EternalSwordItem;
 
@@ -24,7 +25,7 @@ import net.minecraft.world.item.Item;
  * <li>the head: vanilla resets the attack strength early and Forge late, so this is the one place
  * that reads the same value everywhere, and the main hand is the weapon of the whole swing;</li>
  * <li>the one {@code Entity.hurt} call on the target (the sweep uses {@code LivingEntity.hurt}): the
- * damage the hit is about to deal, scaled here for the axe;</li>
+ * damage the hit is about to deal, scaled here for the axe and for a worn-out tool;</li>
  * <li>the {@code causeFoodExhaustion} call, which only the branch of a landed hit reaches.</li>
  * </ul>
  */
@@ -34,6 +35,10 @@ public abstract class E_PlayerAttackMixin {
     // Set at the head of every attack. A null weapon means no ability: a client, or nothing to do.
     @Unique
     private Item bmh$weapon;
+
+    // A worn-out Eternal tool hits for less and has no ability (EternalWear).
+    @Unique
+    private boolean bmh$worn;
 
     @Unique
     private float bmh$attackStrength;
@@ -50,12 +55,14 @@ public abstract class E_PlayerAttackMixin {
         Player self = (Player) (Object) this;
 
         bmh$weapon = null;
+        bmh$worn = false;
         bmh$hitDamage = 0.0F;
         bmh$smashMultiplier = 1.0F;
 
         // The client also runs Player.attack, for its own prediction: abilities are the server's.
         if (self instanceof ServerPlayer) {
             bmh$weapon = self.getMainHandItem().getItem();
+            bmh$worn = EternalWear.isWornOut(self.getMainHandItem());
             bmh$attackStrength = self.getAttackStrengthScale(0.5F);
         }
     }
@@ -63,7 +70,9 @@ public abstract class E_PlayerAttackMixin {
     @ModifyArg(method = "attack", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z"), index = 1)
     private float bmh$scaleHit(float damage) {
 
-        if (bmh$weapon instanceof EternalAxeItem) {
+        if (bmh$worn) {
+            damage *= EternalWear.WORN_DAMAGE_FACTOR;
+        } else if (bmh$weapon instanceof EternalAxeItem) {
             bmh$smashMultiplier = AxeSmashHandler.multiplier((Player) (Object) this);
             damage *= bmh$smashMultiplier;
         }
@@ -76,7 +85,7 @@ public abstract class E_PlayerAttackMixin {
     @Inject(method = "attack", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;causeFoodExhaustion(F)V"))
     private void bmh$hitLanded(Entity target, CallbackInfo ci) {
 
-        if (bmh$weapon == null || !((Object) this instanceof ServerPlayer attacker)) {
+        if (bmh$weapon == null || bmh$worn || !((Object) this instanceof ServerPlayer attacker)) {
             return;
         }
 
