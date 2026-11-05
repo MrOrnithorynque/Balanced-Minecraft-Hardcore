@@ -3,10 +3,13 @@ package github.mrornithorynque.bmh.client;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -75,9 +78,22 @@ public final class SmokeClient {
             run(server, "gamemode survival @a", "effect clear @a");
         } else if (ticks == 235) {
             shot(mc, "bmh-smoke-3-sword.png");
+            ItemStack sword = mc.player.getInventory().getItem(1);
+            BakedModel base = mc.getItemRenderer().getModel(sword, mc.level, mc.player, 0);
+            log("sword in-hand model differs from the inventory one: "
+                    + (EternalSwordModel.inHandModel(base, sword, ItemDisplayContext.FIRST_PERSON_RIGHT_HAND) != base)
+                    + ", inventory model kept in the GUI: "
+                    + (EternalSwordModel.inHandModel(base, sword, ItemDisplayContext.GUI) == base));
         } else if (ticks == 240) {
             // Nothing in the hands saves the player, so the Totem of Eternity (slot 5) does, with its own animation.
-            run(server, "damage @a 1000 minecraft:generic");
+            // The command's feedback goes to the log.
+            server.execute(() -> {
+                ServerPlayer target = server.getPlayerList().getPlayers().get(0);
+                log("before the damage: server health=" + target.getHealth() + " mode=" + target.gameMode.getGameModeForPlayer()
+                        + " invulnerable=" + target.getAbilities().invulnerable + " slot5="
+                        + BuiltInRegistries.ITEM.getKey(target.getInventory().getItem(5).getItem()));
+                server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "damage @a 1000 minecraft:generic");
+            });
         } else if (ticks == 252) {
             shot(mc, "bmh-smoke-4-totem.png");
         } else if (ticks == 270) {
