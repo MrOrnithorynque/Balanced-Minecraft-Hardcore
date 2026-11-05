@@ -13,7 +13,6 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -56,24 +55,25 @@ public class AmuletPoints {
     }
 
     /**
-     * Where a reading points: every point, else the player's respawn point if it is in the Overworld, else the world
-     * spawn. The two fallbacks have no name.
+     * The world spawn: the first place of the world. A reading always points to it, besides the named points, with a
+     * lighter line and no name. It is not a point: it does not count toward the cap and no one removes it.
      */
-    public static List<Point> targets(ServerPlayer player) {
+    public static BlockPos worldSpawn(ServerPlayer player) {
 
-        List<Point> points = ((Holder) player).bmh$getPoints();
+        return player.serverLevel().getSharedSpawnPos();
+    }
 
-        if (!points.isEmpty()) {
-            return List.copyOf(points);
+    /** Removes the point at exactly this position, with no block needed (the block may be gone). False when there is none. */
+    public static boolean removeAt(ServerPlayer player, BlockPos pos) {
+
+        List<Point> points = new ArrayList<>(((Holder) player).bmh$getPoints());
+        boolean removed = points.removeIf(point -> point.pos().equals(pos));
+
+        if (removed) {
+            ((Holder) player).bmh$setPoints(points);
         }
 
-        BlockPos respawn = player.getRespawnPosition();
-
-        if (respawn != null && player.getRespawnDimension() == Level.OVERWORLD) {
-            return List.of(new Point("", respawn));
-        }
-
-        return List.of(new Point("", player.serverLevel().getSharedSpawnPos()));
+        return removed;
     }
 
     /** True for the blocks that can hold a point. */

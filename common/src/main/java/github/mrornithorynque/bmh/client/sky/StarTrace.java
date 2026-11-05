@@ -23,6 +23,8 @@ public final class StarTrace {
     // wide), so the line is a little wider than a star.
     private static final float[] CORE = { 0xf0 / 255.0F, 0xe4 / 255.0F, 0xff / 255.0F };
     private static final float[] EDGE = { 0xb5 / 255.0F, 0x8c / 255.0F, 0xff / 255.0F };
+    // The line toward the world spawn: its violet edge is half way to the white core, so it reads a little lighter.
+    private static final float[] SPAWN_EDGE = { (EDGE[0] + CORE[0]) / 2.0F, (EDGE[1] + CORE[1]) / 2.0F, (EDGE[2] + CORE[2]) / 2.0F };
     private static final double CORE_HALF_WIDTH = 0.10;
     private static final double EDGE_HALF_WIDTH = 0.34;
     private static final double GLOW_HALF_WIDTH = 0.9;
@@ -53,6 +55,12 @@ public final class StarTrace {
      * {@code skyAlpha} (0 to 1) dims everything, the way rain and dawn dim the stars.
      */
     public static float[] triangles(List<StarField.Star> stars, int[] chain, double seconds, float skyAlpha) {
+        return triangles(stars, chain, seconds, skyAlpha, false);
+    }
+
+    /** As above; {@code lighter} gives the line toward the world spawn a lighter edge. */
+    public static float[] triangles(List<StarField.Star> stars, int[] chain, double seconds, float skyAlpha, boolean lighter) {
+        float[] edge = lighter ? SPAWN_EDGE : EDGE;
         Buffer out = new Buffer();
         double traced = traceSeconds(chain.length);
         double fade = seconds <= traced + HOLD_SECONDS ? 1.0
@@ -77,7 +85,7 @@ public final class StarTrace {
             if (i + 1 < chain.length) {
                 double progress = (seconds - i * SEGMENT_SECONDS) / SEGMENT_SECONDS;
                 if (progress > 0.0) {
-                    segment(out, star, stars.get(chain[i + 1]), Math.min(1.0, progress), alpha);
+                    segment(out, star, stars.get(chain[i + 1]), Math.min(1.0, progress), alpha, edge);
                 }
             }
         }
@@ -86,7 +94,7 @@ public final class StarTrace {
 
     // A flat ribbon along the chord between two stars, facing the camera (which sits at the sphere's centre, so the
     // chord covers the same pixels as the arc). Across it: a faint violet glow, the violet edge, the white core.
-    private static void segment(Buffer out, StarField.Star from, StarField.Star to, double progress, float alpha) {
+    private static void segment(Buffer out, StarField.Star from, StarField.Star to, double progress, float alpha, float[] edge) {
         double dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z;
         double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (length <= 2.0 * STAR_GAP) {
@@ -108,7 +116,7 @@ public final class StarTrace {
 
         double[] offsets = { -GLOW_HALF_WIDTH, -EDGE_HALF_WIDTH, -CORE_HALF_WIDTH, 0.0, CORE_HALF_WIDTH,
                 EDGE_HALF_WIDTH, GLOW_HALF_WIDTH };
-        float[][] colours = { EDGE, EDGE, EDGE, CORE, EDGE, EDGE, EDGE };
+        float[][] colours = { edge, edge, edge, CORE, edge, edge, edge };
         float[] alphas = { 0.0F, GLOW_ALPHA * alpha, EDGE_ALPHA * alpha, alpha, EDGE_ALPHA * alpha,
                 GLOW_ALPHA * alpha, 0.0F };
         for (int k = 0; k + 1 < offsets.length; k++) {
