@@ -160,7 +160,7 @@ done
 
 ## 7. Publish from this Mac
 
-First a dry run on every worktree. It uploads and posts nothing; it runs `jarcheck.py`, then prints each file, its CurseForge name and game version names (with the token, how many CurseForge game versions carry each name: 0 means a typo, and a real run stops on it), the GitHub release and the Discord embed:
+First a dry run on every worktree. It uploads and posts nothing; it runs `jarcheck.py`, then prints each file, its CurseForge name and game versions (with the token, the CurseForge id of each one: a Minecraft version name such as 1.21.1 exists in three game version types, Minecraft, Addons and type 1, so the script sends the id from the minecraft-* type, and stops before any upload on a name with no match or several), the GitHub release and the Discord embed:
 
 ```bash
 W=<absolute scratchpad path>/wt
