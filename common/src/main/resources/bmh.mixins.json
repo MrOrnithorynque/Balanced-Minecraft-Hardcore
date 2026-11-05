@@ -16,7 +16,8 @@
         "E_ServerPlayerGameModeMixin",
         "E_ServerPlayerMixin",
         "F_PlayerListRespawnMixin",
-        "F_ServerPlayerAccessor"
+        "F_ServerPlayerAccessor",
+        "G_ItemEntityMixin"
     ],
     "client": [
         "CreateWorldGameTabMixin",
