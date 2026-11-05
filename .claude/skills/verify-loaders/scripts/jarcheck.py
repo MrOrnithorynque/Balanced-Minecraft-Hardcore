@@ -4,7 +4,8 @@ usage: python3 -I jarcheck.py <abs worktree> <minecraft version> <abs JAVA_HOME>
 Checks every loader jar the branch built: mixin configs and classes, the refmap a production install needs (Forge 1.20.x
 SRG names, Fabric intermediary names), the shadow fields renamed in the shipped classes, assets and data in the right
 version folders, and that no throwaway test class shipped. Prints PASS/FAIL lines, then "ITEMS ...", "RECIPES ..." and
-"JARS <passed>/<total>".
+"JARS <passed>/<total>". Exit status 0 when every check passed, 1 otherwise (a failed check, or no jar at all): CI and
+publish.yml stop on it.
 
 A mixin with by-name targets or a @Shadow field needs its runtime names below (REFMAP_IDS, SHADOW_FIELDS): find them
 with the add-mixin skill's step 4 (unzip the refmap, javap -p the shipped class) and add them here.
@@ -52,7 +53,8 @@ ADDED_METHODS = {
     "forge": {"I_ContainerTotemMixin": ["m_7013_"]},
     "fabric": {"I_ContainerTotemMixin": ["method_5437"]},
 }
-THROWAWAY = re.compile(r"(SelfTest|DevSkyShots|SmokeClient|Z_Smoke|JourneySmoke|Z_Journey)")
+# A throwaway hook class (selftest.sh, branch.sh, death_client.sh): any selftest folder, any Z_ mixin, the client hooks
+THROWAWAY = re.compile(r"(selftest|devskyshots|smokeclient|journeysmoke|/mixin/Z_)", re.IGNORECASE)
 
 
 def check(name, ok, detail=""):
@@ -196,6 +198,7 @@ def main():
     print("ITEMS " + " ".join(items))
     print("RECIPES " + " ".join(recipes))
     print("JARS %d/%d" % (sum(results), len(results)))
+    sys.exit(0 if results and all(results) else 1)
 
 
 main()

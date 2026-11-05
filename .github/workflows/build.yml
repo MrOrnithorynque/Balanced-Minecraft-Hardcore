@@ -1,0 +1,34 @@
+name: Build
+
+# Every push to a version branch builds every loader jar and runs the jar checks of the verify-loaders
+# skill (mixins, refmap, data folders, no test class shipped). It does not start Minecraft: the server
+# self-tests, the bots and the clients run locally (the verify-loaders skill). publish.yml (tags) runs
+# the same jar checks before it uploads.
+on:
+  push:
+    branches: [main, 'dev-*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read versions
+        id: props
+        run: |
+          echo "mc=$(grep '^minecraft_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "java=$(grep -o 'JavaLanguageVersion.of([0-9]*)' build.gradle | grep -o '[0-9]\+')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.props.outputs.java }}
+          cache: gradle
+
+      - name: Build
+        run: chmod +x gradlew && ./gradlew build
+
+      - name: Check the jars
+        run: python3 -I .claude/skills/verify-loaders/scripts/jarcheck.py "$GITHUB_WORKSPACE" "${{ steps.props.outputs.mc }}" "$JAVA_HOME"
