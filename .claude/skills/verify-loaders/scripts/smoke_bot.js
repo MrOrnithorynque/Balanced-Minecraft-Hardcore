@@ -314,7 +314,7 @@ async function main () {
     const th = num(rcon('data get entity ' + NAME + ' Health'))
     check('eternity totem: saved the player', th !== null && th > 0 && th < 20, th)
     check('eternity totem: turned into a Dormant Totem', inv.includes('bmh:dormant_totem') && !inv.includes('bmh:totem_of_eternity'), inv)
-    check('eternity totem: Regeneration and Absorption, no Fire Resistance', hasEffect(te, 'regeneration', 10) && hasEffect(te, 'absorption', 22) && !hasEffect(te, 'fire_resistance', 12), te)
+    check('eternity totem: Regeneration, Absorption and Fire Resistance', hasEffect(te, 'regeneration', 10) && hasEffect(te, 'absorption', 22) && hasEffect(te, 'fire_resistance', 12), te)
 
     await sleep(1500)
     rcon('clear ' + NAME)
