@@ -5,6 +5,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import github.mrornithorynque.bmh.handlers.TotemOfEternityHandler;
+
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
@@ -28,6 +32,18 @@ public abstract class A_LivingEntityTotemMixin {
         // Fire Resistance included), so any Fire Resistance left at this point is the totem's.
         if (cir.getReturnValueZ() && (Object) this instanceof Player player) {
             player.removeEffect(MobEffects.FIRE_RESISTANCE);
+        }
+    }
+
+    // When no Totem of Undying in a hand saved the player, a Totem of Eternity anywhere in the inventory can. It runs
+    // after vanilla's check, so a cheap totem in a hand is used first. Damage that bypasses invulnerability (the void,
+    // /kill) still kills, as with vanilla's totem.
+    @Inject(method = "checkTotemDeathProtection", at = @At("RETURN"), cancellable = true)
+    private void bmh$totemOfEternitySave(DamageSource source, CallbackInfoReturnable<Boolean> cir) {
+
+        if (!cir.getReturnValueZ() && (Object) this instanceof ServerPlayer player
+                && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY) && TotemOfEternityHandler.trySave(player)) {
+            cir.setReturnValue(true);
         }
     }
 }
