@@ -4,27 +4,62 @@
 
 [![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/Czn9JQxMjT)
 
-Balanced Minecraft Hardcore (BMH) gives you flexibility in difficulty by replacing death by distant respawn based on your difficulty and **Eternal Items** possessed. BMH is the perfect middle ground between normal Minecraft gameplay and hardcore minecraft gameplay.
+Hardcore is too punishing: one death and your world is gone. Balanced Minecraft Hardcore (BMH) is the middle ground between normal Minecraft and Hardcore. When you die, you keep your world, but you wake up far away from home.
+
+You can go back to where you were. It takes a long time, and you can die again on the way. Or you can start a new adventure in the same world. The **Eternal Items** you carry stay with you and give you a head start.
+
+**Do not play on hardcore Minecraft: the mod works only on normal Minecraft.**
 
 ## Features
 
 ### Dying Mechanic
 
-Balanced Minecraft Hardcore (BMH) gives you flexibility in difficulty by replacing death by distant respawn based on your difficulty and Eternal Items possessed. The distance counts in world terms: a respawn anchor in the Nether sends you as far as a bed does in the Overworld, so 8 times fewer Nether blocks.
+When you die, you respawn far from your bed (or from the world spawn), on a safe spot of solid ground, with only what you could protect. The harder the difficulty, and the more Eternal Items you carry, the farther you wake. You take no damage for 10 seconds after the respawn.
+
+<p align="center">
+  <img src="resources/showcase/journey.gif" alt="The journey scene after a distant respawn" width="640">
+</p>
+
+<p align="center">
+  <img src="resources/showcase/respawn_distance.png" alt="Respawn distance by difficulty and number of Eternal Items" width="640">
+</p>
+
+The distances come from the mod config (`minDistanceFromBed` and `maxDistanceFromBed`).
+
+### Finding Your Way
+
+In Survival, the F3 screen hides your coordinates. The Navigator's Amulet is your only way to know where you are and where your places are, after a distant respawn or after a long exploration.
+
+- **Mark your places:** sneak and use the amulet on a bed or a lodestone to name a point there. You keep up to 5 points (mod config `maxAmuletPoints`). The same click on a point renames or removes it.
+- **Read the stars:** at night, under open sky and without rain, use the amulet. Your coordinates show on the action bar, and a line of stars points toward each of your points for 30 seconds.
+- **Know which line is which:** look at the last star of a line through a spyglass to see the name of its point.
+- **Limits:** a reading costs one of 3 starlight charges, which come back at every nightfall. The rest of the time, the needle only points north.
+
+<p align="center">
+  <img src="resources/showcase/amulet_points_trace.gif" alt="A star reading: one line of stars toward each named point" width="640">
+</p>
+
+<p align="center">
+  <img src="resources/showcase/amulet_points_spyglass.gif" alt="Through a spyglass, the last star of a line shows the name of its point" width="640">
+</p>
+
+<p align="center">
+  <img src="resources/showcase/amulet_points_screen.png" alt="The naming screen of a point" width="480">
+</p>
 
 ### Eternal Items
 
-Eternal Items stay with you after you die. Each death costs the Eternal tools 7% of their durability, but they never break. They are very very powerful items and you can only carry one type at the time. Each one you carry also pushes your next respawn farther away.
+Eternal Items stay with you after you die. Each death costs the Eternal tools 7% of their durability, but they never break. They are very very powerful items and you can carry only one of each. Each one you carry also pushes your next respawn farther away.
+
+<p align="center">
+  <img src="resources/showcase/eternal_items.png" alt="The five Eternal Items" width="640">
+</p>
 
 On the ground, an Eternal Item never despawns, and explosions and cactus do not destroy it. The void still does.
 
 ### Totem of Undying
 
 The Totem of Undying still saves you with Regeneration and Absorption, but it no longer gives Fire Resistance.
-
-### Navigation
-
-No coordinates, it means that you have to craft some special items to know where to go.
 
 ### Sleeping
 
@@ -82,22 +117,10 @@ Just like the legacy Bundle but keep with you any item inside it even after you 
 
 #### Navigator's Amulet
 
-Your only way of knowing coordinates in your world, and a compass that only knows north: its needle always points north in the Overworld. Sneak and right click a bed or a lodestone to name a point there: you keep up to 5 points (mod config `maxAmuletPoints`), and the same click on a point lets you rename or remove it. At night, under open sky and without rain, right click to read the stars: your coordinates show on the action bar, a line of stars points toward each of your points for 30 seconds, and a spyglass on the last star of a line shows the name of its point. A reading costs one of its 3 starlight charges, which come back at every nightfall.
+How to use it: see Finding Your Way, under Features.
 
 <p align="center">
   <img src="resources/navigator_amulet_crafting_grid.png" alt="navigator_amulet_crafting_grid" width="200">
-</p>
-
-<p align="center">
-  <img src="resources/showcase/amulet_points_trace.gif" alt="A star reading: one line of stars toward each named point" width="640">
-</p>
-
-<p align="center">
-  <img src="resources/showcase/amulet_points_spyglass.gif" alt="Through a spyglass, the last star of a line shows the name of its point" width="640">
-</p>
-
-<p align="center">
-  <img src="resources/showcase/amulet_points_screen.png" alt="The naming screen of a point" width="480">
 </p>
 
 #### Bundle
