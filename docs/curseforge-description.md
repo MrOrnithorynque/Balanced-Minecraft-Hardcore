@@ -29,7 +29,7 @@ The F3 screen hides your coordinates in Survival. To know where you are, and whe
 A copper compass that only knows north: its needle always points north in the Overworld.
 
 - **Name your points:** sneak and use it on a bed or a lodestone, and give the point a name. You keep up to 5 points. The same click on a point renames or removes it.
-- **Read the stars:** at night, under open sky and without rain, use it. Your coordinates show on the action bar, and a line of real stars lights up in the sky, from overhead down to the horizon, toward each of your points. The chat lists each name with its direction.
+- **Read the stars:** at night, under open sky and without rain, use it. Your coordinates show on the action bar, and a line of real stars lights up in the sky, from overhead down to the horizon, toward each of your points, and stays there for 30 seconds. Look at a line through a spyglass to see the name of its point.
 - A reading costs one of its 3 starlight charges. The charges come back at every nightfall.
 
 ![A star reading: your coordinates, and a line of stars toward Home](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_star_reading.png)

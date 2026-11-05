@@ -235,8 +235,8 @@ async function main () {
     const expected = ((Math.atan2(H.x - px, pz - H.z) * 180 / Math.PI) % 360 + 360) % 360
     check('azimuth ' + label + ': ' + expected.toFixed(1), az !== null && Math.abs(az - expected) < 0.01, 'got ' + az)
     if (label === 'south of the point') {
-      const line = await waitIn(() => chats, 'bmh.point.line', 1500)
-      check('chat line names the point and says north', !!line && line.text.includes('Bed') && line.text.includes('bmh.direction.n"'), line && line.text)
+      const st = stack()
+      check('the reading carries the point name for the spyglass, and nothing in chat', /names: \["Bed"\]/.test(st) && !chats.some((c) => c.text.includes('Bed')), st)
     }
     await sleep(2000)
   }

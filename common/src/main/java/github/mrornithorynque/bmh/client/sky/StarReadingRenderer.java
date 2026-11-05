@@ -5,7 +5,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import javax.annotation.Nullable;
+
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.slf4j.Logger;
 
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -42,6 +45,9 @@ public final class StarReadingRenderer {
     // north, from the player to the point, and the level's game time of the reading.
     private static final String READING = "bmh_reading";
     private static final String AZIMUTHS = "azimuths";
+    private static final String NAMES = "names";
+    /** Through a spyglass, a star of a line within this angle of the view's centre shows the line's name. */
+    private static final double AIM_DEGREES = 2.0;
     private static final String TIME = "time";
     /** An amulet whose reading is this old when the client first sees it (picked up, relogged) shows nothing. */
     private static final long FRESH_TICKS = 40;
@@ -61,8 +67,8 @@ public final class StarReadingRenderer {
                 Math.round(north[0] * 100), Math.round(north[1] * 100), Math.round(east[0] * 100), Math.round(east[1] * 100)));
     }
 
-    // One chain of stars per point of the reading, all started at the same tick.
-    private record Shown(List<int[]> chains, double startTick) {
+    // One chain of stars per point of the reading, all started at the same tick, and the point's name for each.
+    private record Shown(List<int[]> chains, List<String> names, double startTick) {
     }
 
     private StarReadingRenderer() {
@@ -136,16 +142,53 @@ public final class StarReadingRenderer {
             }
             lastShownTime = time;
             ListTag azimuths = reading.getList(AZIMUTHS, Tag.TAG_FLOAT);
+            ListTag names = reading.getList(NAMES, Tag.TAG_STRING);
             List<int[]> chains = new ArrayList<>();
+            List<String> chainNames = new ArrayList<>();
             for (int i = 0; i < azimuths.size(); i++) {
                 int[] chain = pick(level, azimuths.getFloat(i), partialTick);
                 if (chain.length > 0) {
                     chains.add(chain);
+                    chainNames.add(i < names.size() ? names.getString(i) : "");
                 }
             }
-            shown = chains.isEmpty() ? null : new Shown(chains, now);
+            shown = chains.isEmpty() ? null : new Shown(chains, chainNames, now);
             return;
         }
+    }
+
+    /**
+     * The name of the line the view's centre aims at, or null: a star of a named line still in the sky within AIM_DEGREES
+     * of the camera's direction (the nearest wins where lines meet). mixin/K_GuiSpyglassMixin shows it through a spyglass.
+     */
+    @Nullable
+    public static String aimedName(float partialTick) {
+        Minecraft minecraft = Minecraft.getInstance();
+        Shown reading = shown;
+        if (reading == null || minecraft.level == null) {
+            return null;
+        }
+        double seconds = (minecraft.gui.getGuiTicks() + partialTick - reading.startTick()) / 20.0;
+        float timeOfDay = minecraft.level.getTimeOfDay(partialTick);
+        Vector3f look = minecraft.gameRenderer.getMainCamera().getLookVector();
+        double best = Math.cos(Math.toRadians(AIM_DEGREES));
+        String name = null;
+        for (int c = 0; c < reading.chains().size(); c++) {
+            int[] chain = reading.chains().get(c);
+            if (reading.names().get(c).isEmpty() || seconds > StarTrace.duration(chain.length)) {
+                continue;
+            }
+            for (int index : chain) {
+                StarField.Star star = StarField.stars().get(index);
+                double[] sky = StarChain.toWorld(star.x, star.y, star.z, timeOfDay);
+                double dot = sky[0] * look.x() + sky[1] * look.y() + sky[2] * look.z();
+                if (dot > best) {
+                    best = dot;
+                    name = reading.names().get(c);
+                }
+            }
+        }
+        return name;
     }
 
     private static int[] pick(ClientLevel level, float azimuth, float partialTick) {

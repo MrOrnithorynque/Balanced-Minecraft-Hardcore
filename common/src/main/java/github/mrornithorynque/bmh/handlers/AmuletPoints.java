@@ -57,29 +57,23 @@ public class AmuletPoints {
 
     /**
      * Where a reading points: every point, else the player's respawn point if it is in the Overworld, else the world
-     * spawn.
+     * spawn. The two fallbacks have no name.
      */
-    public static List<BlockPos> targets(ServerPlayer player) {
+    public static List<Point> targets(ServerPlayer player) {
 
-        List<BlockPos> targets = new ArrayList<>();
+        List<Point> points = ((Holder) player).bmh$getPoints();
 
-        for (Point point : ((Holder) player).bmh$getPoints()) {
-            targets.add(point.pos());
-        }
-
-        if (!targets.isEmpty()) {
-            return targets;
+        if (!points.isEmpty()) {
+            return List.copyOf(points);
         }
 
         BlockPos respawn = player.getRespawnPosition();
 
         if (respawn != null && player.getRespawnDimension() == Level.OVERWORLD) {
-            targets.add(respawn);
-        } else {
-            targets.add(player.serverLevel().getSharedSpawnPos());
+            return List.of(new Point("", respawn));
         }
 
-        return targets;
+        return List.of(new Point("", player.serverLevel().getSharedSpawnPos()));
     }
 
     /** True for the blocks that can hold a point. */
