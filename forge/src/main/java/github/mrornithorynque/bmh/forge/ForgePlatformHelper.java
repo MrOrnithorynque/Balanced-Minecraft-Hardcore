@@ -72,4 +72,10 @@ public class ForgePlatformHelper implements IPlatformHelper {
 
         return Config.maxAmuletPoints.get();
     }
+
+    @Override
+    public void saveConfig(int minDistanceFromBed, int maxDistanceFromBed, int maxAmuletPoints) {
+
+        Config.save(minDistanceFromBed, maxDistanceFromBed, maxAmuletPoints);
+    }
 }

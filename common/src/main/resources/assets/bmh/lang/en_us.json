@@ -54,5 +54,13 @@
     "bmh.createWorld.balancedHardcore": "Balanced Hardcore",
     "bmh.createWorld.balancedHardcore.info": "Distant respawn and eternal items. Turning it off disables every BMH game rule for this world.",
 
-    "bmh.journey.message": "A new journey begins for you, %s."
+    "bmh.journey.message": "A new journey begins for you, %s.",
+
+    "bmh.config.title": "Balanced Minecraft Hardcore",
+    "bmh.config.minDistanceFromBed": "Minimum respawn distance (%s to %s blocks)",
+    "bmh.config.maxDistanceFromBed": "Maximum respawn distance (%s to %s blocks)",
+    "bmh.config.maxAmuletPoints": "Points on the Navigator's Amulet (%s to %s)",
+    "bmh.config.outOfRange": "A value is empty or out of range.",
+    "bmh.config.minAboveMax": "The minimum distance is greater than the maximum.",
+    "bmh.config.note": "These settings apply to your singleplayer worlds and to the worlds you open to LAN. A server uses its own config file. A new distance applies from the next death."
 }
