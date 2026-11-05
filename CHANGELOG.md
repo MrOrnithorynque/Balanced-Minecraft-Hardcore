@@ -6,6 +6,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ### Changed
 - Eternal Items on the ground no longer despawn. Explosions, cactus and other damage do not destroy them. Fire and lava already did not. The void still destroys them.
+- The Eternal Sword has a new 16x16 picture in the inventory, on the ground and in item frames. Its pixels now have the same size as the pixels of other items. In your hands, the sword does not change.
 
 ### Fixed
 - A second Eternal Sword, Axe, Pickaxe or Bundle no longer falls out of your inventory and comes back again and again. You cannot pick up a second copy of an Eternal Item while you carry one, as with the Totem of Eternity. The onlyCarryOneEternalItemType game rule controls this.
