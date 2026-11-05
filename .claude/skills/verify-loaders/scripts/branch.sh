@@ -72,9 +72,18 @@ for L in $LOADERS; do
   AM="-"; SM="-"
   if [ $UP = 1 ]; then
     say "$L server up after $(( $(date +%s) - BOOT_START )) s"
-    # the amulet scenario only exists on a branch that has the redesigned amulet
-    if grep -q 'bmh_starlight' "$WT/$BMH_SRC/handlers/AmuletReading.java" 2>/dev/null; then
-      with_timeout 600 node "$SCRIPTS/amulet_scenario.js" $PORT "$MCV" > "$OUT/amulet-$L.log" 2>&1
+    # The amulet scenario of this skill checks the named points. A tree from 1.5.0 to 1.6.x (one Home) runs the Home
+    # version it carries in docs/redesign; a tree before 1.5.0 has no redesigned amulet and gets amulet=-.
+    AMBOT=""
+    if [ -f "$WT/$BMH_SRC/handlers/AmuletPoints.java" ]; then
+      AMBOT=$SCRIPTS/amulet_scenario.js
+    elif grep -q 'bmh_starlight' "$WT/$BMH_SRC/handlers/AmuletReading.java" 2>/dev/null \
+        && [ -f "$WT/docs/redesign/c-amulet-tools/amulet_scenario.js" ]; then
+      AMBOT=$OUT/amulet_scenario_home.js
+      cp "$WT/docs/redesign/c-amulet-tools/amulet_scenario.js" "$AMBOT"; cp "$SCRIPTS/rcon.py" "$OUT/rcon.py"
+    fi
+    if [ -n "$AMBOT" ]; then
+      with_timeout 600 node "$AMBOT" $PORT "$MCV" > "$OUT/amulet-$L.log" 2>&1
       AM="$(grep -c '^PASS' "$OUT/amulet-$L.log")/$(grep -c -E '^(PASS|FAIL)' "$OUT/amulet-$L.log")"
     fi
     with_timeout 600 env SMOKE_ITEMS="$ITEMS" SMOKE_RECIPES="$RECIPES" node "$SCRIPTS/smoke_bot.js" $PORT "$MCV" > "$OUT/bot-$L.log" 2>&1
