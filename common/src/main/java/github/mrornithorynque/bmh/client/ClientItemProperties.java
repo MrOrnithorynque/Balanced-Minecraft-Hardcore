@@ -29,5 +29,8 @@ public class ClientItemProperties {
 
         // The Navigator's Amulet needle: vanilla's compass machinery aimed due north of the holder (Overworld only).
         registrar.register(ItemInit.NAVIGATOR_AMULET.get(), AmuletCompass.ANGLE, AmuletCompass.angle());
+
+        // The Eternal Sword's 20x20 model, for its hands only (EternalSwordModel).
+        registrar.register(ItemInit.ETERNAL_SWORD.get(), EternalSwordModel.IN_HAND, EternalSwordModel.inHand());
     }
 }
