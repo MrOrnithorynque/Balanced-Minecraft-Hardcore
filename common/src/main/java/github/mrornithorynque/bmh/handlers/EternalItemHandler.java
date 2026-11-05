@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import github.mrornithorynque.bmh.items.IEternalItem;
+import github.mrornithorynque.bmh.items.TotemOfEternityItem;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 
 import java.util.ArrayList;
@@ -25,11 +26,7 @@ public class EternalItemHandler {
 
         Player player = serverPlayer;
 
-        if (!serverPlayer.serverLevel().getGameRules()
-                .getBoolean(BMHGameRules.RULE_ONLY_CARRY_ONE_ETERNAL_ITEM_TYPE))
-            return;
-
-        if (!(serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL))
+        if (!ruleApplies(serverPlayer))
             return;
 
         ArrayList<ItemStack> playerEternalItems = new ArrayList<>();
@@ -54,6 +51,34 @@ public class EternalItemHandler {
                 }
             }
         }
+    }
+
+    // A player carries one copy of each Eternal Item: true cancels the pickup of the item on the ground.
+    // The totem is always one per player. The other items follow the rule of onPlayerTick, or the tick
+    // drops the copy, the player picks it up again, and this repeats forever.
+    public static boolean shouldBlockPickup(Player player, ItemStack pickedUpItem) {
+
+        if (!(pickedUpItem.getItem() instanceof IEternalItem))
+            return false;
+
+        if (!(pickedUpItem.getItem() instanceof TotemOfEternityItem)
+                && !(player instanceof ServerPlayer serverPlayer && ruleApplies(serverPlayer)))
+            return false;
+
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+
+            if (player.getInventory().getItem(i).is(pickedUpItem.getItem())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean ruleApplies(ServerPlayer serverPlayer) {
+
+        return serverPlayer.serverLevel().getGameRules().getBoolean(BMHGameRules.RULE_ONLY_CARRY_ONE_ETERNAL_ITEM_TYPE)
+                && serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL;
     }
 
     private static boolean containsSameEternalItem(@Nonnull ArrayList<ItemStack> eternalItemList,
