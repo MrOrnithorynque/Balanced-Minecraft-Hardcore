@@ -19,7 +19,8 @@
         "F_ServerPlayerAccessor",
         "G_ItemEntityMixin",
         "I_ContainerTotemMixin",
-        "I_SlotTotemMixin"
+        "I_SlotTotemMixin",
+        "J_CommandsMixin"
     ],
     "client": [
         "CreateWorldGameTabMixin",
