@@ -78,7 +78,7 @@ Just like the legacy Bundle but keep with you any item inside it even after you 
 
 #### Navigator's Amulet
 
-Your only way of knowing coordinates in your world, and a compass that only knows north: its needle always points north in the Overworld. Sneak and right click a bed or a lodestone to set your Home. At night, under open sky and without rain, right click to read the stars: your coordinates show on the action bar and the stars point you toward your Home. A reading costs one of its 3 starlight charges, which come back at every nightfall.
+Your only way of knowing coordinates in your world, and a compass that only knows north: its needle always points north in the Overworld. Sneak and right click a bed or a lodestone to name a point there: you keep up to 5 points (mod config `maxAmuletPoints`), and the same click on a point lets you rename or remove it. At night, under open sky and without rain, right click to read the stars: your coordinates show on the action bar, a line of stars points toward each of your points, and the chat lists each name with its direction. A reading costs one of its 3 starlight charges, which come back at every nightfall.
 
 <p align="center">
   <img src="resources/navigator_amulet_crafting_grid.png" alt="navigator_amulet_crafting_grid" width="200">

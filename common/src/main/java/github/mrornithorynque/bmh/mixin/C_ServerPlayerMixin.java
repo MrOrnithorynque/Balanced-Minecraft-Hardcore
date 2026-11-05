@@ -6,49 +6,51 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import github.mrornithorynque.bmh.handlers.AmuletHome;
+import java.util.ArrayList;
+import java.util.List;
 
-import net.minecraft.core.BlockPos;
+import github.mrornithorynque.bmh.handlers.AmuletPoints;
+
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Gives every ServerPlayer the Navigator's Amulet Home (see AmuletHome): saved with the player,
+ * Gives every ServerPlayer the points of the Navigator's Amulet (see AmuletPoints): saved with the player,
  * and carried over to the new player on death and when coming back from the End.
  */
 @Mixin(ServerPlayer.class)
-public abstract class C_ServerPlayerMixin implements AmuletHome.Holder {
+public abstract class C_ServerPlayerMixin implements AmuletPoints.Holder {
 
     @Unique
-    private BlockPos bmh$home;
+    private List<AmuletPoints.Point> bmh$points = new ArrayList<>();
 
     @Override
-    public BlockPos bmh$getHome() {
+    public List<AmuletPoints.Point> bmh$getPoints() {
 
-        return this.bmh$home;
+        return this.bmh$points;
     }
 
     @Override
-    public void bmh$setHome(BlockPos home) {
+    public void bmh$setPoints(List<AmuletPoints.Point> points) {
 
-        this.bmh$home = home;
+        this.bmh$points = new ArrayList<>(points);
     }
 
     @Inject(method = "addAdditionalSaveData", at = @At("TAIL"))
-    private void bmh$saveHome(CompoundTag tag, CallbackInfo ci) {
+    private void bmh$savePoints(CompoundTag tag, CallbackInfo ci) {
 
-        AmuletHome.write(this.bmh$home, tag);
+        AmuletPoints.write(this.bmh$points, tag);
     }
 
     @Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
-    private void bmh$loadHome(CompoundTag tag, CallbackInfo ci) {
+    private void bmh$loadPoints(CompoundTag tag, CallbackInfo ci) {
 
-        this.bmh$home = AmuletHome.read(tag);
+        this.bmh$points = AmuletPoints.read(tag);
     }
 
     @Inject(method = "restoreFrom", at = @At("TAIL"))
-    private void bmh$copyHome(ServerPlayer oldPlayer, boolean alive, CallbackInfo ci) {
+    private void bmh$copyPoints(ServerPlayer oldPlayer, boolean alive, CallbackInfo ci) {
 
-        this.bmh$home = ((AmuletHome.Holder) oldPlayer).bmh$getHome();
+        this.bmh$points = new ArrayList<>(((AmuletPoints.Holder) oldPlayer).bmh$getPoints());
     }
 }
