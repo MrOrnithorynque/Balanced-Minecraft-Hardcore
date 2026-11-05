@@ -25,7 +25,7 @@ public class TotemOfEternityHandler {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     // Called by mixin/A_LivingEntityTotemMixin when no Totem of Undying in a hand saved the player.
-    // It does what vanilla's totem does, without the Fire Resistance (see that mixin).
+    // It does what vanilla's totem does. Unlike the Totem of Undying in BMH, it keeps the Fire Resistance.
     public static boolean trySave(ServerPlayer player) {
 
         Inventory inventory = player.getInventory();
@@ -44,6 +44,7 @@ public class TotemOfEternityHandler {
                 player.removeAllEffects();
                 player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 900, 1));
                 player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 1));
+                player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 800, 0));
                 player.level().broadcastEntityEvent(player, (byte) 35);
 
                 LOGGER.info("[BalancedMcHardcoreMain] The Totem of Eternity saved " + player.getName().getString()

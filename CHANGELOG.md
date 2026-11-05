@@ -5,7 +5,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 ## [Unreleased]
 
 ### Added
-- The Totem of Eternity now saves you from death once, like a Totem of Undying, from any slot of your inventory. It does not need to be in your hand. A Totem of Undying in your hand is used first. After it saves you, the totem turns back into a Dormant Totem. Awaken it again at an anvil with an Echo Heart.
+- The Totem of Eternity now saves you from death once, from any slot of your inventory. It does not need to be in your hand. It gives Regeneration, Absorption and Fire Resistance, so it is stronger than a Totem of Undying. A Totem of Undying in your hand is used first. After it saves you, the totem turns back into a Dormant Totem. Awaken it again at an anvil with an Echo Heart.
 - A chest, a shulker box, an ender chest or any other container holds one Totem of Eternity at most. A double chest counts as one container. Hoppers and droppers obey the same limit. Your inventory also holds one at most: a second totem falls to the ground.
 
 ### Changed
