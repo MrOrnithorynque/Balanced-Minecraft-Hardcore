@@ -4,8 +4,8 @@ usage: python3 -I jarcheck.py <abs worktree> <minecraft version> <abs JAVA_HOME>
 Checks every loader jar the branch built: mixin configs and classes, the refmap a production install needs (Forge 1.20.x
 SRG names, Fabric intermediary names), the shadow fields renamed in the shipped classes, assets and data in the right
 version folders, and that no throwaway test class shipped. Prints PASS/FAIL lines, then "ITEMS ...", "RECIPES ..." and
-"JARS <passed>/<total>". Exit status 0 when every check passed, 1 otherwise (a failed check, or no jar at all): CI and
-publish.yml stop on it.
+"JARS <passed>/<total>". Exit status 0 when every check passed, 1 otherwise (a failed check, or no jar at all): the release
+skill's publish_local.py stops on it.
 
 A mixin with by-name targets or a @Shadow field needs its runtime names below (REFMAP_IDS, SHADOW_FIELDS): find them
 with the add-mixin skill's step 4 (unzip the refmap, javap -p the shipped class) and add them here.
