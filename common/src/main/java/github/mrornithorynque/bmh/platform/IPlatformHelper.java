@@ -33,4 +33,7 @@ public interface IPlatformHelper {
 
     /** The most points a player can keep on the Navigator's Amulet. */
     int maxAmuletPoints();
+
+    /** Writes the mod config file. The values are in range: the config screen checks them first. */
+    void saveConfig(int minDistanceFromBed, int maxDistanceFromBed, int maxAmuletPoints);
 }

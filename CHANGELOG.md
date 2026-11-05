@@ -4,6 +4,10 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Added
+
+- BMH now has a config screen. Open it from the Config button of BMH in the mods list (Forge, NeoForge) or in Mod Menu (Fabric). It changes the respawn distances and the number of points on the Navigator's Amulet. The screen changes the config file of your game, so it applies to your singleplayer worlds and to the worlds you open to LAN. A server still uses its own config file.
+
 ## [1.7.0] - 2026-11-05
 
 The Navigator's Amulet now remembers several places, and the Totem of Eternity saves your life. Thank you to eternalsulfur, who reported the bugs and the ideas of this release (GitHub issue 5).

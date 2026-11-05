@@ -71,4 +71,10 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
 
         return NeoForgeConfig.maxAmuletPoints.get();
     }
+
+    @Override
+    public void saveConfig(int minDistanceFromBed, int maxDistanceFromBed, int maxAmuletPoints) {
+
+        NeoForgeConfig.save(minDistanceFromBed, maxDistanceFromBed, maxAmuletPoints);
+    }
 }

@@ -13,5 +13,13 @@
     "bmh.createWorld.balancedHardcore": "Balanced Hardcore",
     "bmh.createWorld.balancedHardcore.info": "Réapparition lointaine et objets éternels. Le désactiver coupe toutes les règles de jeu BMH pour ce monde.",
 
-    "bmh.journey.message": "Un nouveau voyage commence pour vous, %s."
+    "bmh.journey.message": "Un nouveau voyage commence pour vous, %s.",
+
+    "bmh.config.title": "Balanced Minecraft Hardcore",
+    "bmh.config.minDistanceFromBed": "Distance de réapparition minimale (%s à %s blocs)",
+    "bmh.config.maxDistanceFromBed": "Distance de réapparition maximale (%s à %s blocs)",
+    "bmh.config.maxAmuletPoints": "Points sur l'Amulette du Navigateur (%s à %s)",
+    "bmh.config.outOfRange": "Une valeur est vide ou hors limites.",
+    "bmh.config.minAboveMax": "La distance minimale dépasse la distance maximale.",
+    "bmh.config.note": "Ces réglages s'appliquent à vos mondes solo et aux mondes que vous ouvrez en LAN. Un serveur utilise son propre fichier de config. Une nouvelle distance s'applique à la prochaine mort."
 }

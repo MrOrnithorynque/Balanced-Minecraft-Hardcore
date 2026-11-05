@@ -9,7 +9,8 @@
     "environment": "*",
     "entrypoints": {
         "main": ["github.mrornithorynque.bmh.fabric.BalancedMcHardcoreFabric"],
-        "client": ["github.mrornithorynque.bmh.fabric.BalancedMcHardcoreFabricClient"]
+        "client": ["github.mrornithorynque.bmh.fabric.BalancedMcHardcoreFabricClient"],
+        "modmenu": ["github.mrornithorynque.bmh.fabric.ModMenuIntegration"]
     },
     "mixins": [
         "${mod_id}.mixins.json",
