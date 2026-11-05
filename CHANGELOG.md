@@ -6,7 +6,13 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ### Added
 
+- A star reading now always draws a line toward the world spawn, the first place of your world. It has no name, and its line is a little lighter than the lines of your points. It works with no point at all, and it does not count toward the limit of points.
+- Sneak and use the Navigator's Amulet anywhere that is not a bed or a lodestone: a list shows your points, with a Remove button on each. You can now remove a point whose bed or lodestone is gone.
 - BMH now has a config screen. Open it from the Config button of BMH in the mods list (Forge, NeoForge) or in Mod Menu (Fabric). It changes the respawn distances and the number of points on the Navigator's Amulet. The screen changes the config file of your game, so it applies to your singleplayer worlds and to the worlds you open to LAN. A server still uses its own config file.
+
+### Changed
+
+- With no named point, a star reading no longer points to your respawn bed. It points to the world spawn.
 
 ### Fixed
 
