@@ -11,6 +11,7 @@ public class Config {
 
     public static final ForgeConfigSpec.ConfigValue<Integer> minDistanceFromBed;
     public static final ForgeConfigSpec.ConfigValue<Integer> maxDistanceFromBed;
+    public static final ForgeConfigSpec.ConfigValue<Integer> maxAmuletPoints;
 
     private static final int MIN_DISTANCE_FROM_BED = 5000;
     private static final int MAX_DISTANCE_FROM_BED = 200000;
@@ -23,6 +24,10 @@ public class Config {
         maxDistanceFromBed = BUILDER
             .comment("Maximum distance from bed to respawn")
             .defineInRange("maxDistanceFromBed", 60000, MIN_DISTANCE_FROM_BED, MAX_DISTANCE_FROM_BED);
+
+        maxAmuletPoints = BUILDER
+            .comment("Most points a player can keep on the Navigator's Amulet")
+            .defineInRange("maxAmuletPoints", 5, 1, 16);
 
         SPEC = BUILDER.build();
     }

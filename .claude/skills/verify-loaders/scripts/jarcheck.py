@@ -34,8 +34,13 @@ REFMAP_IDS = {
                "E_PlayerAttackMixin": ["method_7324", "method_5643", "method_7322"],
                "F_PlayerListRespawnMixin": ["method_14556"], "F_ServerPlayerAccessor": ["field_13998"],
                "F_GuiTitleMixin": ["method_34004"], "F_LocalPlayerRespawnMixin": ["method_7331"],
-               "F_MinecraftOverlayMixin": ["method_18502"], "G_ItemEntityMixin": ["method_5643", "method_5773"], "H_ItemRendererSwordMixin": ["method_23179"], "I_SlotTotemMixin": ["method_7680"], "I_ClientPacketListenerTotemMixin": ["method_19691"]},
+               "F_MinecraftOverlayMixin": ["method_18502"], "G_ItemEntityMixin": ["method_5643", "method_5773"], "H_ItemRendererSwordMixin": ["method_23179"], "I_SlotTotemMixin": ["method_7680"], "I_ClientPacketListenerTotemMixin": ["method_19691"],
+               "J_CommandsMixin": ["class_2170;<init>"]},
 }
+# A mixin whose only target is a constructor of a vanilla class has nothing to remap on Forge 1.20.x: Forge keeps the
+# official class names there (only methods and fields get SRG names), so its refmap has no entry for it. Fabric renames
+# the classes, so its refmap has one (REFMAP_IDS above).
+CONSTRUCTOR_ONLY = {"J_CommandsMixin"}
 # The distant respawn hook's other target differs per codebase: noCollision on 1.20.x, findRespawnPositionAndUseSpawnBlock
 # on 1.21.1 (Fabric only there: Forge 1.21.1 ships no refmap).
 if V121:
@@ -128,7 +133,7 @@ def check_jar(loader, jar):
         for m, entry in all_mixins:
             key = entry[:-len(".class")]
             entries = mappings.get(key, {})
-            if m not in ADDED_METHODS[loader]:
+            if m not in ADDED_METHODS[loader] and not (loader == "forge" and m in CONSTRUCTOR_ONLY):
                 check(tag + ": refmap entry for " + m, bool(entries), "absent")
             plain = [k + " -> " + v for k, v in entries.items()
                      if ("(" in v or ":" in v) and not member.search(v) and "<init>" not in v]
