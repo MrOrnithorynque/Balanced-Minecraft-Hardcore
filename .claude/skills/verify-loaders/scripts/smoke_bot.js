@@ -1,6 +1,6 @@
 // Smoke bot: a vanilla mineflayer client plus RCON, run once per dedicated server of every branch and loader (branch.sh),
 // after the amulet scenario. Checks that every item and recipe loads, the totem nerf, Echo Sense, Echo Strike, the distant
-// respawn and the anvil step:
+// respawn, the anvil step, Eternal Items on the ground, one Totem of Eternity per container and its save:
 //   BOT_MODULES=<node_modules> SMOKE_ITEMS="a b" SMOKE_RECIPES="x y" node smoke_bot.js <port> <mc version>
 // RCON on <port> + 100, password bmh (rcon.py next to this file). Prints PASS/FAIL lines, then "SMOKE <passed>/<total>".
 const MODULES = process.env.BOT_MODULES
@@ -195,6 +195,106 @@ async function main () {
     const levels = num(rcon('data get entity ' + NAME + ' XpLevel'))
     check('anvil: Dormant Totem + Echo Heart give the Totem of Eternity', inv2.includes('bmh:totem_of_eternity') && !inv2.includes('bmh:dormant_totem'), inv2)
     check('anvil: it cost 39 levels', levels === 1, 'levels left ' + levels)
+  }
+
+  // 7. Eternal Items on the ground: damage does not destroy them and they never despawn; a diamond is the control.
+  if (ITEMS.includes('eternal_sword')) {
+    const pg = bot.entity.position.floored()
+    const stackOf = (id) => COMPONENTS ? '{id:"' + id + '",count:1}' : '{id:"' + id + '",Count:1b}'
+    rcon('summon minecraft:item ' + (pg.x - 3) + ' ' + pg.y + ' ' + pg.z + ' {Item:' + stackOf('bmh:eternal_sword') + ',PickupDelay:32767s,Tags:["smokesword"]}')
+    rcon('summon minecraft:item ' + (pg.x - 3) + ' ' + pg.y + ' ' + (pg.z + 2) + ' {Item:' + stackOf('minecraft:diamond') + ',PickupDelay:32767s,Tags:["smokediamond"]}')
+    await sleep(2000)
+    const sword = '@e[type=minecraft:item,tag=smokesword,limit=1]'
+    const diamond = '@e[type=minecraft:item,tag=smokediamond,limit=1]'
+    check('ground: the Eternal Sword item never despawns (Age -32768)', num(rcon('data get entity ' + sword + ' Age')) === -32768, rcon('data get entity ' + sword + ' Age'))
+    rcon('damage ' + sword + ' 100 minecraft:explosion')
+    rcon('damage ' + sword + ' 100 minecraft:cactus')
+    rcon('damage ' + diamond + ' 100 minecraft:explosion')
+    await sleep(1500)
+    check('ground: explosion and cactus damage leave the Eternal Sword', rcon('data get entity ' + sword + ' Age').includes('-32768'), rcon('data get entity ' + sword + ' Age'))
+    check('ground: explosion damage destroys a diamond (control)', !rcon('data get entity ' + diamond + ' Age').includes('entity data'), rcon('data get entity ' + diamond + ' Age'))
+    rcon('kill @e[type=minecraft:item]')
+  }
+
+  // 8. One Totem of Eternity per container: a hopper does not push a second one into a chest, and a shift click does
+  // not put a second one into a chest or a shulker box. Each has a control container that is empty.
+  if (ITEMS.includes('totem_of_eternity')) {
+    const pc = bot.entity.position.floored()
+    const totemNbt = COMPONENTS ? '{Slot:0b,id:"bmh:totem_of_eternity",count:1}' : '{Slot:0b,id:"bmh:totem_of_eternity",Count:1b}'
+    const at = (dx, dy, dz) => (pc.x + dx) + ' ' + (pc.y + dy) + ' ' + (pc.z + dz)
+    const totems = (text) => (text.match(/bmh:totem_of_eternity/g) || []).length
+    rcon('setblock ' + at(4, 0, -3) + ' minecraft:chest{Items:[' + totemNbt + ']}')
+    rcon('setblock ' + at(4, 1, -3) + ' minecraft:hopper{Items:[' + totemNbt + ']}')
+    rcon('setblock ' + at(7, 0, -3) + ' minecraft:chest')
+    rcon('setblock ' + at(7, 1, -3) + ' minecraft:hopper{Items:[' + totemNbt + ']}')
+    await sleep(2500)
+    check('container: a hopper does not push a second totem into a chest', totems(rcon('data get block ' + at(4, 1, -3) + ' Items')) === 1 && totems(rcon('data get block ' + at(4, 0, -3) + ' Items')) === 1,
+      rcon('data get block ' + at(4, 1, -3) + ' Items'))
+    check('container: a hopper pushes a totem into an empty chest (control)', totems(rcon('data get block ' + at(7, 1, -3) + ' Items')) === 0 && totems(rcon('data get block ' + at(7, 0, -3) + ' Items')) === 1,
+      rcon('data get block ' + at(7, 0, -3) + ' Items'))
+
+    // Raw clicks: `give` fills hotbar slot 0, which is window slot 54 of a chest or a shulker box (27 own slots).
+    const shiftIn = async (block, label, expectInChest) => {
+      rcon('clear ' + NAME)
+      rcon('give ' + NAME + ' bmh:totem_of_eternity')
+      await sleep(500)
+      try {
+        const win = await bot.openBlock(bot.blockAt(new Vec3(block.x, block.y, block.z)))
+        await bot.clickWindow(54, 0, 1)
+        await sleep(800)
+        bot.closeWindow(win)
+      } catch (e) {
+        console.log(label + ' error', e.message)
+      }
+      await sleep(800)
+      const inChest = totems(rcon('data get block ' + block.x + ' ' + block.y + ' ' + block.z + ' Items'))
+      const inInventory = totems(rcon('data get entity ' + NAME + ' Inventory'))
+      check(label, inChest === expectInChest && inInventory === 2 - expectInChest, 'container ' + inChest + ', inventory ' + inInventory)
+    }
+    const full = new Vec3(pc.x - 2, pc.y, pc.z + 3)
+    const empty = new Vec3(pc.x + 2, pc.y, pc.z + 3)
+    const shulker = new Vec3(pc.x, pc.y, pc.z + 4)
+    rcon('setblock ' + full.x + ' ' + full.y + ' ' + full.z + ' minecraft:chest{Items:[' + totemNbt + ']}')
+    rcon('setblock ' + empty.x + ' ' + empty.y + ' ' + empty.z + ' minecraft:chest')
+    rcon('setblock ' + shulker.x + ' ' + shulker.y + ' ' + shulker.z + ' minecraft:shulker_box{Items:[' + totemNbt + ']}')
+    await sleep(1500)
+    await shiftIn(full, 'container: a shift click does not put a second totem into a chest', 1)
+    await shiftIn(shulker, 'container: a shift click does not put a second totem into a shulker box', 1)
+    await shiftIn(empty, 'container: a shift click puts a totem into an empty chest (control)', 2)
+    rcon('clear ' + NAME)
+  }
+
+  // 9. The Totem of Eternity saves you from any inventory slot, after a Totem of Undying in a hand, and turns dormant.
+  // The void still kills. A distant respawn (section 5) gives 200 ticks of damage immunity: wait them out.
+  if (ITEMS.includes('totem_of_eternity') && ITEMS.includes('dormant_totem')) {
+    await sleep(6000)
+    rcon('clear ' + NAME)
+    rcon('effect clear ' + NAME)
+    rcon('item replace entity ' + NAME + ' weapon.offhand with minecraft:totem_of_undying')
+    rcon('item replace entity ' + NAME + ' inventory.3 with bmh:totem_of_eternity')
+    rcon('damage ' + NAME + ' 1000 minecraft:generic')
+    await sleep(1500)
+    let inv = rcon('data get entity ' + NAME + ' Inventory')
+    check('eternity totem: a Totem of Undying in a hand is used first', !inv.includes('totem_of_undying') && inv.includes('bmh:totem_of_eternity') && !inv.includes('bmh:dormant_totem'), inv)
+
+    await sleep(1500) // vanilla ignores damage for 10 ticks after a hit
+    rcon('effect clear ' + NAME)
+    rcon('damage ' + NAME + ' 1000 minecraft:generic')
+    await sleep(1500)
+    inv = rcon('data get entity ' + NAME + ' Inventory')
+    const te = effects(NAME)
+    const th = num(rcon('data get entity ' + NAME + ' Health'))
+    check('eternity totem: saved the player', th !== null && th > 0 && th < 20, th)
+    check('eternity totem: turned into a Dormant Totem', inv.includes('bmh:dormant_totem') && !inv.includes('bmh:totem_of_eternity'), inv)
+    check('eternity totem: Regeneration and Absorption, no Fire Resistance', hasEffect(te, 'regeneration', 10) && hasEffect(te, 'absorption', 22) && !hasEffect(te, 'fire_resistance', 12), te)
+
+    await sleep(1500)
+    rcon('clear ' + NAME)
+    rcon('item replace entity ' + NAME + ' inventory.3 with bmh:totem_of_eternity')
+    rcon('damage ' + NAME + ' 1000 minecraft:out_of_world')
+    await sleep(4000)
+    inv = rcon('data get entity ' + NAME + ' Inventory')
+    check('eternity totem: the void still kills, and the totem stays awake', inv.includes('bmh:totem_of_eternity') && !inv.includes('bmh:dormant_totem') && num(rcon('data get entity ' + NAME + ' Health')) === 20, inv)
   }
 
   bot.quit()
