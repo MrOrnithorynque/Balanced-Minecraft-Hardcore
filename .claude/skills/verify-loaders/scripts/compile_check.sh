@@ -3,7 +3,9 @@
 # jar (vanilla Minecraft with Mojang names) plus the libraries it needs from the Gradle cache. It proves that every vanilla
 # signature the shared code uses exists on that version. It does not prove that a mixin still hits its target, nor the
 # loaders' own code: the real build does.
-# usage: compile_check.sh [<minecraft version>...]
+# usage: compile_check.sh [--selftest] [<minecraft version>...]
+#   --selftest also compiles the self-test hook (hook/selftest, with the MockPlayers copy for each version), as selftest.sh
+#   copies it into common/src.
 #   With no version it reads minecraft_version in $TREE/gradle.properties: a value starting with 1.21 gives 1.21.1, anything
 #   else gives 1.20 1.20.1 1.20.2 1.20.3 1.20.4.
 #   BMH_TREE=<worktree>   the checkout to compile (default: the one that holds this script)
@@ -13,6 +15,8 @@
 # Exit status: 0 all compile, 1 a version fails, 2 a jar, a JDK or a library is missing.
 set -u
 SCRIPTS=$(cd "$(dirname "$0")" && pwd)
+SELFTEST=0
+[ "${1:-}" = --selftest ] && { SELFTEST=1; shift; }
 TREE=${BMH_TREE:-$(git -C "$SCRIPTS" rev-parse --show-toplevel)}
 GH=${GRADLE_USER_HOME:-$HOME/.gradle}
 LIBS=$GH/caches/modules-2/files-2.1
@@ -36,11 +40,19 @@ lib() { # <group> <artifact>
   find "$LIBS/$1/$2" -name "$2-[0-9]*.jar" ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-processor.jar' ! -name '*natives*' 2>/dev/null \
     | awk -F/ '{ print $NF "\t" $0 }' | sort -V | tail -1 | cut -f2
 }
+# The MockPlayers copy for a Minecraft version (the signatures of placeNewPlayer and ServerPlayer change at 1.20.2 and 1.20.5)
+mock_variant() {
+  case "$1" in
+    1.20|1.20.1) echo 1.20.1 ;;
+    1.20.*) echo 1.20.4 ;;
+    *) echo 1.21.1 ;;
+  esac
+}
 CP=""
 for coords in "org.spongepowered mixin" "org.joml joml" "org.slf4j slf4j-api" "com.mojang datafixerupper" "com.mojang brigadier" \
   "com.google.guava guava" "it.unimi.dsi fastutil" "com.google.code.findbugs jsr305" "com.mojang logging" "com.mojang authlib" \
   "com.google.code.gson gson" "org.apache.logging.log4j log4j-api" "org.apache.commons commons-lang3" "io.netty netty-buffer" \
-  "io.netty netty-common" "io.netty netty-transport" "org.lwjgl lwjgl" "org.jetbrains annotations"; do
+  "io.netty netty-common" "io.netty netty-transport" "io.netty netty-codec" "io.netty netty-handler" "org.lwjgl lwjgl" "org.jetbrains annotations"; do
   read -r group artifact <<< "$coords"
   jar=$(lib "$group" "$artifact")
   if [ -n "$jar" ]; then CP="$CP:$jar"; else echo "missing library $group:$artifact (build any branch once, Gradle downloads it)" >&2; MISSING=1; fi
@@ -56,7 +68,13 @@ for v in "$@"; do
   if [ -z "$JAR" ]; then echo "$v: no Loom merged jar (build a $v branch once with Gradle)"; MISSING=1; continue; fi
   if [ ! -x "$JDK/bin/javac" ]; then echo "$v: no javac in $JDK"; MISSING=1; continue; fi
   mkdir -p "$WORK/out-$v"
-  if "$JDK/bin/javac" --release "$REL" -proc:none -Xlint:none -nowarn -d "$WORK/out-$v" -cp "$JAR$CP" @"$WORK/sources.txt" > "$WORK/javac-$v.log" 2>&1; then
+  cp "$WORK/sources.txt" "$WORK/sources-$v.txt"
+  if [ $SELFTEST = 1 ]; then
+    mkdir -p "$WORK/mock-$v"; cp "$SCRIPTS/hook/selftest/mock/MockPlayers_$(mock_variant "$v").java" "$WORK/mock-$v/MockPlayers.java"
+    find "$SCRIPTS/hook/selftest" -maxdepth 1 -name '*.java' | sed 's/.*/"&"/' >> "$WORK/sources-$v.txt"
+    echo "\"$WORK/mock-$v/MockPlayers.java\"" >> "$WORK/sources-$v.txt"
+  fi
+  if "$JDK/bin/javac" --release "$REL" -proc:none -Xlint:none -nowarn -d "$WORK/out-$v" -cp "$JAR$CP" @"$WORK/sources-$v.txt" > "$WORK/javac-$v.log" 2>&1; then
     echo "$v: OK ($(find "$WORK/out-$v" -name '*.class' | wc -l | tr -d ' ') classes)"
   else
     echo "$v: FAILED"; grep -A2 'error:' "$WORK/javac-$v.log" | head -24; FAILED=1
