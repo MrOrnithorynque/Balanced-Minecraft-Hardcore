@@ -64,4 +64,10 @@ public class FabricPlatformHelper implements IPlatformHelper {
 
         return FabricConfig.get().maxAmuletPoints;
     }
+
+    @Override
+    public void saveConfig(int minDistanceFromBed, int maxDistanceFromBed, int maxAmuletPoints) {
+
+        FabricConfig.save(minDistanceFromBed, maxDistanceFromBed, maxAmuletPoints);
+    }
 }
