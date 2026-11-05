@@ -4,6 +4,8 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import github.mrornithorynque.bmh.handlers.EternalWear;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SwordItem;
@@ -24,20 +26,12 @@ public class EternalSwordItem extends SwordItem implements IEternalItem {
         EternalTooltips.addAbility(lines, "tooltip.bmh.ability.eternal_sword");
         EternalTooltips.addHeavy(lines);
         EternalTooltips.addDeathWear(lines);
+        EternalTooltips.addWornOut(stack, lines);
     }
 
     @Override
     public void reduceDurability(ItemStack stack, int percentage) {
 
-        if (percentage < 0 || percentage > 100) {
-            throw new IllegalArgumentException("Percentage must be between 0 and 100");
-        }
-
-        int damage = (int) (stack.getMaxDamage() * (percentage / 100.0));
-
-        stack.setDamageValue(Math.min(stack.getDamageValue() + damage, stack.getMaxDamage()));
-
-        if (stack.getDamageValue() >= stack.getMaxDamage()) {
-        }
+        EternalWear.wear(stack, percentage);
     }
 }

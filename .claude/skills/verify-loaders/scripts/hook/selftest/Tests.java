@@ -14,7 +14,8 @@ final class Tests {
             new SleepTest(),
             new CoordinatesTest(),
             new AxeSmashTest(),
-            new MenuTest());
+            new MenuTest(),
+            new EternalWearTest());
 
     private Tests() {
     }
