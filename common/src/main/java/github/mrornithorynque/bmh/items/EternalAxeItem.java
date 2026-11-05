@@ -30,16 +30,22 @@ public class EternalAxeItem extends AxeItem implements IEternalItem {
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> lines, TooltipFlag flag) {
 
         super.appendHoverText(stack, level, lines, flag);
-        EternalTooltips.addAbility(lines, "tooltip.bmh.ability.eternal_axe");
+        EternalTooltips.addAbility(stack, lines, "tooltip.bmh.ability.eternal_axe");
         EternalTooltips.addHeavy(lines);
-        EternalTooltips.addDeathWear(lines);
-        EternalTooltips.addWornOut(stack, lines);
+        EternalTooltips.addDurability(stack, lines);
     }
 
     @Override
     public void reduceDurability(ItemStack stack, int percentage) {
 
         EternalWear.wear(stack, percentage);
+    }
+
+    // The bar keeps one pixel at the last points of durability, so a worn-out tool still shows it.
+    @Override
+    public int getBarWidth(ItemStack stack) {
+
+        return Math.max(1, super.getBarWidth(stack));
     }
 
     // A worn-out tool mines at the speed of a stone tool (EternalWear).
