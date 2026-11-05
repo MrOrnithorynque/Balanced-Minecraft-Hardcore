@@ -3,10 +3,12 @@ package github.mrornithorynque.bmh.mixin;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import github.mrornithorynque.bmh.handlers.EternalWear;
 import github.mrornithorynque.bmh.handlers.TotemAwakeningHandler;
 
 import net.minecraft.world.entity.player.Inventory;
@@ -23,6 +25,10 @@ import net.minecraft.world.item.ItemStack;
  * rename (done by setItemName on the old result) is overwritten by the createResult it calls next.
  * Common to the three loaders: no loader has to fire an event for it, and Forge's AnvilUpdateEvent
  * is skipped for this one combination only.
+ * <p>
+ * A repair of an Eternal tool with gold blocks always costs 15 levels and keeps the prior work penalty
+ * of the tool. The head puts the penalty aside, so vanilla never finds the repair too expensive. The
+ * return puts the penalty back on the tool and on the result, and sets the cost. The client does the same.
  */
 @Mixin(AnvilMenu.class)
 public abstract class B_AnvilMenuMixin extends ItemCombinerMenu {
@@ -34,6 +40,10 @@ public abstract class B_AnvilMenuMixin extends ItemCombinerMenu {
     @Shadow
     @Final
     private DataSlot cost;
+
+    // The penalty of the tool during a gold block repair, -1 when the inputs are something else.
+    @Unique
+    private int bmh$goldRepairPenalty = -1;
 
     // Never called: Mixin only needs it to compile against ItemCombinerMenu.
     private B_AnvilMenuMixin(MenuType<?> type, int containerId, Inventory inventory, ContainerLevelAccess access) {
@@ -54,5 +64,40 @@ public abstract class B_AnvilMenuMixin extends ItemCombinerMenu {
         this.resultSlots.setItem(0, awakened);
         this.broadcastChanges();
         ci.cancel();
+    }
+
+    @Inject(method = "createResult", at = @At("HEAD"))
+    private void bmh$beginGoldRepair(CallbackInfo ci) {
+
+        ItemStack left = this.inputSlots.getItem(0);
+
+        bmh$goldRepairPenalty = -1;
+
+        if (EternalWear.isGoldRepair(left, this.inputSlots.getItem(1))) {
+            bmh$goldRepairPenalty = EternalWear.getRepairPenalty(left);
+            EternalWear.setRepairPenalty(left, 0);
+        }
+    }
+
+    @Inject(method = "createResult", at = @At("RETURN"))
+    private void bmh$goldRepairCost(CallbackInfo ci) {
+
+        if (bmh$goldRepairPenalty < 0) {
+            return;
+        }
+
+        int penalty = bmh$goldRepairPenalty;
+        ItemStack result = this.resultSlots.getItem(0);
+
+        bmh$goldRepairPenalty = -1;
+        EternalWear.setRepairPenalty(this.inputSlots.getItem(0), penalty);
+
+        if (result.isEmpty()) {
+            return;
+        }
+
+        EternalWear.setRepairPenalty(result, penalty);
+        this.cost.set(EternalWear.GOLD_REPAIR_COST);
+        this.broadcastChanges();
     }
 }
