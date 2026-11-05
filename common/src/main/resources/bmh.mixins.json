@@ -26,7 +26,8 @@
         "F_LocalPlayerRespawnMixin",
         "F_MinecraftOverlayMixin",
         "F_MusicManagerAccessor",
-        "F_SoundInstanceVolumeAccessor"
+        "F_SoundInstanceVolumeAccessor",
+        "H_ItemRendererSwordMixin"
     ],
     "injectors": {
         "defaultRequire": 1
