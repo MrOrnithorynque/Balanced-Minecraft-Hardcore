@@ -231,8 +231,11 @@ jobs:
             echo "::warning::The DISCORD_WEBHOOK_URL secret is not set. Nothing was posted to Discord."
             exit 0
           fi
-          sed -E 's/^#+[[:space:]]+(.*)$/**\1**/' release-changelog.md | jq -Rs \
-            --arg mod "$MOD" --arg releases "$RELEASES" '
+          # An image line of the changelog would show as raw text in the embed: the first image becomes the
+          # embed's picture (Discord animates a GIF there), and every image line leaves the text.
+          image=$(grep -o -m1 '^!\[[^]]*\]([^)]*)' release-changelog.md | sed -E 's/.*\(([^)]*)\)$/\1/')
+          sed -E '/^!\[/d; s/^#+[[:space:]]+(.*)$/**\1**/' release-changelog.md | cat -s | jq -Rs \
+            --arg mod "$MOD" --arg releases "$RELEASES" --arg image "$image" '
             (gsub("^\\s+|\\s+$"; "")) as $log
             | "\n\n[Full changelog](\($releases))" as $more
             | {
@@ -246,7 +249,7 @@ jobs:
                     name: "Download",
                     value: "[CurseForge](https://www.curseforge.com/minecraft/mc-mods/balanced-minecraft-hardcore/files) | [GitHub](\($releases))"
                   }]
-                }]
+                } + (if $image == "" then {} else { image: { url: $image } } end)]
               }' > discord-payload.json
           curl --fail-with-body -sS -H 'Content-Type: application/json' --data @discord-payload.json "$DISCORD_WEBHOOK_URL"
           echo "Posted the $MOD changelog to Discord."
