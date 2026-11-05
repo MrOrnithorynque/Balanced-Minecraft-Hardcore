@@ -10,7 +10,7 @@ public class BMHModTierInit {
 
         @Override
         public int getUses() {
-            return 10000;
+            return 33000;
         }
 
         @Override
