@@ -1,4 +1,4 @@
-// Drives a dedicated server like a (vanilla) client would, to check the Navigator's Amulet's server side (28 checks):
+// Drives a dedicated server like a (vanilla) client would, to check the Navigator's Amulet's server side (34 checks):
 // BOT_MODULES=<node_modules folder that holds mineflayer> node amulet_scenario.js <port> <mc version>
 // (the same checks as docs/redesign/c-amulet-tools/amulet_scenario.js). The server needs online-mode=false and RCON on
 // <port> + 100 with password bmh. The bot sees nothing of the modded items; it only sends "use item" / "use item on block"
@@ -28,15 +28,31 @@ function check (name, ok, detail) {
   console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? '  [' + detail + ']' : ''))
 }
 
-// action bar messages seen, newest last: { t, text }
+// action bar messages, chat lines and titles seen, newest last: { t, text }
 let bars = []
+let chats = []
+let titles = []
 function listen (bot) {
   bot.on('message', (msg, position) => {
+    const raw = JSON.stringify(msg.json !== undefined ? msg.json : msg)
     if (position === 'game_info') {
-      const raw = JSON.stringify(msg.json !== undefined ? msg.json : msg)
       bars.push({ t: Date.now(), text: raw })
+    } else {
+      chats.push({ t: Date.now(), text: raw })
     }
   })
+  // The naming screen's signal is a title packet (JSON text up to 1.20.2, NBT after): keep the raw packet.
+  bot._client.on('set_title_text', (packet) => titles.push({ t: Date.now(), text: JSON.stringify(packet) }))
+}
+
+async function waitIn (list, key, ms) {
+  const start = Date.now()
+  while (Date.now() - start < ms) {
+    const hit = list().find((b) => b.t >= lastUse - 30 && b.text.includes(key))
+    if (hit) return hit
+    await sleep(100)
+  }
+  return null
 }
 
 // The server answers a click within a few ms: only messages from before the click are ignored (lastUse), not before the wait.
@@ -109,7 +125,7 @@ async function main () {
   console.log(s)
   check('night: charge spent (2 left)', num(/bmh_starlight: (\d+)/, s) === 2)
   check('night: night index written', num(/bmh_night: (\d+)L/, s) === 1)
-  check('night: reading has azimuth and time', /bmh_reading: \{[^}]*azimuth: [-\d.]+f/.test(s) && /time: \d+L/.test(s))
+  check('night: reading has azimuths and time', /bmh_reading: \{[^}]*azimuths: \[[-\d.]+f/.test(s) && /time: \d+L/.test(s))
 
   // 3. cooldown: a second use right away does nothing
   bars = []
@@ -152,23 +168,27 @@ async function main () {
   rcon('setblock ' + Math.floor(p.x) + ' ' + (Math.floor(p.y) + 2) + ' ' + Math.floor(p.z) + ' minecraft:air')
   await sleep(1500)
 
-  // 7. Home on a lodestone: sneak and use
+  // 7. A point on a lodestone: sneak and use opens the naming screen (a title signal); the screen saves with a command
   const hx = Math.floor(p.x) + 1; const hy = Math.floor(p.y); const hz = Math.floor(p.z)
   rcon('setblock ' + hx + ' ' + hy + ' ' + hz + ' minecraft:lodestone')
   await sleep(800)
   bot.setControlState('sneak', true)
   await sleep(500)
-  bars = []
+  bars = []; titles = []
   const lode = bot.blockAt(new Vec3(hx, hy, hz))
   check('lodestone is there for the bot', !!lode && lode.name === 'lodestone', lode && lode.name)
   await click(bot, lode)
-  check('lodestone: Home set message', !!(await waitBar('bmh.amulet.home_set.lodestone', 2000)))
-  const home1 = rcon('data get entity ' + NAME + ' bmh_home')
-  console.log(home1)
-  check('Home saved on the player (x, y, z of the lodestone)', home1.includes('x: ' + hx) && home1.includes('y: ' + hy) && home1.includes('z: ' + hz), home1)
+  const open1 = await waitIn(() => titles, 'bmh.point.open', 2000)
+  check('lodestone: the naming screen signal comes', !!open1 && open1.text.includes('lodestone'), open1 && open1.text)
   bot.setControlState('sneak', false)
+  lastUse = Date.now()
+  bot.chat('/bmh point save ' + hx + ' ' + hy + ' ' + hz + ' Base Camp')
+  check('lodestone: point saved message', !!(await waitBar('bmh.point.saved', 2000)))
+  const pts1 = rcon('data get entity ' + NAME + ' bmh_points')
+  console.log(pts1)
+  check('point saved on the player (name, x, y, z of the lodestone)', pts1.includes('Base Camp') && pts1.includes('x: ' + hx) && pts1.includes('y: ' + hy) && pts1.includes('z: ' + hz), pts1)
 
-  // 8. Home on a bed
+  // 8. A point on a bed: clicking the foot keeps the head
   await sleep(1200)
   const bx = Math.floor(p.x) + 2; const bz = Math.floor(p.z) + 2
   rcon('setblock ' + bx + ' ' + hy + ' ' + (bz + 1) + ' minecraft:red_bed[facing=north,part=foot]')
@@ -176,48 +196,65 @@ async function main () {
   await sleep(800)
   bot.setControlState('sneak', true)
   await sleep(500)
-  bars = []
-  const bed = bot.blockAt(new Vec3(bx, hy, bz))
-  await click(bot, bed)
-  check('bed: Home set message', !!(await waitBar('bmh.amulet.home_set.bed', 2000)))
-  const home2 = rcon('data get entity ' + NAME + ' bmh_home')
-  check('Home moved to the bed', home2.includes('x: ' + bx) && home2.includes('z: ' + bz), home2)
+  titles = []
+  const foot = bot.blockAt(new Vec3(bx, hy, bz + 1))
+  await click(bot, foot)
+  const open2 = await waitIn(() => titles, 'bmh.point.open', 2000)
+  check('bed: the naming screen signal comes', !!open2 && open2.text.includes('bed'), open2 && open2.text)
   bot.setControlState('sneak', false)
+  lastUse = Date.now()
+  bot.chat('/bmh point save ' + bx + ' ' + hy + ' ' + (bz + 1) + ' Bed')
+  check('bed: point saved message', !!(await waitBar('bmh.point.saved', 2000)))
+  const pts2 = rcon('data get entity ' + NAME + ' bmh_points')
+  check('bed point kept on the head of the bed', pts2.includes('Bed') && pts2.includes('x: ' + bx) && pts2.includes('z: ' + bz), pts2)
+
+  // 8b. Remove the lodestone point: the bed is the only point left
+  await sleep(1200)
+  lastUse = Date.now()
+  bot.chat('/bmh point remove ' + hx + ' ' + hy + ' ' + hz)
+  check('lodestone point removed message', !!(await waitBar('bmh.point.removed', 2000)))
+  const pts3 = rcon('data get entity ' + NAME + ' bmh_points')
+  check('only the bed point is left', !pts3.includes('Base Camp') && pts3.includes('Bed'), pts3)
   await sleep(1200)
 
-  // 9. azimuth, from four sides of Home (creative: free readings)
+  // 9. azimuth, from four sides of the point (creative: free readings), and the chat line with its name
   rcon('gamemode creative ' + NAME)
   await sleep(500)
   const H = { x: bx + 0.5, z: bz + 0.5 }
-  const cases = [['south of Home', 0, 30], ['west of Home', -30, 0], ['north of Home', 0, -30], ['east of Home', 30, 0]]
+  const cases = [['south of the point', 0, 30], ['west of the point', -30, 0], ['north of the point', 0, -30], ['east of the point', 30, 0]]
   for (const [label, dx, dz] of cases) {
     const px = H.x + dx; const pz = H.z + dz
     rcon('tp ' + NAME + ' ' + px + ' ' + (hy + 0) + ' ' + pz)
     await sleep(1200)
+    chats = []
     await use(bot)
     await sleep(500)
-    const az = num(/azimuth: ([-\d.]+)f/, stack())
+    const az = num(/azimuths: \[([-\d.]+)f/, stack())
     const expected = ((Math.atan2(H.x - px, pz - H.z) * 180 / Math.PI) % 360 + 360) % 360
     check('azimuth ' + label + ': ' + expected.toFixed(1), az !== null && Math.abs(az - expected) < 0.01, 'got ' + az)
+    if (label === 'south of the point') {
+      const line = await waitIn(() => chats, 'bmh.point.line', 1500)
+      check('chat line names the point and says north', !!line && line.text.includes('Bed') && line.text.includes('bmh.direction.n"'), line && line.text)
+    }
     await sleep(2000)
   }
   rcon('gamemode survival ' + NAME)
 
-  // 10. death and respawn keep Home
+  // 10. death and respawn keep the points
   rcon('kill ' + NAME)
   await sleep(3000)
-  const after = rcon('data get entity ' + NAME + ' bmh_home')
-  check('Home survives death (restoreFrom)', after.includes('x: ' + bx) && after.includes('z: ' + bz), after)
+  const after = rcon('data get entity ' + NAME + ' bmh_points')
+  check('points survive death (restoreFrom)', after.includes('Bed') && after.includes('x: ' + bx), after)
 
-  // 11. relog keeps Home
+  // 11. relog keeps the points
   bot.quit()
   await sleep(2500)
   bot = await joinBot()
   await sleep(1500)
-  const relog = rcon('data get entity ' + NAME + ' bmh_home')
-  check('Home survives a relog (save and read)', relog.includes('x: ' + bx) && relog.includes('z: ' + bz), relog)
+  const relog = rcon('data get entity ' + NAME + ' bmh_points')
+  check('points survive a relog (save and read)', relog.includes('Bed') && relog.includes('x: ' + bx), relog)
 
-  // 12. the Nether: no stars, and Home refuses
+  // 12. the Nether: no stars, and no point
   rcon('gamemode creative ' + NAME)
   rcon('execute in minecraft:the_nether run tp ' + NAME + ' 0 120 0')
   await sleep(4000)
@@ -228,6 +265,10 @@ async function main () {
   await sleep(600)
   await use(bot)
   check('nether: stars only answer in the Overworld', !!(await waitBar('bmh.amulet.hidden.dimension', 2000)))
+  await sleep(1500)
+  lastUse = Date.now()
+  bot.chat('/bmh point save 0 120 0 Nether')
+  check('nether: a point refuses', !!(await waitBar('bmh.point.overworld', 2000)))
   bot.quit()
   await sleep(500)
   const bad = rcon('list')
