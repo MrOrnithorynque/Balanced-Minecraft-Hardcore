@@ -58,7 +58,7 @@ async function main () {
     console.log('NEW INVENTORY ' + inv)
     check('new: amulet carried over', inv.includes('bmh:navigator_amulet'), inv)
     check('new: Eternal Sword carried over with damage 40', /id: "bmh:eternal_sword"[^\]]*?"minecraft:damage": 40|"minecraft:damage": 40[^\]]*?id: "bmh:eternal_sword"/.test(inv), inv)
-    check('new: Eternal Pickaxe carried over with damage 10', /"minecraft:damage": 10/.test(inv) && inv.includes('bmh:eternal_pickaxe'), inv)
+    check('new: Eternal Pickaxe carried over with damage 10', /"minecraft:damage": 10\b/.test(inv) && inv.includes('bmh:eternal_pickaxe'), inv)
     check('new: Eternal Bundle still holds 5 dirt', inv.includes('bmh:eternal_bundle') && /bundle_contents": \[\{count: 5, id: "minecraft:dirt"\}\]|bundle_contents": \[\{id: "minecraft:dirt", count: 5\}\]/.test(inv), inv)
     check('new: Totem of Eternity carried over', inv.includes('bmh:totem_of_eternity'), inv)
     const pts = rcon('data get entity ' + NAME + ' bmh_points')
