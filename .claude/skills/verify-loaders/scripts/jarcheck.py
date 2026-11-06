@@ -32,13 +32,14 @@ REFMAP_IDS = {
               "F_PlayerListRespawnMixin": ["m_11236_"], "F_ServerPlayerAccessor": ["f_8921_"],
               "F_GuiTitleMixin": ["m_168714_"], "F_LocalPlayerRespawnMixin": ["m_7583_"],
               "F_MinecraftOverlayMixin": ["m_91150_"], "G_ItemEntityMixin": ["m_6469_", "m_8119_"], "H_ItemRendererSwordMixin": ["m_115143_"], "I_SlotTotemMixin": ["m_5857_"], "I_ClientPacketListenerTotemMixin": ["m_104927_"],
-              "K_GuiSpyglassMixin": ["m_280278_"]},
+              "K_GuiSpyglassMixin": ["m_280278_"], "O_GuiRitualBarMixin": ["m_280518_"]},
     "fabric": {"A_LivingEntityTotemMixin": ["method_6095"], "B_AnvilMenuMixin": ["method_24928"],
                "E_PlayerAttackMixin": ["method_7324", "method_5643", "method_7322"],
                "F_PlayerListRespawnMixin": ["method_14556"], "F_ServerPlayerAccessor": ["field_13998"],
                "F_GuiTitleMixin": ["method_34004"], "F_LocalPlayerRespawnMixin": ["method_7331"],
                "F_MinecraftOverlayMixin": ["method_18502"], "G_ItemEntityMixin": ["method_5643", "method_5773"], "H_ItemRendererSwordMixin": ["method_23179"], "I_SlotTotemMixin": ["method_7680"], "I_ClientPacketListenerTotemMixin": ["method_19691"],
-               "J_CommandsMixin": ["class_2170;<init>"], "K_GuiSpyglassMixin": ["method_32598"]},
+               "J_CommandsMixin": ["class_2170;<init>"], "K_GuiSpyglassMixin": ["method_32598"],
+               "O_GuiRitualBarMixin": ["method_1759"]},
 }
 # A mixin whose only target is a constructor of a vanilla class has nothing to remap on Forge 1.20.x: Forge keeps the
 # official class names there (only methods and fields get SRG names), so its refmap has no entry for it. Fabric renames

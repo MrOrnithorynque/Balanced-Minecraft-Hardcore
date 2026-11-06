@@ -7,7 +7,8 @@
     "item.bmh.eternal_sword": "Меч Вечности",
     "itemGroup.bmh_creative_tab": "Вкладка BMH",
     "itemGroup.BMH_tab": "Вкладка BMH",
-    "item.bmh.dormant_totem": "Спящий тотем вечной жизни",
+    "item.bmh.dormant_totem": "Полый тотем вечной жизни",
+    "item.bmh.sleeping_totem": "Спящий тотем вечной жизни",
     "item.bmh.echo_heart": "Сердце эха",
 
     "bmh.journey.message": "Для тебя начинается новое путешествие, %s."
