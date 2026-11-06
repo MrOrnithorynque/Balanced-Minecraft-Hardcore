@@ -141,12 +141,12 @@ The red cells, one by one:
 `mc26 f04f162 selftest | forge up=1 selftest=71/71 end=1 fail=0 | fabric up=1 selftest=71/71 end=1 fail=0 | neoforge up=1 selftest=71/71 end=1 fail=0`
 - Everything is green except the Fabric bot cells, which cannot run (Fabric API refuses vanilla clients on 26.1, see Step 3).
 
-## Not verified
-- 26.1 and 26.1.1 at runtime (only a compile of the common code against the 26.1 jar). The jar declares 26.1 to 26.1.x on every loader.
-- The Fabric bot scenarios (amulet 40 checks, smoke 46 checks) on Fabric.
-- A world upgraded from 1.21.1: the BMH game rule values do not carry over (by design of the new ids); that the other rules still load was not tested.
-- Looks and feel judged by a human: the star reading, the journey cinematic and its frame rate, the screens, the needle and the bundle sprite in game. The screenshots show the sky line, the cinematic frames and the totem animation, nothing more.
-- Hoppers of other mods and NeoForge's transfer wrappers versus the one-totem-per-container rule.
+## Not verified (as of step 3; step 4 closed most of it, see 4.7)
+- 26.1 and 26.1.1 at runtime: closed by 4.5 and 4.6.
+- The Fabric bot scenarios: closed by 4.2.
+- A world upgraded from 1.21.1: closed by 4.4 (values now kept).
+- Looks and feel judged by a human: still open, see 4.7.
+- Hoppers versus the one-totem rule: closed by 4.3 (code read).
 
 ## Step 4: release readiness (owner: "finish to fix and verify what is needed, we aim for a release soon"; `date` 2026-11-06 09:26 CET)
 
@@ -167,3 +167,25 @@ First run (f04f162): 10/10, but the game rules file logged `Failed to parse save
 - Build: OK on both. Classes against the 26.1.2 build: Forge and Fabric identical (26.1: 96 and 98 classes, 0 differ). NeoForge: three mixin classes differ only in how `at` is stored: NeoForge 26.1.0 ships `sponge-mixin 0.17.0`, where `@ModifyArg.at` and `@ModifyVariable.at` are one `@At`; 26.1.2 ships 0.17.4, where they are `At[]`.
 - Self-tests: `p26.1` and `p26.1.1`: 71/71 on forge, fabric and neoforge.
 - Production servers (official installers, the shipped jars in mods/, `$SCRATCH/prod/`): see 4.6.
+
+### 4.6 Production servers (`$SCRATCH/prod/prod_test.sh`, `all.sh`, results `all.out`)
+The official installer of each loader (maven.minecraftforge.net, maven.neoforged.net, meta.fabricmc.net with Fabric API from maven.fabricmc.net), the jars built at 73d93c9 (with `N_SavedDataGameRulesMixin`, without any verify hook) in `mods/`, a fresh flat world, Java 25. Result lines verbatim:
+```
+[26.1 forge 62.0.9] RESULT up=1 mixinErrors=0 SMOKE 46/46 bmh=2
+[26.1 fabric 0.20.1] RESULT up=1 mixinErrors=0 - bmh=2
+[26.1 neoforge 26.1.0.19-beta] RESULT up=1 mixinErrors=0 SMOKE 46/46 bmh=2
+[26.1.1 neoforge 26.1.1.15-beta] RESULT up=1 mixinErrors=0 SMOKE 46/46 bmh=2
+[26.1.1 forge 63.0.2] RESULT up=1 mixinErrors=0 SMOKE 46/46 bmh=2
+[26.1.1 fabric 0.20.1] RESULT up=1 mixinErrors=0 - bmh=2
+[26.1.2 neoforge 26.1.2.126] RESULT up=1 mixinErrors=0 SMOKE 46/46 bmh=2
+[26.1.2 forge 64.1.6] RESULT up=1 mixinErrors=0 SMOKE 46/46 bmh=2
+[26.1.2 fabric 0.20.1] RESULT up=1 mixinErrors=0 - bmh=2
+```
+The Fabric cells are a boot only: the shipped jar has no verify hook, so the 26.1 Fabric API refuses the vanilla bot. Fabric on 26.1 and 26.1.1 rests on that boot, the 71 self-tests of 4.5, and its classes being byte-identical to the 26.1.2 build. NeoForge 26.1.0 runs Mixin 0.17.0 (single `at`), and the jar built against 0.17.4 (`at` arrays) still passes there: the Mixin version gap of 4.5 does not break it. The first attempt of this run passed each line as one unsplit word (a zsh loop) and booted nothing; `all.sh` is the bash rerun.
+CurseForge dry run (`publish_local.py --dry-run --only curseforge`, read only): every name resolves: `26.1` 15933, `26.1.1` 16021, `26.1.2` 16082, `Java 25` 14454, Client 9638, Server 9639, Forge 7498, Fabric 7499, NeoForge 10150. `release_game_versions=26.1,26.1.1,26.1.2` (commit 2e0b311) lists each file for the three versions.
+
+### 4.7 Still open before the release
+- Looks and feel by a human (star reading, cinematic and its frame rate, screens, needle, bundle sprite).
+- The `.claude/` harness changes of this branch (compile_check, hooks, bots, jarcheck, release script) exist only on `mc-26.1`. CLAUDE.md wants every change on every branch: port them to `main` and the other `mc-*` branches before a release runs the matrix from another checkout.
+- Bump `mod_version` and the changelog section, push, tag `mc-26.1.2-v<version>`, publish: the release skill, with the owner's go.
+
