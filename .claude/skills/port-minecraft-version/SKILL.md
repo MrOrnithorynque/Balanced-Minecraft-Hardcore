@@ -5,7 +5,7 @@ description: Port Balanced Minecraft Hardcore to a new Minecraft version (a new 
 
 # Porting BMH to a new Minecraft version
 
-The method that took `mc-1.21.1` to `mc-26.1` (2026-11-06). Its full record, with the evidence of every claim, is `docs/port-26/LOG.md` on `mc-26.1`: read it first, it also lists the measured steps for 26.2, 26.3 and a 1.21.11 backport. Project rules are in `.claude/CLAUDE.md` (one branch per version, every change on every branch, the changelog).
+The method that took `mc-1.21.1` to `mc-26.1` (2026-11-06). Its full record, with the evidence of every claim, is `docs/port-26/LOG.md` on `mc-26.1`: read it first, it also lists the planned steps for 26.2 and 26.3 (measured) and a 1.21.11 backport (not measured). Project rules are in `.claude/CLAUDE.md` (one branch per version, every change on every branch, the changelog).
 
 ## 1. Measure before you code
 
@@ -50,4 +50,4 @@ In this order, each step on every loader:
 
 - Changelog lines for what a player can notice, in Simplified Technical English (`.claude/CLAUDE.md`), plus the version in `README.md` (availability line) and the CurseForge listing (`release_game_versions` in `gradle.properties` when one jar covers several versions).
 - The harness changes (`.claude/`) and `CHANGELOG.md` go to every branch: apply the same diff on each, check `compile_check.sh --selftest` and `--client` on each branch's versions, and keep the 1.20.x branches equal to `main` outside their own files.
-- Add the branch to `.claude/CLAUDE.md` (table and a section for what differs) and to `scripts/branches.txt`, then release with the `release` skill.
+- Add the branch to `.claude/CLAUDE.md` (table and a section for what differs) and to `.claude/skills/verify-loaders/scripts/branches.txt`, then release with the `release` skill.
