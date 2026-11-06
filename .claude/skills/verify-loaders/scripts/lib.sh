@@ -1,5 +1,5 @@
 #!/bin/bash
-# Shared by branch.sh, matrix.sh, selftest.sh, server_only.sh, upgrade.sh and death_client.sh: source it (". lib.sh"), never run it.
+# Shared by branch.sh, matrix.sh, selftest.sh, server_only.sh, upgrade.sh, death_client.sh, prod_server.sh and cross_upgrade.sh: source it (". lib.sh"), never run it.
 # Paths, the JDK per Minecraft version, the two locks every server boot goes through (the server lock first, then a Gradle
 # slot, each a directory with an owner file, polled every second) and the boot and stop of a dedicated server.
 #
@@ -7,7 +7,7 @@
 #   BMH_BOT_MODULES  the node_modules folder that holds mineflayer; default ~/.cache/bmh-bots, filled by need_bots
 #   BMH_VERIFY_OUT   logs, screenshots and summary.txt (default /private/tmp/bmh-verify)
 #   BMH_REPO         the main checkout the verification worktrees hang off (default: found from this script's repository)
-#   BMH_PORT         the dedicated server's port (default 25618; upgrade.sh sets it from BMH_UPGRADE_PORT, default 25619).
+#   BMH_PORT         the dedicated server's port (default 25618; upgrade.sh and cross_upgrade.sh set it from BMH_UPGRADE_PORT, default 25619).
 #                    A plain PORT variable is ignored. RCON is always port + 100, password bmh: the bots compute it the same way.
 #   BMH_JDK17, BMH_JDK21, BMH_JDK25   JDK homes (default Homebrew's openjdk@17, @21 and @25)
 #   BMH_LOCK_DIR, BMH_SLOT_PREFIX   the lock paths (default /private/tmp/bmh-runserver.lock and /private/tmp/bmh-gradle,
