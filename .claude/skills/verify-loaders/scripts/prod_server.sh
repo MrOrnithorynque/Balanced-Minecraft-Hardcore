@@ -9,7 +9,7 @@
 #   fabric:   the Fabric Loader version (0.20.1) and the Fabric API version (0.145.1+26.1), from meta.fabricmc.net
 # Installers and Fabric API are kept in ~/.cache/bmh-prod; servers in $BMH_VERIFY_OUT/prod-<mc>-<loader>-<version>.
 # On 26.x a Fabric server refuses the vanilla bot (the jar has no verify hook), so Fabric there is a boot only.
-# One line: RESULT up=<0|1> mixinErrors=<n> <SMOKE n/m or -> bmh=<lines>. Same locks and port as branch.sh.
+# One line: RESULT up=<0|1> mixinErrors=<n> <SMOKE n/m or -> bmh=<lines>. The server lock and the port of branch.sh (no Gradle slot: it runs no Gradle).
 set -u
 [ $# -ge 4 ] || { echo "usage: prod_server.sh <tree> <minecraft version> <loader> <loader version> [fabric api version]" >&2; exit 2; }
 T=$1; MC=$2; L=$3; V=$4; FAPI=${5:-}
@@ -18,7 +18,7 @@ SCRIPTS=$(cd "$(dirname "$0")" && pwd)
 need_bots
 JH=$(jdk_for "$MC") || exit 2
 JAVA=$JH/bin/java
-D=$OUTROOT/prod-$MC-$L-$V; DL=$HOME/.cache/bmh-prod; mkdir -p "$D" "$DL"
+D=$OUTROOT/prod-$MC-$L-$V${FAPI:+-$FAPI}; DL=$HOME/.cache/bmh-prod; mkdir -p "$D" "$DL"
 JAR=$(ls "$T/$L"/build/libs/bmh-"$L"-*.jar 2>/dev/null | grep -v -E -- '-(sources|dev)\.jar$' | head -1)
 [ -n "$JAR" ] || { echo "no built $L jar in $T/$L/build/libs (gradlew build first)"; exit 2; }
 say() { echo "[$MC $L $V] $*"; }
