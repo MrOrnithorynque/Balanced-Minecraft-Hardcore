@@ -61,10 +61,12 @@ final class ClientCompat {
 
     /**
      * The moon direction, the same math as MoonRitualHandler.moonDirection on 26.1: the sky turns by the MOON_ANGLE
-     * environment attribute and the moon sits at y = +100.
+     * environment attribute and the moon sits at y = +100. The attribute is positional: read at the eyes (a development
+     * run throws without a position).
      */
     static Vec3 moonDirection(Minecraft mc) {
-        double angle = Math.toRadians(mc.level.environmentAttributes().getDimensionValue(EnvironmentAttributes.MOON_ANGLE));
+        double angle = Math.toRadians(mc.level.environmentAttributes()
+                .getValue(EnvironmentAttributes.MOON_ANGLE, mc.player.getEyePosition(), null));
         return new Vec3(-Math.sin(angle), Math.cos(angle), 0.0);
     }
 
