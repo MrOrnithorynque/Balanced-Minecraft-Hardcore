@@ -15,7 +15,7 @@ import net.minecraft.world.item.Items;
 
 /**
  * Shows the Totem of Eternity in the totem animation when it saves the player. Vanilla looks for a Totem of Undying in
- * the hands only. The server sends the animation before it sends the Dormant Totem, so the client still sees the totem.
+ * the hands only. The server sends the animation before it sends the Dormant Totem of Eternity, so the client still sees the totem.
  */
 @Mixin(ClientPacketListener.class)
 public abstract class I_ClientPacketListenerTotemMixin {

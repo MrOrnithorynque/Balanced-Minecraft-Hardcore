@@ -17,8 +17,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.gameevent.GameEvent;
 
 /**
- * The Totem of Eternity saves a player from death once, from any slot of the inventory, and then turns back into a
- * Dormant Totem. A container holds one Totem of Eternity at most.
+ * The Totem of Eternity saves a player from death once, from any slot of the inventory, and then turns into a
+ * Dormant Totem of Eternity. A container holds one Totem of Eternity at most.
  */
 public class TotemOfEternityHandler {
 
@@ -36,7 +36,7 @@ public class TotemOfEternityHandler {
 
             if (stack.getItem() instanceof TotemOfEternityItem) {
 
-                inventory.setItem(i, new ItemStack(ItemInit.DORMANT_TOTEM.get()));
+                inventory.setItem(i, new ItemStack(ItemInit.DORMANT_TOTEM_OF_ETERNITY.get()));
                 player.awardStat(Stats.ITEM_USED.get(stack.getItem()));
                 player.gameEvent(GameEvent.ITEM_INTERACT_FINISH);
 
