@@ -157,7 +157,7 @@ done
 
 - Tag `origin/<b>` after a fetch, and only where it is the commit step 5 pushed. Never tag the local branch: the one checked out in the main checkout still points at its old commit.
 - `main` is the 1.20.4 branch and gets the `mc-1.20.4-v*` tag. From `mc-1.20.4-v1.1.0` to `mc-1.20.4-v1.7.0`, the 1.20.4 tags sit on the commits of `dev-49.0.31`, a copy of `main` deleted on 2026-11-06.
-- Format is exactly `mc-<mc>-v<mod>`, with `<mc>` the branch's `minecraft_version`, not its name. `mc-26.1` builds against 26.1.2, so its tag is `mc-26.1.2-v<mod>` (owner's decision, 2026-11-06); `publish_local.py` reads the same value.
+- Format is exactly `mc-<mc>-v<mod>`, with `<mc>` the branch's `minecraft_version`, not its name. `mc-26.1` builds against 26.1.2, so its tag is `mc-26.1.2-v<mod>` (owner's decision, 2026-11-06); `publish_local.py` reads the same value. Its `gradle.properties` also has `release_game_versions=26.1,26.1.1,26.1.2`: `publish_local.py` lists the CurseForge files for every version in it (one jar, verified on each), and for `minecraft_version` alone when the key is missing.
 
 **Show the user the list of tags and the commit each points to, and get a clear yes**: a tag is public and slow to move. Then push them (`git push origin <tag> ...`): the GitHub release of step 7 needs its tag on GitHub, and the script checks it before any upload. With the workflows disabled, a tag push starts nothing, so they can go in one push.
 

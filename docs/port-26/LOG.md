@@ -147,3 +147,23 @@ The red cells, one by one:
 - A world upgraded from 1.21.1: the BMH game rule values do not carry over (by design of the new ids); that the other rules still load was not tested.
 - Looks and feel judged by a human: the star reading, the journey cinematic and its frame rate, the screens, the needle and the bundle sprite in game. The screenshots show the sky line, the cinematic frames and the totem animation, nothing more.
 - Hoppers of other mods and NeoForge's transfer wrappers versus the one-totem-per-container rule.
+
+## Step 4: release readiness (owner: "finish to fix and verify what is needed, we aim for a release soon"; `date` 2026-11-06 09:26 CET)
+
+### 4.1 Tag name (commit 71765d7)
+`mc-26.1.2-v<version>`: the tag takes `minecraft_version`, as on every branch, so the release skill and `publish_local.py` need no change.
+
+### 4.2 Fabric bots (commit 7ad8448)
+`hook/fabric/Z_VanillaBotsMixin.java`, copied by `lib.sh fabric_bot_hook` into the verify tree for Fabric on 26.x only and removed at the end, makes `RegistrySyncManager.areAllRegistriesOptional` return true: the server then lets a vanilla client in without a sync, as Fabric API 0.116 did on 1.21.1 (bytecode of `configureClient`: no sync channel and not all optional means disconnect). jarcheck runs before the hook. Results on the verify tree at f04f162: Fabric `SMOKE 46/46` (`smoke3-fabric.log`), amulet `40/40 checks passed` (`amulet3-fabric.log`).
+
+### 4.3 Hoppers and the one-totem rule
+NeoForge's transfer API inserts into a vanilla container through `VanillaContainerWrapper`, whose `isValid` calls `container.canPlaceItem` (NeoForge 26.1.2.126 sources, `transfer/item/VanillaContainerWrapper.java:174-176`), which `I_ContainerTotemMixin` adds. Code read only.
+
+### 4.4 Upgrade of a 1.21.1 world (scratch `up26/`, NeoForge 21.1 then NeoForge 26.1.2)
+First run (f04f162): 10/10, but the game rules file logged `Failed to parse saved data for 'SavedDataType[minecraft:game_rules]': Not a valid resource location: displayTextOnRespawn ...` and the BMH rules went back to ON. Fix (73d93c9): `N_SavedDataGameRulesMixin` renames the six old keys with their values at the return of `SavedDataStorage.readTagFromDisk` (no loader patch touches that call: `facts/patches/*-SavedDataStorage.patch`). Rerun on 73d93c9: `UPGRADE26 new 13/13`: items with their damage and bundle contents, the amulet point, `keep_inventory=true`, `bmh:random_death_spawn_point=false` and `bmh:damage_eternal_item_when_dead=false` kept, an unchanged rule still true, a distant respawn of 35552 blocks, no death wear with the rule off. No error line in the new server log; six `Game rule <old> is now <new> (<value>)` lines. The changelog now says the values are kept.
+
+### 4.5 26.1 and 26.1.1 (scratch trees `t26.1`, `t26.1.1`: the same sources with that version's loaders)
+- Loaders: 26.1: Forge 62.0.9, NeoForge 26.1.0.19-beta, Fabric API 0.145.1+26.1. 26.1.1: Forge 63.0.2, NeoForge 26.1.1.15-beta, Fabric API 0.145.4+26.1.1. NeoForge had only beta builds before 26.1.2.
+- Build: OK on both. Classes against the 26.1.2 build: Forge and Fabric identical (26.1: 96 and 98 classes, 0 differ). NeoForge: three mixin classes differ only in how `at` is stored: NeoForge 26.1.0 ships `sponge-mixin 0.17.0`, where `@ModifyArg.at` and `@ModifyVariable.at` are one `@At`; 26.1.2 ships 0.17.4, where they are `At[]`.
+- Self-tests: `p26.1` and `p26.1.1`: 71/71 on forge, fabric and neoforge.
+- Production servers (official installers, the shipped jars in mods/, `$SCRATCH/prod/`): see 4.6.
