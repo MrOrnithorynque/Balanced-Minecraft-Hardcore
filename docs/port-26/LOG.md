@@ -189,3 +189,8 @@ CurseForge dry run (`publish_local.py --dry-run --only curseforge`, read only): 
 - The `.claude/` harness changes of this branch (compile_check, hooks, bots, jarcheck, release script) exist only on `mc-26.1`. CLAUDE.md wants every change on every branch: port them to `main` and the other `mc-*` branches before a release runs the matrix from another checkout.
 - Bump `mod_version` and the changelog section, push, tag `mc-26.1.2-v<version>`, publish: the release skill, with the owner's go.
 
+
+### 4.8 Final matrix (commit 2e0b311 for branch.sh, 2330018 for the self-tests), verbatim
+`mc26 2e0b311 build=ok jars=166/166 | forge up=1 amulet=40/40 smoke=46/46 srvErr=0 tag=1 client=1 shots=4 cliErr=0 | fabric up=1 amulet=40/40 smoke=46/46 srvErr=0 tag=1 client=1 shots=4 cliErr=0 | neoforge up=1 amulet=40/40 smoke=46/46 srvErr=0 tag=1 client=1 shots=4 cliErr=0`
+`mc26 2330018 selftest | forge up=1 selftest=71/71 end=1 fail=0 | fabric up=1 selftest=71/71 end=1 fail=0 | neoforge up=1 selftest=71/71 end=1 fail=0`
+After the harness review fixes (hook added once, after the server lock, removed only by a Fabric run; upgrade.sh hooks Fabric too): `server_only.sh mc26 26.1.2 fabric smoke_bot.js smoke4` gives `SMOKE 46/46`, and the verify tree is clean after it.

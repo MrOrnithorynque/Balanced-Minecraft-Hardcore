@@ -70,6 +70,8 @@ bot_version() { case "$1" in 26.1.*) echo 26.1 ;; *) echo "$1" ;; esac; }
 FABRIC_MIXIN_DIR=fabric/src/main/java/github/mrornithorynque/bmh/fabric/mixin
 fabric_bot_hook() {
   case "$2" in 26.*) ;; *) return 0 ;; esac
+  # Once only: a tree that already has the hook keeps one entry.
+  [ -f "$1/$FABRIC_MIXIN_DIR/Z_VanillaBotsMixin.java" ] && return 0
   cp "$SCRIPTS/hook/fabric/Z_VanillaBotsMixin.java" "$1/$FABRIC_MIXIN_DIR/Z_VanillaBotsMixin.java"
   python3 -I - "$1/fabric/src/main/resources/bmh.fabric.mixins.json" <<'PY'
 import json, sys
