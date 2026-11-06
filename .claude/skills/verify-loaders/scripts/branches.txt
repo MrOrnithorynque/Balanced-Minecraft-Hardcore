@@ -1,10 +1,10 @@
 # The cells matrix.sh runs when it gets no argument: <origin branch or tag> <minecraft version> <label>
-# One line per Minecraft version the mod ships for. main has the same sources as dev-49.0.31, so it is not listed.
+# One line per Minecraft version the mod ships for. main is the 1.20.4 branch.
 # gradle.properties on each branch is the truth for the versions; for a run on other branches (say, a port of a feature
 # branch to every version) pass your own triples to matrix.sh, or a table with -f.
-dev-52.1.20  1.21.1  1.21.1
-dev-49.0.31  1.20.4  1.20.4
-dev-49.0.2   1.20.3  1.20.3
-dev-48.1.0   1.20.2  1.20.2
-dev-47.2.0   1.20.1  1.20.1
-dev-46.0.14  1.20    1.20
+mc-1.21.1  1.21.1  1.21.1
+main       1.20.4  1.20.4
+mc-1.20.3  1.20.3  1.20.3
+mc-1.20.2  1.20.2  1.20.2
+mc-1.20.1  1.20.1  1.20.1
+mc-1.20    1.20    1.20

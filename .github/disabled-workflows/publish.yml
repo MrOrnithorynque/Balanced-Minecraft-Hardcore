@@ -1,7 +1,7 @@
 name: Publish
 
 # Release = push a tag named mc-<minecraft_version>-v<mod_version> on the commit you want to ship,
-# e.g. `git tag mc-1.20.4-v1.0.1 && git push origin mc-1.20.4-v1.0.1` from dev-49.0.31.
+# e.g. `git tag mc-1.20.4-v1.0.1 && git push origin mc-1.20.4-v1.0.1` from main.
 # The tag decides the commit (and so the branch); everything else is read from that commit:
 # Minecraft and mod versions from gradle.properties, Java version from build.gradle.
 # Each tag publishes one version per loader on Modrinth and CurseForge (Forge, Fabric, and
