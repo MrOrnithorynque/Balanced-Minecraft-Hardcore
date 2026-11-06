@@ -17,7 +17,6 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameRules;
 
 /**
  * THROWAWAY verification hook (never committed, see selftest.sh). Runs the feature checks of Tests.ALL on a dedicated
@@ -49,7 +48,7 @@ public final class SelfTest {
         private final List<UUID> players = new ArrayList<>();
         private final List<long[]> dueTicks = new ArrayList<>();
         private final List<Runnable> dueSteps = new ArrayList<>();
-        private final Map<GameRules.Key<GameRules.BooleanValue>, Boolean> savedRules = new LinkedHashMap<>();
+        private final Map<Object, Boolean> savedRules = new LinkedHashMap<>();
 
         Ctx(MinecraftServer server, String test, BlockPos origin) {
             this.server = server;
@@ -72,22 +71,15 @@ public final class SelfTest {
             return server.getPlayerList().getPlayer(player.getUUID());
         }
 
-        /** Sets a boolean game rule for this test. SelfTest puts the old value back when the test ends. */
-        public void rule(GameRules.Key<GameRules.BooleanValue> key, boolean value) {
-            GameRules.BooleanValue rule = server.getGameRules().getRule(key);
-            savedRules.putIfAbsent(key, rule.get());
-            rule.set(value, server);
+        /** Sets a boolean game rule for this test. SelfTest puts the old value back when the test ends. The key type changes with the version, so MockPlayers reads and writes it. */
+        public void rule(Object key, boolean value) {
+            savedRules.putIfAbsent(key, MockPlayers.getRule(server, key));
+            MockPlayers.setRule(server, key, value);
         }
 
-        /** ServerPlayer.spawnInvulnerableTime, private on every version: read by reflection (Mojang names in dev). */
+        /** The ticks of damage immunity a player has left after a respawn. MockPlayers reads the counter of the version. */
         public int spawnInvulnerableTime(ServerPlayer player) {
-            try {
-                java.lang.reflect.Field field = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
-                field.setAccessible(true);
-                return field.getInt(player);
-            } catch (ReflectiveOperationException e) {
-                throw new IllegalStateException(e);
-            }
+            return MockPlayers.immunityTicks(player);
         }
 
         /** The title packets this player got since the last call, as "key" or "key(n args)", oldest first. */
@@ -150,7 +142,7 @@ public final class SelfTest {
 
         void close() {
             forceChunks(false);
-            savedRules.forEach((key, value) -> server.getGameRules().getRule(key).set(value, server));
+            savedRules.forEach((key, value) -> MockPlayers.setRule(server, key, value));
             for (UUID id : players) {
                 ServerPlayer player = server.getPlayerList().getPlayer(id);
                 if (player != null) server.getPlayerList().remove(player);
@@ -197,7 +189,7 @@ public final class SelfTest {
             return;
         }
         Test test = Tests.ALL.get(index);
-        BlockPos spawn = server.overworld().getSharedSpawnPos();
+        BlockPos spawn = MockPlayers.worldSpawn(server.overworld());
         current = new Ctx(server, test.name(), spawn.offset(64 * (index + 1), 0, 0));
         started = server.getTickCount();
         current.forceChunks(true);

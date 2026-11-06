@@ -21,8 +21,8 @@ git status --short          # clean tree
 for b in main $(git for-each-ref --format='%(refname:lstrip=3)' 'refs/remotes/origin/mc-*'); do
   git rev-parse -q --verify "refs/heads/${b}" >/dev/null || echo "   NO local branch $b: git branch --track $b origin/$b"
   echo "== $b behind/ahead: $(git rev-list --left-right --count "origin/${b}...${b}")"
-  # mc-1.21.1 (and any later non-1.20.x branch) has its own sources: skip it here.
-  [ "$b" = mc-1.21.1 ] || git diff --stat main "$b" -- . ':!forge/build.gradle' ':!gradle.properties' ':!README.md' ':!forge/src/main/resources/META-INF/mods.toml' ':!.vscode' | tail -1   # must print nothing
+  # mc-1.21.1 and mc-26.1 (and any later non-1.20.x branch) have their own sources: skip them here.
+  case "$b" in mc-1.21.1|mc-26.1) ;; *) git diff --stat main "$b" -- . ':!forge/build.gradle' ':!gradle.properties' ':!README.md' ':!forge/src/main/resources/META-INF/mods.toml' ':!.vscode' | tail -1 ;; esac   # must print nothing
   git cat-file -e "${b}:.github/workflows/publish.yml" 2>/dev/null && echo "   publish.yml still active on $b: port the move to .github/disabled-workflows first"
   git cat-file -e "${b}:CHANGELOG.md" 2>/dev/null || echo "   NO CHANGELOG.md on $b"
 done
@@ -74,7 +74,7 @@ Cherry-pick that commit onto each `mc-*` branch, each in its own detached scratc
 R=/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore
 W=<absolute scratchpad path>/wt
 C=$(git -C "$W/main" rev-parse HEAD)   # the release commit of step 2
-for b in mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20; do   # the real list from step 0, main left out
+for b in mc-26.1 mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20; do   # the real list from step 0, main left out
   git -C "$R" worktree add -q --detach "$W/$b" "origin/$b" || { echo "$b: no worktree, stop and look"; continue; }
   git -C "$W/$b" cherry-pick "$C" || echo "CONFLICT on $b"
 done
@@ -89,8 +89,8 @@ To ship work that sits on a coordinated run's branches (one integration branch p
 ```bash
 #!/bin/bash
 W=<absolute scratchpad path>/wt
-for b in main mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20; do   # the real list from step 0
-  # JDK 17 for 1.20.x, 21 for 1.21.1: the branch's build.gradle says which.
+for b in main mc-26.1 mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20; do   # the real list from step 0
+  # JDK 17 for 1.20.x, 21 for 1.21.1, 25 for 26.1: the branch's build.gradle says which.
   java=$(grep -o 'JavaLanguageVersion.of([0-9]*)' "$W/$b/build.gradle" | grep -o '[0-9]\+')
   export JAVA_HOME=/opt/homebrew/opt/openjdk@$java
   if ( cd "$W/$b" && sh ./gradlew build --console=plain ) > "$W/../build-$b.log" 2>&1; then
@@ -118,7 +118,7 @@ Check that each worktree's commit is a fast-forward of its branch, push them all
 #!/bin/bash
 R=/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore
 W=<absolute scratchpad path>/wt
-B="main mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20"   # the real list from step 0
+B="main mc-26.1 mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20"   # the real list from step 0
 git -C "$R" fetch origin
 specs=()
 for b in $B; do
@@ -147,7 +147,7 @@ One annotated tag per version branch, `main` included, named from **that branch'
 cd /Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore
 W=<absolute scratchpad path>/wt
 git fetch origin
-for b in main mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20; do   # the real list from step 0
+for b in main mc-26.1 mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20; do   # the real list from step 0
   [ "$(git rev-parse "origin/${b}")" = "$(git -C "$W/$b" rev-parse HEAD)" ] || { echo "$b: origin/$b is not the commit step 5 pushed, stop and look"; continue; }
   mc=$(git show "origin/${b}:gradle.properties" | grep '^minecraft_version=' | cut -d= -f2)
   mod=$(git show "origin/${b}:gradle.properties" | grep '^mod_version=' | cut -d= -f2)
@@ -157,7 +157,7 @@ done
 
 - Tag `origin/<b>` after a fetch, and only where it is the commit step 5 pushed. Never tag the local branch: the one checked out in the main checkout still points at its old commit.
 - `main` is the 1.20.4 branch and gets the `mc-1.20.4-v*` tag. From `mc-1.20.4-v1.1.0` to `mc-1.20.4-v1.7.0`, the 1.20.4 tags sit on the commits of `dev-49.0.31`, a copy of `main` deleted on 2026-11-06.
-- Format is exactly `mc-<mc>-v<mod>`.
+- Format is exactly `mc-<mc>-v<mod>`, with `<mc>` the branch's `minecraft_version`, not its name. `mc-26.1` builds against 26.1.2, so its tag is `mc-26.1.2-v<mod>` (decided 2026-11-06); `publish_local.py` reads the same value. Its `gradle.properties` also has `release_game_versions=26.1,26.1.1,26.1.2`: `publish_local.py` lists the CurseForge files for every version in it (one jar, verified on each), and for `minecraft_version` alone when the key is missing.
 
 **Show the user the list of tags and the commit each points to, and get a clear yes**: a tag is public and slow to move. Then push them (`git push origin <tag> ...`): the GitHub release of step 7 needs its tag on GitHub, and the script checks it before any upload. With the workflows disabled, a tag push starts nothing, so they can go in one push.
 
@@ -168,7 +168,7 @@ First a dry run on every worktree. It uploads and posts nothing; it runs `jarche
 ```bash
 W=<absolute scratchpad path>/wt
 # Each worktree's own copy: it carries the release commit (the main checkout may not have the script yet).
-for b in main mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20; do python3 -I "$W/$b/.claude/skills/release/publish_local.py" "$W/$b" --dry-run; done
+for b in main mc-26.1 mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20; do python3 -I "$W/$b/.claude/skills/release/publish_local.py" "$W/$b" --dry-run; done
 ```
 
 **Show the user the dry run and get a clear yes**, then run the same loop without `--dry-run`. Each line `PUBLISHED curseforge <loader>: file id <n>`, `PUBLISHED github release <tag>` and `PUBLISHED discord` says what went out. On an `ERROR` line (a refused upload shows the server's answer) nothing more is sent for that worktree: fix the cause, then publish only what is missing with step 8 (a second full run uploads the CurseForge files again).

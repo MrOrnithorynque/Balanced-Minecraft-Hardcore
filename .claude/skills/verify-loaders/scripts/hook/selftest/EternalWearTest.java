@@ -7,10 +7,8 @@ import github.mrornithorynque.bmh.items.IEternalItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Display;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.animal.IronGolem;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.inventory.AnvilMenu;
-import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -51,9 +49,9 @@ final class EternalWearTest implements SelfTest.Test {
         legacy.setDamageValue(legacy.getMaxDamage());
         ServerPlayer old = holding(ctx, "bmh-wear-zero", -8, legacy);
         ServerPlayer control = holding(ctx, "bmh-wear-ctrl", -4, worn(new ItemStack(Items.NETHERITE_SWORD)));
-        IronGolem a = golem(ctx, -12, 2);
-        IronGolem b = golem(ctx, -8, 2);
-        IronGolem c = golem(ctx, -4, 2);
+        LivingEntity a = golem(ctx, -12, 2);
+        LivingEntity b = golem(ctx, -8, 2);
+        LivingEntity c = golem(ctx, -4, 2);
         ctx.later(30, () -> {
             ServerPlayer p1 = ctx.live(eternal);
             ServerPlayer p2 = ctx.live(old);
@@ -79,10 +77,10 @@ final class EternalWearTest implements SelfTest.Test {
         ServerPlayer fresh = holding(ctx, "bmh-wear-fresh", 0, new ItemStack(ItemInit.ETERNAL_SWORD.get()));
         ServerPlayer tired = holding(ctx, "bmh-wear-tired", 4, worn(new ItemStack(ItemInit.ETERNAL_SWORD.get())));
         ServerPlayer axe = holding(ctx, "bmh-wear-axe", 8, worn(new ItemStack(ItemInit.ETERNAL_AXE.get())));
-        IronGolem g1 = golem(ctx, 0, 2);
-        IronGolem g2 = golem(ctx, 4, 2);
-        IronGolem g3 = golem(ctx, 8, 2);
-        IronGolem g4 = golem(ctx, 8, -2);
+        LivingEntity g1 = golem(ctx, 0, 2);
+        LivingEntity g2 = golem(ctx, 4, 2);
+        LivingEntity g3 = golem(ctx, 8, 2);
+        LivingEntity g4 = golem(ctx, 8, -2);
         float[] damage = new float[4];
         ctx.later(30, () -> {
             ServerPlayer f = ctx.live(fresh);
@@ -141,7 +139,7 @@ final class EternalWearTest implements SelfTest.Test {
         ctx.level.setBlockAndUpdate(other, Blocks.DIAMOND_ORE.defaultBlockState());
         player.gameMode.destroyBlock(ore);
         return ctx.level.getEntitiesOfClass(Display.BlockDisplay.class, new AABB(ore).inflate(10),
-                e -> e.getTags().contains(EchoSenseHandler.ECHO_TAG)).size();
+                e -> MockPlayers.hasTag(e, EchoSenseHandler.ECHO_TAG)).size();
     }
 
     private static void deathWear(SelfTest.Ctx ctx) {
@@ -164,7 +162,7 @@ final class EternalWearTest implements SelfTest.Test {
         ItemStack result = menu.getSlot(2).getItem().copy();
         ctx.check("anvil: one gold block repairs the pickaxe for 15 levels", result.getDamageValue() == 0 && menu.getCost() == 15,
                 "damage 100 -> " + result.getDamageValue() + ", cost " + menu.getCost());
-        menu.clicked(2, 0, ClickType.QUICK_MOVE, player);
+        MockPlayers.quickMove(menu, 2, player);
         ctx.check("anvil: taking it costs 15 levels", player.experienceLevel == 15, "levels " + player.experienceLevel);
         menu.removed(player);
         // A penalty of 39 makes vanilla refuse any repair (39 + 1 >= 40): the gold repair still works.
@@ -194,16 +192,12 @@ final class EternalWearTest implements SelfTest.Test {
 
     private static ServerPlayer holding(SelfTest.Ctx ctx, String name, int dx, ItemStack stack) {
         ServerPlayer player = ctx.player(name, dx, 0);
-        player.getInventory().items.set(0, stack);
-        player.getInventory().selected = 0;
+        player.getInventory().setItem(0, stack);
+        MockPlayers.select(player, 0);
         return player;
     }
 
-    private static IronGolem golem(SelfTest.Ctx ctx, int dx, int dz) {
-        IronGolem golem = EntityType.IRON_GOLEM.create(ctx.level);
-        golem.moveTo(ctx.origin.getX() + dx + 0.5, ctx.origin.getY() + 1, ctx.origin.getZ() + dz + 0.5, 0, 0);
-        golem.setNoAi(true);
-        ctx.level.addFreshEntity(golem);
-        return golem;
+    private static LivingEntity golem(SelfTest.Ctx ctx, int dx, int dz) {
+        return MockPlayers.golem(ctx.level, ctx.origin.getX() + dx + 0.5, ctx.origin.getY() + 1, ctx.origin.getZ() + dz + 0.5);
     }
 }

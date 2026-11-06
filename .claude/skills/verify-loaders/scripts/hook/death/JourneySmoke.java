@@ -3,7 +3,6 @@ package github.mrornithorynque.bmh.client;
 import java.lang.reflect.Proxy;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.DeathScreen;
@@ -18,6 +17,8 @@ import net.minecraft.network.chat.Component;
  * THROWAWAY verification hook for the journey respawn, never committed. Only with BMH_JOURNEY_SMOKE=1 in a
  * singleplayer runClient: sets BMH's rules, kills the player, presses the death screen's Respawn button, logs every
  * position packet and saves a frame every 3 ticks until the cinematic ends, then quits. Lines start with [JOURNEY-SMOKE].
+ * What differs between Minecraft versions is in ClientCompat, which death_client.sh copies from hook/compat/ (one file
+ * per version) next to this one.
  */
 public final class JourneySmoke {
 
@@ -44,21 +45,25 @@ public final class JourneySmoke {
         IntegratedServer server = mc.getSingleplayerServer();
         ticks++;
         if (ticks == 0) {
-            log("world joined at " + pos(mc.player) + " worldSpawn=" + mc.level.getSharedSpawnPos().toShortString());
+            log("world joined at " + pos(mc.player) + " worldSpawn=" + ClientCompat.worldSpawn(mc));
             // Every BMH sound the client plays, with its time after the Respawn press.
             // A proxy, not a lambda: onPlaySound takes 2 arguments up to 1.20.2 and 3 from 1.20.3. Dev runs keep the name.
             mc.getSoundManager().addListener((SoundEventListener) Proxy.newProxyInstance(
                     SoundEventListener.class.getClassLoader(), new Class<?>[] { SoundEventListener.class }, (proxy, method, args) -> {
-                        if ("onPlaySound".equals(method.getName()) && args[0] instanceof SoundInstance sound
-                                && ("bmh".equals(sound.getLocation().getNamespace()) || sound.getLocation().getPath().contains("amethyst"))) {
-                            log("sound " + sound.getLocation() + " t+" + (System.currentTimeMillis() - pressMillis) + "ms");
+                        if ("onPlaySound".equals(method.getName()) && args[0] instanceof SoundInstance sound) {
+                            String id = ClientCompat.soundName(sound);
+                            // the namespace is bmh, or the path holds "amethyst" (the namespace never does)
+                            if (id.startsWith("bmh:") || id.contains("amethyst")) {
+                                log("sound " + id + " t+" + (System.currentTimeMillis() - pressMillis) + "ms");
+                            }
                         }
                         return null;
                     }));
         } else if (ticks == 40) {
-            run(server, "difficulty peaceful", "gamerule doDaylightCycle false", "gamerule doWeatherCycle false",
-                    "weather clear", "time set " + TIME, "gamerule doImmediateRespawn " + IMMEDIATE,
-                    "gamerule randomDeathSpawnPoint true", "gamerule displayTextOnRespawn true", "gamemode survival @a");
+            run(server, "difficulty peaceful", ClientCompat.gamerule("doDaylightCycle", false),
+                    ClientCompat.gamerule("doWeatherCycle", false), "weather clear", "time set " + TIME,
+                    ClientCompat.gamerule("doImmediateRespawn", IMMEDIATE), ClientCompat.gamerule("randomDeathSpawnPoint", true),
+                    ClientCompat.gamerule("displayTextOnRespawn", true), "gamemode survival @a");
         } else if (ticks == 100) {
             deadPlayer = mc.player;
             log("killing the player at " + pos(mc.player) + " immediate=" + IMMEDIATE);
@@ -147,7 +152,7 @@ public final class JourneySmoke {
         for (GuiEventListener child : deathScreen.children()) {
             if (child instanceof Button button && button.getMessage().equals(Component.translatable("deathScreen.respawn"))) {
                 log("pressing Respawn (active=" + button.active + ")");
-                button.onPress();
+                ClientCompat.press(button);
                 log("after press: overlay=" + name(mc.getOverlay()) + " button active=" + button.active);
                 return;
             }
@@ -165,8 +170,7 @@ public final class JourneySmoke {
     }
 
     private static void shot(Minecraft mc, String name) {
-        mc.tell(() -> Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(),
-                message -> log("screenshot " + name)));
+        ClientCompat.screenshot(mc, name, message -> log("screenshot " + name));
     }
 
     private static String pos(LocalPlayer player) {

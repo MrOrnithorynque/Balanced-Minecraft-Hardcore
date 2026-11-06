@@ -228,6 +228,9 @@ def main():
         if posts_discord and not hook:
             fail("no Discord webhook in the Keychain (service bmh-discord-webhook), see the header of this script")
 
+    # The Minecraft versions a file is listed for: minecraft_version, or release_game_versions when the branch's jar
+    # was verified on more (mc-26.1: one jar for 26.1, 26.1.1 and 26.1.2).
+    game_versions = [v.strip() for v in p.get("release_game_versions", mc).split(",") if v.strip()]
     uploads = []
     if only != ["discord"]:
         loaders = ["forge", "fabric"] + (["neoforge"] if "neoforge_version" in p else [])
@@ -240,7 +243,7 @@ def main():
                 "loader": loader,
                 "file": jar(tree, loader),
                 "displayName": "Balanced Minecraft Hardcore %s for %s %s" % (mod, label, mc),
-                "versionNames": [mc, "Java " + java, "Client", "Server"] + listed,
+                "versionNames": game_versions + ["Java " + java, "Client", "Server"] + listed,
                 "relations": {"projects": [{"slug": "fabric-api", "type": "requiredDependency"}]} if loader == "fabric" else None,
             })
 

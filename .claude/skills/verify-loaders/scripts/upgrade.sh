@@ -15,13 +15,13 @@ BMH_PORT=${BMH_UPGRADE_PORT:-25619}   # lib.sh reads BMH_PORT
 need_bots
 JH=$(jdk_for "$MCV") || exit 2
 OUT=$OUTROOT/upgrade-$LABEL; mkdir -p "$OUT"
-trap release EXIT
+trap 'release; [ "$L" = fabric ] && { fabric_bot_unhook "$WO"; fabric_bot_unhook "$WN"; }' EXIT
 
 serve() { # <worktree> <log> <mode>: boot, run the bot in <mode>, stop
   take_lock; take_slot
   boot_server "$1" "$L" "$JH" "$2"
   if [ $UP = 1 ]; then
-    with_timeout 300 node "$SCRIPTS/upgrade_bot.js" $PORT "$MCV" "$3" > "$OUT/bot-$3.log" 2>&1
+    with_timeout 300 node "$SCRIPTS/upgrade_bot.js" $PORT "$(bot_version "$MCV")" "$3" > "$OUT/bot-$3.log" 2>&1
     stop_server
   fi
   release
@@ -34,6 +34,8 @@ NREF=$(ref_of "$NEW") || { echo "no origin/$NEW and no tag $NEW"; exit 2; }
 WO=$REPO/.claude/worktrees/upgrade-old-$LABEL; WN=$REPO/.claude/worktrees/upgrade-new-$LABEL
 fresh_tree "$WO" "$OREF"; fresh_tree "$WN" "$NREF"
 echo "== $LABEL: $OLD $(git -C "$WO" rev-parse --short HEAD) -> $NEW $(git -C "$WN" rev-parse --short HEAD), $L"
+# On 26.x a Fabric server refuses the vanilla bot without the hook (lib.sh fabric_bot_hook).
+[ "$L" = fabric ] && { fabric_bot_hook "$WO" "$MCV"; fabric_bot_hook "$WN" "$MCV"; }
 rm -rf "$WO/$L/run/world"; write_server_properties "$WO/$L/run"
 serve "$WO" "$OUT/server-old.log" old
 rm -rf "$WN/$L/run/world"; write_server_properties "$WN/$L/run"
