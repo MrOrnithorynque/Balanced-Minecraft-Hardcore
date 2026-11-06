@@ -15,6 +15,12 @@ BMH now runs on Minecraft 26.1, it has a config screen, and a star reading alway
 - BMH now has a config screen. Open it from the Config button of BMH in the mods list (Forge, NeoForge) or in Mod Menu (Fabric). It changes the respawn distances and the number of points on the Navigator's Amulet. The screen changes the config file of your game, so it applies to your singleplayer worlds and to the worlds you open to LAN. A server still uses its own config file.
 - BMH now runs on Minecraft 26.1 (Forge, Fabric and NeoForge).
 
+![A star reading: one line toward each of your points, and a lighter line toward the world spawn](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/star_reading_world_spawn.png)
+
+![The list of your points, with a Remove button on each](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/amulet_points_list.png)
+
+![The config screen of BMH](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/config_screen.png)
+
 ### Changed
 
 - On Minecraft 26.1, the BMH game rules have new names, in the style of the 26.1 game rules: bmh:random_death_spawn_point, bmh:display_text_on_respawn, bmh:food_and_health_regen_on_wake_up, bmh:only_carry_one_eternal_item_type, bmh:damage_eternal_item_when_dead and bmh:remove_coordinates_in_survival. A world from an older Minecraft version keeps the values of these rules.
