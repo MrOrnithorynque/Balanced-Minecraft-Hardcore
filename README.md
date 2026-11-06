@@ -151,4 +151,4 @@ Most of the features are not actives when in creative mod.
 
 ## Loaders
 
-Available for Forge and Fabric (Fabric needs [Fabric API](https://modrinth.com/mod/fabric-api)), from Minecraft 1.20 to 1.20.4, and 1.21.1. NeoForge: 1.20.1 (the Forge version), 1.20.4 and 1.21.1.
+Available for Forge and Fabric (Fabric needs [Fabric API](https://modrinth.com/mod/fabric-api)), from Minecraft 1.20 to 1.20.4, 1.21.1, and 26.1 to 26.1.2. NeoForge: 1.20.1 (the Forge version), 1.20.4, 1.21.1 and 26.1 to 26.1.2.
