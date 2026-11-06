@@ -60,12 +60,14 @@ What differs from `mc-1.21.1`, where the rest of this file says otherwise. `docs
 - Respawn: `F_PlayerListRespawnMixin` changes the `TeleportTransition` of `findRespawnPositionAndUseSpawnBlock`, as on 1.21.1. The 200 ticks of damage immunity are `mixin/F_ServerPlayerJourneyMixin.java` (26.1 removed `spawnInvulnerableTime`).
 - Item models are `assets/bmh/items/*.json` definitions; no client item property is registered by a loader. The Eternal Sword's 20x20 hand sprite is a `minecraft:select` on `display_context` (no mixin, no `EternalSwordModel`). The amulet needle is the range property `bmh:north` (`client/AmuletCompass.java`), registered by `mixin/M_RangeSelectPropertiesMixin.java` (client list) at the end of `RangeSelectItemModelProperties.bootstrap`.
 - The sky: `D_LevelRendererSkyMixin` injects at the tail of `SkyRenderer.renderStars` and draws with its own `RenderPipeline`. The spyglass name: `Gui.extractSpyglassOverlay`. Screens and the journey overlay draw through `GuiGraphicsExtractor` (render state extraction).
-- The player's amulet points save through `ValueOutput`/`ValueInput` with codecs that keep the 1.21.1 NBT layout.
+- The player's amulet points save through `ValueOutput`/`ValueInput` with codecs that keep the 1.21.1 NBT layout. Such a codec writes every field: `optionalFieldOf(name, default)` leaves out a value equal to the default (a point at z = 0 once lost its `z`).
 - `CreativeModeTab.Output` is protected in vanilla: each loader fills the creative tab (`IPlatformHelper.creativeTabBuilder(items)`).
 - `ResourceLocation` is `Identifier` on 26.1 (same static factories). A change cherry-picked from another branch must rename it.
 - The client hooks of verify-loaders cannot call `Minecraft.tell` on 26.1: the version-specific calls live in `scripts/hook/compat/ClientCompat_<variant>.java` (26.1 queues frames with `schedule(wrapRunnable(...))`).
 - The branch is `mc-26.1`, but `minecraft_version` is `26.1.2` (the build target). Its release tag is `mc-26.1.2-v<version>`, like every branch: the tag takes `minecraft_version`, never the branch name. The release skill and `publish_local.py` already do this. `release_game_versions` in `gradle.properties` lists the CurseForge files for 26.1, 26.1.1 and 26.1.2: the jars were verified on each (production servers, `docs/port-26/LOG.md` step 4).
 - NeoForge 26 reads the side with `FMLEnvironment.getDist()` (a method, not the `dist` field). `compile_check.sh 26.1.2` needs no Loom jar: it downloads the Mojang client jar.
+
+To port to another Minecraft version, use the `port-minecraft-version` skill.
 
 ## Code map
 
