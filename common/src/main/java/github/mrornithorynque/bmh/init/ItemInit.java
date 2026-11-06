@@ -60,8 +60,18 @@ public class ItemInit {
                                                         .fireResistant()
                                                         .rarity(Rarity.EPIC)));
 
+        // The Totem of Eternity after it saved a player. It is an Eternal Item: it stays with the player
+        // through death, and an Echo Heart at the anvil awakens it again.
+        public static final Supplier<Item> DORMANT_TOTEM_OF_ETERNITY = register("dormant_totem_of_eternity",
+                        () -> new DormantTotemOfEternityItem(
+                                        new Item.Properties()
+                                                        .stacksTo(1)
+                                                        .fireResistant()
+                                                        .rarity(Rarity.EPIC)));
+
         // The two halves of the Totem of Eternity. Not Eternal Items: they drop on death like any item.
-        public static final Supplier<Item> DORMANT_TOTEM = register("dormant_totem",
+        // The Hollow Totem keeps the id dormant_totem: worlds from before 1.9.0 hold it under that id.
+        public static final Supplier<Item> HOLLOW_TOTEM = register("dormant_totem",
                         () -> new HintItem(
                                         new Item.Properties()
                                                         .stacksTo(1)
