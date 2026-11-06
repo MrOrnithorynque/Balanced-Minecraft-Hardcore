@@ -22,7 +22,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.attribute.EnvironmentAttributes;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -53,11 +52,13 @@ public class MoonRitualHandler {
      * The unit vector from the player toward the moon. Since 26.1 the moon's angle is the environment attribute
      * MOON_ANGLE (degrees, from the dimension's timeline: the same on the server and the client). SkyRenderer turns the
      * sky by -90 degrees around Y, then by that angle around X, and draws the moon at y = +100. So the moon is at
-     * (-sin a, cos a, 0).
+     * (-sin a, cos a, 0). The attribute is positional: it is read at the eyes, as the sky renderer reads it at the
+     * camera. Without a position, a development run (NeoForge's) throws.
      */
-    public static Vec3 moonDirection(Level level) {
+    public static Vec3 moonDirection(Player player) {
 
-        double angle = Math.toRadians(level.environmentAttributes().getDimensionValue(EnvironmentAttributes.MOON_ANGLE));
+        double angle = Math.toRadians(player.level().environmentAttributes()
+                .getValue(EnvironmentAttributes.MOON_ANGLE, player.getEyePosition(), null));
 
         return new Vec3(-Math.sin(angle), Math.cos(angle), 0.0);
     }
@@ -65,13 +66,13 @@ public class MoonRitualHandler {
     /** True when the look direction is within AIM_DEGREES of the moon. */
     public static boolean aimsAtMoon(Player player) {
 
-        return player.getViewVector(1.0F).dot(moonDirection(player.level())) >= AIM_COS;
+        return player.getViewVector(1.0F).dot(moonDirection(player)) >= AIM_COS;
     }
 
     /** The angle between the look direction and the moon, in degrees, for the log. */
     public static double aimError(Player player) {
 
-        double dot = Mth.clamp(player.getViewVector(1.0F).dot(moonDirection(player.level())), -1.0, 1.0);
+        double dot = Mth.clamp(player.getViewVector(1.0F).dot(moonDirection(player)), -1.0, 1.0);
 
         return Math.toDegrees(Math.acos(dot));
     }
