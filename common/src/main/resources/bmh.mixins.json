@@ -33,7 +33,9 @@
         "F_SoundInstanceVolumeAccessor",
         "H_ItemRendererSwordMixin",
         "I_ClientPacketListenerTotemMixin",
-        "K_GuiSpyglassMixin"
+        "K_GuiSpyglassMixin",
+        "O_GuiRitualBarMixin",
+        "P_ItemInHandRitualMixin"
     ],
     "injectors": {
         "defaultRequire": 1
