@@ -3,9 +3,12 @@
 # jar (vanilla Minecraft with Mojang names) plus the libraries it needs from the Gradle cache. It proves that every vanilla
 # signature the shared code uses exists on that version. It does not prove that a mixin still hits its target, nor the
 # loaders' own code: the real build does.
-# usage: compile_check.sh [--selftest] [<minecraft version>...]
+# usage: compile_check.sh [--selftest] [--client] [<minecraft version>...]
 #   --selftest also compiles the self-test hook (hook/selftest, with the MockPlayers copy for each version), as selftest.sh
 #   copies it into common/src.
+#   --client also compiles the client hooks (hook/SmokeClient, hook/death and their mixins, with the ClientCompat copy for
+#   each version), as branch.sh and death_client.sh copy them into common/src. They need the tree's client classes: on 1.20
+#   to 1.21.1 the sword hook uses the tree's EternalSwordModel.
 #   With no version it reads minecraft_version in $TREE/gradle.properties: a value starting with 1.21 gives 1.21.1, a 26.x
 #   value gives that version, anything else gives 1.20 1.20.1 1.20.2 1.20.3 1.20.4.
 #   A 26.x version needs no Loom: the game ships unobfuscated, so the script downloads the Mojang client jar and its
@@ -17,8 +20,14 @@
 # Exit status: 0 all compile, 1 a version fails, 2 a jar, a JDK or a library is missing.
 set -u
 SCRIPTS=$(cd "$(dirname "$0")" && pwd)
-SELFTEST=0
-[ "${1:-}" = --selftest ] && { SELFTEST=1; shift; }
+SELFTEST=0; CLIENT=0
+while :; do
+  case "${1:-}" in
+    --selftest) SELFTEST=1; shift ;;
+    --client) CLIENT=1; shift ;;
+    *) break ;;
+  esac
+done
 TREE=${BMH_TREE:-$(git -C "$SCRIPTS" rev-parse --show-toplevel)}
 GH=${GRADLE_USER_HOME:-$HOME/.gradle}
 LIBS=$GH/caches/modules-2/files-2.1
@@ -66,15 +75,24 @@ lib() { # <group> <artifact> <pins file> <minecraft version>
   find "$LIBS/$1/$2" -name "$2-[0-9]*.jar" ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-processor.jar' ! -name '*natives*' 2>/dev/null \
     | awk -F/ '{ print $NF "\t" $0 }' | sort -V | tail -1 | cut -f2
 }
-# The MockPlayers copy for a Minecraft version (the signatures of placeNewPlayer and ServerPlayer change at 1.20.2 and 1.20.5)
+# The MockPlayers copy for a Minecraft version (the signatures of placeNewPlayer and ServerPlayer change at 1.20.2 and
+# 1.20.5, and 26.1 renames or moves most of what the tests call). Keep it the same as the case in selftest.sh.
 mock_variant() {
   case "$1" in
     1.20|1.20.1) echo 1.20.1 ;;
     1.20.*) echo 1.20.4 ;;
+    26.*) echo 26.1 ;;
     *) echo 1.21.1 ;;
   esac
 }
-# Compiles the sources (and the self-test hook with --selftest) for one version, with $JDK, $REL, $JAR and $CP set.
+# The ClientCompat copy of the client hooks for a Minecraft version. Keep it the same as client_variant in lib.sh.
+client_variant() {
+  case "$1" in
+    26.*) echo 26.1 ;;
+    *) echo 1.21.1 ;;
+  esac
+}
+# Compiles the sources (and the hooks with --selftest and --client) for one version, with $JDK, $REL, $JAR and $CP set.
 compile() { # <minecraft version>
   local v=$1
   if [ ! -x "$JDK/bin/javac" ]; then echo "$v: no javac in $JDK"; MISSING=1; return; fi
@@ -84,6 +102,12 @@ compile() { # <minecraft version>
     mkdir -p "$WORK/mock-$v"; cp "$SCRIPTS/hook/selftest/mock/MockPlayers_$(mock_variant "$v").java" "$WORK/mock-$v/MockPlayers.java"
     find "$SCRIPTS/hook/selftest" -maxdepth 1 -name '*.java' | sed 's/.*/"&"/' >> "$WORK/sources-$v.txt"
     echo "\"$WORK/mock-$v/MockPlayers.java\"" >> "$WORK/sources-$v.txt"
+  fi
+  if [ $CLIENT = 1 ]; then
+    mkdir -p "$WORK/client-$v"; cp "$SCRIPTS/hook/compat/ClientCompat_$(client_variant "$v").java" "$WORK/client-$v/ClientCompat.java"
+    find "$SCRIPTS/hook" -maxdepth 1 \( -name 'SmokeClient.java' -o -name 'Z_SmokeClientMixin.java' \) | sed 's/.*/"&"/' >> "$WORK/sources-$v.txt"
+    find "$SCRIPTS/hook/death" -name '*.java' | sed 's/.*/"&"/' >> "$WORK/sources-$v.txt"
+    echo "\"$WORK/client-$v/ClientCompat.java\"" >> "$WORK/sources-$v.txt"
   fi
   if "$JDK/bin/javac" --release "$REL" -proc:none -Xlint:none -nowarn -d "$WORK/out-$v" -cp "$JAR$CP" @"$WORK/sources-$v.txt" > "$WORK/javac-$v.log" 2>&1; then
     echo "$v: OK ($(find "$WORK/out-$v" -name '*.class' | wc -l | tr -d ' ') classes)"

@@ -23,6 +23,8 @@ The same mod ships for several Minecraft versions. Each version lives on its own
 
 `mc-1.21.1` is the exception: it has its own sources and build scripts, because 1.20.5 moved item data from NBT to data components and went to Java 21, 1.21 made enchantments registry data, made `ResourceLocation`'s constructor private (`fromNamespaceAndPath`) and renamed the data pack folders (`recipe/`, `loot_table/`, `tags/block/`, `tags/item/`: a tag in the old folder is silently empty), and Forge 1.20.6+ runs on the official names (no reobf, no refmap). Its port commit summarizes the differences; `git diff main mc-1.21.1` is the full list.
 
+`mc-26.1` (Minecraft 26.1, built against 26.1.2) is ported from `mc-1.21.1` and also has its own sources and build scripts. See the section "Minecraft 26.1" below and `docs/port-26/LOG.md`.
+
 | Branch | Minecraft | Forge | Fabric API | NeoForge |
 |---|---|---|---|---|
 | `main` | 1.20.4 | 49.0.31 | 0.97.3+1.20.4 | 20.4.253 |
@@ -31,6 +33,7 @@ The same mod ships for several Minecraft versions. Each version lives on its own
 | `mc-1.20.1` | 1.20.1 | 47.2.0 | 0.92.12+1.20.1 | the Forge jar |
 | `mc-1.20` | 1.20 | 46.0.14 | 0.83.0+1.20 | none |
 | `mc-1.21.1` | 1.21.1 | 52.1.20 | 0.116.17+1.21.1 | 21.1.265 |
+| `mc-26.1` | 26.1 (built on 26.1.2) | 64.1.6 | 0.155.3+26.1.2 | 26.1.2.126 |
 
 The table can drift: `gradle.properties` on each branch (`minecraft_version`, `forge_version`, `fabric_api_version`, `neoforge_version`) is the truth, except the 1.20.1 NeoForge cell: that is the release listing the Forge jar for NeoForge when `minecraft_version` is 1.20.1 (`.claude/skills/release/publish_local.py`).
 
@@ -47,6 +50,19 @@ On `mc-1.21.1` the cherry-pick applies cleanly only where the change does not to
 - `runServer` needs `eula=true` in `<loader>/run/eula.txt`. Booting a dedicated server on each loader is the cheap check that registration, game rules, config and the client/server split hold. The first `runServer` of a loader in a fresh worktree also runs the plugin's setup, and a busy machine slows it (237 to 325 s seen): wait up to 15 minutes for `Done (` in the output, and read the log for it before trusting a timeout.
 - `runClient` opens a plain `java` window that computer use cannot drive, but it runs unattended: write `<loader>/run/options.txt` (`onboardAccessibility:false`, `pauseOnLostFocus:false`, `soundCategory_master:0.0`), copy a world made by a dedicated server of the same version into `<loader>/run/saves/<name>` (an older world stops at a backup prompt), and run `sh ./gradlew :<loader>:runClient --args="--quickPlaySingleplayer <name>"` with a temporary client hook (switched on by an environment variable) that acts, saves frames with `Screenshot.grab(...)` queued by `Minecraft.tell(...)` and ends with `Minecraft.stop()`; the `verify-loaders` skill has one: the hook's copy in `common/src` is never committed, `branch.sh` copies it from `scripts/hook/`, which ships with the skill, into the verify worktree and removes it at the end. On NeoForge (ModDevGradle) `--args` replaces the whole command line, main class included: put the program arguments in the run config. Read `<loader>/run/logs/latest.log` for `[BalancedMcHardcoreMain]` lines. Judging looks and feel is still the user's.
 - To check a branch on every loader with nobody at the keyboard (build, jar checks, a dedicated server and a quick-play client per loader, bots), use the `verify-loaders` skill: before a release and after porting a change to the version branches.
+
+## Minecraft 26.1 (`mc-26.1`)
+
+What differs from `mc-1.21.1`, where the rest of this file says otherwise. `docs/port-26/LOG.md` has the evidence.
+- Java 25 (`JAVA_HOME=/opt/homebrew/opt/openjdk@25`), Gradle 9.5. The game ships unobfuscated: no mappings, no reobf, and no loader needs `bmh.refmap.json`. Mixin configs keep `compatibilityLevel` `JAVA_21`: Forge's Mixin 0.8.7 has no `JAVA_25`.
+- `common` compiles with ModDevGradle in NeoForm mode (`neo_form_version`), not VanillaGradle. `forge` uses ForgeGradle 7 (no MixinGradle: the runs pass `--mixin.config`, the jar manifest names `MixinConfigs`) and EventBus 7 (`forge/ForgeEvents.register()` adds listeners to each event's `BUS`; a cancellable listener returns a boolean). `fabric` uses the `net.fabricmc.fabric-loom` plugin with plain `implementation` dependencies.
+- Game rules are a registry: `BMHGameRules` builds each `GameRule<Boolean>` and registers it through `IPlatformHelper.register(Registries.GAME_RULE, ...)`. The ids are `bmh:random_death_spawn_point` and so on (snake case). Read with `gameRules.get(rule)`, write with `gameRules.set(rule, value, server)`.
+- Respawn: `F_PlayerListRespawnMixin` changes the `TeleportTransition` of `findRespawnPositionAndUseSpawnBlock`, as on 1.21.1. The 200 ticks of damage immunity are `mixin/F_ServerPlayerJourneyMixin.java` (26.1 removed `spawnInvulnerableTime`).
+- Item models are `assets/bmh/items/*.json` definitions; no client item property is registered by a loader. The Eternal Sword's 20x20 hand sprite is a `minecraft:select` on `display_context` (no mixin, no `EternalSwordModel`). The amulet needle is the range property `bmh:north` (`client/AmuletCompass.java`), registered by `mixin/M_RangeSelectPropertiesMixin.java` (client list) at the end of `RangeSelectItemModelProperties.bootstrap`.
+- The sky: `D_LevelRendererSkyMixin` injects at the tail of `SkyRenderer.renderStars` and draws with its own `RenderPipeline`. The spyglass name: `Gui.extractSpyglassOverlay`. Screens and the journey overlay draw through `GuiGraphicsExtractor` (render state extraction).
+- The player's amulet points save through `ValueOutput`/`ValueInput` with codecs that keep the 1.21.1 NBT layout.
+- `CreativeModeTab.Output` is protected in vanilla: each loader fills the creative tab (`IPlatformHelper.creativeTabBuilder(items)`).
+- NeoForge 26 reads the side with `FMLEnvironment.getDist()` (a method, not the `dist` field). `compile_check.sh 26.1.2` needs no Loom jar: it downloads the Mojang client jar.
 
 ## Code map
 

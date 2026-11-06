@@ -56,6 +56,11 @@ jdk_for() { # <minecraft version> -> a JDK home; fails when it has no java (call
   echo "$home"
 }
 
+# The ClientCompat copy of the client hooks (hook/compat/ClientCompat_<variant>.java): what SmokeClient and JourneySmoke
+# call that differs between Minecraft versions. One copy serves 1.20 to 1.21.1, one serves 26.x. The server self-tests
+# have their own switch, the MockPlayers copy (see mock_variant in compile_check.sh).
+client_variant() { case "$1" in 26.*) echo 26.1 ;; *) echo 1.21.1 ;; esac; }
+
 # The version a bot announces to mineflayer. Its minecraft-data has 26.1 and no 26.1.1 or 26.1.2: the three share
 # protocol 775.
 bot_version() { case "$1" in 26.1.*) echo 26.1 ;; *) echo "$1" ;; esac; }

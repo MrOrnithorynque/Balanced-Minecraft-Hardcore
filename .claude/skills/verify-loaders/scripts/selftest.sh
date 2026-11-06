@@ -43,10 +43,12 @@ case "$WHERE" in
     ;;
 esac
 
-# The MockPlayers copy for a Minecraft version (the signatures of placeNewPlayer and ServerPlayer change at 1.20.2 and 1.20.5)
+# The MockPlayers copy for a Minecraft version (the signatures of placeNewPlayer and ServerPlayer change at 1.20.2 and
+# 1.20.5, and 26.1 renames or moves most of what the tests call). Keep it the same as mock_variant in compile_check.sh.
 case "$MCV" in
   1.20|1.20.1) MOCK=1.20.1 ;;
   1.20.*) MOCK=1.20.4 ;;
+  26.*) MOCK=26.1 ;;
   *) MOCK=1.21.1 ;;
 esac
 

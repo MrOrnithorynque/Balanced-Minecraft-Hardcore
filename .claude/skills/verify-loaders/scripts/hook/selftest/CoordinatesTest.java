@@ -2,7 +2,6 @@ package github.mrornithorynque.bmh.selftest;
 
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 
 /**
@@ -21,7 +20,7 @@ final class CoordinatesTest implements SelfTest.Test {
         ctx.rule(BMHGameRules.RULE_REMOVE_COORDINATES_IN_SURVIVAL, false);
         ServerPlayer player = ctx.player("bmh-coords", 0, 0);
         ctx.later(5, () -> {
-            ctx.rule(GameRules.RULE_REDUCEDDEBUGINFO, false);
+            ctx.rule(MockPlayers.reducedDebugInfoRule(), false);
             ctx.rule(BMHGameRules.RULE_REMOVE_COORDINATES_IN_SURVIVAL, true);
             ctx.later(5, () -> {
                 ctx.check("survival player: reducedDebugInfo forced on", reduced(ctx), "reducedDebugInfo " + reduced(ctx));
@@ -33,6 +32,6 @@ final class CoordinatesTest implements SelfTest.Test {
     }
 
     private static boolean reduced(SelfTest.Ctx ctx) {
-        return ctx.server.getGameRules().getBoolean(GameRules.RULE_REDUCEDDEBUGINFO);
+        return MockPlayers.getRule(ctx.server, MockPlayers.reducedDebugInfoRule());
     }
 }

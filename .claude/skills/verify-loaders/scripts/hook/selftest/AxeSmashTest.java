@@ -2,8 +2,7 @@ package github.mrornithorynque.bmh.selftest;
 
 import github.mrornithorynque.bmh.init.ItemInit;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.animal.IronGolem;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -21,10 +20,10 @@ final class AxeSmashTest implements SelfTest.Test {
     @Override
     public void start(SelfTest.Ctx ctx) {
         ServerPlayer player = ctx.player("bmh-axe", 0, 0);
-        player.getInventory().items.set(0, new ItemStack(ItemInit.ETERNAL_AXE.get()));
-        player.getInventory().selected = 0;
-        IronGolem standing = golem(ctx, 2);
-        IronGolem falling = golem(ctx, -2);
+        player.getInventory().setItem(0, new ItemStack(ItemInit.ETERNAL_AXE.get()));
+        MockPlayers.select(player, 0);
+        LivingEntity standing = golem(ctx, 2);
+        LivingEntity falling = golem(ctx, -2);
         float[] damage = new float[2];
         ctx.later(30, () -> {
             ServerPlayer now = ctx.live(player);
@@ -48,11 +47,7 @@ final class AxeSmashTest implements SelfTest.Test {
         });
     }
 
-    private static IronGolem golem(SelfTest.Ctx ctx, int dz) {
-        IronGolem golem = EntityType.IRON_GOLEM.create(ctx.level);
-        golem.moveTo(ctx.origin.getX() + 0.5, ctx.origin.getY() + 1, ctx.origin.getZ() + dz + 0.5, 0, 0);
-        golem.setNoAi(true);
-        ctx.level.addFreshEntity(golem);
-        return golem;
+    private static LivingEntity golem(SelfTest.Ctx ctx, int dz) {
+        return MockPlayers.golem(ctx.level, ctx.origin.getX() + 0.5, ctx.origin.getY() + 1, ctx.origin.getZ() + dz + 0.5);
     }
 }
