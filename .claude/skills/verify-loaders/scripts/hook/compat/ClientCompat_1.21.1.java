@@ -10,6 +10,7 @@ import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * THROWAWAY verification hook (never committed, see branch.sh and death_client.sh): the calls of SmokeClient and
@@ -41,6 +42,15 @@ final class ClientCompat {
     /** The time of day of the client level. */
     static long dayTime(Minecraft mc) {
         return mc.level.getDayTime();
+    }
+
+    /**
+     * The moon direction, the same math as MoonRitualHandler.moonDirection up to 1.21.1: the sky turns by timeOfDay * 360
+     * degrees and the moon sits at y = -100.
+     */
+    static Vec3 moonDirection(Minecraft mc) {
+        double angle = mc.level.getTimeOfDay(1.0F) * Math.PI * 2.0;
+        return new Vec3(Math.sin(angle), -Math.cos(angle), 0.0);
     }
 
     /** The world spawn point of the client level, as "x, y, z". */
