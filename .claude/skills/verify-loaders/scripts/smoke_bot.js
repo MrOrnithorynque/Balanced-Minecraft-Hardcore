@@ -1,6 +1,7 @@
 // Smoke bot: a vanilla mineflayer client plus RCON, run once per dedicated server of every branch and loader (branch.sh),
 // after the amulet scenario. Checks that every item and recipe loads, the totem nerf, Echo Sense, Echo Strike, the distant
-// respawn, the anvil step, Eternal Items on the ground, one Totem of Eternity per container and its save:
+// respawn, the anvil step, Eternal Items on the ground, one Totem of Eternity per container, its save, the Dormant Totem
+// kept on death and the moon ritual (a success and a failure):
 //   BOT_MODULES=<node_modules> SMOKE_ITEMS="a b" SMOKE_RECIPES="x y" node smoke_bot.js <port> <mc version>
 // RCON on <port> + 100, password bmh (rcon.py next to this file). Prints PASS/FAIL lines, then "SMOKE <passed>/<total>".
 const MODULES = process.env.BOT_MODULES
@@ -170,7 +171,7 @@ async function main () {
   check('death: the dirt was dropped', !inv.includes('minecraft:dirt'), inv)
   rcon('gamerule randomDeathSpawnPoint false')
 
-  // 6. Part B: an anvil awakens the Dormant Totem with the Echo Heart for 39 levels. Raw clicks: the bot cannot name
+  // 6. Part B: an anvil awakens the Hollow Totem (id dormant_totem) with the Echo Heart for 39 levels. Raw clicks: the bot cannot name
   // modded items, but `give` fills hotbar slots 0 and 1, which are window slots 30 and 31 of an anvil (3 own slots).
   if (ITEMS.includes('dormant_totem') && ITEMS.includes('echo_heart')) {
     rcon('clear ' + NAME)
@@ -197,8 +198,38 @@ async function main () {
     await sleep(1000)
     const inv2 = rcon('data get entity ' + NAME + ' Inventory')
     const levels = num(rcon('data get entity ' + NAME + ' XpLevel'))
-    check('anvil: Dormant Totem + Echo Heart give the Totem of Eternity', inv2.includes('bmh:totem_of_eternity') && !inv2.includes('bmh:dormant_totem'), inv2)
+    check('anvil: Hollow Totem + Echo Heart give the Totem of Eternity', inv2.includes('bmh:totem_of_eternity') && !inv2.includes('bmh:dormant_totem'), inv2)
     check('anvil: it cost 39 levels', levels === 1, 'levels left ' + levels)
+  }
+
+  // 6b. The Dormant Totem (sleeping_totem, the totem after a save) does not wake with an Echo Heart: only the moon does.
+  if (ITEMS.includes('sleeping_totem') && ITEMS.includes('echo_heart')) {
+    rcon('clear ' + NAME)
+    rcon('xp set ' + NAME + ' 0 levels')
+    rcon('xp add ' + NAME + ' 40 levels')
+    rcon('give ' + NAME + ' bmh:sleeping_totem')
+    rcon('give ' + NAME + ' bmh:echo_heart')
+    const pa = bot.entity.position.floored()
+    rcon('setblock ' + (pa.x + 1) + ' ' + pa.y + ' ' + pa.z + ' minecraft:anvil')
+    await sleep(1500)
+    try {
+      const win = await bot.openBlock(bot.blockAt(new Vec3(pa.x + 1, pa.y, pa.z)))
+      await bot.clickWindow(30, 0, 0)
+      await bot.clickWindow(0, 0, 0)
+      await bot.clickWindow(31, 0, 0)
+      await bot.clickWindow(1, 0, 0)
+      await sleep(1000)
+      await bot.clickWindow(2, 0, 1)
+      await sleep(1000)
+      bot.closeWindow(win)
+    } catch (e) {
+      console.log('anvil error', e.message)
+    }
+    await sleep(1000)
+    const inv3 = rcon('data get entity ' + NAME + ' Inventory')
+    const levels3 = num(rcon('data get entity ' + NAME + ' XpLevel'))
+    check('anvil: Dormant Totem + Echo Heart give nothing', inv3.includes('bmh:sleeping_totem') && inv3.includes('bmh:echo_heart') && !inv3.includes('bmh:totem_of_eternity') && levels3 === 40, 'levels ' + levels3 + ' ' + inv3)
+    rcon('setblock ' + (pa.x + 1) + ' ' + pa.y + ' ' + pa.z + ' minecraft:air')
   }
 
   // 7. Eternal Items on the ground: damage does not destroy them and they never despawn; a diamond is the control.
@@ -296,9 +327,10 @@ async function main () {
       rcon('data get block ' + at(-3, 0, -3) + ' Items'))
   }
 
-  // 9. The Totem of Eternity saves you from any inventory slot, after a Totem of Undying in a hand, and turns dormant.
-  // The void still kills. A distant respawn (section 5) gives 200 ticks of damage immunity: wait them out.
-  if (ITEMS.includes('totem_of_eternity') && ITEMS.includes('dormant_totem')) {
+  // 9. The Totem of Eternity saves you from any inventory slot, after a Totem of Undying in a hand, and turns into the
+  // Dormant Totem (sleeping_totem), which stays through death. The void still kills. A distant respawn (section 5)
+  // gives 200 ticks of damage immunity: wait them out.
+  if (ITEMS.includes('totem_of_eternity') && ITEMS.includes('sleeping_totem')) {
     await sleep(6000)
     rcon('clear ' + NAME)
     rcon('effect clear ' + NAME)
@@ -307,7 +339,7 @@ async function main () {
     rcon('damage ' + NAME + ' 1000 minecraft:generic')
     await sleep(1500)
     let inv = rcon('data get entity ' + NAME + ' Inventory')
-    check('eternity totem: a Totem of Undying in a hand is used first', !inv.includes('totem_of_undying') && inv.includes('bmh:totem_of_eternity') && !inv.includes('bmh:dormant_totem'), inv)
+    check('eternity totem: a Totem of Undying in a hand is used first', !inv.includes('totem_of_undying') && inv.includes('bmh:totem_of_eternity') && !inv.includes('bmh:sleeping_totem'), inv)
 
     await sleep(1500) // vanilla ignores damage for 10 ticks after a hit
     rcon('effect clear ' + NAME)
@@ -317,8 +349,16 @@ async function main () {
     const te = effects(NAME)
     const th = num(rcon('data get entity ' + NAME + ' Health'))
     check('eternity totem: saved the player', th !== null && th > 0 && th < 20, th)
-    check('eternity totem: turned into a Dormant Totem', inv.includes('bmh:dormant_totem') && !inv.includes('bmh:totem_of_eternity'), inv)
+    check('eternity totem: turned into a Dormant Totem', inv.includes('bmh:sleeping_totem') && !inv.includes('bmh:totem_of_eternity') && !inv.includes('bmh:dormant_totem'), inv)
     check('eternity totem: Regeneration, Absorption and Fire Resistance', hasEffect(te, 'regeneration', 10) && hasEffect(te, 'absorption', 22) && hasEffect(te, 'fire_resistance', 12), te)
+
+    // The Dormant Totem is an Eternal Item: with nothing else to save the player, it stays through the death.
+    await sleep(1500)
+    rcon('effect clear ' + NAME)
+    rcon('damage ' + NAME + ' 1000 minecraft:generic')
+    await sleep(4000)
+    inv = rcon('data get entity ' + NAME + ' Inventory')
+    check('dormant totem: kept on death', inv.includes('bmh:sleeping_totem') && num(rcon('data get entity ' + NAME + ' Health')) === 20, inv)
 
     await sleep(1500)
     rcon('clear ' + NAME)
@@ -326,7 +366,40 @@ async function main () {
     rcon('damage ' + NAME + ' 1000 minecraft:out_of_world')
     await sleep(4000)
     inv = rcon('data get entity ' + NAME + ' Inventory')
-    check('eternity totem: the void still kills, and the totem stays awake', inv.includes('bmh:totem_of_eternity') && !inv.includes('bmh:dormant_totem') && num(rcon('data get entity ' + NAME + ' Health')) === 20, inv)
+    check('eternity totem: the void still kills, and the totem stays awake', inv.includes('bmh:totem_of_eternity') && !inv.includes('bmh:sleeping_totem') && num(rcon('data get entity ' + NAME + ' Health')) === 20, inv)
+  }
+
+  // 10. The moon ritual. At 18000 the moon is straight up. The bot holds use with the Dormant Totem and looks up: after
+  // 300 ticks the totem wakes and 30 levels are gone. Then a failure: a release after a third of the time keeps the
+  // totem dormant, and the levels drained so far stay gone.
+  if (ITEMS.includes('totem_of_eternity') && ITEMS.includes('sleeping_totem')) {
+    const RITUAL_MS = 15000
+    await sleep(2000)
+    const ritual = async (holdMs) => {
+      rcon('clear ' + NAME)
+      rcon('effect clear ' + NAME)
+      rcon('time set 18000')
+      rcon('weather clear')
+      rcon('xp set ' + NAME + ' 0 levels')
+      rcon('xp add ' + NAME + ' 40 levels')
+      rcon('item replace entity ' + NAME + ' hotbar.0 with bmh:sleeping_totem')
+      bot.setQuickBarSlot(0)
+      await sleep(1500)
+      await bot.look(bot.entity.yaw, Math.PI / 2, true)
+      await sleep(500)
+      bot.activateItem()
+      await sleep(holdMs)
+      bot.deactivateItem()
+      await sleep(1500)
+      return { inv: rcon('data get entity ' + NAME + ' Inventory'), levels: num(rcon('data get entity ' + NAME + ' XpLevel')) }
+    }
+    let r = await ritual(RITUAL_MS + 2500)
+    check('moon ritual: the Dormant Totem wakes', r.inv.includes('bmh:totem_of_eternity') && !r.inv.includes('bmh:sleeping_totem'), r.inv)
+    check('moon ritual: it cost 30 levels', r.levels === 10, 'levels left ' + r.levels)
+    r = await ritual(RITUAL_MS / 3)
+    check('moon ritual: an early release keeps the totem dormant', r.inv.includes('bmh:sleeping_totem') && !r.inv.includes('bmh:totem_of_eternity'), r.inv)
+    check('moon ritual: a failure keeps the drained levels', r.levels !== null && r.levels >= 28 && r.levels <= 32, 'levels left ' + r.levels)
+    rcon('time set day')
   }
 
   bot.quit()

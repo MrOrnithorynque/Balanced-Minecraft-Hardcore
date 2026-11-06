@@ -14,11 +14,11 @@ import net.minecraft.nbt.FloatTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -101,22 +101,32 @@ public class AmuletReading {
     @Nullable
     public static String hiddenReason(ServerPlayer player) {
 
-        ServerLevel level = player.serverLevel();
+        return skyHiddenReason(player, "bmh.amulet.hidden");
+    }
+
+    /**
+     * The same test for any sky reader (the moon ritual of the Dormant Totem uses it too), on either side.
+     * The answer is the prefix followed by .dimension, .rain, .day or .roof, or null when the sky is in sight.
+     */
+    @Nullable
+    public static String skyHiddenReason(Player player, String prefix) {
+
+        Level level = player.level();
 
         if (level.dimension() != Level.OVERWORLD) {
-            return "bmh.amulet.hidden.dimension";
+            return prefix + ".dimension";
         }
 
         if (level.isRaining()) {
-            return "bmh.amulet.hidden.rain";
+            return prefix + ".rain";
         }
 
         if (!level.isNight()) {
-            return "bmh.amulet.hidden.day";
+            return prefix + ".day";
         }
 
         if (!level.canSeeSky(BlockPos.containing(player.getEyePosition())) || sightBlocked(player)) {
-            return "bmh.amulet.hidden.roof";
+            return prefix + ".roof";
         }
 
         return null;
@@ -126,7 +136,7 @@ public class AmuletReading {
      * The cases where the sky renderer draws no sky for the player: a blinding effect, eyes in water or lava,
      * eyes inside powder snow. The refusal reuses the roof message: the sky is out of sight.
      */
-    private static boolean sightBlocked(ServerPlayer player) {
+    private static boolean sightBlocked(Player player) {
 
         return player.hasEffect(MobEffects.BLINDNESS)
                 || player.hasEffect(MobEffects.DARKNESS)

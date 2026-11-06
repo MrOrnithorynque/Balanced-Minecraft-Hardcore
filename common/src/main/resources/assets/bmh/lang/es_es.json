@@ -7,7 +7,8 @@
     "item.bmh.eternal_sword": "La Espada de la Eternidad",
     "itemGroup.bmh_creative_tab": "Pestaña BMH",
     "itemGroup.BMH_tab": "Pestaña BMH",
-    "item.bmh.dormant_totem": "Tótem dormido de la Vida Eterna",
+    "item.bmh.dormant_totem": "Tótem hueco de la Vida Eterna",
+    "item.bmh.sleeping_totem": "Tótem dormido de la Vida Eterna",
     "item.bmh.echo_heart": "Corazón de Eco",
 
     "bmh.journey.message": "Un nuevo viaje comienza para ti, %s."
