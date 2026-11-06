@@ -34,7 +34,8 @@
         "H_ItemRendererSwordMixin",
         "I_ClientPacketListenerTotemMixin",
         "K_GuiSpyglassMixin",
-        "O_GuiRitualBarMixin"
+        "O_GuiRitualBarMixin",
+        "P_ItemInHandRitualMixin"
     ],
     "injectors": {
         "defaultRequire": 1
