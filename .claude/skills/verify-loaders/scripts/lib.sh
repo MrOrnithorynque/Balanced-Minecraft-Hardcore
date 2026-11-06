@@ -65,6 +65,24 @@ client_variant() { case "$1" in 26.*) echo 26.1 ;; *) echo 1.21.1 ;; esac; }
 # protocol 775.
 bot_version() { case "$1" in 26.1.*) echo 26.1 ;; *) echo "$1" ;; esac; }
 
+# <worktree> <minecraft version>: on 26.x, the Fabric server lets the vanilla bots in (hook/fabric/Z_VanillaBotsMixin.java).
+# The 26.1 Fabric API disconnects a vanilla client when a mod adds to a synced registry; 1.21.1's let it in.
+FABRIC_MIXIN_DIR=fabric/src/main/java/github/mrornithorynque/bmh/fabric/mixin
+fabric_bot_hook() {
+  case "$2" in 26.*) ;; *) return 0 ;; esac
+  cp "$SCRIPTS/hook/fabric/Z_VanillaBotsMixin.java" "$1/$FABRIC_MIXIN_DIR/Z_VanillaBotsMixin.java"
+  python3 -I - "$1/fabric/src/main/resources/bmh.fabric.mixins.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d.setdefault("mixins", []).append("Z_VanillaBotsMixin")
+open(p, "w").write(json.dumps(d, indent=4) + "\n")
+PY
+}
+fabric_bot_unhook() {
+  [ -d "$1" ] || return 0
+  rm -f "$1/$FABRIC_MIXIN_DIR/Z_VanillaBotsMixin.java"
+  git -C "$1" checkout -q -- fabric/src/main/resources/bmh.fabric.mixins.json 2>/dev/null
+}
+
 # The server lock, then a Gradle slot, always in that order (two slots and one lock: a waiting boot can only hold the lock
 # while builds cycle through the slots, so nobody deadlocks). A lock whose owner is older than 20 minutes and whose port is
 # silent is dropped.

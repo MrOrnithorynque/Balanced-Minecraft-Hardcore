@@ -16,7 +16,8 @@ WT=$REPO/.claude/worktrees/verify-$LABEL
 JH=$(jdk_for "$MCV") || exit 2
 OUT=$OUTROOT/$LABEL; mkdir -p "$OUT"
 [ "$(git -C "$WT" rev-parse --show-toplevel 2>/dev/null)" = "$WT" ] || { echo "tree guard failed for $WT (run branch.sh for label $LABEL first)"; exit 4; }
-trap release EXIT
+trap 'release; fabric_bot_unhook "$WT"' EXIT
+[ "$L" = fabric ] && fabric_bot_hook "$WT" "$MCV"
 take_lock; take_slot
 RUN="$WT/$L/run"; rm -rf "$RUN/world"; write_server_properties "$RUN"
 SLOG="$OUT/server-$L-$NAME.log"

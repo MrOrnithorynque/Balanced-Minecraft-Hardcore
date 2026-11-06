@@ -23,6 +23,7 @@ unhook() { # the throwaway hook never outlives the run
   [ -d "$WT" ] || return 0
   git -C "$WT" checkout -q -- common/src/main/resources/bmh.mixins.json neoforge/build.gradle 2>/dev/null
   rm -f "$WT/$BMH_SRC/client/SmokeClient.java" "$WT/$BMH_SRC/client/ClientCompat.java" "$WT/$BMH_SRC/mixin/Z_SmokeClientMixin.java"
+  fabric_bot_unhook "$WT"
 }
 trap 'release; unhook' EXIT
 
@@ -60,6 +61,7 @@ import json, sys
 p = sys.argv[1]; d = json.load(open(p)); d.setdefault("client", []).append("Z_SmokeClientMixin")
 open(p, "w").write(json.dumps(d, indent=4) + "\n")
 PY
+fabric_bot_hook "$WT" "$MCV"
 
 LINE="$LABEL $SHA build=$BUILD jars=$JARS"
 for L in $LOADERS; do
