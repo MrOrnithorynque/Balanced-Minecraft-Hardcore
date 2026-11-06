@@ -116,7 +116,7 @@ compile() { # <minecraft version>
   fi
 }
 # The classpath of an unobfuscated version (26.x): the Mojang client jar first, then the non-native libraries of its
-# version JSON, downloaded once into $GH/caches/bmh-compile-check/<version>.
+# version JSON, downloaded once (the JSON too) into $GH/caches/bmh-compile-check/<version>.
 mojang_classpath() { # <minecraft version>
   python3 -I - "$1" "$GH/caches/bmh-compile-check/$1" <<'PY'
 import json, os, sys, urllib.request
@@ -127,9 +127,11 @@ def get(url, path):
         urllib.request.urlretrieve(url, path + ".part")
         os.replace(path + ".part", path)
     return path
-manifest = json.load(urllib.request.urlopen("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"))
-url = next(v["url"] for v in manifest["versions"] if v["id"] == version)
-info = json.load(urllib.request.urlopen(url))
+# The version JSON is kept too, so a full cache needs no network.
+if not os.path.exists(cache + "/version.json"):
+    manifest = json.load(urllib.request.urlopen("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"))
+    get(next(v["url"] for v in manifest["versions"] if v["id"] == version), cache + "/version.json")
+info = json.load(open(cache + "/version.json"))
 jars = [get(info["downloads"]["client"]["url"], cache + "/client.jar")]
 for lib in info["libraries"]:
     art = lib.get("downloads", {}).get("artifact")

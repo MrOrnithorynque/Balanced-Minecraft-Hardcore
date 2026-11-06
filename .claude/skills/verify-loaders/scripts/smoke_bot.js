@@ -97,7 +97,9 @@ async function main () {
   check('player totem: no Fire Resistance', !hasEffect(pe, 'fire_resistance', 12), pe)
   const p0 = bot.entity.position.floored()
   const hand = COMPONENTS ? '{id:"minecraft:totem_of_undying",count:1}' : '{id:"minecraft:totem_of_undying",Count:1b}'
-  rcon('summon minecraft:cow ' + (p0.x + 3) + ' ' + p0.y + ' ' + p0.z + ' {NoAI:1b,Tags:["smokecow"],HandItems:[' + hand + ',{}]}')
+  // Since 1.21.5 a mob's hands are equipment.mainhand and equipment.offhand, not HandItems.
+  const hands = /^26\./.test(MCV) ? 'equipment:{mainhand:' + hand + '}' : 'HandItems:[' + hand + ',{}]'
+  rcon('summon minecraft:cow ' + (p0.x + 3) + ' ' + p0.y + ' ' + p0.z + ' {NoAI:1b,Tags:["smokecow"],' + hands + '}')
   await sleep(1000)
   rcon('damage @e[type=minecraft:cow,tag=smokecow,limit=1] 1000 minecraft:generic')
   await sleep(1500)
@@ -122,7 +124,8 @@ async function main () {
   }
   await sleep(1000)
   const lit = rcon('execute if entity @e[type=minecraft:block_display]')
-  check('Echo Sense: ores light up (block displays)', /count: [1-9]/.test(lit), lit)
+  // 26.1 writes "Count: 2", older versions "count: 2".
+  check('Echo Sense: ores light up (block displays)', /count: [1-9]/i.test(lit), lit)
   rcon('kill @e[type=minecraft:block_display]')
 
   // 4. Part E, Echo Strike: a full hit with the Eternal Sword echoes onto the other husk (NoAI dummies, easy difficulty).
