@@ -1,8 +1,12 @@
 # Changelog
 
-All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft version: each release ships the same changes for 1.20 to 1.21.1.
+All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft version: each release ships the same changes for 1.20 to 26.1.
 
 ## [Unreleased]
+
+## [1.8.0] - 2026-11-06
+
+BMH now runs on Minecraft 26.1, it has a config screen, and a star reading always shows the way back to the world spawn.
 
 ### Added
 
@@ -16,7 +20,6 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - On Minecraft 26.1, the BMH game rules have new names, in the style of the 26.1 game rules: bmh:random_death_spawn_point, bmh:display_text_on_respawn, bmh:food_and_health_regen_on_wake_up, bmh:only_carry_one_eternal_item_type, bmh:damage_eternal_item_when_dead and bmh:remove_coordinates_in_survival. A world from an older Minecraft version keeps the values of these rules.
 - On Minecraft 26.1, the Eternal Bundle shows its contents in the new vanilla bundle tooltip.
 - On Minecraft 26.1, the Eternal Axe scrapes copper golems, like every axe.
-
 - With no named point, a star reading no longer points to your respawn bed. It points to the world spawn.
 
 ### Fixed
