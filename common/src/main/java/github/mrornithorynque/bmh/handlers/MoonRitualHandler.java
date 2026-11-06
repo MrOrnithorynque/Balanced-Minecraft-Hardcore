@@ -16,6 +16,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -144,9 +146,15 @@ public class MoonRitualHandler {
     public static void fail(ServerPlayer player, String reason) {
 
         ServerLevel level = player.serverLevel();
-        Vec3 hand = handPosition(player);
 
-        level.sendParticles(ParticleTypes.POOF, hand.x, hand.y, hand.z, 12, 0.15, 0.15, 0.15, 0.02);
+        // The puff is at the raised totem for everyone else. The player sees it 1.8 blocks in front of the eyes: a
+        // puff at the totem itself is so close to the camera that it covers the whole view.
+        for (ServerPlayer viewer : level.players()) {
+            Vec3 at = viewer == player
+                    ? player.getEyePosition().add(player.getViewVector(1.0F).scale(1.8))
+                    : raisedTotemPosition(player);
+            level.sendParticles(viewer, ParticleTypes.POOF, false, at.x, at.y, at.z, 8, 0.12, 0.12, 0.12, 0.02);
+        }
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS,
                 0.7F, 1.4F);
         player.displayClientMessage(Component.translatable(reason), true);
@@ -178,9 +186,18 @@ public class MoonRitualHandler {
         return new ItemStack(ItemInit.TOTEM_OF_ETERNITY.get());
     }
 
-    /** About where the raised totem is: a little in front of the eyes and below them. */
-    public static Vec3 handPosition(Player player) {
+    /**
+     * About where the totem is in the ritual pose seen from outside (UseAnim.BOW): both arms raised along the look, the
+     * totem at the end of the arm that holds it. The shoulder is 0.24 blocks under the eyes and 0.31 blocks to the side.
+     */
+    public static Vec3 raisedTotemPosition(Player player) {
 
-        return player.getEyePosition().add(player.getViewVector(1.0F).scale(0.6)).add(0.0, -0.2, 0.0);
+        Vec3 look = player.getViewVector(1.0F);
+        float yaw = player.getYRot() * ((float) Math.PI / 180.0F);
+        Vec3 right = new Vec3(-Math.cos(yaw), 0.0, -Math.sin(yaw));
+        boolean rightArm = (player.getUsedItemHand() == InteractionHand.MAIN_HAND) == (player.getMainArm() == HumanoidArm.RIGHT);
+        Vec3 shoulder = player.getEyePosition().add(0.0, -0.24, 0.0).add(right.scale(rightArm ? 0.31 : -0.31));
+
+        return shoulder.add(look.scale(0.85));
     }
 }

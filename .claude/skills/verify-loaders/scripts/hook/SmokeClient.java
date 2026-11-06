@@ -111,13 +111,16 @@ public final class SmokeClient {
             } else if (ticks == RITUAL_START + 150) {
                 log("ritual mid: using=" + mc.player.isUsingItem() + " levels=" + mc.player.experienceLevel);
                 shot(mc, "bmh-smoke-5-ritual.png");
-            } else if (ticks == RITUAL_START + 158) {
+            } else if (ticks == RITUAL_START + 156) {
+                // A queued screenshot sees a camera change made in the same tick: each change gets its own tick.
                 mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-            } else if (ticks == RITUAL_START + 166) {
+            } else if (ticks == RITUAL_START + 164) {
                 shot(mc, "bmh-smoke-6-ritual-back.png");
+            } else if (ticks == RITUAL_START + 168) {
                 mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
-            } else if (ticks == RITUAL_START + 174) {
+            } else if (ticks == RITUAL_START + 176) {
                 shot(mc, "bmh-smoke-7-ritual-front.png");
+            } else if (ticks == RITUAL_START + 180) {
                 mc.options.setCameraType(CameraType.FIRST_PERSON);
             } else if (ticks == RITUAL_START + RITUAL_TICKS + 6) {
                 shot(mc, "bmh-smoke-8-woken.png");
