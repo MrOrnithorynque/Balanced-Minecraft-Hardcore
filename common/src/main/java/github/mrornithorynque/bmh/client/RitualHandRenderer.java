@@ -14,20 +14,21 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The first person view of the moon ritual: the player raises the Dormant Totem in front of the eyes, a little below the
- * moon, so the moonlight (RitualParticles) lands on it. mixin/P_ItemInHandRitualMixin calls it in place of vanilla's hand.
+ * The first person view of the moon ritual: the player raises the Dormant Totem in front of the eyes, just under the
+ * crosshair, and the light (RitualParticles) goes into it. mixin/P_ItemInHandRitualMixin calls it in place of vanilla's hand.
  */
 public final class RitualHandRenderer {
 
-    // Where the totem stops, in the camera's space: x to the right, y up, z toward the camera.
-    private static final float HOLD_Y = -0.2F;
+    // Where the totem stops, in the camera's space: x to the right, y up, z toward the camera. Its top is just under
+    // the crosshair, so the player still aims at the moon over it.
+    private static final float HOLD_Y = -0.15F;
     private static final float HOLD_Z = -0.75F;
     // Where it starts: the normal place of an item in the hand (vanilla's applyItemArmTransform, no equip offset).
     private static final float START_X = 0.56F;
     private static final float START_Y = -0.52F;
     private static final float START_Z = -0.72F;
     private static final float RAISE_TICKS = 10.0F;
-    private static final float SCALE = 0.32F;
+    private static final float SCALE = 0.26F;
 
     private RitualHandRenderer() {
     }
