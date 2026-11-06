@@ -1,21 +1,20 @@
 package github.mrornithorynque.bmh.fabric;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 import github.mrornithorynque.bmh.BalancedMcHardcore;
 import github.mrornithorynque.bmh.platform.IPlatformHelper;
 
 import net.fabricmc.api.EnvType;
-import net.fabricmc.fabric.api.gamerule.v1.GameRuleFactory;
-import net.fabricmc.fabric.api.gamerule.v1.GameRuleRegistry;
-import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
+import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.ItemLike;
 
 public class FabricPlatformHelper implements IPlatformHelper {
 
@@ -23,22 +22,16 @@ public class FabricPlatformHelper implements IPlatformHelper {
     @SuppressWarnings("unchecked")
     public <T, I extends T> Supplier<I> register(ResourceKey<? extends Registry<T>> registry, String name, Supplier<I> factory) {
 
-        Registry<T> target = (Registry<T>) BuiltInRegistries.REGISTRY.get(registry.location());
-        I object = Registry.register(target, ResourceLocation.fromNamespaceAndPath(BalancedMcHardcore.MODID, name), factory.get());
+        Registry<T> target = (Registry<T>) BuiltInRegistries.REGISTRY.getValue(registry.identifier());
+        I object = Registry.register(target, Identifier.fromNamespaceAndPath(BalancedMcHardcore.MODID, name), factory.get());
 
         return () -> object;
     }
 
     @Override
-    public CreativeModeTab.Builder creativeTabBuilder() {
+    public CreativeModeTab.Builder creativeTabBuilder(List<Supplier<? extends ItemLike>> items) {
 
-        return FabricItemGroup.builder();
-    }
-
-    @Override
-    public GameRules.Key<GameRules.BooleanValue> registerBooleanGameRule(String name, GameRules.Category category, boolean defaultValue) {
-
-        return GameRuleRegistry.register(name, category, GameRuleFactory.createBooleanRule(defaultValue));
+        return FabricCreativeModeTab.builder().displayItems((parameters, output) -> items.forEach(item -> output.accept(item.get())));
     }
 
     @Override

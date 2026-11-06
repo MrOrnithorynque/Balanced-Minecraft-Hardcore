@@ -2,6 +2,7 @@ package github.mrornithorynque.bmh.neoforge;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.function.Supplier;
 
 import github.mrornithorynque.bmh.BalancedMcHardcore;
@@ -10,7 +11,7 @@ import github.mrornithorynque.bmh.platform.IPlatformHelper;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.ItemLike;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.loading.FMLEnvironment;
@@ -37,21 +38,15 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
     }
 
     @Override
-    public CreativeModeTab.Builder creativeTabBuilder() {
+    public CreativeModeTab.Builder creativeTabBuilder(List<Supplier<? extends ItemLike>> items) {
 
-        return CreativeModeTab.builder();
-    }
-
-    @Override
-    public GameRules.Key<GameRules.BooleanValue> registerBooleanGameRule(String name, GameRules.Category category, boolean defaultValue) {
-
-        return GameRules.register(name, category, GameRules.BooleanValue.create(defaultValue));
+        return CreativeModeTab.builder().displayItems((parameters, output) -> items.forEach(item -> output.accept(item.get())));
     }
 
     @Override
     public boolean isPhysicalClient() {
 
-        return FMLEnvironment.dist.isClient();
+        return FMLEnvironment.getDist().isClient();
     }
 
     @Override

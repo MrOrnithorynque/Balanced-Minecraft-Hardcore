@@ -1,26 +1,31 @@
 package github.mrornithorynque.bmh.items;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 import github.mrornithorynque.bmh.handlers.EternalWear;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.SwordItem;
-import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 
-public class EternalSwordItem extends SwordItem implements IEternalItem {
+/**
+ * A sword is a plain item with the sword properties of its material (tool rules, attributes, one durability point per
+ * hit), as vanilla's swords are. The "minecraft:swords" tag makes it sweep (Player.isSweepAttack).
+ */
+public class EternalSwordItem extends Item implements IEternalItem {
 
-    public EternalSwordItem(Tier tier, int attackDamage, float attackSpeed, Properties properties) {
-        super(tier, properties.attributes(SwordItem.createAttributes(tier, attackDamage, attackSpeed)));
+    public EternalSwordItem(ToolMaterial material, float attackDamage, float attackSpeed, Item.Properties properties) {
+        super(properties.sword(material, attackDamage, attackSpeed));
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> lines, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> lines,
+            TooltipFlag flag) {
 
-        super.appendHoverText(stack, context, lines, flag);
+        super.appendHoverText(stack, context, display, lines, flag);
         EternalTooltips.addAbility(stack, lines, "tooltip.bmh.ability.eternal_sword");
         EternalTooltips.addHeavy(lines);
         EternalTooltips.addDurability(stack, lines);

@@ -9,7 +9,7 @@
 #   BMH_REPO         the main checkout the verification worktrees hang off (default: found from this script's repository)
 #   BMH_PORT         the dedicated server's port (default 25618; upgrade.sh sets it from BMH_UPGRADE_PORT, default 25619).
 #                    A plain PORT variable is ignored. RCON is always port + 100, password bmh: the bots compute it the same way.
-#   BMH_JDK17, BMH_JDK21   JDK homes (default Homebrew's openjdk@17 and openjdk@21)
+#   BMH_JDK17, BMH_JDK21, BMH_JDK25   JDK homes (default Homebrew's openjdk@17, @21 and @25)
 #   BMH_LOCK_DIR, BMH_SLOT_PREFIX   the lock paths (default /private/tmp/bmh-runserver.lock and /private/tmp/bmh-gradle,
 #                    slots <prefix>.1 and <prefix>.2). Other sessions of the same machine must use the same ones.
 #   BMH_SESSION      the name written in the owner files (default verify)
@@ -49,11 +49,16 @@ jdk_for() { # <minecraft version> -> a JDK home; fails when it has no java (call
   local home v
   case "$1" in
     1.21*) v=21; home=${BMH_JDK21:-/opt/homebrew/opt/openjdk@21} ;;
+    26.*) v=25; home=${BMH_JDK25:-/opt/homebrew/opt/openjdk@25} ;;
     *) v=17; home=${BMH_JDK17:-/opt/homebrew/opt/openjdk@17} ;;
   esac
   [ -x "$home/bin/java" ] || { echo "no JDK $v for Minecraft $1 in $home: brew install openjdk@$v, or set BMH_JDK$v" >&2; exit 2; }
   echo "$home"
 }
+
+# The version a bot announces to mineflayer. Its minecraft-data has 26.1 and no 26.1.1 or 26.1.2: the three share
+# protocol 775.
+bot_version() { case "$1" in 26.1.*) echo 26.1 ;; *) echo "$1" ;; esac; }
 
 # The server lock, then a Gradle slot, always in that order (two slots and one lock: a waiting boot can only hold the lock
 # while builds cycle through the slots, so nobody deadlocks). A lock whose owner is older than 20 minutes and whose port is

@@ -23,7 +23,7 @@ public class RespawnEffectHandler {
         }
 
         // Only a respawn that got a distant position is a new journey. In a hardcore world the player is a spectator now.
-        if (!RespawnPositionHandler.takeExiled(serverPlayer) || serverPlayer.server.isHardcore()) {
+        if (!RespawnPositionHandler.takeExiled(serverPlayer) || serverPlayer.level().getServer().isHardcore()) {
             return;
         }
 
@@ -33,7 +33,7 @@ public class RespawnEffectHandler {
         playRespawnSound(serverPlayer);
 
         JourneySignal.sendArrival(serverPlayer,
-                serverPlayer.serverLevel().getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN));
+                serverPlayer.level().getGameRules().get(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN));
     }
 
     // For the other players nearby. The respawned player hears the sounds from the cinematic on its own client.

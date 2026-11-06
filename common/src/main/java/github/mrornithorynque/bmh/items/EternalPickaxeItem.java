@@ -1,28 +1,29 @@
 package github.mrornithorynque.bmh.items;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 import github.mrornithorynque.bmh.handlers.EternalWear;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.DiggerItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.PickaxeItem;
-import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.block.state.BlockState;
 
-public class EternalPickaxeItem extends PickaxeItem implements IEternalItem {
+/** A pickaxe is a plain item with the pickaxe properties of its material, as vanilla's pickaxes are. */
+public class EternalPickaxeItem extends Item implements IEternalItem {
 
-    public EternalPickaxeItem(Tier tier, int attackDamage, float attackSpeed, Properties properties) {
-        super(tier, properties.attributes(DiggerItem.createAttributes(tier, attackDamage, attackSpeed)));
+    public EternalPickaxeItem(ToolMaterial material, float attackDamage, float attackSpeed, Item.Properties properties) {
+        super(properties.pickaxe(material, attackDamage, attackSpeed));
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> lines, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> lines,
+            TooltipFlag flag) {
 
-        super.appendHoverText(stack, context, lines, flag);
+        super.appendHoverText(stack, context, display, lines, flag);
         EternalTooltips.addAbility(stack, lines, "tooltip.bmh.ability.eternal_pickaxe");
         EternalTooltips.addHeavy(lines);
         EternalTooltips.addDurability(stack, lines);

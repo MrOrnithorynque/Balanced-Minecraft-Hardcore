@@ -4,20 +4,32 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
+import org.joml.Vector3fc;
+import org.joml.Vector4f;
 import org.slf4j.Logger;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.logging.LogUtils;
 
@@ -25,20 +37,19 @@ import github.mrornithorynque.bmh.items.NavigatorAmuletItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.attribute.EnvironmentAttributes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 
 /**
  * Draws a Navigator's Amulet star reading in the sky, for this client's player only. D_LevelRendererSkyMixin calls it
- * right after vanilla draws the stars, with the stars' own pose, so the chain stays pinned to them as the sky turns.
- * Render thread only.
+ * right after vanilla draws the stars (SkyRenderer.renderStars), with the stars' own pose, so the chain stays pinned to
+ * them as the sky turns. Render thread only.
  */
 public final class StarReadingRenderer {
 
@@ -59,8 +70,22 @@ public final class StarReadingRenderer {
     private static final String TIME = "time";
     /** An amulet whose reading is this old when the client first sees it (picked up, relogged) shows nothing. */
     private static final long FRESH_TICKS = 40;
-    /** Vanilla's star brightness at full night: a reading there is at full strength. */
+    /** Vanilla's star brightness at full night (the overworld day timeline): a reading there is at full strength. */
     private static final float FULL_NIGHT_STARS = 0.5F;
+
+    /**
+     * Vanilla's star pipeline (RenderPipelines.STARS, 26.1.2) with a colour per vertex: the same uniforms, the same
+     * blend (SRC_ALPHA, ONE: light adds up), no depth test, back faces culled. The shader is vanilla's position_color.
+     */
+    private static final RenderPipeline PIPELINE = RenderPipeline.builder()
+            .withLocation(Identifier.fromNamespaceAndPath("bmh", "pipeline/star_reading"))
+            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
+            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
+            .withVertexShader("core/position_color")
+            .withFragmentShader("core/position_color")
+            .withColorTargetState(new ColorTargetState(BlendFunction.OVERLAY))
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
+            .build();
 
     private static long lastShownTime = Long.MIN_VALUE;
     private static WeakReference<ClientLevel> lastLevel = new WeakReference<>(null);
@@ -83,12 +108,19 @@ public final class StarReadingRenderer {
     private StarReadingRenderer() {
     }
 
-    public static void render(ClientLevel level, Matrix4f starPose, float partialTick) {
+    /**
+     * D_LevelRendererSkyMixin calls it at the end of SkyRenderer.renderStars. {@code poseStack} holds the stars' pose
+     * and {@code starBrightness} is vanilla's star brightness for this frame, rain included.
+     */
+    public static void render(PoseStack poseStack, float starBrightness) {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
-        if (player == null) {
+        ClientLevel level = minecraft.level;
+        if (player == null || level == null) {
             return;
         }
+        // The partial tick of the level render (LevelRenderer.renderLevel reads the same one for the sky).
+        float partialTick = minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(false);
         if (lastLevel.get() != level) {
             // Another world or dimension: another game time, and a chain belongs to the sky it was read in. Weak, so
             // a world left behind is not kept in memory.
@@ -106,8 +138,8 @@ public final class StarReadingRenderer {
             return;
         }
         double seconds = (now - reading.startTick()) / 20.0;
-        float skyAlpha = Math.min(1.0F,
-                level.getStarBrightness(partialTick) * (1.0F - level.getRainLevel(partialTick)) / FULL_NIGHT_STARS);
+        // Since 26.1 the star brightness attribute already goes to 0 with the rain, so the rain is not applied again.
+        float skyAlpha = Math.min(1.0F, starBrightness / FULL_NIGHT_STARS);
         List<float[]> parts = new ArrayList<>();
         int length = 0;
         for (int c = 0; c < reading.chains().size(); c++) {
@@ -130,7 +162,7 @@ public final class StarReadingRenderer {
             at += part.length;
         }
         if (triangles.length > 0) {
-            draw(starPose, triangles);
+            draw(poseStack.last().pose(), triangles);
         }
     }
 
@@ -141,30 +173,34 @@ public final class StarReadingRenderer {
         for (InteractionHand hand : InteractionHand.values()) {
             ItemStack stack = player.getItemInHand(hand);
             CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-            if (!(stack.getItem() instanceof NavigatorAmuletItem) || data == null || !data.contains(READING)) {
+            if (!(stack.getItem() instanceof NavigatorAmuletItem) || data == null) {
                 continue;
             }
-            CompoundTag reading = data.copyTag().getCompound(READING);
-            long time = reading.getLong(TIME);
+            CompoundTag tag = data.copyTag();
+            if (!tag.contains(READING)) {
+                continue;
+            }
+            CompoundTag reading = tag.getCompoundOrEmpty(READING);
+            long time = reading.getLongOr(TIME, 0L);
             if (time <= lastShownTime || Math.abs(level.getGameTime() - time) >= FRESH_TICKS) {
                 continue;
             }
             lastShownTime = time;
-            ListTag azimuths = reading.getList(AZIMUTHS, Tag.TAG_FLOAT);
-            ListTag names = reading.getList(NAMES, Tag.TAG_STRING);
+            ListTag azimuths = reading.getListOrEmpty(AZIMUTHS);
+            ListTag names = reading.getListOrEmpty(NAMES);
             List<int[]> chains = new ArrayList<>();
             List<String> chainNames = new ArrayList<>();
             // A reading from 1.7.0 or older has no world spawn line.
-            int spawn = reading.contains(SPAWN, Tag.TAG_INT) ? reading.getInt(SPAWN) : -1;
+            int spawn = reading.getInt(SPAWN).orElse(-1);
             int spawnChain = -1;
             for (int i = 0; i < azimuths.size(); i++) {
-                int[] chain = pick(level, azimuths.getFloat(i), partialTick);
+                int[] chain = pick(azimuths.getFloatOr(i, 0.0F), partialTick);
                 if (chain.length > 0) {
                     if (i == spawn) {
                         spawnChain = chains.size();
                     }
                     chains.add(chain);
-                    chainNames.add(i < names.size() ? names.getString(i) : "");
+                    chainNames.add(i < names.size() ? names.getStringOr(i, "") : "");
                 }
             }
             shown = chains.isEmpty() ? null : new Shown(chains, chainNames, spawnChain, now);
@@ -185,8 +221,8 @@ public final class StarReadingRenderer {
             return null;
         }
         double seconds = (minecraft.gui.getGuiTicks() + partialTick - reading.startTick()) / 20.0;
-        float timeOfDay = minecraft.level.getTimeOfDay(partialTick);
-        Vector3f look = minecraft.gameRenderer.getMainCamera().getLookVector();
+        double timeOfDay = timeOfDay(partialTick);
+        Vector3fc look = minecraft.gameRenderer.getMainCamera().forwardVector();
         double best = Math.cos(Math.toRadians(AIM_DEGREES));
         String name = null;
         for (int c = 0; c < reading.chains().size(); c++) {
@@ -215,12 +251,23 @@ public final class StarReadingRenderer {
         }
         int[] chain = reading.chains().get(line);
         StarField.Star star = StarField.stars().get(chain[chain.length - 1]);
-        return StarChain.toWorld(star.x, star.y, star.z, minecraft.level.getTimeOfDay(partialTick));
+        return StarChain.toWorld(star.x, star.y, star.z, timeOfDay(partialTick));
     }
 
-    private static int[] pick(ClientLevel level, float azimuth, float partialTick) {
+    /**
+     * The stars' turn as a part of a full turn (0 to 1), the time of day that StarChain takes. SkyRenderer turns the
+     * stars by the star angle attribute (degrees), read through the camera, the way SkyRenderer.extractRenderState
+     * reads it. In the overworld it is the old timeOfDay times 360.
+     */
+    private static double timeOfDay(float partialTick) {
+        float degrees = Minecraft.getInstance().gameRenderer.getMainCamera().attributeProbe()
+                .getValue(EnvironmentAttributes.STAR_ANGLE, partialTick);
+        return degrees / 360.0;
+    }
+
+    private static int[] pick(float azimuth, float partialTick) {
         // The sky as it stands now; within the 40 fresh ticks it turns less than a degree.
-        float timeOfDay = level.getTimeOfDay(partialTick);
+        double timeOfDay = timeOfDay(partialTick);
         int[] chain = StarChain.pick(StarField.stars(), azimuth, timeOfDay);
         if (chain.length > 0) {
             StarField.Star star = StarField.stars().get(chain[chain.length - 1]);
@@ -233,27 +280,41 @@ public final class StarReadingRenderer {
         return chain;
     }
 
-    // Same path as vanilla's sun and moon: vertices through the pose on the CPU, then BufferUploader. Blending stays
-    // vanilla's star blend (SRC_ALPHA, ONE: light adds up); the shader and its colour go back as they were.
+    // Same path as vanilla's stars (SkyRenderer.renderStars, 26.1.2): the pose goes on the model view stack, the
+    // vertices go to the immediate vertex buffer of their format, and one render pass draws them on the main target.
     private static void draw(Matrix4f pose, float[] v) {
-        ShaderInstance previousShader = RenderSystem.getShader();
-        float[] previousColour = RenderSystem.getShaderColor().clone();
-
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.enableBlend();
-        RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE,
-                GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
-        BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-        for (int i = 0; i < v.length; i += StarTrace.STRIDE) {
-            buffer.addVertex(pose, v[i], v[i + 1], v[i + 2]).setColor(v[i + 3], v[i + 4], v[i + 5], v[i + 6]);
-        }
-        MeshData mesh = buffer.build();
-        if (mesh != null) {
-            BufferUploader.drawWithShader(mesh);
+        int vertices = v.length / StarTrace.STRIDE;
+        GpuBuffer vertexBuffer;
+        int vertexCount;
+        try (ByteBufferBuilder bytes = ByteBufferBuilder.exactlySized(vertices * DefaultVertexFormat.POSITION_COLOR.getVertexSize())) {
+            BufferBuilder buffer = new BufferBuilder(bytes, VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+            for (int i = 0; i < v.length; i += StarTrace.STRIDE) {
+                buffer.addVertex(v[i], v[i + 1], v[i + 2]).setColor(v[i + 3], v[i + 4], v[i + 5], v[i + 6]);
+            }
+            try (MeshData mesh = buffer.buildOrThrow()) {
+                vertexBuffer = PIPELINE.getVertexFormat().uploadImmediateVertexBuffer(mesh.vertexBuffer());
+                vertexCount = mesh.drawState().vertexCount();
+            }
         }
 
-        RenderSystem.setShaderColor(previousColour[0], previousColour[1], previousColour[2], previousColour[3]);
-        RenderSystem.setShader(() -> previousShader);
+        Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
+        modelViewStack.pushMatrix();
+        modelViewStack.mul(pose);
+        GpuBufferSlice dynamicTransforms = RenderSystem.getDynamicUniforms()
+                .writeTransform(modelViewStack, new Vector4f(1.0F, 1.0F, 1.0F, 1.0F), new Vector3f(), new Matrix4f());
+        GpuTextureView colorTexture = Minecraft.getInstance().getMainRenderTarget().getColorTextureView();
+        GpuTextureView depthTexture = Minecraft.getInstance().getMainRenderTarget().getDepthTextureView();
+
+        try (RenderPass renderPass = RenderSystem.getDevice()
+                .createCommandEncoder()
+                .createRenderPass(() -> "BMH star reading", colorTexture, OptionalInt.empty(), depthTexture, OptionalDouble.empty())) {
+            renderPass.setPipeline(PIPELINE);
+            RenderSystem.bindDefaultUniforms(renderPass);
+            renderPass.setUniform("DynamicTransforms", dynamicTransforms);
+            renderPass.setVertexBuffer(0, vertexBuffer);
+            renderPass.draw(0, vertexCount);
+        }
+
+        modelViewStack.popMatrix();
     }
 }

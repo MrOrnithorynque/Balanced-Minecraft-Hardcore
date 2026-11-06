@@ -66,7 +66,7 @@ public class AmuletPointCommand {
                 IntegerArgumentType.getInteger(context, "z"));
 
         if (!holdsAmulet(player)) {
-            player.displayClientMessage(Component.translatable("bmh.point.no_amulet"), true);
+            player.sendOverlayMessage(Component.translatable("bmh.point.no_amulet"));
             return 0;
         }
 
@@ -82,7 +82,7 @@ public class AmuletPointCommand {
             return 0;
         }
 
-        player.displayClientMessage(Component.translatable("bmh.point.removed", point.name()), true);
+        player.sendOverlayMessage(Component.translatable("bmh.point.removed", point.name()));
         AmuletPointSignal.list(player, AmuletPoints.get(player), AmuletPoints.max());
 
         return 1;
@@ -106,24 +106,24 @@ public class AmuletPointCommand {
         String name = AmuletPoints.cleanName(StringArgumentType.getString(context, "name"));
 
         if (name.isEmpty()) {
-            player.displayClientMessage(Component.translatable("bmh.point.no_name"), true);
+            player.sendOverlayMessage(Component.translatable("bmh.point.no_name"));
             return 0;
         }
 
-        BlockState state = player.serverLevel().getBlockState(pos);
+        BlockState state = player.level().getBlockState(pos);
         boolean renamed = AmuletPoints.at(player, pos, state) != null;
         int used = AmuletPoints.get(player).size();
 
         if (!renamed && used >= AmuletPoints.max()) {
-            player.displayClientMessage(Component.translatable("bmh.point.full", AmuletPoints.max()), true);
+            player.sendOverlayMessage(Component.translatable("bmh.point.full", AmuletPoints.max()));
             return 0;
         }
 
         AmuletPoints.put(player, pos, state, name);
-        LAST_CHANGE.put(player.getUUID(), player.serverLevel().getGameTime());
-        player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
+        LAST_CHANGE.put(player.getUUID(), player.level().getGameTime());
+        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0F, 0.7F);
-        player.displayClientMessage(Component.translatable(renamed ? "bmh.point.renamed" : "bmh.point.saved", name), true);
+        player.sendOverlayMessage(Component.translatable(renamed ? "bmh.point.renamed" : "bmh.point.saved", name));
 
         return 1;
     }
@@ -137,15 +137,15 @@ public class AmuletPointCommand {
             return 0;
         }
 
-        BlockState state = player.serverLevel().getBlockState(pos);
+        BlockState state = player.level().getBlockState(pos);
         AmuletPoints.Point point = AmuletPoints.at(player, pos, state);
 
         if (point == null || !AmuletPoints.remove(player, pos, state)) {
             return 0;
         }
 
-        LAST_CHANGE.put(player.getUUID(), player.serverLevel().getGameTime());
-        player.displayClientMessage(Component.translatable("bmh.point.removed", point.name()), true);
+        LAST_CHANGE.put(player.getUUID(), player.level().getGameTime());
+        player.sendOverlayMessage(Component.translatable("bmh.point.removed", point.name()));
 
         return 1;
     }
@@ -154,25 +154,25 @@ public class AmuletPointCommand {
     private static boolean allowed(ServerPlayer player, BlockPos pos) {
 
         if (!holdsAmulet(player)) {
-            player.displayClientMessage(Component.translatable("bmh.point.no_amulet"), true);
+            player.sendOverlayMessage(Component.translatable("bmh.point.no_amulet"));
             return false;
         }
 
-        if (player.serverLevel().dimension() != Level.OVERWORLD) {
-            player.displayClientMessage(Component.translatable("bmh.point.overworld"), true);
+        if (player.level().dimension() != Level.OVERWORLD) {
+            player.sendOverlayMessage(Component.translatable("bmh.point.overworld"));
             return false;
         }
 
         if (!player.isAlive() || player.isSpectator()
                 || player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) > MAX_DISTANCE * MAX_DISTANCE
-                || !AmuletPoints.canHold(player.serverLevel().getBlockState(pos))) {
-            player.displayClientMessage(Component.translatable("bmh.point.too_far"), true);
+                || !AmuletPoints.canHold(player.level().getBlockState(pos))) {
+            player.sendOverlayMessage(Component.translatable("bmh.point.too_far"));
             return false;
         }
 
         Long last = LAST_CHANGE.get(player.getUUID());
 
-        return last == null || player.serverLevel().getGameTime() - last >= MIN_TICKS_BETWEEN_CHANGES
-                || player.serverLevel().getGameTime() < last;
+        return last == null || player.level().getGameTime() - last >= MIN_TICKS_BETWEEN_CHANGES
+                || player.level().getGameTime() < last;
     }
 }

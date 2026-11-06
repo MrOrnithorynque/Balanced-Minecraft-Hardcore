@@ -52,7 +52,7 @@ public abstract class E_ServerPlayerGameModeMixin {
         ItemStack tool = player.getMainHandItem();
 
         bmh$brokenStates.push(tool.getItem() instanceof EternalPickaxeItem && !EternalWear.isWornOut(tool)
-                ? player.serverLevel().getBlockState(pos)
+                ? player.level().getBlockState(pos)
                 : Blocks.AIR.defaultBlockState());
     }
 
@@ -65,7 +65,7 @@ public abstract class E_ServerPlayerGameModeMixin {
             return;
         }
 
-        long now = player.serverLevel().getGameTime();
+        long now = player.level().getGameTime();
 
         if (now >= bmh$nextSense) {
             bmh$nextSense = now + EchoSenseHandler.COOLDOWN_TICKS;

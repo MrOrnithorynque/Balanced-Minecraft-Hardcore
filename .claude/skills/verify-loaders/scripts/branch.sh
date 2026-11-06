@@ -83,10 +83,10 @@ for L in $LOADERS; do
       cp "$SCRIPTS/rcon.py" "$OUT/rcon.py"
     fi
     if [ -n "$AMBOT" ]; then
-      with_timeout 600 node "$AMBOT" $PORT "$MCV" > "$OUT/amulet-$L.log" 2>&1
+      with_timeout 600 node "$AMBOT" $PORT "$(bot_version "$MCV")" > "$OUT/amulet-$L.log" 2>&1
       AM="$(grep -c '^PASS' "$OUT/amulet-$L.log")/$(grep -c -E '^(PASS|FAIL)' "$OUT/amulet-$L.log")"
     fi
-    with_timeout 600 env SMOKE_ITEMS="$ITEMS" SMOKE_RECIPES="$RECIPES" node "$SCRIPTS/smoke_bot.js" $PORT "$MCV" > "$OUT/bot-$L.log" 2>&1
+    with_timeout 600 env SMOKE_ITEMS="$ITEMS" SMOKE_RECIPES="$RECIPES" node "$SCRIPTS/smoke_bot.js" $PORT "$(bot_version "$MCV")" > "$OUT/bot-$L.log" 2>&1
     SM=$(grep '^SMOKE ' "$OUT/bot-$L.log" | tail -1 | cut -d' ' -f2)
     stop_server
   else

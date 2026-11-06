@@ -6,21 +6,11 @@
         " n "
     ],
     "key": {
-        "n": {
-            "item": "minecraft:netherite_ingot"
-        },
-        "A": {
-            "item": "minecraft:amethyst_block"
-        },
-        "D": {
-            "item": "minecraft:diamond_block"
-        },
-        "E": {
-            "item": "minecraft:totem_of_undying"
-        },
-        "T": {
-            "item": "minecraft:emerald_block"
-        }
+        "n": "minecraft:netherite_ingot",
+        "A": "minecraft:amethyst_block",
+        "D": "minecraft:diamond_block",
+        "E": "minecraft:totem_of_undying",
+        "T": "minecraft:emerald_block"
     },
     "result": {
         "id": "bmh:dormant_totem",

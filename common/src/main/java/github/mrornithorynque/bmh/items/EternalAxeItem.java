@@ -1,34 +1,30 @@
 package github.mrornithorynque.bmh.items;
 
-import java.util.List;
-
-import org.slf4j.Logger;
-
-import com.mojang.logging.LogUtils;
+import java.util.function.Consumer;
 
 import github.mrornithorynque.bmh.handlers.EternalWear;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.AxeItem;
-import net.minecraft.world.item.DiggerItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.block.state.BlockState;
 
+/** An axe: AxeItem gives the axe properties of the material and strips, scrapes and unwaxes blocks. */
 public class EternalAxeItem extends AxeItem implements IEternalItem {
 
-    private static final Logger LOGGER = LogUtils.getLogger();
-
-    public EternalAxeItem(Tier tier, float attackDamage, float attackSpeed, Properties properties) {
-        super(tier, properties.attributes(DiggerItem.createAttributes(tier, attackDamage, attackSpeed)));
+    public EternalAxeItem(ToolMaterial material, float attackDamage, float attackSpeed, Item.Properties properties) {
+        super(material, attackDamage, attackSpeed, properties);
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> lines, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> lines,
+            TooltipFlag flag) {
 
-        super.appendHoverText(stack, context, lines, flag);
+        super.appendHoverText(stack, context, display, lines, flag);
         EternalTooltips.addAbility(stack, lines, "tooltip.bmh.ability.eternal_axe");
         EternalTooltips.addHeavy(lines);
         EternalTooltips.addDurability(stack, lines);

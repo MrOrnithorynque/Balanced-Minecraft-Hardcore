@@ -1,17 +1,28 @@
 package github.mrornithorynque.bmh.client.journey;
 
+import java.util.Arrays;
 import java.util.Random;
+
+import org.joml.Matrix3x2f;
+import org.joml.Matrix3x2fc;
+
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import github.mrornithorynque.bmh.init.SoundInit;
 
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.gui.screens.Overlay;
-import net.minecraft.client.gui.screens.ReceivingLevelScreen;
+import net.minecraft.client.gui.screens.LevelLoadingScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -26,7 +37,8 @@ import net.minecraft.world.level.ChunkPos;
  * the bell rings.
  *
  * Minecraft draws an Overlay above the HUD and in place of the current screen. Vanilla screens (death screen, terrain
- * loading) still open, close and tick under it, but they stay out of sight. Render thread only.
+ * loading) still open, close and tick under it, but they stay out of sight. Since 26.1 a frame of the GUI is a list of
+ * layers (strata) that the overlay fills in extractRenderState. Render thread only.
  */
 public final class JourneyOverlay extends Overlay {
 
@@ -50,8 +62,6 @@ public final class JourneyOverlay extends Overlay {
     // Vanilla's terrain screen also stops waiting after 30 s.
     private static final long GIVE_UP = 30000;
 
-    // Vanilla draws text a little in front of z 0 (for its shadow): the overlay draws in front of the screen it covers.
-    private static final float OVERLAY_Z = 1000.0F;
     // The sky, the stars and the blocks draw on a grid twice as fine as the GUI, in whole screen pixels.
     private static final double ART_RESOLUTION = 2.0;
     // The blocks of the dissolve across the screen height.
@@ -183,7 +193,7 @@ public final class JourneyOverlay extends Overlay {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
 
         long now = Util.getMillis();
         // The art grid: one art pixel is a whole number of screen pixels, about half a GUI pixel.
@@ -198,12 +208,14 @@ public final class JourneyOverlay extends Overlay {
         }
 
         if (now < this.darkStart && this.minecraft.screen != null) {
-            // The fade to black: the death screen stays under it.
-            this.minecraft.screen.render(guiGraphics, mouseX, mouseY, partialTick);
+            // The fade to black: the death screen stays under it. This is the call vanilla makes for a screen.
+            this.minecraft.screen.extractRenderStateWithTooltipAndSubtitles(guiGraphics, mouseX, mouseY, partialTick);
         }
 
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(0.0F, 0.0F, OVERLAY_Z);
+        // A new layer: the overlay draws in front of the HUD and of the screen it covers, their text included.
+        // 1.21.1 moved the overlay to z 1000 for this.
+        guiGraphics.nextStratum();
+        guiGraphics.pose().pushMatrix();
 
         if (now < this.darkStart) {
             guiGraphics.fill(0, 0, guiGraphics.guiWidth(), guiGraphics.guiHeight(),
@@ -214,23 +226,23 @@ public final class JourneyOverlay extends Overlay {
             float reveal = this.dissolveStart < 0 ? 0.0F : ease((float) (now - this.dissolveStart) / DISSOLVE);
             double traced = tracedLength(time);
             double camera = camera(traced, width, height);
-            Frame frame = new Frame(guiGraphics, width, height, reveal);
 
-            guiGraphics.pose().pushPose();
-            guiGraphics.pose().scale(artScale, artScale, 1.0F);
-            guiGraphics.drawManaged(() -> {
-                drawSky(frame, sky);
-                drawDust(frame, sky, camera);
-                drawStars(frame, now, time, sky, camera);
-                drawChain(frame, now, time, sky, traced, camera);
-            });
-            guiGraphics.pose().popPose();
+            guiGraphics.pose().pushMatrix();
+            guiGraphics.pose().scale(artScale, artScale);
+            Frame frame = new Frame(new ArtLayer(guiGraphics.pose(), width, height), width, height, reveal);
+            drawSky(frame, sky);
+            drawDust(frame, sky, camera);
+            drawStars(frame, now, time, sky, camera);
+            drawChain(frame, now, time, sky, traced, camera);
+            // The whole art goes to the GUI as one element, as 1.21.1's drawManaged drew it as one batch.
+            this.minecraft.gameRenderer.getGameRenderState().guiRenderState.addGuiElement(frame.art);
+            guiGraphics.pose().popMatrix();
 
             // The message stays at the size of the GUI text.
             drawMessage(guiGraphics, guiGraphics.guiWidth(), guiGraphics.guiHeight(), now);
         }
 
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().popMatrix();
     }
 
     // Moves the timeline on. Returns false when the overlay is done and draws nothing more.
@@ -327,16 +339,17 @@ public final class JourneyOverlay extends Overlay {
     }
 
     // The same test as vanilla's terrain screen where it exists (1.20.2 and later), plus the player's chunk: 1.20 and
-    // 1.20.1 show no terrain screen on a respawn in the same dimension.
+    // 1.20.1 show no terrain screen on a respawn in the same dimension. Since 26.1 the terrain screen of a respawn is
+    // LevelLoadingScreen (ClientPacketListener.handleRespawn opens it), in place of ReceivingLevelScreen.
     private boolean terrainReady(long now) {
 
-        if (this.minecraft.screen instanceof ReceivingLevelScreen) {
+        if (this.minecraft.screen instanceof LevelLoadingScreen) {
             return false;
         }
 
         ChunkPos chunk = this.minecraft.player.chunkPosition();
 
-        if (!this.minecraft.level.getChunkSource().hasChunk(chunk.x, chunk.z)) {
+        if (!this.minecraft.level.getChunkSource().hasChunk(chunk.x(), chunk.z())) {
             this.chunkSeenAt = -1;
             return false;
         }
@@ -434,8 +447,8 @@ public final class JourneyOverlay extends Overlay {
     private void drawSky(Frame frame, float sky) {
 
         if (frame.reveal <= 0.0F) {
-            frame.graphics.fill(0, 0, frame.width, frame.height, 0xFF000000);
-            frame.graphics.fillGradient(0, 0, frame.width, frame.height, argb(sky, SKY_TOP), argb(sky, SKY_BOTTOM));
+            frame.art.fill(0, 0, frame.width, frame.height, 0xFF000000);
+            frame.art.fillGradient(0, 0, frame.width, frame.height, argb(sky, SKY_TOP), argb(sky, SKY_BOTTOM));
             return;
         }
 
@@ -444,7 +457,7 @@ public final class JourneyOverlay extends Overlay {
 
             for (int x = 0; x < frame.width; x += frame.cell) {
                 if (!revealedBlock(frame, x, y)) {
-                    frame.graphics.fill(x, y, Math.min(x + frame.cell, frame.width), Math.min(y + frame.cell, frame.height), color);
+                    frame.art.fill(x, y, Math.min(x + frame.cell, frame.width), Math.min(y + frame.cell, frame.height), color);
                 }
             }
         }
@@ -471,7 +484,7 @@ public final class JourneyOverlay extends Overlay {
                 continue;
             }
 
-            frame.graphics.fill(x - size / 2, y - size / 2, x + size / 2, y + size / 2, argb(alpha * blob.alpha, DUST_COLOR));
+            frame.art.fill(x - size / 2, y - size / 2, x + size / 2, y + size / 2, argb(alpha * blob.alpha, DUST_COLOR));
         }
     }
 
@@ -633,7 +646,7 @@ public final class JourneyOverlay extends Overlay {
         }
     }
 
-    private void drawMessage(GuiGraphics guiGraphics, int width, int height, long now) {
+    private void drawMessage(GuiGraphicsExtractor guiGraphics, int width, int height, long now) {
 
         if (this.message == null || this.messageStart < 0) {
             return;
@@ -650,7 +663,7 @@ public final class JourneyOverlay extends Overlay {
             alpha = 1.0F - (float) (time - MESSAGE_IN - MESSAGE_HOLD) / MESSAGE_OUT;
         }
 
-        // The font draws an alpha under 4 as opaque.
+        // 1.21.1's font drew an alpha under 4 as opaque: the message skips those frames, as it did then.
         int alphaByte = Math.round(Mth.clamp(alpha, 0.0F, 1.0F) * 255);
 
         if (alphaByte < 4) {
@@ -662,11 +675,11 @@ public final class JourneyOverlay extends Overlay {
         float scale = textWidth * 2 <= width - 32 ? 2.0F : 1.0F;
 
         // Under the chain, which crosses the middle of the screen.
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(width / 2.0F, height * 0.8F, 0.0F);
-        guiGraphics.pose().scale(scale, scale, 1.0F);
-        guiGraphics.drawString(font, this.message, -textWidth / 2, -font.lineHeight / 2, (alphaByte << 24) | MESSAGE_COLOR, false);
-        guiGraphics.pose().popPose();
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(width / 2.0F, height * 0.8F);
+        guiGraphics.pose().scale(scale, scale);
+        guiGraphics.text(font, this.message, -textWidth / 2, -font.lineHeight / 2, (alphaByte << 24) | MESSAGE_COLOR, false);
+        guiGraphics.pose().popMatrix();
     }
 
     // The block at (x, y) is revealed when the dissolve passes its threshold: near the last star first, with a dither
@@ -712,15 +725,15 @@ public final class JourneyOverlay extends Overlay {
     /** What a frame draws on, with the dissolve state for the blocks. */
     private final class Frame {
 
-        final GuiGraphics graphics;
+        final ArtLayer art;
         final int width;
         final int height;
         final float reveal;
         final int cell;
 
-        Frame(GuiGraphics graphics, int width, int height, float reveal) {
+        Frame(ArtLayer art, int width, int height, float reveal) {
 
-            this.graphics = graphics;
+            this.art = art;
             this.width = width;
             this.height = height;
             this.reveal = reveal;
@@ -736,8 +749,111 @@ public final class JourneyOverlay extends Overlay {
         void pixel(int x, int y, int color) {
 
             if (x >= 0 && y >= 0 && x < this.width && y < this.height && covered(x, y)) {
-                this.graphics.fill(x, y, x + 1, y + 1, color);
+                this.art.fill(x, y, x + 1, y + 1, color);
             }
+        }
+    }
+
+    /**
+     * Every fill of one frame of the art, in order, as one GUI element. Since 26.1 each GuiGraphicsExtractor.fill is
+     * an element that GuiRenderState places on a layer: it compares the element with the elements already there. A
+     * frame has thousands of pixel fills, and that search grows with the square of their count. One element is placed
+     * once. The rectangles are the ones fill and fillGradient make (ColoredRectangleRenderState, 26.1.2), drawn with the
+     * same pipeline in the same order, so the blend is the same.
+     */
+    private static final class ArtLayer implements GuiElementRenderState {
+
+        // Per rectangle: x0, y0, x1, y1, the colour at y0, the colour at y1.
+        private static final int STRIDE = 6;
+
+        private final Matrix3x2f pose;
+        private final ScreenRectangle bounds;
+        private int[] rects = new int[STRIDE * 4096];
+        private int size;
+
+        ArtLayer(Matrix3x2fc pose, int width, int height) {
+
+            this.pose = new Matrix3x2f(pose);
+            this.bounds = new ScreenRectangle(0, 0, width, height).transformMaxBounds(this.pose);
+        }
+
+        // As GuiGraphicsExtractor.fill: the corners are swapped the same way, so the quad winds the same way.
+        void fill(int x0, int y0, int x1, int y1, int color) {
+
+            if (x0 < x1) {
+                int swap = x0;
+                x0 = x1;
+                x1 = swap;
+            }
+
+            if (y0 < y1) {
+                int swap = y0;
+                y0 = y1;
+                y1 = swap;
+            }
+
+            add(x0, y0, x1, y1, color, color);
+        }
+
+        // As GuiGraphicsExtractor.fillGradient: the top colour at y0, the bottom colour at y1.
+        void fillGradient(int x0, int y0, int x1, int y1, int top, int bottom) {
+
+            add(x0, y0, x1, y1, top, bottom);
+        }
+
+        private void add(int x0, int y0, int x1, int y1, int color0, int color1) {
+
+            if (this.size + STRIDE > this.rects.length) {
+                this.rects = Arrays.copyOf(this.rects, this.rects.length * 2);
+            }
+
+            this.rects[this.size++] = x0;
+            this.rects[this.size++] = y0;
+            this.rects[this.size++] = x1;
+            this.rects[this.size++] = y1;
+            this.rects[this.size++] = color0;
+            this.rects[this.size++] = color1;
+        }
+
+        @Override
+        public void buildVertices(VertexConsumer consumer) {
+
+            for (int i = 0; i < this.size; i += STRIDE) {
+                int x0 = this.rects[i];
+                int y0 = this.rects[i + 1];
+                int x1 = this.rects[i + 2];
+                int y1 = this.rects[i + 3];
+                int color0 = this.rects[i + 4];
+                int color1 = this.rects[i + 5];
+                consumer.addVertexWith2DPose(this.pose, x0, y0).setColor(color0);
+                consumer.addVertexWith2DPose(this.pose, x0, y1).setColor(color1);
+                consumer.addVertexWith2DPose(this.pose, x1, y1).setColor(color1);
+                consumer.addVertexWith2DPose(this.pose, x1, y0).setColor(color0);
+            }
+        }
+
+        @Override
+        public RenderPipeline pipeline() {
+
+            return RenderPipelines.GUI;
+        }
+
+        @Override
+        public TextureSetup textureSetup() {
+
+            return TextureSetup.noTexture();
+        }
+
+        @Override
+        public ScreenRectangle scissorArea() {
+
+            return null;
+        }
+
+        @Override
+        public ScreenRectangle bounds() {
+
+            return this.bounds;
         }
     }
 

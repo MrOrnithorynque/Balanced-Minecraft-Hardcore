@@ -6,12 +6,8 @@
         "RRR"
     ],
     "key": {
-        "#": {
-            "item": "minecraft:string"
-        },
-        "R": {
-            "item": "minecraft:rabbit_hide"
-        }
+        "#": "minecraft:string",
+        "R": "minecraft:rabbit_hide"
     },
     "result": {
         "id": "minecraft:bundle",

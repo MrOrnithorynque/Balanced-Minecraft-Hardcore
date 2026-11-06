@@ -2,13 +2,5 @@
     "parent": "minecraft:item/handheld",
     "textures": {
         "layer0": "bmh:item/eternal_sword"
-    },
-    "overrides": [
-        {
-            "predicate": {
-                "bmh:in_hand": 1
-            },
-            "model": "bmh:item/eternal_sword_in_hand"
-        }
-    ]
+    }
 }

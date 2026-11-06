@@ -39,7 +39,8 @@ final class JourneyMusic {
         }
 
         ((F_SoundInstanceVolumeAccessor) current).bmh$setVolume(this.startVolume * part);
-        minecraft.getSoundManager().updateSourceVolume(SoundSource.MUSIC, 1.0F);
+        // Since 26.1 this call applies the volume again. updateCategoryVolume would also set a gain for the category.
+        minecraft.getSoundManager().refreshCategoryVolume(SoundSource.MUSIC);
 
         if (part <= 0.0F) {
             minecraft.getMusicManager().stopPlaying();

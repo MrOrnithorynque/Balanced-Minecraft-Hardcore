@@ -57,7 +57,7 @@ public class RespawnPositionHandler {
     // The conditions of a distant respawn. The game rules are the same in every level.
     public static boolean isDistantRespawn(ServerPlayer serverPlayer) {
 
-        return serverPlayer.serverLevel().getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)
+        return serverPlayer.level().getGameRules().get(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)
                 && serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL;
     }
 
@@ -69,7 +69,7 @@ public class RespawnPositionHandler {
 
     /**
      * Called by F_PlayerListRespawnMixin while vanilla respawns a player, before vanilla sends a position to the
-     * client. On 1.21.1 the player is the old player, because the new one does not exist yet. On 1.20.x it is the new
+     * client. On 1.21.1 and 26.1 the player is the old player, because the new one does not exist yet. On 1.20.x it is the new
      * player. Returns the feet position of the distant respawn in respawnLevel, or null to keep the vanilla position.
      */
     public static BlockPos findRespawnPosition(ServerPlayer serverPlayer, ServerLevel respawnLevel,
@@ -86,9 +86,9 @@ public class RespawnPositionHandler {
         Integer storedDistance = distancesFromBed.remove(serverPlayer.getUUID());
         int distanceFromBed = storedDistance != null ? storedDistance : calculateDistanceFromBed(serverPlayer);
 
-        if (!respawnLevel.getGameRules().getBoolean(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)) {
+        if (!respawnLevel.getGameRules().get(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT)) {
 
-            LOGGER.info("[BalancedMcHardcoreMain] Game rule randomDeathSpawnPoint is false, using default respawn position");
+            LOGGER.info("[BalancedMcHardcoreMain] Game rule random_death_spawn_point is false, using default respawn position");
             return null;
         }
 
@@ -99,11 +99,12 @@ public class RespawnPositionHandler {
         }
 
         // Vanilla forgets a bed or anchor that is gone, so the exile is then around the world spawn.
-        BlockPos bedLocation = missingRespawnBlock ? null : serverPlayer.getRespawnPosition();
+        ServerPlayer.RespawnConfig respawnConfig = missingRespawnBlock ? null : serverPlayer.getRespawnConfig();
+        BlockPos bedLocation = respawnConfig != null ? respawnConfig.respawnData().pos() : null;
 
-        if (bedLocation == null || serverPlayer.getRespawnDimension() != respawnLevel.dimension()) {
+        if (bedLocation == null || respawnConfig.respawnData().dimension() != respawnLevel.dimension()) {
 
-            bedLocation = respawnLevel.getSharedSpawnPos();
+            bedLocation = respawnLevel.getRespawnData().pos();
             LOGGER.info("[BalancedMcHardcoreMain] No bed in this dimension, using world spawn as center");
         }
 
@@ -134,7 +135,7 @@ public class RespawnPositionHandler {
         int levelDistance = Mth.floor(Mth.clamp(worldDistance / coordinateScale + 0.5D, 0.0D, WorldBorder.MAX_CENTER_COORDINATE));
 
         LOGGER.info("[BalancedMcHardcoreMain] Exile distance: " + worldDistance + " world blocks, " + levelDistance
-                + " blocks in " + serverLevel.dimension().location() + " (coordinate scale " + coordinateScale + ")");
+                + " blocks in " + serverLevel.dimension().identifier() + " (coordinate scale " + coordinateScale + ")");
 
         return levelDistance;
     }
@@ -200,7 +201,7 @@ public class RespawnPositionHandler {
     // Returns the feet position on solid, dry ground with two free blocks above, or null.
     private static BlockPos findSafePosition(ServerLevel serverLevel, int x, int z) {
 
-        int minY = serverLevel.getMinBuildHeight();
+        int minY = serverLevel.getMinY();
         int y;
 
         if (serverLevel.dimensionType().hasCeiling()) {

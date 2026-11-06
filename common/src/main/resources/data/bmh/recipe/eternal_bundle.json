@@ -6,21 +6,11 @@
         "LNL"
     ],
     "key": {
-        "S": {
-            "item": "minecraft:string"
-        },
-        "G": {
-            "item": "minecraft:gold_ingot"
-        },
-        "L": {
-            "item": "minecraft:leather"
-        },
-        "N": {
-            "item": "minecraft:netherite_scrap"
-        },
-        "T": {
-            "item": "bmh:totem_of_eternity"
-        }
+        "S": "minecraft:string",
+        "G": "minecraft:gold_ingot",
+        "L": "minecraft:leather",
+        "N": "minecraft:netherite_scrap",
+        "T": "bmh:totem_of_eternity"
     },
     "result": {
         "id": "bmh:eternal_bundle",

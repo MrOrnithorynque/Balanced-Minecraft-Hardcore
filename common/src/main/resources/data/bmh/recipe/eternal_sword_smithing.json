@@ -1,14 +1,8 @@
 {
     "type": "minecraft:smithing_transform",
-    "template": {
-        "item": "bmh:totem_of_eternity"
-    },
-    "base": {
-        "item": "minecraft:netherite_sword"
-    },
-    "addition": {
-        "item": "minecraft:echo_shard"
-    },
+    "template": "bmh:totem_of_eternity",
+    "base": "minecraft:netherite_sword",
+    "addition": "minecraft:echo_shard",
     "result": {
         "id": "bmh:eternal_sword"
     }

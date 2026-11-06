@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom'
+    id 'net.fabricmc.fabric-loom'
 }
 
 base {
@@ -7,10 +7,6 @@ base {
 }
 
 loom {
-    mixin {
-        defaultRefmapName = "${mod_id}.refmap.json"
-    }
-
     runs {
         configureEach {
             runDir 'run'
@@ -39,17 +35,14 @@ repositories {
 }
 
 dependencies {
+    // Minecraft 26.1 ships unobfuscated: no mappings, no remapping, no refmap.
     minecraft "com.mojang:minecraft:${minecraft_version}"
-    // Same Mojang names as the forge module, so common code reads the same on both loaders.
-    mappings loom.officialMojangMappings()
-    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
-    // javax.annotation.Nonnull, used by common code; Forge and vanilla bring it along, Fabric does not.
-    compileOnly "com.google.code.findbugs:jsr305:3.0.2"
+    implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
     // The Config button in Mod Menu. Players do not need Mod Menu: only Mod Menu loads the entrypoint.
     // The dev runs (runClient) get it too, so the button can be tested there.
-    modCompileOnly("com.terraformersmc:modmenu:${modmenu_version}") { transitive = false }
-    modLocalRuntime("com.terraformersmc:modmenu:${modmenu_version}") { transitive = false }
+    compileOnly("com.terraformersmc:modmenu:${modmenu_version}") { transitive = false }
+    localRuntime("com.terraformersmc:modmenu:${modmenu_version}") { transitive = false }
 }
 
 tasks.named('processResources', ProcessResources).configure {

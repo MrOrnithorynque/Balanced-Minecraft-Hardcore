@@ -24,7 +24,7 @@ boot_server "$WT" "$L" "$JH" "$SLOG"
 if [ $UP = 1 ]; then
   # a bot kept elsewhere finds rcon.py next to itself
   [ "$(dirname "$BOT")" = "$SCRIPTS" ] || cp "$SCRIPTS/rcon.py" "$(dirname "$BOT")/rcon.py" 2>/dev/null
-  with_timeout 600 node "$BOT" $PORT "$MCV" > "$OUT/$NAME-$L.log" 2>&1
+  with_timeout 600 node "$BOT" $PORT "$(bot_version "$MCV")" > "$OUT/$NAME-$L.log" 2>&1
   stop_server
 fi
 release

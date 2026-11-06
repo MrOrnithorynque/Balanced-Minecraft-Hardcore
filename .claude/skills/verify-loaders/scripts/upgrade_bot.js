@@ -6,6 +6,7 @@
 const MODULES = process.env.BOT_MODULES
 if (!MODULES) { console.log('BOT_MODULES is not set: npm install --ignore-scripts --prefix <dir> mineflayer@4.39.0, then BOT_MODULES=<dir>/node_modules'); process.exit(2) }
 const RCON_PY = __dirname + '/rcon.py'
+const ruleNames = require(__dirname + '/rule_names.js')
 const mineflayer = require(MODULES + '/mineflayer')
 const { execFileSync } = require('child_process')
 
@@ -21,7 +22,7 @@ process.on('unhandledRejection', (e) => console.log('unhandled', e && e.message)
 
 function rcon (cmd) {
   try {
-    return execFileSync('python3', ['-I', RCON_PY, String(PORT + 100), cmd], { encoding: 'utf8', timeout: 30000 }).trim()
+    return execFileSync('python3', ['-I', RCON_PY, String(PORT + 100), ruleNames(MCV, cmd)], { encoding: 'utf8', timeout: 30000 }).trim()
   } catch (e) {
     return 'RCON-ERROR ' + e.message
   }

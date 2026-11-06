@@ -18,6 +18,7 @@ import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.ItemCombinerMenu;
+import net.minecraft.world.inventory.ItemCombinerMenuSlotDefinition;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 
@@ -35,6 +36,9 @@ import net.minecraft.world.item.ItemStack;
  * When the player takes the result, the Eternal Item on the left must go. Some mod combinations stop vanilla
  * from emptying the left slot (Easy Anvils with Stackables), and the item stays there as a free copy (GitHub
  * issue 5). onTake checks the slot right after vanilla empties it, before the anvil can break.
+ * <p>
+ * NeoForge moves the vanilla body of createResult into createResultInternal and keeps createResult as a final
+ * wrapper that calls it and then fires AnvilUpdateEvent. HEAD and RETURN of createResult still frame the vanilla code.
  */
 @Mixin(AnvilMenu.class)
 public abstract class B_AnvilMenuMixin extends ItemCombinerMenu {
@@ -52,8 +56,9 @@ public abstract class B_AnvilMenuMixin extends ItemCombinerMenu {
     private int bmh$goldRepairPenalty = -1;
 
     // Never called: Mixin only needs it to compile against ItemCombinerMenu.
-    private B_AnvilMenuMixin(MenuType<?> type, int containerId, Inventory inventory, ContainerLevelAccess access) {
-        super(type, containerId, inventory, access);
+    private B_AnvilMenuMixin(MenuType<?> type, int containerId, Inventory inventory, ContainerLevelAccess access,
+            ItemCombinerMenuSlotDefinition slotDefinition) {
+        super(type, containerId, inventory, access, slotDefinition);
     }
 
     @Inject(method = "createResult", at = @At("HEAD"), cancellable = true)
@@ -107,11 +112,12 @@ public abstract class B_AnvilMenuMixin extends ItemCombinerMenu {
         this.broadcastChanges();
     }
 
-    // The first read of repairItemCountCost comes right after vanilla empties the left slot, on every loader
-    // and version. The anvil can break later in onTake: the anvil block entity of Easy Anvils then drops what
-    // it holds, so the check must come before that.
-    @Inject(method = "onTake", at = @At(value = "FIELD",
-            target = "Lnet/minecraft/world/inventory/AnvilMenu;repairItemCountCost:I", ordinal = 0))
+    // Vanilla empties the left slot right before it calls access.execute, which can break the anvil. There the
+    // anvil block entity of Easy Anvils drops what it holds, so the check must come before that call. In 26.1
+    // vanilla empties the left slot after the right slot, so the first read of repairItemCountCost (the point
+    // that 1.21.1 used) now comes before it.
+    @Inject(method = "onTake", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/world/inventory/ContainerLevelAccess;execute(Ljava/util/function/BiConsumer;)V"))
     private void bmh$takeEternalFromLeft(Player player, ItemStack stack, CallbackInfo ci) {
 
         if (this.inputSlots.getItem(0).getItem() instanceof IEternalItem) {

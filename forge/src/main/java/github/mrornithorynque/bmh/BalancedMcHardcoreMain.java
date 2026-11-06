@@ -7,8 +7,7 @@ import github.mrornithorynque.bmh.forge.ForgeClientEvents;
 import github.mrornithorynque.bmh.forge.ForgeEvents;
 import github.mrornithorynque.bmh.forge.ForgePlatformHelper;
 
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.eventbus.api.bus.BusGroup;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -26,18 +25,17 @@ public class BalancedMcHardcoreMain {
 
         LOGGER.info("[BalancedMcHardcoreMain] Loading...");
 
-        IEventBus modEventBus = context.getModEventBus();
+        BusGroup modBusGroup = context.getModBusGroup();
 
         context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 
         BalancedMcHardcore.init();
-        ForgePlatformHelper.registerAll(modEventBus);
+        ForgePlatformHelper.registerAll(modBusGroup);
 
-        modEventBus.addListener(this::setup);
+        FMLCommonSetupEvent.getBus(modBusGroup).addListener(this::setup);
 
-        // The HUD text and the config screen need the client classes: never touch them on a dedicated server.
+        // The config screen needs the client classes: never touch them on a dedicated server.
         if (FMLEnvironment.dist.isClient()) {
-            modEventBus.register(ForgeClientEvents.class);
             ForgeClientEvents.registerConfigScreen(context);
         }
 
@@ -46,6 +44,6 @@ public class BalancedMcHardcoreMain {
 
     private void setup(final FMLCommonSetupEvent event) {
 
-        MinecraftForge.EVENT_BUS.register(ForgeEvents.class);
+        ForgeEvents.register();
     }
 }

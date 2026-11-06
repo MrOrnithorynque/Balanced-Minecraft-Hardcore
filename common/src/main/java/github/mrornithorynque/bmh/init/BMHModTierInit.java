@@ -1,45 +1,22 @@
 package github.mrornithorynque.bmh.init;
 
+import github.mrornithorynque.bmh.BalancedMcHardcore;
+
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.Tier;
-import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.level.block.Block;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ToolMaterial;
 
 public class BMHModTierInit {
 
-    public static final Tier ETERNAL = new Tier() {
+    // The items that repair an Eternal tool at an anvil: the gold block only (data/bmh/tags/item/eternal_tool_materials.json).
+    public static final TagKey<Item> ETERNAL_TOOL_MATERIALS = TagKey.create(Registries.ITEM,
+            Identifier.fromNamespaceAndPath(BalancedMcHardcore.MODID, "eternal_tool_materials"));
 
-        @Override
-        public int getUses() {
-            return 33000;
-        }
-
-        @Override
-        public float getSpeed() {
-            return 15.0f;
-        }
-
-        @Override
-        public float getAttackDamageBonus() {
-            return 0.0f;
-        }
-
-        // Mines everything netherite mines (the old level 5, one above netherite, meant no more).
-        @Override
-        public TagKey<Block> getIncorrectBlocksForDrops() {
-            return BlockTags.INCORRECT_FOR_NETHERITE_TOOL;
-        }
-
-        @Override
-        public int getEnchantmentValue() {
-            return 80;
-        }
-
-        @Override
-        public Ingredient getRepairIngredient() {
-            return Ingredient.of(Items.GOLD_BLOCK);
-        }
-    };
+    // 33000 uses, mining speed 15, no attack damage bonus, enchantability 80. It mines everything netherite mines
+    // (the old level 5, one above netherite, meant no more).
+    public static final ToolMaterial ETERNAL = new ToolMaterial(
+            BlockTags.INCORRECT_FOR_NETHERITE_TOOL, 33000, 15.0F, 0.0F, 80, ETERNAL_TOOL_MATERIALS);
 }

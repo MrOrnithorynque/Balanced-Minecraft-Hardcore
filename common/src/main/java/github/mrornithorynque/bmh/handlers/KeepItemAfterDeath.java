@@ -19,8 +19,6 @@ import net.minecraft.server.level.ServerPlayer;
 
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Tier;
-import net.minecraft.world.item.TieredItem;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.item.Item;
 
@@ -41,8 +39,7 @@ public class KeepItemAfterDeath {
             if (isItemToKeep(stack)) {
 
                 if ((serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL)
-                        && serverPlayer.serverLevel().getGameRules()
-                                .getBoolean(BMHGameRules.RULE_DAMAGE_ETERNAL_ITEM_WHEN_DEAD)) {
+                        && serverPlayer.level().getGameRules().get(BMHGameRules.RULE_DAMAGE_ETERNAL_ITEM_WHEN_DEAD)) {
 
                     IEternalItem eternalItem = (IEternalItem) stack.getItem();
                     eternalItem.reduceDurability(stack, 7);

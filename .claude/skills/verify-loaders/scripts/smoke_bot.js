@@ -6,6 +6,7 @@
 const MODULES = process.env.BOT_MODULES
 if (!MODULES) { console.log('BOT_MODULES is not set: npm install --ignore-scripts --prefix <dir> mineflayer@4.39.0, then BOT_MODULES=<dir>/node_modules'); process.exit(2) }
 const RCON_PY = __dirname + '/rcon.py'
+const ruleNames = require(__dirname + '/rule_names.js')
 const mineflayer = require(MODULES + '/mineflayer')
 const { Vec3 } = require(MODULES + '/vec3')
 const { execFileSync } = require('child_process')
@@ -15,7 +16,7 @@ const MCV = process.argv[3]
 const NAME = 'smokebot'
 const ITEMS = (process.env.SMOKE_ITEMS || '').split(/\s+/).filter(Boolean)
 const RECIPES = (process.env.SMOKE_RECIPES || '').split(/\s+/).filter(Boolean)
-const COMPONENTS = /^1\.21/.test(MCV) // 1.20.5+ item NBT
+const COMPONENTS = /^(1\.21|26\.)/.test(MCV) // 1.20.5+ item NBT
 const results = []
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // a throw inside mineflayer's own handlers (unknown modded items) must not lose the results gathered so far
@@ -24,7 +25,7 @@ process.on('unhandledRejection', (e) => console.log('unhandled', e && e.message)
 
 function rcon (cmd) {
   try {
-    return execFileSync('python3', ['-I', RCON_PY, String(PORT + 100), cmd], { encoding: 'utf8', timeout: 30000 }).trim()
+    return execFileSync('python3', ['-I', RCON_PY, String(PORT + 100), ruleNames(MCV, cmd)], { encoding: 'utf8', timeout: 30000 }).trim()
   } catch (e) {
     return 'RCON-ERROR ' + e.message
   }

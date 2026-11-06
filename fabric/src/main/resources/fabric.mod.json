@@ -9,7 +9,6 @@
     "environment": "*",
     "entrypoints": {
         "main": ["github.mrornithorynque.bmh.fabric.BalancedMcHardcoreFabric"],
-        "client": ["github.mrornithorynque.bmh.fabric.BalancedMcHardcoreFabricClient"],
         "modmenu": ["github.mrornithorynque.bmh.fabric.ModMenuIntegration"]
     },
     "mixins": [
@@ -19,7 +18,7 @@
     "depends": {
         "fabricloader": ">=${fabric_loader_version}",
         "fabric-api": "*",
-        "minecraft": "${minecraft_version}",
-        "java": ">=21"
+        "minecraft": "~26.1",
+        "java": ">=25"
     }
 }

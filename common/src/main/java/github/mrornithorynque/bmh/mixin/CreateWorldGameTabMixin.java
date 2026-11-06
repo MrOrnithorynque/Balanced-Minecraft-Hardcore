@@ -13,7 +13,8 @@ import net.minecraft.client.gui.components.tabs.GridLayoutTab;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.gamerules.GameRule;
+import net.minecraft.world.level.gamerules.GameRules;
 
 /**
  * Adds a "Balanced Hardcore: ON/OFF" button to the Game tab of the Create New World screen,
@@ -55,15 +56,15 @@ public abstract class CreateWorldGameTabMixin extends GridLayoutTab {
 
     private static boolean isBalancedHardcoreEnabled(GameRules gameRules) {
 
-        return BMHGameRules.ALL_RULES.stream().anyMatch(gameRules::getBoolean);
+        return BMHGameRules.ALL_RULES.stream().anyMatch(gameRules::get);
     }
 
     private static void setBalancedHardcoreEnabled(WorldCreationUiState uiState, boolean enabled) {
 
-        GameRules gameRules = uiState.getGameRules().copy();
+        GameRules gameRules = uiState.getGameRules().copy(uiState.getSettings().dataConfiguration().enabledFeatures());
 
-        for (GameRules.Key<GameRules.BooleanValue> rule : BMHGameRules.ALL_RULES) {
-            gameRules.getRule(rule).set(enabled, null);
+        for (GameRule<Boolean> rule : BMHGameRules.ALL_RULES) {
+            gameRules.set(rule, enabled, null);
         }
 
         uiState.setGameRules(gameRules);

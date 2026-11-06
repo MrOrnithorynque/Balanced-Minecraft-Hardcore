@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.joml.Quaternionf;
+import org.joml.Matrix3f;
 import org.joml.Vector3f;
 
 /**
- * Vanilla's star field, rebuilt star for star. {@code LevelRenderer.drawStars} (1.21.1) makes 1500 tries from seed
+ * Vanilla's star field, rebuilt star for star. {@code SkyRenderer.buildStars} (26.1.2) makes 1500 tries from seed
  * 10842, keeps the points inside the unit ball and draws a small quad 100 blocks out in each kept direction. This class
  * runs the same random stream, the same float filter and the same JOML calls, so its star i is the sky's star i.
  *
@@ -60,29 +60,30 @@ public final class StarField {
         return stars;
     }
 
-    // Mirrors LevelRenderer.drawStars line for line, variable names included. Vanilla's vector3f.add(...) moves
-    // vector3f itself, so each corner starts from the previous one: the quad is a diamond half a size beside the star's
-    // direction, not a square on it. Same here.
+    // Mirrors SkyRenderer.buildStars (26.1.2) line for line, variable names included. Each corner is the star's
+    // centre plus a rotated offset, so the quad is a square on the star's direction. 1.21.1 chained the corners
+    // (vector3f.add moved vector3f itself), which put the quad half a size beside the direction.
     private static List<Star> build() {
-        Random randomsource = new Random(10842L);
+        Random random = new Random(10842L);
         List<Star> out = new ArrayList<>();
 
-        for (int j = 0; j < 1500; j++) {
-            float f1 = randomsource.nextFloat() * 2.0F - 1.0F;
-            float f2 = randomsource.nextFloat() * 2.0F - 1.0F;
-            float f3 = randomsource.nextFloat() * 2.0F - 1.0F;
-            float f4 = 0.15F + randomsource.nextFloat() * 0.1F;
-            float f5 = f1 * f1 + f2 * f2 + f3 * f3; // Mth.lengthSquared
-            if (!(f5 <= 0.010000001F) && !(f5 >= 1.0F)) {
-                Vector3f vector3f = new Vector3f(f1, f2, f3).normalize(100.0F);
-                float f6 = (float) (randomsource.nextDouble() * (float) Math.PI * 2.0);
-                Quaternionf quaternionf = new Quaternionf().rotateTo(new Vector3f(0.0F, 0.0F, -1.0F), vector3f).rotateZ(f6);
+        for (int i = 0; i < 1500; i++) {
+            float x = random.nextFloat() * 2.0F - 1.0F;
+            float y = random.nextFloat() * 2.0F - 1.0F;
+            float z = random.nextFloat() * 2.0F - 1.0F;
+            float starSize = 0.15F + random.nextFloat() * 0.1F;
+            float lengthSq = x * x + y * y + z * z; // Mth.lengthSquared
+            if (!(lengthSq <= 0.010000001F) && !(lengthSq >= 1.0F)) {
+                Vector3f starCenter = new Vector3f(x, y, z).normalize(100.0F);
+                float zRot = (float) (random.nextDouble() * (float) Math.PI * 2.0);
+                Matrix3f rotation = new Matrix3f().rotateTowards(new Vector3f(starCenter).negate(), new Vector3f(0.0F, 1.0F, 0.0F))
+                        .rotateZ(-zRot);
                 double[][] corners = new double[4][];
-                corners[0] = corner(vector3f.add(new Vector3f(f4, -f4, 0.0F).rotate(quaternionf)));
-                corners[1] = corner(vector3f.add(new Vector3f(f4, f4, 0.0F).rotate(quaternionf)));
-                corners[2] = corner(vector3f.add(new Vector3f(-f4, f4, 0.0F).rotate(quaternionf)));
-                corners[3] = corner(vector3f.add(new Vector3f(-f4, -f4, 0.0F).rotate(quaternionf)));
-                out.add(new Star(out.size(), f4, corners));
+                corners[0] = corner(new Vector3f(starSize, -starSize, 0.0F).mul(rotation).add(starCenter));
+                corners[1] = corner(new Vector3f(starSize, starSize, 0.0F).mul(rotation).add(starCenter));
+                corners[2] = corner(new Vector3f(-starSize, starSize, 0.0F).mul(rotation).add(starCenter));
+                corners[3] = corner(new Vector3f(-starSize, -starSize, 0.0F).mul(rotation).add(starCenter));
+                out.add(new Star(out.size(), starSize, corners));
             }
         }
 
@@ -93,7 +94,7 @@ public final class StarField {
         return new double[] { v.x(), v.y(), v.z() };
     }
 
-    /** Minecraft's LegacyRandomSource (the generator behind RandomSource.create(seed)), the two calls drawStars makes. */
+    /** Minecraft's SingleThreadedRandomSource (RandomSource.createThreadLocalInstance(seed)), the two calls buildStars makes. */
     static final class Random {
 
         private long seed;

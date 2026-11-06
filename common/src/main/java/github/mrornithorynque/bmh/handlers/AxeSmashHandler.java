@@ -57,12 +57,12 @@ public class AxeSmashHandler {
     public static void onSmash(ServerPlayer attacker, Entity target, float multiplier) {
 
         LOGGER.debug("[BalancedMcHardcoreMain] Smash: {} hits x{} after a {} block fall",
-                attacker.getGameProfile().getName(), multiplier, attacker.fallDistance);
+                attacker.getGameProfile().name(), multiplier, attacker.fallDistance);
 
         // Half the fall distance, about half the fall damage.
         attacker.fallDistance *= 0.5F;
 
-        ServerLevel level = attacker.serverLevel();
+        ServerLevel level = attacker.level();
         int dust = Math.round(10.0F * multiplier);
 
         level.playSound(null, target.getX(), target.getY(), target.getZ(),

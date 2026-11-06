@@ -1,0 +1,244 @@
+{
+    "model": {
+        "type": "minecraft:range_dispatch",
+        "property": "bmh:north",
+        "scale": 32.0,
+        "entries": [
+            {
+                "threshold": 0.0,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_00"
+                }
+            },
+            {
+                "threshold": 0.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_01"
+                }
+            },
+            {
+                "threshold": 1.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_02"
+                }
+            },
+            {
+                "threshold": 2.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_03"
+                }
+            },
+            {
+                "threshold": 3.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_04"
+                }
+            },
+            {
+                "threshold": 4.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_05"
+                }
+            },
+            {
+                "threshold": 5.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_06"
+                }
+            },
+            {
+                "threshold": 6.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_07"
+                }
+            },
+            {
+                "threshold": 7.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_08"
+                }
+            },
+            {
+                "threshold": 8.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_09"
+                }
+            },
+            {
+                "threshold": 9.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_10"
+                }
+            },
+            {
+                "threshold": 10.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_11"
+                }
+            },
+            {
+                "threshold": 11.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_12"
+                }
+            },
+            {
+                "threshold": 12.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_13"
+                }
+            },
+            {
+                "threshold": 13.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_14"
+                }
+            },
+            {
+                "threshold": 14.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_15"
+                }
+            },
+            {
+                "threshold": 15.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_16"
+                }
+            },
+            {
+                "threshold": 16.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_17"
+                }
+            },
+            {
+                "threshold": 17.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_18"
+                }
+            },
+            {
+                "threshold": 18.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_19"
+                }
+            },
+            {
+                "threshold": 19.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_20"
+                }
+            },
+            {
+                "threshold": 20.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_21"
+                }
+            },
+            {
+                "threshold": 21.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_22"
+                }
+            },
+            {
+                "threshold": 22.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_23"
+                }
+            },
+            {
+                "threshold": 23.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_24"
+                }
+            },
+            {
+                "threshold": 24.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_25"
+                }
+            },
+            {
+                "threshold": 25.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_26"
+                }
+            },
+            {
+                "threshold": 26.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_27"
+                }
+            },
+            {
+                "threshold": 27.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_28"
+                }
+            },
+            {
+                "threshold": 28.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_29"
+                }
+            },
+            {
+                "threshold": 29.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_30"
+                }
+            },
+            {
+                "threshold": 30.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_31"
+                }
+            },
+            {
+                "threshold": 31.5,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/navigator_amulet_00"
+                }
+            }
+        ],
+        "fallback": {
+            "type": "minecraft:model",
+            "model": "bmh:item/navigator_amulet"
+        }
+    }
+}

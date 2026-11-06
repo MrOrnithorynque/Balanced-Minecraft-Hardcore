@@ -2,21 +2,25 @@ package github.mrornithorynque.bmh.handlers;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import github.mrornithorynque.bmh.platform.Services;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * The points of the Navigator's Amulet: named beds and lodestones of the Overworld. A star reading points to all of them.
@@ -34,6 +38,17 @@ public class AmuletPoints {
 
     public record Point(String name, BlockPos pos) {
     }
+
+    // The saved form of a position, the same as before 26.1: x, y and z fields, 0 when one is missing.
+    private static final MapCodec<BlockPos> POSITION_MAP_CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
+            Codec.INT.optionalFieldOf("x", 0).forGetter(BlockPos::getX),
+            Codec.INT.optionalFieldOf("y", 0).forGetter(BlockPos::getY),
+            Codec.INT.optionalFieldOf("z", 0).forGetter(BlockPos::getZ)).apply(instance, BlockPos::new));
+    private static final Codec<BlockPos> POSITION_CODEC = POSITION_MAP_CODEC.codec();
+    // The saved form of a point: its name and its position fields in one compound.
+    private static final Codec<Point> POINT_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.STRING.optionalFieldOf("name", "").forGetter(Point::name),
+            POSITION_MAP_CODEC.forGetter(Point::pos)).apply(instance, Point::new));
 
     /** Implemented by ServerPlayer through C_ServerPlayerMixin. */
     public interface Holder {
@@ -60,7 +75,7 @@ public class AmuletPoints {
      */
     public static BlockPos worldSpawn(ServerPlayer player) {
 
-        return player.serverLevel().getSharedSpawnPos();
+        return player.level().getRespawnData().pos();
     }
 
     /** Removes the point at exactly this position, with no block needed (the block may be gone). False when there is none. */
@@ -163,42 +178,26 @@ public class AmuletPoints {
         return trimmed.length() > MAX_NAME_LENGTH ? trimmed.substring(0, MAX_NAME_LENGTH).trim() : trimmed;
     }
 
-    // Used by the mixin to save the points into the player's NBT. The list is always written, empty or not.
-    public static void write(List<Point> points, CompoundTag playerTag) {
+    // Used by the mixin to save the points with the player. The list is always written, empty or not.
+    public static void write(List<Point> points, ValueOutput output) {
 
-        ListTag list = new ListTag();
+        ValueOutput.TypedOutputList<Point> list = output.list(POINTS_TAG, POINT_CODEC);
 
         for (Point point : points) {
-
-            CompoundTag tag = new CompoundTag();
-            tag.putString("name", point.name());
-            tag.putInt("x", point.pos().getX());
-            tag.putInt("y", point.pos().getY());
-            tag.putInt("z", point.pos().getZ());
-            list.add(tag);
+            list.add(point);
         }
-
-        playerTag.put(POINTS_TAG, list);
     }
 
     // Used by the mixin to load the points. A player saved before points existed brings their Home as a point named Home.
-    public static List<Point> read(CompoundTag playerTag) {
+    public static List<Point> read(ValueInput input) {
 
         List<Point> points = new ArrayList<>();
+        Optional<ValueInput.TypedInputList<Point>> list = input.list(POINTS_TAG, POINT_CODEC);
 
-        if (playerTag.contains(POINTS_TAG, Tag.TAG_LIST)) {
-
-            ListTag list = playerTag.getList(POINTS_TAG, Tag.TAG_COMPOUND);
-
-            for (int i = 0; i < list.size(); i++) {
-
-                CompoundTag tag = list.getCompound(i);
-                points.add(new Point(tag.getString("name"), new BlockPos(tag.getInt("x"), tag.getInt("y"), tag.getInt("z"))));
-            }
-        } else if (playerTag.contains(LEGACY_HOME_TAG, Tag.TAG_COMPOUND)) {
-
-            CompoundTag home = playerTag.getCompound(LEGACY_HOME_TAG);
-            points.add(new Point(LEGACY_HOME_NAME, new BlockPos(home.getInt("x"), home.getInt("y"), home.getInt("z"))));
+        if (list.isPresent()) {
+            list.get().stream().forEach(points::add);
+        } else {
+            input.read(LEGACY_HOME_TAG, POSITION_CODEC).ifPresent(pos -> points.add(new Point(LEGACY_HOME_NAME, pos)));
         }
 
         return points;

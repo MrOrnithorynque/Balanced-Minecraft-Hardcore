@@ -1,24 +1,12 @@
 package github.mrornithorynque.bmh.neoforge;
 
-import github.mrornithorynque.bmh.client.ClientItemProperties;
 import github.mrornithorynque.bmh.client.config.ConfigScreen;
 
-import net.minecraft.client.renderer.item.ItemProperties;
-
-import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
-/** Mod bus: the client setup. */
+/** The client side of the NeoForge mod. Since 26.1 the item models need no client setup: their JSON files switch on their own. */
 public class NeoForgeClientEvents {
-
-    @SubscribeEvent
-    public static void onClientSetup(FMLClientSetupEvent event) {
-
-        // Item properties go in a map that is not thread safe: wait for the main thread.
-        event.enqueueWork(() -> ClientItemProperties.registerAll(ItemProperties::register));
-    }
 
     // The Config button of BMH in the mods list. The constructor of the @Mod class calls it, behind the client check.
     public static void registerConfigScreen(ModContainer container) {

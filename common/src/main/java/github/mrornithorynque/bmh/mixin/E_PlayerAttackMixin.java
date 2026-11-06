@@ -22,9 +22,9 @@ import net.minecraft.world.item.Item;
  * The three moments of a player's melee hit that the Eternal Sword's echo and the Eternal Axe's smash
  * need, the same on Forge, Fabric and NeoForge:
  * <ul>
- * <li>the head: vanilla resets the attack strength early and Forge late, so this is the one place
+ * <li>the head: vanilla resets the attack strength early, Forge and NeoForge late, so this is the one place
  * that reads the same value everywhere, and the main hand is the weapon of the whole swing;</li>
- * <li>the one {@code Entity.hurt} call on the target (the sweep uses {@code LivingEntity.hurt}): the
+ * <li>the one {@code Entity.hurtOrSimulate} call on the target (the sweep uses {@code hurtServer}): the
  * damage the hit is about to deal, scaled here for the axe and for a worn-out tool;</li>
  * <li>the {@code causeFoodExhaustion} call, which only the branch of a landed hit reaches.</li>
  * </ul>
@@ -67,7 +67,7 @@ public abstract class E_PlayerAttackMixin {
         }
     }
 
-    @ModifyArg(method = "attack", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z"), index = 1)
+    @ModifyArg(method = "attack", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;hurtOrSimulate(Lnet/minecraft/world/damagesource/DamageSource;F)Z"), index = 1)
     private float bmh$scaleHit(float damage) {
 
         if (bmh$worn) {

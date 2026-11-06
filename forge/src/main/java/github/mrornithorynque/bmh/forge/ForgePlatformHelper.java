@@ -2,6 +2,7 @@ package github.mrornithorynque.bmh.forge;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.function.Supplier;
 
 import github.mrornithorynque.bmh.BalancedMcHardcore;
@@ -11,9 +12,9 @@ import github.mrornithorynque.bmh.platform.IPlatformHelper;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.ItemLike;
 
-import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.eventbus.api.bus.BusGroup;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.registries.DeferredRegister;
 
@@ -22,9 +23,9 @@ public class ForgePlatformHelper implements IPlatformHelper {
     // One DeferredRegister per registry, filled while the common init classes load.
     private static final Map<ResourceKey<?>, DeferredRegister<?>> REGISTERS = new HashMap<>();
 
-    public static void registerAll(IEventBus modEventBus) {
+    public static void registerAll(BusGroup modBusGroup) {
 
-        REGISTERS.values().forEach(register -> register.register(modEventBus));
+        REGISTERS.values().forEach(register -> register.register(modBusGroup));
     }
 
     @Override
@@ -38,15 +39,9 @@ public class ForgePlatformHelper implements IPlatformHelper {
     }
 
     @Override
-    public CreativeModeTab.Builder creativeTabBuilder() {
+    public CreativeModeTab.Builder creativeTabBuilder(List<Supplier<? extends ItemLike>> items) {
 
-        return CreativeModeTab.builder();
-    }
-
-    @Override
-    public GameRules.Key<GameRules.BooleanValue> registerBooleanGameRule(String name, GameRules.Category category, boolean defaultValue) {
-
-        return GameRules.register(name, category, GameRules.BooleanValue.create(defaultValue));
+        return CreativeModeTab.builder().displayItems((parameters, output) -> items.forEach(item -> output.accept(item.get())));
     }
 
     @Override

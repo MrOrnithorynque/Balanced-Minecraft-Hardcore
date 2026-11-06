@@ -1,6 +1,8 @@
 package github.mrornithorynque.bmh.handlers;
 
-import javax.annotation.Nullable;
+import java.util.Optional;
+
+import org.jspecify.annotations.Nullable;
 
 import org.slf4j.Logger;
 
@@ -53,7 +55,7 @@ public class AmuletReading {
     private static final String LEGACY_LAST_USE_TAG = "LastUseTime";
 
     private static final long DAY_LENGTH = 24000L;
-    // The night index goes up at this time of the day. Reading itself waits for isNight(), a little later.
+    // The night index goes up at this time of the day. Reading itself waits for isDarkOutside(), a little later.
     private static final long NIGHTFALL = 12000L;
 
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -91,14 +93,14 @@ public class AmuletReading {
     }
 
     /**
-     * Null when the stars can be read here and now, else the lang key saying why not. isNight() is
+     * Null when the stars can be read here and now, else the lang key saying why not. isDarkOutside() is
      * decided by how dark the sky is, and a thunderstorm darkens a day: rain is refused first. A sky out of
      * sight counts as hidden too (see sightBlocked): nothing is drawn then, so no charge is spent.
      */
     @Nullable
     public static String hiddenReason(ServerPlayer player) {
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
 
         if (level.dimension() != Level.OVERWORLD) {
             return "bmh.amulet.hidden.dimension";
@@ -108,7 +110,7 @@ public class AmuletReading {
             return "bmh.amulet.hidden.rain";
         }
 
-        if (!level.isNight()) {
+        if (!level.isDarkOutside()) {
             return "bmh.amulet.hidden.day";
         }
 
@@ -137,12 +139,11 @@ public class AmuletReading {
 
         CustomData data = stack.get(DataComponents.CUSTOM_DATA);
 
-        // Read only: getUnsafe() hands out the component's own tag, which is never written to here.
-        if (data == null || !data.getUnsafe().contains(CHARGES_TAG, Tag.TAG_INT)) {
+        if (data == null) {
             return MAX_CHARGES;
         }
 
-        return Mth.clamp(data.getUnsafe().getInt(CHARGES_TAG), 0, MAX_CHARGES);
+        return Mth.clamp(data.copyTag().getIntOr(CHARGES_TAG, MAX_CHARGES), 0, MAX_CHARGES);
     }
 
     /**
@@ -153,7 +154,7 @@ public class AmuletReading {
 
         CustomData data = stack.get(DataComponents.CUSTOM_DATA);
 
-        if (data != null && data.contains(LEGACY_LAST_USE_TAG)) {
+        if (data != null && data.copyTag().contains(LEGACY_LAST_USE_TAG)) {
             CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.remove(LEGACY_LAST_USE_TAG));
         }
 
@@ -175,13 +176,15 @@ public class AmuletReading {
 
         CustomData data = stack.get(DataComponents.CUSTOM_DATA);
 
-        if (data == null || !data.getUnsafe().contains(NIGHT_TAG, Tag.TAG_LONG)) {
+        Optional<Long> countedNight = data == null ? Optional.empty() : data.copyTag().getLong(NIGHT_TAG);
+
+        if (countedNight.isEmpty()) {
             return;
         }
 
-        long night = nightIndex(level.getDayTime());
+        long night = nightIndex(level.getOverworldClockTime());
 
-        if (data.getUnsafe().getLong(NIGHT_TAG) != night) {
+        if (countedNight.get() != night) {
 
             CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
                 tag.putInt(CHARGES_TAG, MAX_CHARGES);
@@ -212,7 +215,7 @@ public class AmuletReading {
         names.add(StringTag.valueOf(""));
 
         long gameTime = level.getGameTime();
-        long night = nightIndex(level.getDayTime());
+        long night = nightIndex(level.getOverworldClockTime());
         boolean free = player.getAbilities().instabuild;
         int chargesLeft = free ? charges(stack) : charges(stack) - 1;
 

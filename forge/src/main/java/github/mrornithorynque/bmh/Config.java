@@ -3,9 +3,6 @@ package github.mrornithorynque.bmh;
 import github.mrornithorynque.bmh.utilities.BMHConfigLimits;
 
 import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.fml.common.Mod;
-
-@Mod.EventBusSubscriber(modid = BalancedMcHardcoreMain.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class Config {
 
     public static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();

@@ -1,9 +1,9 @@
 package github.mrornithorynque.bmh.items;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
-import javax.annotation.Nonnull;
+import org.apache.commons.lang3.math.Fraction;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
@@ -11,9 +11,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.stats.Stats;
+import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.SlotAccess;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -29,6 +30,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemUtils;
 import net.minecraft.world.item.component.BundleContents;
+import net.minecraft.world.item.component.TooltipDisplay;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -41,7 +43,8 @@ public class EternalBundleItem extends Item implements IEternalItem {
 
     public static final int MAX_WEIGHT = 64;
     private static final Logger LOGGER = LogManager.getLogger();
-    private static final int BAR_COLOR = Mth.color(0.4F, 0.4F, 1.0F);
+    // The color of the 1.21.1 bundle bar: red 0.4, green 0.4, blue 1.0.
+    private static final int BAR_COLOR = ARGB.color(102, 102, 255);
 
     public EternalBundleItem(Item.Properties properties) {
 
@@ -53,16 +56,11 @@ public class EternalBundleItem extends Item implements IEternalItem {
         // No need here
     }
 
-    public static float getFullnessDisplay(ItemStack stack) {
-
-        return getContents(stack).weight().floatValue();
-    }
-
     public boolean overrideStackedOnOther(
-            @Nonnull ItemStack stack,
-            @Nonnull Slot slot,
-            @Nonnull ClickAction clickAction,
-            @Nonnull Player player) {
+            ItemStack stack,
+            Slot slot,
+            ClickAction clickAction,
+            Player player) {
 
         if (stack.getCount() != 1 || clickAction != ClickAction.SECONDARY) {
             return false;
@@ -96,12 +94,12 @@ public class EternalBundleItem extends Item implements IEternalItem {
     }
 
     public boolean overrideOtherStackedOnMe(
-            @Nonnull ItemStack currentStack,
-            @Nonnull ItemStack otherStack,
-            @Nonnull Slot slot,
-            @Nonnull ClickAction clickAction,
-            @Nonnull Player player,
-            @Nonnull SlotAccess slotAccess) {
+            ItemStack currentStack,
+            ItemStack otherStack,
+            Slot slot,
+            ClickAction clickAction,
+            Player player,
+            SlotAccess slotAccess) {
 
         if (currentStack.getCount() != 1) {
             return false;
@@ -139,10 +137,12 @@ public class EternalBundleItem extends Item implements IEternalItem {
         return false;
     }
 
-    public InteractionResultHolder<ItemStack> use(
-            @Nonnull Level level,
-            @Nonnull Player player,
-            @Nonnull InteractionHand interactionHand) {
+    // Drops everything at once, as the bundle of 1.21.1 did. Vanilla's bundle now drops one item at a time while used.
+    @Override
+    public InteractionResult use(
+            Level level,
+            Player player,
+            InteractionHand interactionHand) {
 
         ItemStack stack = player.getItemInHand(interactionHand);
 
@@ -151,23 +151,23 @@ public class EternalBundleItem extends Item implements IEternalItem {
             this.playDropContentsSound(player);
             player.awardStat(Stats.ITEM_USED.get(this));
 
-            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+            return InteractionResult.SUCCESS;
         } else {
-            return InteractionResultHolder.fail(stack);
+            return InteractionResult.FAIL;
         }
     }
 
-    public boolean isBarVisible(@Nonnull ItemStack stack) {
+    public boolean isBarVisible(ItemStack stack) {
 
         return !getContents(stack).isEmpty();
     }
 
-    public int getBarWidth(@Nonnull ItemStack stack) {
+    public int getBarWidth(ItemStack stack) {
 
-        return Math.min(1 + Mth.mulAndTruncate(getContents(stack).weight(), 12), 13);
+        return Math.min(1 + Mth.mulAndTruncate(getWeight(stack), 12), 13);
     }
 
-    public int getBarColor(@Nonnull ItemStack stack) {
+    public int getBarColor(ItemStack stack) {
 
         return BAR_COLOR;
     }
@@ -187,6 +187,12 @@ public class EternalBundleItem extends Item implements IEternalItem {
         return stack.getOrDefault(DataComponents.BUNDLE_CONTENTS, BundleContents.EMPTY);
     }
 
+    // The weight of the contents, where 1 is a full bundle. An invalid weight counts as full, as in vanilla's BundleItem.
+    private static Fraction getWeight(ItemStack stack) {
+
+        return getContents(stack).weight().result().orElse(Fraction.ONE);
+    }
+
     private static boolean dropContents(ItemStack stack, Player player) {
 
         BundleContents contents = getContents(stack);
@@ -198,35 +204,37 @@ public class EternalBundleItem extends Item implements IEternalItem {
         stack.set(DataComponents.BUNDLE_CONTENTS, BundleContents.EMPTY);
 
         if (player instanceof ServerPlayer) {
-            contents.itemsCopy().forEach(itemStack -> player.drop(itemStack, true));
+            contents.itemCopyStream().forEach(itemStack -> player.drop(itemStack, true));
         }
 
         return true;
     }
 
-    public Optional<TooltipComponent> getTooltipImage(@Nonnull ItemStack stack) {
+    public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
 
         return Optional.of(new BundleTooltip(getContents(stack)));
     }
 
+    @Override
     public void appendHoverText(
-            @Nonnull ItemStack stack,
-            @Nonnull Item.TooltipContext context,
-            @Nonnull List<Component> componentList,
-            @Nonnull TooltipFlag tooltipFlag) {
+            ItemStack stack,
+            Item.TooltipContext context,
+            TooltipDisplay display,
+            Consumer<Component> componentList,
+            TooltipFlag tooltipFlag) {
 
-        componentList.add(Component.translatable("item.minecraft.bundle.fullness",
-                Mth.mulAndTruncate(getContents(stack).weight(), MAX_WEIGHT), MAX_WEIGHT)
+        componentList.accept(Component.translatable("item.minecraft.bundle.fullness",
+                Mth.mulAndTruncate(getWeight(stack), MAX_WEIGHT), MAX_WEIGHT)
                 .withStyle(ChatFormatting.GRAY));
         EternalTooltips.addHeavy(componentList);
     }
 
-    public void onDestroyed(@Nonnull ItemEntity itemEntity) {
+    public void onDestroyed(ItemEntity itemEntity) {
 
         BundleContents contents = getContents(itemEntity.getItem());
 
         itemEntity.getItem().set(DataComponents.BUNDLE_CONTENTS, BundleContents.EMPTY);
-        ItemUtils.onContainerDestroyed(itemEntity, contents.itemsCopy());
+        ItemUtils.onContainerDestroyed(itemEntity, contents.itemCopyStream());
     }
 
     private void playRemoveOneSound(Entity entity) {

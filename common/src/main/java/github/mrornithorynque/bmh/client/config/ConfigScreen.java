@@ -2,19 +2,19 @@ package github.mrornithorynque.bmh.client.config;
 
 import java.util.List;
 
-import javax.annotation.Nullable;
-
-import com.mojang.blaze3d.platform.InputConstants;
+import org.jspecify.annotations.Nullable;
 
 import github.mrornithorynque.bmh.platform.Services;
 import github.mrornithorynque.bmh.utilities.BMHConfigLimits;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.StringUtil;
 
 /**
  * The config screen of the mods list (Forge and NeoForge) and of Mod Menu (Fabric): the three values of
@@ -28,10 +28,12 @@ public class ConfigScreen extends Screen {
     private static final int FIELD_WIDTH = 120;
     private static final int BUTTON_WIDTH = 98;
     private static final int GAP = 4;
-    private static final int TEXT_COLOR = 0xFFFFFF;
-    private static final int NOTE_COLOR = 0xA0A0A0;
-    private static final int ERROR_COLOR = 0xFF8080;
-    private static final int FIELD_COLOR = 0xE0E0E0;
+    // Opaque: since 26.1 text with alpha 0 is not drawn (1.21.1's font made it opaque). FIELD_COLOR is
+    // EditBox.DEFAULT_TEXT_COLOR.
+    private static final int TEXT_COLOR = 0xFFFFFFFF;
+    private static final int NOTE_COLOR = 0xFFA0A0A0;
+    private static final int ERROR_COLOR = 0xFFFF8080;
+    private static final int FIELD_COLOR = 0xFFE0E0E0;
 
     private final Screen parent;
 
@@ -73,9 +75,19 @@ public class ConfigScreen extends Screen {
 
     private EditBox field(@Nullable EditBox old, int row, int configValue) {
 
-        EditBox box = new EditBox(this.font, (this.width - FIELD_WIDTH) / 2, TOP + row * ROW_HEIGHT + 11, FIELD_WIDTH, 20, this.label(row));
+        // Digits only. 26.1 removed EditBox.setFilter: the box refuses any typed or pasted text that is not all digits,
+        // as the 1.21.1 filter did.
+        EditBox box = new EditBox(this.font, (this.width - FIELD_WIDTH) / 2, TOP + row * ROW_HEIGHT + 11, FIELD_WIDTH, 20, this.label(row)) {
+
+            @Override
+            public void insertText(String input) {
+
+                if (StringUtil.filterText(input).chars().allMatch(Character::isDigit)) {
+                    super.insertText(input);
+                }
+            }
+        };
         box.setMaxLength(6);
-        box.setFilter(value -> value.chars().allMatch(Character::isDigit));
         box.setValue(old != null ? old.getValue() : String.valueOf(configValue));
 
         return this.addRenderableWidget(box);
@@ -148,39 +160,47 @@ public class ConfigScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent event) {
 
-        if ((keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) && this.done.active) {
+        // Enter or the keypad Enter.
+        if (event.isConfirmation() && this.done.active) {
             this.save();
             return true;
         }
 
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
+    // 1.21.1 drew this dim layer first, then the vanilla background. Since 26.1 the background has its own step.
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 
         // 1.20 and 1.20.1 draw no background in Screen.render, later versions do. Without a world, nothing is behind the screen.
         graphics.fill(0, 0, this.width, this.height, this.minecraft.level == null ? 0xFF202020 : 0x80000000);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractBackground(graphics, mouseX, mouseY, partialTick);
+    }
 
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 15, TEXT_COLOR);
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+
+        graphics.centeredText(this.font, this.title, this.width / 2, 15, TEXT_COLOR);
 
         for (int row = 0; row < 3; row++) {
-            graphics.drawCenteredString(this.font, this.label(row), this.width / 2, TOP + row * ROW_HEIGHT, NOTE_COLOR);
+            graphics.centeredText(this.font, this.label(row), this.width / 2, TOP + row * ROW_HEIGHT, NOTE_COLOR);
         }
 
         int y = TOP + 3 * ROW_HEIGHT + 2;
 
         if (this.error != null) {
-            graphics.drawCenteredString(this.font, this.error, this.width / 2, y, ERROR_COLOR);
+            graphics.centeredText(this.font, this.error, this.width / 2, y, ERROR_COLOR);
         }
 
         List<FormattedCharSequence> note = this.font.split(Component.translatable("bmh.config.note"), Math.min(this.width - 40, 300));
 
         for (int i = 0; i < note.size(); i++) {
-            graphics.drawCenteredString(this.font, note.get(i), this.width / 2, y + 14 + i * 10, NOTE_COLOR);
+            graphics.centeredText(this.font, note.get(i), this.width / 2, y + 14 + i * 10, NOTE_COLOR);
         }
     }
 }

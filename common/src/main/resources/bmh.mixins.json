@@ -3,7 +3,6 @@
     "minVersion": "0.8",
     "package": "github.mrornithorynque.bmh.mixin",
     "compatibilityLevel": "JAVA_21",
-    "refmap": "bmh.refmap.json",
     "mixins": [
         "A_LivingEntityTotemMixin",
         "B_AnvilMenuMixin",
@@ -31,9 +30,9 @@
         "F_MinecraftOverlayMixin",
         "F_MusicManagerAccessor",
         "F_SoundInstanceVolumeAccessor",
-        "H_ItemRendererSwordMixin",
         "I_ClientPacketListenerTotemMixin",
-        "K_GuiSpyglassMixin"
+        "K_GuiSpyglassMixin",
+        "M_RangeSelectPropertiesMixin"
     ],
     "injectors": {
         "defaultRequire": 1

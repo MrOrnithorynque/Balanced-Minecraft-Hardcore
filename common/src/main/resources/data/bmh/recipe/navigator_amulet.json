@@ -6,18 +6,10 @@
         " Y "
     ],
     "key": {
-        "S": {
-            "item": "minecraft:string"
-        },
-        "C": {
-            "item": "minecraft:copper_ingot"
-        },
-        "K": {
-            "item": "minecraft:compass"
-        },
-        "Y": {
-            "item": "minecraft:spyglass"
-        }
+        "S": "minecraft:string",
+        "C": "minecraft:copper_ingot",
+        "K": "minecraft:compass",
+        "Y": "minecraft:spyglass"
     },
     "result": {
         "id": "bmh:navigator_amulet",

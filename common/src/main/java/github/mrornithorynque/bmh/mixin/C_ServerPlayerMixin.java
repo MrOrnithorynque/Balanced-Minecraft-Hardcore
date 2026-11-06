@@ -11,8 +11,9 @@ import java.util.List;
 
 import github.mrornithorynque.bmh.handlers.AmuletPoints;
 
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * Gives every ServerPlayer the points of the Navigator's Amulet (see AmuletPoints): saved with the player,
@@ -37,15 +38,15 @@ public abstract class C_ServerPlayerMixin implements AmuletPoints.Holder {
     }
 
     @Inject(method = "addAdditionalSaveData", at = @At("TAIL"))
-    private void bmh$savePoints(CompoundTag tag, CallbackInfo ci) {
+    private void bmh$savePoints(ValueOutput output, CallbackInfo ci) {
 
-        AmuletPoints.write(this.bmh$points, tag);
+        AmuletPoints.write(this.bmh$points, output);
     }
 
     @Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
-    private void bmh$loadPoints(CompoundTag tag, CallbackInfo ci) {
+    private void bmh$loadPoints(ValueInput input, CallbackInfo ci) {
 
-        this.bmh$points = AmuletPoints.read(tag);
+        this.bmh$points = AmuletPoints.read(input);
     }
 
     @Inject(method = "restoreFrom", at = @At("TAIL"))

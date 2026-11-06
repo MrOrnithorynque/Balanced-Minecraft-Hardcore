@@ -1,11 +1,12 @@
 package github.mrornithorynque.bmh.platform;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.ItemLike;
 
 /**
  * Everything common code needs from the mod loader. One implementation per loader, found by
@@ -19,10 +20,11 @@ public interface IPlatformHelper {
      */
     <T, I extends T> Supplier<I> register(ResourceKey<? extends Registry<T>> registry, String name, Supplier<I> factory);
 
-    CreativeModeTab.Builder creativeTabBuilder();
-
-    /** Vanilla keeps GameRules.register private: each loader has its own way in. */
-    GameRules.Key<GameRules.BooleanValue> registerBooleanGameRule(String name, GameRules.Category category, boolean defaultValue);
+    /**
+     * A creative tab builder that already lists these items. Vanilla 26.1 keeps CreativeModeTab.Output protected, and
+     * each loader makes it public: so only the loader code can fill the tab.
+     */
+    CreativeModeTab.Builder creativeTabBuilder(List<Supplier<? extends ItemLike>> items);
 
     /** True on the game client (singleplayer and LAN host included), false on a dedicated server. */
     boolean isPhysicalClient();

@@ -21,7 +21,7 @@ serve() { # <worktree> <log> <mode>: boot, run the bot in <mode>, stop
   take_lock; take_slot
   boot_server "$1" "$L" "$JH" "$2"
   if [ $UP = 1 ]; then
-    with_timeout 300 node "$SCRIPTS/upgrade_bot.js" $PORT "$MCV" "$3" > "$OUT/bot-$3.log" 2>&1
+    with_timeout 300 node "$SCRIPTS/upgrade_bot.js" $PORT "$(bot_version "$MCV")" "$3" > "$OUT/bot-$3.log" 2>&1
     stop_server
   fi
   release

@@ -5,7 +5,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
-import org.joml.Vector3f;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -17,12 +16,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.ARGB;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Enemy;
-import net.minecraft.world.entity.npc.AbstractVillager;
+import net.minecraft.world.entity.npc.villager.AbstractVillager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -48,7 +48,7 @@ public class EchoStrikeHandler {
     // A fake player is never ticked by the level: do not let its echoes pile up.
     private static final int MAX_PENDING_ECHOES = 8;
 
-    private static final DustParticleOptions CYAN = new DustParticleOptions(new Vector3f(0.1F, 0.9F, 1.0F), 1.0F);
+    private static final DustParticleOptions CYAN = new DustParticleOptions(ARGB.colorFromFloat(1.0F, 0.1F, 0.9F, 1.0F), 1.0F);
 
     /** An echo on its way: where the hit landed, the damage it will deal, and when. */
     public record PendingEcho(ResourceKey<Level> dimension, UUID targetId, Vec3 origin, float damage, long dueGameTime) {
@@ -72,7 +72,7 @@ public class EchoStrikeHandler {
             pending.remove(0);
         }
 
-        ServerLevel level = attacker.serverLevel();
+        ServerLevel level = attacker.level();
 
         pending.add(new PendingEcho(
                 level.dimension(),
@@ -86,7 +86,7 @@ public class EchoStrikeHandler {
     public static void deliverDueEchoes(ServerPlayer attacker) {
 
         List<PendingEcho> pending = ((EchoStrikeQueue) attacker).bmh$pendingEchoes();
-        ServerLevel level = attacker.serverLevel();
+        ServerLevel level = attacker.level();
         long now = level.getGameTime();
 
         // Out of the queue first: delivering hurts a mob, and a mod listening to that may start another swing.
@@ -126,7 +126,7 @@ public class EchoStrikeHandler {
         Vec3 end = center(victim);
 
         // Invulnerability frames can absorb the echo: then there is nothing to show either.
-        if (!victim.hurt(level.damageSources().playerAttack(attacker), echo.damage())) {
+        if (!victim.hurtServer(level, level.damageSources().playerAttack(attacker), echo.damage())) {
             return;
         }
 
@@ -134,7 +134,7 @@ public class EchoStrikeHandler {
         level.playSound(null, end.x, end.y, end.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 0.6F, 1.6F);
 
         LOGGER.debug("[BalancedMcHardcoreMain] Echo Strike: {} echoes {} onto {} ({} blocks away)",
-                attacker.getGameProfile().getName(), echo.damage(), victim.getName().getString(), origin.distanceTo(end));
+                attacker.getGameProfile().name(), echo.damage(), victim.getName().getString(), origin.distanceTo(end));
     }
 
     private static LivingEntity nearestVictim(ServerPlayer attacker, ServerLevel level, Vec3 origin, UUID targetId) {
@@ -175,7 +175,8 @@ public class EchoStrikeHandler {
         }
 
         // The attacker's own tamed animals (wolves, cats, parrots, horses...).
-        if (entity instanceof OwnableEntity pet && attacker.getUUID().equals(pet.getOwnerUUID())) {
+        if (entity instanceof OwnableEntity pet && pet.getOwnerReference() != null
+                && attacker.getUUID().equals(pet.getOwnerReference().getUUID())) {
             return false;
         }
 

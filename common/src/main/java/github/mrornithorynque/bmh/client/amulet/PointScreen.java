@@ -1,18 +1,18 @@
 package github.mrornithorynque.bmh.client.amulet;
 
-import javax.annotation.Nullable;
-
-import com.mojang.blaze3d.platform.InputConstants;
+import org.jspecify.annotations.Nullable;
 
 import github.mrornithorynque.bmh.handlers.AmuletPoints;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundChatCommandPacket;
 
 /**
  * The naming screen of a point of the Navigator's Amulet: a name field, Save, Remove (for a point that
@@ -25,9 +25,10 @@ public class PointScreen extends Screen {
     private static final int FIELD_WIDTH = 200;
     private static final int BUTTON_WIDTH = 64;
     private static final int GAP = 4;
-    private static final int TEXT_COLOR = 0xFFFFFF;
-    private static final int NOTE_COLOR = 0xA0A0A0;
-    private static final int FULL_COLOR = 0xFF8080;
+    // Opaque: since 26.1 text with alpha 0 is not drawn (1.21.1's font made it opaque).
+    private static final int TEXT_COLOR = 0xFFFFFFFF;
+    private static final int NOTE_COLOR = 0xFFA0A0A0;
+    private static final int FULL_COLOR = 0xFFFF8080;
 
     private final BlockPos pos;
     @Nullable
@@ -97,7 +98,7 @@ public class PointScreen extends Screen {
         String clean = AmuletPoints.cleanName(this.name.getValue());
 
         if (!this.full() && !clean.isEmpty()) {
-            this.send("bmh point save " + this.pos.getX() + " " + this.pos.getY() + " " + this.pos.getZ() + " " + clean);
+            send("bmh point save " + this.pos.getX() + " " + this.pos.getY() + " " + this.pos.getZ() + " " + clean);
         }
 
         this.onClose();
@@ -105,46 +106,56 @@ public class PointScreen extends Screen {
 
     private void remove() {
 
-        this.send("bmh point remove " + this.pos.getX() + " " + this.pos.getY() + " " + this.pos.getZ());
+        send("bmh point remove " + this.pos.getX() + " " + this.pos.getY() + " " + this.pos.getZ());
         this.onClose();
     }
 
-    private void send(String command) {
+    // The unsigned command packet, as 1.21.1's sendUnsignedCommand sent it (26.1 removed that method). The command
+    // has no argument to sign: its name is a plain string.
+    static void send(String command) {
 
         Minecraft minecraft = Minecraft.getInstance();
 
         if (minecraft.player != null) {
-            minecraft.player.connection.sendUnsignedCommand(command);
+            minecraft.player.connection.send(new ServerboundChatCommandPacket(command));
         }
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent event) {
 
-        if ((keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) && this.save.active) {
+        // Enter or the keypad Enter.
+        if (event.isConfirmation() && this.save.active) {
             this.save();
             return true;
         }
 
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
+    // 1.21.1 drew this dim layer first, then the vanilla background. Since 26.1 the background has its own step.
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 
         // A dim layer that works from 1.20 to 1.21.1: 1.20.1 draws no background in Screen.render, later versions do.
         graphics.fill(0, 0, this.width, this.height, 0x80000000);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractBackground(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
         int top = this.height / 2 - 30;
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, top - 30, TEXT_COLOR);
-        graphics.drawCenteredString(this.font, Component.translatable(this.bed ? "bmh.point.screen.bed" : "bmh.point.screen.lodestone"),
+        graphics.centeredText(this.font, this.title, this.width / 2, top - 30, TEXT_COLOR);
+        graphics.centeredText(this.font, Component.translatable(this.bed ? "bmh.point.screen.bed" : "bmh.point.screen.lodestone"),
                 this.width / 2, top - 16, NOTE_COLOR);
 
         Component count = this.full()
                 ? Component.translatable("bmh.point.full", this.max)
                 : Component.translatable("bmh.point.screen.count", this.used + (this.existing == null ? 1 : 0), this.max);
-        graphics.drawCenteredString(this.font, count, this.width / 2, top + 58, this.full() ? FULL_COLOR : NOTE_COLOR);
+        graphics.centeredText(this.font, count, this.width / 2, top + 58, this.full() ? FULL_COLOR : NOTE_COLOR);
     }
 
     @Override

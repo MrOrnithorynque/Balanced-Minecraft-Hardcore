@@ -1,0 +1,19 @@
+{
+    "model": {
+        "type": "minecraft:range_dispatch",
+        "property": "minecraft:bundle/fullness",
+        "entries": [
+            {
+                "threshold": 1e-07,
+                "model": {
+                    "type": "minecraft:model",
+                    "model": "bmh:item/eternal_bundle_filled"
+                }
+            }
+        ],
+        "fallback": {
+            "type": "minecraft:model",
+            "model": "bmh:item/eternal_bundle"
+        }
+    }
+}

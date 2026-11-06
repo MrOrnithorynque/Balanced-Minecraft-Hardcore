@@ -23,9 +23,9 @@ public class SleepHandler {
         if (sleeper instanceof ServerPlayer) {
 
             ServerPlayer player = (ServerPlayer) sleeper;
-            ServerLevel serverLevel = player.serverLevel();
+            ServerLevel serverLevel = player.level();
 
-            if (serverLevel.getGameRules().getBoolean(BMHGameRules.RULE_FOOD_AND_HEALTH_REGEN_ON_WAKE_UP)) {
+            if (serverLevel.getGameRules().get(BMHGameRules.RULE_FOOD_AND_HEALTH_REGEN_ON_WAKE_UP)) {
 
                 healthAndFoodRegen(player);
             }
@@ -47,8 +47,8 @@ public class SleepHandler {
 
             if (playerHealth >= 20f /* 100% */) {
 
-                MobEffectInstance digSpeed = new MobEffectInstance(MobEffects.DIG_SPEED, 3600, 1, false, false, true);
-                MobEffectInstance resistance = new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 3600, 1, false, false, true);
+                MobEffectInstance digSpeed = new MobEffectInstance(MobEffects.HASTE, 3600, 1, false, false, true);
+                MobEffectInstance resistance = new MobEffectInstance(MobEffects.RESISTANCE, 3600, 1, false, false, true);
 
                 player.addEffect(digSpeed);
                 player.addEffect(resistance);

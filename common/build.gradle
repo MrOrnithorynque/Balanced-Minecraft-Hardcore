@@ -1,12 +1,13 @@
-// Compiled against vanilla Minecraft only: anything loader-specific in here fails this build.
+// Compiled against vanilla Minecraft only (NeoForm, no loader): anything loader-specific in here fails this build.
 plugins {
-    id 'org.spongepowered.gradle.vanilla'
+    id 'net.neoforged.moddev'
 }
 
-minecraft {
-    version(minecraft_version)
+neoForge {
+    neoFormVersion = neo_form_version
 }
 
 dependencies {
-    compileOnly 'org.spongepowered:mixin:0.8.5'
+    // Forge, Fabric and NeoForge all ship Mixin 0.8.7.
+    compileOnly 'org.spongepowered:mixin:0.8.7'
 }

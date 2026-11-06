@@ -38,7 +38,8 @@ public final class StarChain {
 
     /**
      * Where a star of the star field stands in the world at this time of day, as a unit vector (x east, y up, z
-     * south). Vanilla draws the stars after YP(-90) then XP(timeOfDay * 360) on the camera's rotation.
+     * south). Vanilla draws the stars after YP(-90) then XP(timeOfDay * 360) on the camera's rotation. Since 26.1
+     * that angle is the star angle attribute, so timeOfDay is the star angle divided by 360.
      */
     public static double[] toWorld(double x, double y, double z, double timeOfDay) {
         double angle = Math.toRadians(timeOfDay * 360.0);

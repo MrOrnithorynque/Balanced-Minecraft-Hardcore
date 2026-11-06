@@ -22,7 +22,7 @@ import github.mrornithorynque.bmh.mixin.E_DisplayInvoker;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -56,7 +56,7 @@ public class EchoSenseHandler {
 
     /** Every ore Echo Sense reacts to. Lives in data/bmh/tags/block (data/bmh/tags/blocks before 1.21). */
     public static final TagKey<Block> ECHO_SENSE_ORES = TagKey.create(Registries.BLOCK,
-            ResourceLocation.fromNamespaceAndPath(BalancedMcHardcore.MODID, "echo_sense_ores"));
+            Identifier.fromNamespaceAndPath(BalancedMcHardcore.MODID, "echo_sense_ores"));
 
     /** Marks a display as Echo Sense's; {@code UNTIL_PREFIX + expiry game time} says when it ends. */
     public static final String ECHO_TAG = "bmh_echo";
@@ -88,7 +88,7 @@ public class EchoSenseHandler {
     /** Logs once at server start how many blocks the tag holds: a tag in the wrong folder loads empty, without an error. */
     public static void logTagSize() {
 
-        int size = BuiltInRegistries.BLOCK.getTag(ECHO_SENSE_ORES).map(tag -> tag.size()).orElse(-1);
+        int size = BuiltInRegistries.BLOCK.get(ECHO_SENSE_ORES).map(tag -> tag.size()).orElse(-1);
 
         if (size > 0) {
             LOGGER.info("[BalancedMcHardcoreMain] Echo Sense: tag {} lists {} blocks.", ECHO_SENSE_ORES.location(), size);
@@ -109,14 +109,14 @@ public class EchoSenseHandler {
             return;
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.level();
         long expiry = level.getGameTime() + LIFETIME_TICKS;
 
         // Displays already shining around here only need a longer glow, not a twin.
         Map<Long, Display.BlockDisplay> shining = new HashMap<>();
 
         for (Display.BlockDisplay display : level.getEntitiesOfClass(Display.BlockDisplay.class,
-                new AABB(pos).inflate(RADIUS + 1), entity -> entity.getTags().contains(ECHO_TAG))) {
+                new AABB(pos).inflate(RADIUS + 1), entity -> entity.entityTags().contains(ECHO_TAG))) {
             shining.put(display.blockPosition().asLong(), display);
         }
 
@@ -144,17 +144,17 @@ public class EchoSenseHandler {
         }
 
         LOGGER.debug("[BalancedMcHardcoreMain] Echo Sense: {} lit {} ores of the same kind, {} already shining.",
-                player.getGameProfile().getName(), spawned, extended);
+                player.getGameProfile().name(), spawned, extended);
     }
 
     /** Called from {@code Display.tick} on both sides: discards an Echo Sense display whose time is up or whose ore is gone. */
     public static void discardIfExpired(Display display) {
 
-        if (display.level().isClientSide) {
+        if (display.level().isClientSide()) {
             return;
         }
 
-        Set<String> tags = display.getTags();
+        Set<String> tags = display.entityTags();
 
         if (tags.isEmpty() || !tags.contains(ECHO_TAG)) {
             return;
@@ -220,7 +220,7 @@ public class EchoSenseHandler {
         Display.BlockDisplay display = new Display.BlockDisplay(EntityType.BLOCK_DISPLAY, level);
 
         // A block display draws its block from the entity's position to one block further.
-        display.moveTo(ore.pos().getX(), ore.pos().getY(), ore.pos().getZ(), 0.0F, 0.0F);
+        display.snapTo(ore.pos().getX(), ore.pos().getY(), ore.pos().getZ(), 0.0F, 0.0F);
 
         ((E_BlockDisplayInvoker) display).bmh$setBlockState(ore.state());
         ((E_DisplayInvoker) display).bmh$setGlowColorOverride(GLOW_COLOR);
@@ -239,7 +239,7 @@ public class EchoSenseHandler {
 
     private static void setExpiry(Display display, long expiry) {
 
-        for (String tag : new ArrayList<>(display.getTags())) {
+        for (String tag : new ArrayList<>(display.entityTags())) {
             if (tag.startsWith(UNTIL_PREFIX)) {
                 display.removeTag(tag);
             }

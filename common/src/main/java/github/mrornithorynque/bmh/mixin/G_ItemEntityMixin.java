@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.item.ItemEntity;
 
@@ -16,13 +17,22 @@ import github.mrornithorynque.bmh.items.IEternalItem;
  * The void still removes it, and so does /kill.
  *
  * No loader has an event for item entity damage, and Fabric has none for the despawn: one mixin covers the three
- * loaders. The vanilla names are the same from 1.20 to 1.21.1.
+ * loaders.
  */
 @Mixin(ItemEntity.class)
 public abstract class G_ItemEntityMixin {
 
-    @Inject(method = "hurt", at = @At("HEAD"), cancellable = true)
-    private void bmh$eternalItemIgnoresDamage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+    // Entity.hurt is split in two since 1.21.2: the server applies the damage, the client only predicts it.
+    @Inject(method = "hurtServer", at = @At("HEAD"), cancellable = true)
+    private void bmh$eternalItemIgnoresDamage(ServerLevel level, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+
+        if (((ItemEntity) (Object) this).getItem().getItem() instanceof IEternalItem) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(method = "hurtClient", at = @At("HEAD"), cancellable = true)
+    private void bmh$eternalItemIgnoresDamageOnClient(DamageSource source, CallbackInfoReturnable<Boolean> cir) {
 
         if (((ItemEntity) (Object) this).getItem().getItem() instanceof IEternalItem) {
             cir.setReturnValue(false);
@@ -37,7 +47,7 @@ public abstract class G_ItemEntityMixin {
 
         ItemEntity itemEntity = (ItemEntity) (Object) this;
 
-        if (!itemEntity.level().isClientSide && itemEntity.getItem().getItem() instanceof IEternalItem) {
+        if (!itemEntity.level().isClientSide() && itemEntity.getItem().getItem() instanceof IEternalItem) {
             itemEntity.setUnlimitedLifetime();
         }
     }

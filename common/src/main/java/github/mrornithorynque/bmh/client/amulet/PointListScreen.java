@@ -3,8 +3,7 @@ package github.mrornithorynque.bmh.client.amulet;
 import java.util.ArrayList;
 import java.util.List;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -28,8 +27,9 @@ public class PointListScreen extends Screen {
     private static final int COORDS_X = 114;
     private static final int BUTTON_X = 216;
     private static final int BUTTON_WIDTH = 64;
-    private static final int TEXT_COLOR = 0xFFFFFF;
-    private static final int NOTE_COLOR = 0xA0A0A0;
+    // Opaque: since 26.1 text with alpha 0 is not drawn (1.21.1's font made it opaque).
+    private static final int TEXT_COLOR = 0xFFFFFFFF;
+    private static final int NOTE_COLOR = 0xFFA0A0A0;
 
     private List<Entry> points;
     private final int max;
@@ -101,29 +101,32 @@ public class PointListScreen extends Screen {
 
     private void remove(BlockPos pos) {
 
-        Minecraft minecraft = Minecraft.getInstance();
-
-        if (minecraft.player != null) {
-            minecraft.player.connection.sendUnsignedCommand("bmh point delete " + pos.getX() + " " + pos.getY() + " " + pos.getZ());
-        }
+        PointScreen.send("bmh point delete " + pos.getX() + " " + pos.getY() + " " + pos.getZ());
     }
 
+    // 1.21.1 drew this dim layer first, then the vanilla background. Since 26.1 the background has its own step.
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 
         // A dim layer that works from 1.20 to 1.21.1: 1.20.1 draws no background in Screen.render, later versions do.
         graphics.fill(0, 0, this.width, this.height, 0x80000000);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractBackground(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
         int left = this.left();
         int top = this.top();
 
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, top - 28, TEXT_COLOR);
-        graphics.drawCenteredString(this.font, Component.translatable("bmh.point.list.count", this.points.size(), this.max),
+        graphics.centeredText(this.font, this.title, this.width / 2, top - 28, TEXT_COLOR);
+        graphics.centeredText(this.font, Component.translatable("bmh.point.list.count", this.points.size(), this.max),
                 this.width / 2, top - 14, NOTE_COLOR);
 
         if (this.points.isEmpty()) {
-            graphics.drawCenteredString(this.font, Component.translatable("bmh.point.list.empty"), this.width / 2, top + 30, NOTE_COLOR);
+            graphics.centeredText(this.font, Component.translatable("bmh.point.list.empty"), this.width / 2, top + 30, NOTE_COLOR);
         }
 
         int first = this.page * PER_PAGE;
@@ -133,12 +136,12 @@ public class PointListScreen extends Screen {
             Entry entry = this.points.get(first + row);
             int y = top + row * ROW_HEIGHT + 6;
 
-            graphics.drawString(this.font, this.font.plainSubstrByWidth(entry.name(), NAME_WIDTH), left, y, TEXT_COLOR);
-            graphics.drawString(this.font, entry.pos().getX() + " " + entry.pos().getY() + " " + entry.pos().getZ(),
+            graphics.text(this.font, this.font.plainSubstrByWidth(entry.name(), NAME_WIDTH), left, y, TEXT_COLOR);
+            graphics.text(this.font, entry.pos().getX() + " " + entry.pos().getY() + " " + entry.pos().getZ(),
                     left + COORDS_X, y, NOTE_COLOR);
         }
 
-        graphics.drawCenteredString(this.font, Component.translatable("bmh.point.list.spawn"), this.width / 2,
+        graphics.centeredText(this.font, Component.translatable("bmh.point.list.spawn"), this.width / 2,
                 top + PER_PAGE * ROW_HEIGHT + 6, NOTE_COLOR);
     }
 

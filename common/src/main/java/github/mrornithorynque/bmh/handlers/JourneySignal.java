@@ -27,7 +27,7 @@ public final class JourneySignal {
      */
     public static void onPlayerDeath(ServerPlayer serverPlayer) {
 
-        if (RespawnPositionHandler.isDistantRespawn(serverPlayer) && !serverPlayer.server.isHardcore()) {
+        if (RespawnPositionHandler.isDistantRespawn(serverPlayer) && !serverPlayer.level().getServer().isHardcore()) {
             send(serverPlayer, Component.translatableWithFallback(DEPARTURE, ""));
         }
     }

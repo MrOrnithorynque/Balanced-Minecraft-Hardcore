@@ -1,12 +1,13 @@
 package github.mrornithorynque.bmh.items;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 
 public class TotemOfEternityItem extends Item implements IEternalItem {
 
@@ -27,11 +28,12 @@ public class TotemOfEternityItem extends Item implements IEternalItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> lines, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> lines,
+            TooltipFlag flag) {
 
-        super.appendHoverText(stack, context, lines, flag);
-        lines.add(Component.translatable("tooltip.bmh.eternity").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.translatable("tooltip.bmh.totem_of_eternity_save").withStyle(ChatFormatting.GRAY));
+        super.appendHoverText(stack, context, display, lines, flag);
+        lines.accept(Component.translatable("tooltip.bmh.eternity").withStyle(ChatFormatting.GRAY));
+        lines.accept(Component.translatable("tooltip.bmh.totem_of_eternity_save").withStyle(ChatFormatting.GRAY));
         EternalTooltips.addHeavy(lines);
     }
 }

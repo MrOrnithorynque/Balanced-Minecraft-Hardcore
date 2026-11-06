@@ -15,7 +15,6 @@ import github.mrornithorynque.bmh.items.TotemOfEternityItem;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 
 import java.util.ArrayList;
-import javax.annotation.Nonnull;
 
 public class EternalItemHandler {
 
@@ -79,12 +78,12 @@ public class EternalItemHandler {
 
     private static boolean ruleApplies(ServerPlayer serverPlayer) {
 
-        return serverPlayer.serverLevel().getGameRules().getBoolean(BMHGameRules.RULE_ONLY_CARRY_ONE_ETERNAL_ITEM_TYPE)
+        return serverPlayer.level().getGameRules().get(BMHGameRules.RULE_ONLY_CARRY_ONE_ETERNAL_ITEM_TYPE)
                 && serverPlayer.gameMode.getGameModeForPlayer() == GameType.SURVIVAL;
     }
 
-    private static boolean containsSameEternalItem(@Nonnull ArrayList<ItemStack> eternalItemList,
-            @Nonnull ItemStack eternalItem) {
+    private static boolean containsSameEternalItem(ArrayList<ItemStack> eternalItemList,
+            ItemStack eternalItem) {
 
         for (ItemStack item : eternalItemList) {
 
