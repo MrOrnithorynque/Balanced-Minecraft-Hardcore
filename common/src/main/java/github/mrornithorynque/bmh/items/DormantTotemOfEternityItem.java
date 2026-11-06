@@ -4,6 +4,7 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import github.mrornithorynque.bmh.client.RitualGlow;
 import github.mrornithorynque.bmh.client.RitualParticles;
 import github.mrornithorynque.bmh.handlers.MoonRitualHandler;
 import github.mrornithorynque.bmh.init.ItemInit;
@@ -63,6 +64,12 @@ public class DormantTotemOfEternityItem extends Item implements IEternalItem {
 
         player.startUsingItem(hand);
         return InteractionResultHolder.consume(stack);
+    }
+
+    // No glint while it sleeps. It shimmers while a moon ritual charges it, on the client that draws it.
+    @Override
+    public boolean isFoil(ItemStack stack) {
+        return Services.PLATFORM.isPhysicalClient() && RitualGlow.isCharging(stack);
     }
 
     @Override
