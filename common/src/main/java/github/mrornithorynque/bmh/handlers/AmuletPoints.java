@@ -39,16 +39,18 @@ public class AmuletPoints {
     public record Point(String name, BlockPos pos) {
     }
 
-    // The saved form of a position, the same as before 26.1: x, y and z fields, 0 when one is missing.
+    // The saved form of a position, the same as before 26.1: x, y and z fields, 0 when one is missing. Every field is
+    // always written: optionalFieldOf with a default leaves out a value equal to the default (a point at z = 0).
     private static final MapCodec<BlockPos> POSITION_MAP_CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
-            Codec.INT.optionalFieldOf("x", 0).forGetter(BlockPos::getX),
-            Codec.INT.optionalFieldOf("y", 0).forGetter(BlockPos::getY),
-            Codec.INT.optionalFieldOf("z", 0).forGetter(BlockPos::getZ)).apply(instance, BlockPos::new));
+            Codec.INT.optionalFieldOf("x").forGetter(pos -> Optional.of(pos.getX())),
+            Codec.INT.optionalFieldOf("y").forGetter(pos -> Optional.of(pos.getY())),
+            Codec.INT.optionalFieldOf("z").forGetter(pos -> Optional.of(pos.getZ())))
+            .apply(instance, (x, y, z) -> new BlockPos(x.orElse(0), y.orElse(0), z.orElse(0))));
     private static final Codec<BlockPos> POSITION_CODEC = POSITION_MAP_CODEC.codec();
     // The saved form of a point: its name and its position fields in one compound.
     private static final Codec<Point> POINT_CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.STRING.optionalFieldOf("name", "").forGetter(Point::name),
-            POSITION_MAP_CODEC.forGetter(Point::pos)).apply(instance, Point::new));
+            Codec.STRING.optionalFieldOf("name").forGetter(point -> Optional.of(point.name())),
+            POSITION_MAP_CODEC.forGetter(Point::pos)).apply(instance, (name, pos) -> new Point(name.orElse(""), pos)));
 
     /** Implemented by ServerPlayer through C_ServerPlayerMixin. */
     public interface Holder {
