@@ -197,3 +197,15 @@ After the harness review fixes (hook added once, after the server lock, removed 
 
 ## Step 5: the harness on every branch (owner: "Port harness to branches"; `date` 2026-11-06 10:26 CET)
 The diff `7a77d48..mc-26.1 -- .claude CHANGELOG.md` (39 files) applied cleanly to `main` and every `mc-*` branch, all level with origin and with the base harness before. Checks per branch before the commit: `bash -n` of every script, `node --check` of every bot, a Python parse of jarcheck and the release script, and `compile_check.sh --selftest` and `--client` on each Minecraft version the branch covers: OK on 1.20 to 1.20.4 (108 and 98 classes) and 1.21.1 (108 and 98). After the commits the 1.20.x branches still equal `main` outside their own files, and `.claude` plus `CHANGELOG.md` equal `mc-26.1` on every branch. Each branch moved by `merge --ff-only` in the worktree that holds it (all clean): main 92d52a2, mc-1.21.1 47a7a0c (the main checkout), mc-1.20.3 1170dd0, mc-1.20.2 0e5c5a6, mc-1.20.1 50663ad, mc-1.20 41e7a3b. Each is one commit ahead of origin; nothing is pushed.
+
+## Step 6: release 1.8.0 and the first runs of the new scripts (`date` 2026-11-06 19:28 CET)
+Release 1.8.0 (owner: "Yes, push the tags", then "Yes, publish"). Tags `mc-<minecraft_version>-v1.8.0` on main 43ca651, mc-26.1 05e4405 (`mc-26.1.2-v1.8.0`), mc-1.21.1 af8990a, mc-1.20.3 e396a86, mc-1.20.2 1be5d94, mc-1.20.1 461e6fa, mc-1.20 551fa11, after a matrix green on all seven. The first publish run lost the network, then the Mac restarted and the scratch worktrees were gone. The jars were rebuilt from the tags in `~/.cache/bmh-rel-1.8.0/wt`, and only the missing parts were published (`--only`, `--loader`). Result: 17 CurseForge files, each uploaded once (the CurseForge files page listed the first 5 before the second run, so the second run sent only the 12 missing ones), 7 GitHub releases with their jars, one Discord post. An interrupted `gh release create` leaves an empty draft: `publish_local.py` uploads into it, then `gh release edit <tag> --draft=false` publishes it.
+
+The harness commits 6d8abbd, d079005 and 7c5f66e went to every branch (`git am`, `.claude` equal on all seven) and were pushed in one atomic push.
+
+First runs of the new scripts, on the jars rebuilt from `mc-26.1.2-v1.8.0`, verbatim:
+- `prod_server.sh <tree> 26.1.2 forge 64.1.6`: `RESULT up=1 mixinErrors=0 SMOKE 46/46 bmh=2`
+- `prod_server.sh <tree> 26.1.2 neoforge 26.1.2.126`: `RESULT up=1 mixinErrors=0 SMOKE 46/46 bmh=2`
+- `prod_server.sh <tree> 26.1.2 fabric 0.20.1 0.155.3+26.1.2`: `RESULT up=1 mixinErrors=0 - bmh=2` (a boot only on Fabric 26.x)
+- `cross_upgrade.sh mc-1.21.1 1.21.1 mc-26.1 26.1.2 <loader> 1211-to-26-<loader>`, for neoforge, forge and fabric: `old server (1.21.1) up=1: UPGRADE old 1/1` and `new server (26.1.2) up=1: UPGRADE new 13/13` on each.
+Their prototypes' results (step 4) now hold for the committed scripts. The cross-upgrade on Fabric used the verify hook on the 26.1.2 side, and the worktrees are clean after it.
