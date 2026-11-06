@@ -61,6 +61,8 @@ In one commit in `$W/main`:
 - If a recipe changed since the last release, regenerate its README picture from the recipe JSON, in `$W/main`: `python3 -I .claude/skills/release/make_grids.py resources` (`git diff --stat resources` shows which pictures moved).
 - `README.md` is the source of truth for the CurseForge page too. If it changed since the last release, regenerate `docs/curseforge-description.md` with `python3 -I .claude/skills/release/readme_to_curseforge.py .` and, after the publish, paste that file into the CurseForge description (the user does it, or the built-in browser with their OK). If the respawn distance formula, its default config, or an Eternal Item's texture or name changed, redraw the two pictures first: `python3 -I .claude/skills/release/draw_readme_images.py <ascii.png> .` writes `resources/showcase/respawn_distance.png` and `eternal_items.png` (its header says how to get the vanilla font out of the Loom jar; it reads the defaults from the code, but the formula and the item list are copied in it, so update them there first).
 
+- Pictures: the section shows one to three pictures (PNG or GIF) of what a player can see change in this release (a new screen, a new sprite, a new effect in the sky), real in-game shots taken with a throwaway client hook such as the verify-loaders `SmokeClient`. Save them in `resources/showcase/` and link them with the raw `main` URL, as the 1.7.0 section does (`![<what it shows>](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/<file>)`). The first picture becomes the Discord embed picture. A release with nothing to see (fixes only) has none. The owner asked for this on 2026-11-06: a release post with no picture looks plain.
+
 `publish_local.py` publishes that `## [<version>]` section, and only that section, as the changelog on CurseForge, the GitHub release and, for 1.21.1, Discord. Players read it there, so it must stand on its own. If the heading is missing or the section is empty, the script stops before it checks or uploads anything.
 
 Commit message: `release: <version>`.
@@ -93,15 +95,12 @@ for b in main mc-26.1 mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20; do   # th
   # JDK 17 for 1.20.x, 21 for 1.21.1, 25 for 26.1: the branch's build.gradle says which.
   java=$(grep -o 'JavaLanguageVersion.of([0-9]*)' "$W/$b/build.gradle" | grep -o '[0-9]\+')
   export JAVA_HOME=/opt/homebrew/opt/openjdk@$java
+  mcv=$(sed -n 's/^minecraft_version=//p' "$W/$b/gradle.properties" | head -1 | tr -d '[:space:]')
   if ( cd "$W/$b" && sh ./gradlew build --console=plain ) > "$W/../build-$b.log" 2>&1; then
-    forge=$(find "$W/$b/forge/build/libs" -name '*.jar' | head -1)
-    fabric=$(find "$W/$b/fabric/build/libs" -name '*.jar' ! -name '*-sources.jar' | head -1)
-    # A branch with neoforge_version must also have built the NeoForge jar.
-    neo=ok; grep -q '^neoforge_version=' "$W/$b/gradle.properties" && ! ls "$W/$b"/neoforge/build/libs/*.jar >/dev/null 2>&1 && neo=missing
-    # Forge 1.21.1 runs on the official names: its jar has no refmap, on purpose.
-    { [ "$java" = 21 ] || unzip -l "$forge" | grep -q bmh.refmap.json; } && unzip -p "$forge" META-INF/MANIFEST.MF | grep -q MixinConfigs \
-      && unzip -l "$fabric" | grep -q bmh.refmap.json && [ "$neo" = ok ] \
-      && echo "$b PASS" || echo "$b FAIL (a jar has no refmap, the Forge jar no MixinConfigs, or the NeoForge jar is missing)"
+    # jarcheck.py knows each version's rules: the refmap (Forge 1.20.x and Fabric up to 1.21.1, none on 26.x), the
+    # MixinConfigs manifest, the NeoForge jar, models, recipes and tags. Its last line is JARS <passed>/<checks>.
+    jc=$(python3 -I "$W/$b/.claude/skills/verify-loaders/scripts/jarcheck.py" "$W/$b" "$mcv" "$JAVA_HOME" 2>&1 | tail -1)
+    case "$jc" in JARS*) n=${jc#JARS }; [ "${n%/*}" = "${n#*/}" ] && echo "$b PASS ($jc)" || echo "$b FAIL ($jc)" ;; *) echo "$b FAIL (jarcheck: $jc)" ;; esac
   else
     echo "$b FAIL (see build-$b.log)"
   fi
