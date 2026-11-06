@@ -147,13 +147,13 @@ public class MoonRitualHandler {
 
         ServerLevel level = player.serverLevel();
 
-        // The puff is at the raised totem for everyone else. The player sees it 1.8 blocks in front of the eyes: a
+        // The puff is at the raised totem for everyone else. The player sees it 2.5 blocks in front of the eyes: a
         // puff at the totem itself is so close to the camera that it covers the whole view.
         for (ServerPlayer viewer : level.players()) {
             Vec3 at = viewer == player
-                    ? player.getEyePosition().add(player.getViewVector(1.0F).scale(1.8))
+                    ? player.getEyePosition().add(player.getViewVector(1.0F).scale(2.5))
                     : raisedTotemPosition(player);
-            level.sendParticles(viewer, ParticleTypes.POOF, false, at.x, at.y, at.z, 8, 0.12, 0.12, 0.12, 0.02);
+            level.sendParticles(viewer, ParticleTypes.POOF, false, at.x, at.y, at.z, 6, 0.1, 0.1, 0.1, 0.02);
         }
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS,
                 0.7F, 1.4F);
