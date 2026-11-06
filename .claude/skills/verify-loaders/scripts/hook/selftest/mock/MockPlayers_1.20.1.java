@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.mojang.authlib.GameProfile;
 
@@ -22,6 +25,16 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.IronGolem;
+import net.minecraft.world.level.GameRules;
 
 /**
  * THROWAWAY (see selftest.sh): a player with a connection, placed like a joining one, for Minecraft 1.20 and 1.20.1.
@@ -60,7 +73,7 @@ public final class MockPlayers {
         return packets;
     }
 
-    // Version helpers: the calls the tests make that changed between 1.20.x and 1.21.1.
+    // Version helpers: the calls the tests make that changed between Minecraft versions. Every copy has the same ones.
 
     /** The text of a title packet, or null for any other packet. */
     public static Component titleText(Packet<?> packet) {
@@ -84,5 +97,93 @@ public final class MockPlayers {
 
     public static boolean sameData(ItemStack a, ItemStack b) {
         return ItemStack.isSameItemSameTags(a, b);
+    }
+
+    /** Kills a mock player. */
+    public static void kill(ServerPlayer player) {
+        player.kill();
+    }
+
+    /** Selects a hotbar slot. */
+    public static void select(ServerPlayer player, int slot) {
+        player.getInventory().selected = slot;
+    }
+
+    /** Puts a stack in the off hand without any equip side effect. */
+    public static void setOffhand(ServerPlayer player, ItemStack stack) {
+        player.getInventory().offhand.set(0, stack);
+    }
+
+    /** An iron golem without AI, added to the level: a target with 100 health that hits back at no one. */
+    public static LivingEntity golem(ServerLevel level, double x, double y, double z) {
+        IronGolem golem = EntityType.IRON_GOLEM.create(level);
+        golem.moveTo(x, y, z, 0, 0);
+        golem.setNoAi(true);
+        level.addFreshEntity(golem);
+        return golem;
+    }
+
+    /** The world spawn point. */
+    public static BlockPos worldSpawn(ServerLevel level) {
+        return level.getSharedSpawnPos();
+    }
+
+    // A game rule key is a GameRules.Key up to 1.21.1 and a GameRule on 26.1: the tests hold it as an Object.
+
+    @SuppressWarnings("unchecked")
+    public static boolean getRule(MinecraftServer server, Object key) {
+        return server.getGameRules().getRule((GameRules.Key<GameRules.BooleanValue>) key).get();
+    }
+
+    @SuppressWarnings("unchecked")
+    public static void setRule(MinecraftServer server, Object key, boolean value) {
+        server.getGameRules().getRule((GameRules.Key<GameRules.BooleanValue>) key).set(value, server);
+    }
+
+    /** The key of vanilla's reducedDebugInfo rule. */
+    public static Object reducedDebugInfoRule() {
+        return GameRules.RULE_REDUCEDDEBUGINFO;
+    }
+
+    /** The paths of the recipes in the bmh namespace, sorted. */
+    public static Set<String> bmhRecipes(MinecraftServer server) {
+        return server.getRecipeManager().getRecipeIds()
+                .filter(id -> id.getNamespace().equals("bmh"))
+                .map(id -> id.getPath())
+                .collect(Collectors.toCollection(TreeSet::new));
+    }
+
+    /** The Haste effect of a player, or null. */
+    public static MobEffectInstance haste(ServerPlayer player) {
+        return player.getEffect(MobEffects.DIG_SPEED);
+    }
+
+    /** The Resistance effect of a player, or null. */
+    public static MobEffectInstance resistance(ServerPlayer player) {
+        return player.getEffect(MobEffects.DAMAGE_RESISTANCE);
+    }
+
+    /** Shift-clicks a slot of a menu like a player: the result of a smithing table or an anvil goes to the inventory. */
+    public static void quickMove(AbstractContainerMenu menu, int slot, ServerPlayer player) {
+        menu.clicked(slot, 0, ClickType.QUICK_MOVE, player);
+    }
+
+    /** True when the entity has this command tag. */
+    public static boolean hasTag(Entity entity, String tag) {
+        return entity.getTags().contains(tag);
+    }
+
+    /**
+     * ServerPlayer.spawnInvulnerableTime, private on this version: read by reflection (Mojang names in dev). BMH sets it
+     * to 200 after a distant respawn, vanilla to 60.
+     */
+    public static int immunityTicks(ServerPlayer player) {
+        try {
+            java.lang.reflect.Field field = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
+            field.setAccessible(true);
+            return field.getInt(player);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

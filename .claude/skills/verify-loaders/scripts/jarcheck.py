@@ -20,7 +20,9 @@ import tempfile
 import zipfile
 
 W, MCV, JH = sys.argv[1], sys.argv[2], sys.argv[3]
-V121 = MCV.startswith("1.21")
+V26 = MCV.startswith("26.")
+# The 1.21 layout (data pack folders, neoforge.mods.toml, tool tags) holds on 26.x too.
+V121 = MCV.startswith("1.21") or V26
 results = []
 
 # Members the hand-overs of parts A, B and E name for a production install (stable ids across 1.20 to 1.21.1).
@@ -67,7 +69,7 @@ ADDED_METHODS = {
     "fabric": {"I_ContainerTotemMixin": ["method_5437"]},
 }
 # A throwaway hook class (selftest.sh, branch.sh, death_client.sh): any selftest folder, any Z_ mixin, the client hooks
-THROWAWAY = re.compile(r"(selftest|devskyshots|smokeclient|journeysmoke|/mixin/Z_)", re.IGNORECASE)
+THROWAWAY = re.compile(r"(selftest|devskyshots|smokeclient|journeysmoke|clientcompat|/mixin/Z_)", re.IGNORECASE)
 
 
 def check(name, ok, detail=""):
@@ -131,8 +133,11 @@ def check_jar(loader, jar):
         text = z.read(toml).decode("utf-8", "replace") if toml in names else ""
         check(tag + ": " + toml + " lists bmh.mixins.json", "bmh.mixins.json" in text)
 
-    # The refmap a production install needs: Forge before 1.20.5 (SRG) and Fabric (intermediary)
-    needs_refmap = loader == "fabric" or (loader == "forge" and not V121)
+    # The refmap a production install needs: Forge before 1.20.5 (SRG) and Fabric (intermediary). 26.x is unobfuscated:
+    # no loader needs one, and none may ship one.
+    needs_refmap = not V26 and (loader == "fabric" or (loader == "forge" and not V121))
+    if V26:
+        check(tag + ": no bmh.refmap.json (26.x runs on the official names)", "bmh.refmap.json" not in names)
     if needs_refmap:
         has = "bmh.refmap.json" in names
         check(tag + ": bmh.refmap.json present", has)
@@ -186,6 +191,23 @@ def check_jar(loader, jar):
                 if t.startswith("bmh:") and "assets/bmh/textures/" + t[4:] + ".png" not in names:
                     missing.append(t)
         check(tag + ": " + item + " model, " + str(len(overrides)) + " overrides, textures all present", not missing, missing)
+        if V26:
+            # Since 1.21.4 an item draws through its item model definition, assets/bmh/items/<item>.json.
+            definition = "assets/bmh/items/" + item + ".json"
+            if definition not in names:
+                check(tag + ": item model definition of " + item, False, "absent")
+                continue
+            used = sorted(set(re.findall(r'"model"\s*:\s*"(bmh:[^"]+)"', z.read(definition).decode())))
+            gone = []
+            for u in used:
+                sub = "assets/bmh/models/" + u[4:] + ".json"
+                if sub not in names:
+                    gone.append(u)
+                    continue
+                for t in json.loads(z.read(sub)).get("textures", {}).values():
+                    if t.startswith("bmh:") and "assets/bmh/textures/" + t[4:] + ".png" not in names:
+                        gone.append(t)
+            check(tag + ": " + item + " item definition, " + str(len(used)) + " models, textures all present", used and not gone, gone)
 
     # Data in the right version folders
     recipe_dir, other_dir = ("data/bmh/recipe/", "data/bmh/recipes/") if V121 else ("data/bmh/recipes/", "data/bmh/recipe/")

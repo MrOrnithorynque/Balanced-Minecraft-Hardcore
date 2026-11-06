@@ -3,6 +3,7 @@ package github.mrornithorynque.bmh.selftest;
 import github.mrornithorynque.bmh.init.ItemInit;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -36,17 +37,18 @@ final class DeathKeepTest implements SelfTest.Test {
         MockPlayers.fillBundle(bundle, new ItemStack(Items.DIAMOND, 3));
         ItemStack bundleBefore = bundle.copy();
         int max = sword.getMaxDamage();
-        player.getInventory().items.set(0, sword);
-        player.getInventory().items.set(1, bundle);
-        player.getInventory().items.set(2, new ItemStack(Items.DIRT, 16));
-        player.kill();
+        player.getInventory().setItem(0, sword);
+        player.getInventory().setItem(1, bundle);
+        player.getInventory().setItem(2, new ItemStack(Items.DIRT, 16));
+        MockPlayers.kill(player);
         ctx.later(5, () -> {
             ServerPlayer back = MockPlayers.respawn(ctx.server, ctx.live(player));
             ctx.later(5, () -> {
                 ServerPlayer now = ctx.live(back);
                 ItemStack kept = ItemStack.EMPTY;
                 ItemStack keptBundle = ItemStack.EMPTY;
-                for (ItemStack stack : now.getInventory().items) {
+                for (int slot = 0; slot < Inventory.INVENTORY_SIZE; slot++) {
+                    ItemStack stack = now.getInventory().getItem(slot);
                     if (stack.is(ItemInit.ETERNAL_SWORD.get())) kept = stack;
                     if (stack.is(ItemInit.ETERNAL_BUNDLE.get())) keptBundle = stack;
                 }

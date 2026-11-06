@@ -44,8 +44,8 @@ final class OneEternalPerTypeTest implements SelfTest.Test {
     // Two copies in the main inventory: the tick drops one, then the touch must not take it back.
     private static void loop(SelfTest.Ctx ctx, String label, Item item, int dx) {
         ServerPlayer player = ctx.player("bmh-one-" + label, dx, 0);
-        player.getInventory().items.set(0, new ItemStack(item));
-        player.getInventory().items.set(1, new ItemStack(item));
+        player.getInventory().setItem(0, new ItemStack(item));
+        player.getInventory().setItem(1, new ItemStack(item));
         // Every copy seen on the ground during the first ticks, to tell how one left if it is gone at the check.
         java.util.Set<ItemEntity> seen = new java.util.LinkedHashSet<>();
         for (int t = 1; t <= 4; t++) {
@@ -89,7 +89,7 @@ final class OneEternalPerTypeTest implements SelfTest.Test {
     private static void offhand(SelfTest.Ctx ctx, int dx) {
         Item sword = ItemInit.ETERNAL_SWORD.get();
         ServerPlayer player = ctx.player("bmh-one-offhand", dx, 0);
-        player.getInventory().offhand.set(0, new ItemStack(sword));
+        MockPlayers.setOffhand(player, new ItemStack(sword));
         ItemEntity copy = new ItemEntity(ctx.level, player.getX(), player.getY(), player.getZ(), new ItemStack(sword));
         copy.setNoPickUpDelay();
         ctx.level.addFreshEntity(copy);
@@ -102,8 +102,8 @@ final class OneEternalPerTypeTest implements SelfTest.Test {
         Item sword = ItemInit.ETERNAL_SWORD.get();
         ServerPlayer player = ctx.player("bmh-one-" + label.replace(' ', '-'), dx, 0);
         player.setGameMode(mode);
-        player.getInventory().items.set(0, new ItemStack(sword));
-        player.getInventory().items.set(1, new ItemStack(sword));
+        player.getInventory().setItem(0, new ItemStack(sword));
+        player.getInventory().setItem(1, new ItemStack(sword));
         ctx.later(10, () -> ctx.check(label + ": both copies stay", count(ctx, player, sword) == 2, "in inventory " + count(ctx, player, sword)));
     }
 
