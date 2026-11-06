@@ -36,3 +36,15 @@ Louis (chat): implement on one Minecraft version, he validates, then the change 
 - Tests: `smoke_bot.js` (anvil 6b: Dormant + Echo Heart gives nothing; section 9 checks `sleeping_totem`; kept on death; section 10: ritual success and early release), `SmokeClient.java` (ritual at dayTime 15000 with the moon low in the east, mid, back, front, woken and failed screenshots; own moon math so it still compiles on older tags), `DeathKeepTest` and `OneEternalPerTypeTest` (the Dormant Totem), `jarcheck.py` (`O_GuiRitualBarMixin`: `m_280518_`, `method_1759`), SKILL.md line.
 - Docs: CHANGELOG (Unreleased), README and curseforge description (totem section), CLAUDE.md code map. Changelog pictures wait for Louis's validation of the screenshots.
 - `sh ./gradlew build` (openjdk@17): BUILD SUCCESSFUL. `jarcheck.py` on the three jars: 287/287.
+
+## 4. First verify run (`bda1618`, `branch.sh` with BMH_LOCAL=1, label totem-1204, outputs in the session scratchpad `verify/totem-1204`)
+
+- build ok, jars 287/287. Fabric, Forge, NeoForge: amulet 40/40, smoke 53/53, 0 BMH errors on server and client, 9 screenshots each.
+- Client log on each loader: `after the totem: slot5=bmh:sleeping_totem`, `after the ritual: slot5=bmh:totem_of_eternity levels=10`, failure keeps the totem dormant with 36 or 37 levels (3 or 4 drained, kept gone).
+- Moon direction proven: at dayTime 15000 the hook aims at (0.80, 0.60, 0.00) (east, 37 degrees up), the server logs "aimed 0.6 degrees from the moon", and in `bmh-smoke-5-ritual.png` the moon is under the crosshair.
+- Look problems seen in the screenshots: END_ROD particles ended 0.6 blocks from the eyes and covered the first person view with big white shapes; the failure POOF did the same; the SPEAR pose hid the totem in first person; the "front" shot was first person (a camera change and a queued screenshot in the same tick).
+
+## 5. Louis's look feedback (chat, while run 1 went on)
+
+- First person: the player puts the totem in front and the particles go gently into the totem. Third person: both arms raised (toward the moon), particles into the totem. Then: "not need from the moon if feel weird, but particle go in the totem yes". Then: "the totem is weirdly placed, i dont see it, and their is too much particle" (about run 1's look).
+- Changes (`0f87741`): `UseAnim.BOW` (vanilla's two-handed pose: both arms along the look, so toward the moon); new client mixin `P_ItemInHandRitualMixin` (`ItemInHandRenderer.renderArmWithItem` HEAD, cancels for the Dormant Totem in use) and `client/RitualHandRenderer` (the totem raised over 10 ticks from the hand to the centre, 0.2 below the eye line, 0.75 ahead, FIXED display, scale 0.32, a slow hover); `client/RitualParticles` uses ENCHANT (flies to an exact point and goes out there), one per tick, starting 1.2 to 2.4 blocks around the totem on the far side from the camera; the failure puff is 8 POOF, 1.8 blocks in front of the eyes for the player and at the raised totem for others; hook camera switches get their own ticks. jarcheck: `P_ItemInHandRitualMixin` = `m_109371_`, `method_3228`.
