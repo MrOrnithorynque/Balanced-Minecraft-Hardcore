@@ -1,15 +1,11 @@
 package github.mrornithorynque.bmh.client;
 
-import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
-import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -18,6 +14,8 @@ import net.minecraft.world.item.ItemStack;
  * Only with BMH_SMOKE=1 in a singleplayer runClient: gives every BMH item, takes a real star reading at midnight (client
  * use, server item logic, client sky renderer), holds the Eternal Sword, lets the Totem of Eternity save the player,
  * saves four screenshots and quits the game. Every step logs a "[BMH-SMOKE]" line.
+ * What differs between Minecraft versions is in ClientCompat, which branch.sh copies from hook/compat/ (one file per
+ * version) next to this one.
  */
 public final class SmokeClient {
 
@@ -36,18 +34,15 @@ public final class SmokeClient {
         if (ticks == 0) {
             log("world joined");
         } else if (ticks == 60) {
-            // a bundle with one diamond in it: NBT before 1.20.5, the bundle_contents component after
-            String version = SharedConstants.getCurrentVersion().getName();
-            String filledBundle = version.startsWith("1.21")
-                    ? "give @a bmh:eternal_bundle[minecraft:bundle_contents=[{id:\"minecraft:diamond\",count:1}]]"
-                    : "give @a bmh:eternal_bundle{Items:[{id:\"minecraft:diamond\",Count:1b}]}";
-            run(server, "difficulty peaceful", "gamerule doDaylightCycle false", "gamerule doWeatherCycle false",
-                    "gamerule doMobSpawning false", "weather clear", "time set 18000", "clear @a",
+            String version = ClientCompat.versionName();
+            run(server, "difficulty peaceful", ClientCompat.gamerule("doDaylightCycle", false),
+                    ClientCompat.gamerule("doWeatherCycle", false), ClientCompat.gamerule("doMobSpawning", false),
+                    "weather clear", "time set 18000", "clear @a",
                     "execute as @a at @s run setworldspawn ~ ~ ~-2000",
                     "execute as @a at @s run setblock ~ 199 ~ minecraft:glass",
                     "execute as @a at @s run tp @s ~ 200 ~ 180 -30",
                     "give @a bmh:navigator_amulet", "give @a bmh:eternal_sword", "give @a bmh:eternal_axe",
-                    "give @a bmh:eternal_pickaxe", filledBundle, "give @a bmh:totem_of_eternity",
+                    "give @a bmh:eternal_pickaxe", ClientCompat.filledBundleCommand(), "give @a bmh:totem_of_eternity",
                     "give @a bmh:dormant_totem", "give @a bmh:echo_heart", "give @a minecraft:totem_of_undying");
             log("setup sent (" + version + ")");
         } else if (ticks == 120) {
@@ -58,12 +53,12 @@ public final class SmokeClient {
             }
             log("hotbar " + bar.toString().trim());
             log("position y=" + Math.round(mc.player.getY()) + " yaw=" + Math.round(mc.player.getYRot())
-                    + " dayTime=" + mc.level.getDayTime() + " raining=" + mc.level.isRaining());
+                    + " dayTime=" + ClientCompat.dayTime(mc) + " raining=" + mc.level.isRaining());
         } else if (ticks == 140) {
             log("use amulet: " + mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
         } else if (ticks == 150) {
             ItemStack held = mc.player.getMainHandItem();
-            log("after use: cooldown=" + mc.player.getCooldowns().isOnCooldown(held.getItem()) + " data=" + data(held));
+            log("after use: cooldown=" + ClientCompat.onCooldown(mc, held) + " data=" + data(held));
         } else if (ticks == 185) {
             shot(mc, "bmh-smoke-1-hud.png");
         } else if (ticks == 195) {
@@ -73,16 +68,12 @@ public final class SmokeClient {
         } else if (ticks == 215) {
             mc.options.hideGui = false;
             // The Eternal Sword (hotbar slot 1) in the hand: its 20x20 model there, its 16x16 one in the hotbar.
-            mc.player.getInventory().selected = 1;
+            ClientCompat.selectSlot(mc, 1);
             run(server, "gamemode survival @a", "effect clear @a");
         } else if (ticks == 235) {
             shot(mc, "bmh-smoke-3-sword.png");
             ItemStack sword = mc.player.getInventory().getItem(1);
-            BakedModel base = mc.getItemRenderer().getModel(sword, mc.level, mc.player, 0);
-            log("sword in-hand model differs from the inventory one: "
-                    + (EternalSwordModel.inHandModel(base, sword, ItemDisplayContext.FIRST_PERSON_RIGHT_HAND) != base)
-                    + ", inventory model kept in the GUI: "
-                    + (EternalSwordModel.inHandModel(base, sword, ItemDisplayContext.GUI) == base));
+            log(ClientCompat.swordModelLine(mc, sword));
         } else if (ticks == 240) {
             // Nothing in the hands saves the player, so the Totem of Eternity (slot 5) does, with its own animation.
             // The command's feedback goes to the log.
@@ -114,8 +105,7 @@ public final class SmokeClient {
     }
 
     private static void shot(Minecraft mc, String name) {
-        mc.tell(() -> Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(),
-                message -> log("screenshot " + name + ": " + message.getString())));
+        ClientCompat.screenshot(mc, name, message -> log("screenshot " + name + ": " + message));
     }
 
     /** The stack's data, 1.20.x (NBT tag) or 1.21.1 (components), read by name: dev runs use the official names. */

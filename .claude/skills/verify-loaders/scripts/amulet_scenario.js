@@ -6,6 +6,7 @@
 // action bar, the chat and the title packets. Prints PASS/FAIL lines, then "<passed>/<total> checks passed".
 const MODULES = process.env.BOT_MODULES || (__dirname + '/node_modules')
 const RCON_PY = __dirname + '/rcon.py'
+const ruleNames = require(__dirname + '/rule_names.js')
 const mineflayer = require(MODULES + '/mineflayer')
 const { Vec3 } = require(MODULES + '/vec3')
 const { execFileSync } = require('child_process')
@@ -18,7 +19,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function rcon (cmd) {
   try {
-    return execFileSync('python3', [RCON_PY, String(PORT + 100), cmd], { encoding: 'utf8', timeout: 30000 }).trim()
+    return execFileSync('python3', [RCON_PY, String(PORT + 100), ruleNames(MCV, cmd)], { encoding: 'utf8', timeout: 30000 }).trim()
   } catch (e) {
     return 'RCON-ERROR ' + e.message
   }

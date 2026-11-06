@@ -1,6 +1,6 @@
 #!/bin/bash
 # The death flow, seen from a real client: a dedicated server makes a world, then a quick-play client with the hook in
-# hook/death/ dies, presses the death screen's Respawn button, logs every position packet, respawn packet and BMH or
+# hook/death/ (and the ClientCompat copy for the Minecraft version, hook/compat/) dies, presses the death screen's Respawn button, logs every position packet, respawn packet and BMH or
 # amethyst sound with its time after the press, saves a frame every 3 ticks and quits. The hook is copied into the tree
 # and removed at the end (interrupted or not); the tree's own changes stay.
 # usage: death_client.sh <worktree> <label> <loader> [time of day] [level type] [immediate 0|1] [reload 0|1]
@@ -29,7 +29,7 @@ say() { echo "[$LABEL $(date '+%H:%M:%S')] $*" | tee -a "$OUT/run.log"; }
 NEO_ORIG=""
 unhook() {
   release
-  rm -f "$SRC/client/JourneySmoke.java" "$SRC/mixin/Z_JourneySmokeClientMixin.java" "$SRC/mixin/Z_JourneySmokePacketMixin.java"
+  rm -f "$SRC/client/JourneySmoke.java" "$SRC/client/ClientCompat.java" "$SRC/mixin/Z_JourneySmokeClientMixin.java" "$SRC/mixin/Z_JourneySmokePacketMixin.java"
   [ -f "$OUT/bmh.mixins.json.orig" ] && cp "$OUT/bmh.mixins.json.orig" "$MIXINS"
   [ -n "$NEO_ORIG" ] && cp "$NEO_ORIG" "$WT/neoforge/build.gradle"
 }
@@ -37,6 +37,7 @@ unhook() {
 trap unhook EXIT
 cp "$MIXINS" "$OUT/bmh.mixins.json.orig"
 cp "$HOOK/JourneySmoke.java" "$SRC/client/JourneySmoke.java"
+cp "$SCRIPTS/hook/compat/ClientCompat_$(client_variant "$MCV").java" "$SRC/client/ClientCompat.java"
 cp "$HOOK/Z_JourneySmokeClientMixin.java" "$HOOK/Z_JourneySmokePacketMixin.java" "$SRC/mixin/"
 python3 -I - "$MIXINS" <<'PY'
 import sys, json

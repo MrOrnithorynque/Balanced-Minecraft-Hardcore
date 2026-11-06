@@ -41,10 +41,10 @@ final class RespawnTest implements SelfTest.Test {
 
     private static void die(SelfTest.Ctx ctx, String label, int dx, boolean far, boolean text, int eternal) {
         ServerPlayer player = ctx.player("bmh-respawn-" + dx, dx, 0);
-        if (eternal >= 1) player.getInventory().items.set(0, new ItemStack(ItemInit.ETERNAL_SWORD.get()));
-        if (eternal >= 2) player.getInventory().items.set(1, new ItemStack(ItemInit.ETERNAL_PICKAXE.get()));
+        if (eternal >= 1) player.getInventory().setItem(0, new ItemStack(ItemInit.ETERNAL_SWORD.get()));
+        if (eternal >= 2) player.getInventory().setItem(1, new ItemStack(ItemInit.ETERNAL_PICKAXE.get()));
         MockPlayers.sent(player);
-        player.kill();
+        MockPlayers.kill(player);
         List<String> atDeath = ctx.titles(player);
         String departure = JourneySignal.DEPARTURE;
         ctx.check(label + ": departure title " + (far ? "sent" : "not sent") + " at death",
@@ -53,7 +53,7 @@ final class RespawnTest implements SelfTest.Test {
             ServerPlayer back = MockPlayers.respawn(ctx.server, ctx.live(player));
             int immunity = ctx.spawnInvulnerableTime(back);
             List<String> afterRespawn = ctx.titles(back);
-            BlockPos spawn = ctx.level.getSharedSpawnPos();
+            BlockPos spawn = MockPlayers.worldSpawn(ctx.level);
             double distance = Math.sqrt(Math.pow(back.getX() - spawn.getX(), 2) + Math.pow(back.getZ() - spawn.getZ(), 2));
             if (far) {
                 int min = Services.PLATFORM.minDistanceFromBed();

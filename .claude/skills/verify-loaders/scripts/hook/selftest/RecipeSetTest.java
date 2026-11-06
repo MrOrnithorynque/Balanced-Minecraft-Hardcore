@@ -2,7 +2,6 @@ package github.mrornithorynque.bmh.selftest;
 
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 /**
  * The bmh recipes are exactly the ones the mod means to ship. A stray recipe (the 2024 blast furnace totem, issue 5)
@@ -21,10 +20,7 @@ final class RecipeSetTest implements SelfTest.Test {
 
     @Override
     public void start(SelfTest.Ctx ctx) {
-        Set<String> actual = ctx.server.getRecipeManager().getRecipeIds()
-                .filter(id -> id.getNamespace().equals("bmh"))
-                .map(id -> id.getPath())
-                .collect(Collectors.toCollection(TreeSet::new));
+        Set<String> actual = MockPlayers.bmhRecipes(ctx.server);
         Set<String> extra = new TreeSet<>(actual);
         extra.removeAll(EXPECTED);
         Set<String> missing = new TreeSet<>(EXPECTED);

@@ -9,7 +9,7 @@
 #   BMH_REPO         the main checkout the verification worktrees hang off (default: found from this script's repository)
 #   BMH_PORT         the dedicated server's port (default 25618; upgrade.sh sets it from BMH_UPGRADE_PORT, default 25619).
 #                    A plain PORT variable is ignored. RCON is always port + 100, password bmh: the bots compute it the same way.
-#   BMH_JDK17, BMH_JDK21   JDK homes (default Homebrew's openjdk@17 and openjdk@21)
+#   BMH_JDK17, BMH_JDK21, BMH_JDK25   JDK homes (default Homebrew's openjdk@17, @21 and @25)
 #   BMH_LOCK_DIR, BMH_SLOT_PREFIX   the lock paths (default /private/tmp/bmh-runserver.lock and /private/tmp/bmh-gradle,
 #                    slots <prefix>.1 and <prefix>.2). Other sessions of the same machine must use the same ones.
 #   BMH_SESSION      the name written in the owner files (default verify)
@@ -49,10 +49,40 @@ jdk_for() { # <minecraft version> -> a JDK home; fails when it has no java (call
   local home v
   case "$1" in
     1.21*) v=21; home=${BMH_JDK21:-/opt/homebrew/opt/openjdk@21} ;;
+    26.*) v=25; home=${BMH_JDK25:-/opt/homebrew/opt/openjdk@25} ;;
     *) v=17; home=${BMH_JDK17:-/opt/homebrew/opt/openjdk@17} ;;
   esac
   [ -x "$home/bin/java" ] || { echo "no JDK $v for Minecraft $1 in $home: brew install openjdk@$v, or set BMH_JDK$v" >&2; exit 2; }
   echo "$home"
+}
+
+# The ClientCompat copy of the client hooks (hook/compat/ClientCompat_<variant>.java): what SmokeClient and JourneySmoke
+# call that differs between Minecraft versions. One copy serves 1.20 to 1.21.1, one serves 26.x. The server self-tests
+# have their own switch, the MockPlayers copy (see mock_variant in compile_check.sh).
+client_variant() { case "$1" in 26.*) echo 26.1 ;; *) echo 1.21.1 ;; esac; }
+
+# The version a bot announces to mineflayer. Its minecraft-data has 26.1 and no 26.1.1 or 26.1.2: the three share
+# protocol 775.
+bot_version() { case "$1" in 26.1.*) echo 26.1 ;; *) echo "$1" ;; esac; }
+
+# <worktree> <minecraft version>: on 26.x, the Fabric server lets the vanilla bots in (hook/fabric/Z_VanillaBotsMixin.java).
+# The 26.1 Fabric API disconnects a vanilla client when a mod adds to a synced registry; 1.21.1's let it in.
+FABRIC_MIXIN_DIR=fabric/src/main/java/github/mrornithorynque/bmh/fabric/mixin
+fabric_bot_hook() {
+  case "$2" in 26.*) ;; *) return 0 ;; esac
+  # Once only: a tree that already has the hook keeps one entry.
+  [ -f "$1/$FABRIC_MIXIN_DIR/Z_VanillaBotsMixin.java" ] && return 0
+  cp "$SCRIPTS/hook/fabric/Z_VanillaBotsMixin.java" "$1/$FABRIC_MIXIN_DIR/Z_VanillaBotsMixin.java"
+  python3 -I - "$1/fabric/src/main/resources/bmh.fabric.mixins.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d.setdefault("mixins", []).append("Z_VanillaBotsMixin")
+open(p, "w").write(json.dumps(d, indent=4) + "\n")
+PY
+}
+fabric_bot_unhook() {
+  [ -d "$1" ] || return 0
+  rm -f "$1/$FABRIC_MIXIN_DIR/Z_VanillaBotsMixin.java"
+  git -C "$1" checkout -q -- fabric/src/main/resources/bmh.fabric.mixins.json 2>/dev/null
 }
 
 # The server lock, then a Gradle slot, always in that order (two slots and one lock: a waiting boot can only hold the lock
