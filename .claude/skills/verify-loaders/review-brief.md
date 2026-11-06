@@ -10,7 +10,7 @@ The run folder is the `OUT` path given with this brief. It holds:
 
 - `summary.txt`: per cell (a Minecraft version) one line from `branch.sh` and one from `selftest.sh`. Green for
   `branch.sh` is `build=ok`, `jars` all passed, and per loader `up=1`, `amulet` and `smoke` all passed, `srvErr=0`,
-  `tag=1`, `client=1`, `shots=2`, `cliErr=0` (`amulet=-` means the branch has no redesigned amulet). Green for
+  `tag=1`, `client=1`, `shots=4`, `cliErr=0` (`amulet=-` means the branch has no redesigned amulet). Green for
   `selftest.sh` is, per loader, `up=1`, `end=1`, `fail=0` and the two numbers of `selftest=a/b` equal.
 - `<label>/`: per cell `steps.txt`, `build.log`, `jars.txt`, `server-<loader>.log`, `bot-<loader>.log`,
   `amulet-<loader>.log`, `client-<loader>.log`, `selftest-<loader>.log`, `selftest.txt`, and the screenshots
