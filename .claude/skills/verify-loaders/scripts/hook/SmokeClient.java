@@ -154,11 +154,10 @@ public final class SmokeClient {
         }
     }
 
-    // The moon direction, the same math as MoonRitualHandler.moonDirection. The screenshots, not this code, prove it:
+    // The moon direction (ClientCompat: the sky math differs per version). The screenshots, not this code, prove it:
     // the moon must be under the crosshair, and the server log says how far the look was from its own moon direction.
     private static Vec3 moonDirection(Minecraft mc) {
-        double angle = mc.level.getTimeOfDay(1.0F) * Math.PI * 2.0;
-        return new Vec3(Math.sin(angle), -Math.cos(angle), 0.0);
+        return ClientCompat.moonDirection(mc);
     }
 
     // The yaw and pitch that look along the moon direction.
