@@ -1,7 +1,6 @@
 package github.mrornithorynque.bmh.handlers;
 
 import github.mrornithorynque.bmh.init.SoundInit;
-import github.mrornithorynque.bmh.mixin.F_ServerPlayerAccessor;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -11,7 +10,13 @@ import net.minecraft.world.level.Level;
 
 public class RespawnEffectHandler {
 
-    // The client cinematic lasts about 5 s after the respawn, and longer while the terrain loads. Vanilla gives 60 ticks.
+    /** Implemented by ServerPlayer through F_ServerPlayerJourneyMixin: damage immunity for a number of ticks. */
+    public interface JourneyShield {
+
+        void bmh$setJourneyInvulnerableTicks(int ticks);
+    }
+
+    // The client cinematic lasts about 5 s after the respawn, and longer while the terrain loads. Vanilla gives up to 60 ticks.
     private static final int JOURNEY_INVULNERABLE_TICKS = 200;
 
     // Called on the server after a respawn, once the position and the kept items are settled.
@@ -28,7 +33,7 @@ public class RespawnEffectHandler {
         }
 
         // The player cannot see or move during the cinematic.
-        ((F_ServerPlayerAccessor) serverPlayer).bmh$setSpawnInvulnerableTime(JOURNEY_INVULNERABLE_TICKS);
+        ((JourneyShield) serverPlayer).bmh$setJourneyInvulnerableTicks(JOURNEY_INVULNERABLE_TICKS);
 
         playRespawnSound(serverPlayer);
 
