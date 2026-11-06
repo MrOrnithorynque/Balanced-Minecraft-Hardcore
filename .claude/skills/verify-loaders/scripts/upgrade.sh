@@ -1,7 +1,7 @@
 #!/bin/bash
 # Upgrade test on one loader: a world made by the old release, then the same world and player under the new code.
 # usage: upgrade.sh <old origin branch or tag> <new origin branch or tag> <minecraft version> <loader> <label>
-#   e.g. upgrade.sh mc-1.20.4-v1.4.0 dev-49.0.31 1.20.4 fabric 1.20.4
+#   e.g. upgrade.sh mc-1.20.4-v1.4.0 main 1.20.4 fabric 1.20.4
 # Two worktrees of its own (upgrade-old-<label>, upgrade-new-<label>) under <repo>/.claude/worktrees, the same locks as
 # branch.sh, port 25619 (RCON 25719; BMH_UPGRADE_PORT overrides). upgrade_bot.js gives the items of a long-time player on
 # the old server and checks what carried over on the new one. Results: $BMH_VERIFY_OUT/upgrade-<label>/.
