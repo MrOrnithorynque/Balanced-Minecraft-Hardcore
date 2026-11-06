@@ -133,3 +133,17 @@ The red cells, one by one:
 - 26.2 (Forge 26.2-65.1.6, NeoForge 26.2.0.93, Fabric API 0.161.0+26.2, Java 25): branch `mc-26.2` from `mc-26.1`, set `gradle.properties`, then fix the 45 compile errors of 2.8 (sky pipeline API, journey overlay, `Minecraft.getOverlay/setOverlay`, the vanilla ore block tags and `EntityType.BLOCK_DISPLAY` in Echo Sense, `PointSignal`, `setScreen`). Recheck every mixin target and the Forge and NeoForge patches the same way as here. The bots cannot run: mineflayer's minecraft-data 3.119.0 has no 26.2 data (`dataPaths.json` lists only 26.1 for 26.x), and 26.2 is protocol 776.
 - 26.3 (Forge 26.3-66.1.5, NeoForge 26.3.0.101, Fabric API 0.165.2+26.3): from `mc-26.2` rather than `mc-26.1`. 79 compile errors from 26.1: the 26.2 set plus the blaze3d package move (`GpuBuffer`, `RenderPipeline`, `RenderPass`, `VertexFormat`), `AxeItem` gone, `BundleContents.Mutable` and `itemCopyStream`. Same bot problem (protocol 777).
 - 1.21.11 backport (Forge 1.21.11-61.2.5, NeoForge 21.11.48, Fabric API 0.141.6+1.21.11, Java 21): the jar is still obfuscated, so the build goes back to remapping: `fabric-loom` (remap plugin, MultiLoader-Template 1.21.11 uses `1.13-SNAPSHOT`) with `officialMojangMappings()`, a Fabric refmap again, and a Loom jar for `compile_check.sh 1.21.11` (build once, then the script works as for 1.21.1). Not measured: which 26.1 APIs (GUI extraction, game rule registry, `Identifier`, `ValueOutput`) already exist in 1.21.11. Start from `mc-26.1` and expect to undo the 26.1-only parts, or from `mc-1.21.1` and redo the 1.21.2 to 1.21.11 parts: measure both with one compile before choosing.
+
+### 3.1 Reruns and the final matrix (`date` 2026-11-06 05:51 CET)
+- Forge cell rerun with `earlyWindowControl = false` (05:35): `amulet=39/40 smoke=46/46 client=1 shots=4`. The amulet failure was real: `bed point kept on the head of the bed [... {name: "Bed", x: -8, y: -60}]`, no z. `optionalFieldOf("z", 0)` leaves out a value equal to the default, so a point at z = 0 was saved without z. Fixed in f04f162 (every field always written); probe `$SCRATCH/probe26/ProbeCodec.java` prints `encoded: {name:"Bed",x:-8,y:-60,z:0}` and reads a save without z as z = 0.
+- Final matrix on f04f162, verbatim:
+`mc26 f04f162 build=ok jars=163/163 | forge up=1 amulet=40/40 smoke=46/46 srvErr=0 tag=1 client=1 shots=4 cliErr=0 | fabric up=1 amulet=0/0 smoke=0/1 srvErr=0 tag=1 client=1 shots=4 cliErr=0 | neoforge up=1 amulet=40/40 smoke=46/46 srvErr=0 tag=1 client=1 shots=4 cliErr=0`
+`mc26 f04f162 selftest | forge up=1 selftest=71/71 end=1 fail=0 | fabric up=1 selftest=71/71 end=1 fail=0 | neoforge up=1 selftest=71/71 end=1 fail=0`
+- Everything is green except the Fabric bot cells, which cannot run (Fabric API refuses vanilla clients on 26.1, see Step 3).
+
+## Not verified
+- 26.1 and 26.1.1 at runtime (only a compile of the common code against the 26.1 jar). The jar declares 26.1 to 26.1.x on every loader.
+- The Fabric bot scenarios (amulet 40 checks, smoke 46 checks) on Fabric.
+- A world upgraded from 1.21.1: the BMH game rule values do not carry over (by design of the new ids); that the other rules still load was not tested.
+- Looks and feel judged by a human: the star reading, the journey cinematic and its frame rate, the screens, the needle and the bundle sprite in game. The screenshots show the sky line, the cinematic frames and the totem animation, nothing more.
+- Hoppers of other mods and NeoForge's transfer wrappers versus the one-totem-per-container rule.
