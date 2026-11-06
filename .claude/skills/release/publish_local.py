@@ -1,14 +1,15 @@
-"""Publishes one built release worktree from this Mac: CurseForge, the GitHub release, Discord.
+"""Publishes one built release worktree from this Mac: CurseForge, Modrinth, the GitHub release, Discord.
 
 It does what .github/disabled-workflows/publish.yml did on GitHub Actions, for one Minecraft version:
 one CurseForge file per loader (Forge, Fabric with Fabric API as a required dependency, NeoForge where
 the branch builds it; the 1.20.1 Forge jar is also listed for NeoForge, through the documented upload API:
 https://support.curseforge.com/en/support/solutions/articles/9000197321-curseforge-upload-api), one GitHub
-release that holds every jar, and, for the 1.21.1 tag only, the changelog on Discord. Modrinth is not done
-here: its token answered 401 since 2026-11-04.
+release that holds every jar, one Modrinth version per loader (the same files as CurseForge), and, for the
+1.21.1 tag only, the changelog on Discord. The Modrinth page text (its description) is not part of a version:
+"--only modrinth-page" sends docs/curseforge-description.md as the page body.
 
-usage: python3 -I publish_local.py <abs worktree> [--dry-run] [--only curseforge,github,discord]
-                                   [--loader all|forge|fabric|neoforge]
+usage: python3 -I publish_local.py <abs worktree> [--dry-run] [--only curseforge,modrinth,github,discord,modrinth-page]
+                                   [--loader all|forge|fabric|neoforge] [--jars-from-release]
 
 The worktree must be built (gradlew build) and sit on the commit of its tag mc-<mc>-v<mod>, read from its
 gradle.properties. A real run checks, before any upload, that the tag is on GitHub at that commit, that gh
@@ -17,8 +18,15 @@ CHANGELOG.md, as the workflow used it. "--only discord" needs no jar: it reads o
 
 Secrets come from the macOS Keychain, never from the command line or a file:
   security add-generic-password -a "$USER" -s bmh-curseforge-token -w    (CurseForge author API token)
+  security add-generic-password -a "$USER" -s bmh-modrinth-token -w      (Modrinth personal access token, scopes
+                                                                         Create versions, Write versions, Read
+                                                                         projects and Write projects for the page text)
   security add-generic-password -a "$USER" -s bmh-discord-webhook -w     (the Discord webhook URL)
 Each command asks for the value; it never shows in the shell history. The GitHub release uses gh's login.
+
+--jars-from-release (Modrinth only) takes the jars from the GitHub release of the tag instead of a build, for a
+version that went out before Modrinth was set up: the worktree is a plain checkout of the tag, with no build. A
+Modrinth version that already exists (same version number and loaders) is skipped, so a run can be repeated.
 
 --dry-run uploads and posts nothing: it prints the files, names and versions it would send, and, when the
 token is there, the CurseForge game version id of each name (read only requests). A Minecraft version name
@@ -34,6 +42,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 import uuid
@@ -45,7 +54,11 @@ REPO = "MrOrnithorynque/Balanced-Minecraft-Hardcore"
 DISCORD_MAX = 3900
 # Discord's Cloudflare refuses Python's default agent (403, error code 1010).
 USER_AGENT = "BMH-release (https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore, 1.0)"
-TARGETS = {"curseforge", "github", "discord"}
+MODRINTH_PROJECT = "dc7VO9FK"
+MODRINTH_API = "https://api.modrinth.com/v2"
+MODRINTH_FABRIC_API = "P7dR8mSH"
+TARGETS = {"curseforge", "modrinth", "github", "discord", "modrinth-page"}
+DEFAULT_ONLY = "curseforge,modrinth,github,discord"
 LOADERS = {"all", "forge", "fabric", "neoforge"}
 
 
@@ -90,9 +103,13 @@ def changelog(tree, mod):
     return text
 
 
-def jar(tree, loader):
-    jars = [j for j in glob.glob(os.path.join(tree, loader, "build", "libs", "*.jar"))
-            if not re.search(r"-(dev|sources|javadoc)\.jar$", j)]
+def jar(tree, loader, folder=None):
+    """The one release jar of a loader: from its build/libs, or from `folder` (jars of a GitHub release)."""
+    pattern = os.path.join(folder, "*.jar") if folder else os.path.join(tree, loader, "build", "libs", "*.jar")
+    jars = [j for j in glob.glob(pattern) if not re.search(r"-(dev|sources|javadoc)\.jar$", j)]
+    if folder:
+        named = [j for j in jars if "-%s-" % loader in os.path.basename(j)]
+        jars = named or (jars if loader == "forge" and len(jars) == 1 else [])
     if len(jars) != 1:
         fail("%s: expected one release jar in %s/build/libs, found %s" % (loader, loader, jars))
     return jars[0]
@@ -158,6 +175,34 @@ def curseforge_upload(token, path, metadata):
     return request("%s/projects/%d/upload-file" % (CURSEFORGE_API, CURSEFORGE_PROJECT), body, headers, "POST")
 
 
+def modrinth_versions(token):
+    """The versions the project already has, as a set of (version number, sorted loaders)."""
+    found = request("%s/project/%s/version" % (MODRINTH_API, MODRINTH_PROJECT), headers={"Authorization": token})
+    return {(v["version_number"], tuple(sorted(v["loaders"]))) for v in found}
+
+
+def modrinth_check_names(names):
+    """Stops when a Minecraft version name is not one Modrinth knows (public read, no token)."""
+    known = {g["version"] for g in request(MODRINTH_API + "/tag/game_version")}
+    missing = [n for n in names if n not in known]
+    if missing:
+        fail("Modrinth does not know the game versions %s" % missing)
+
+
+def modrinth_upload(token, path, data):
+    boundary = uuid.uuid4().hex
+    body = b"".join([
+        ("--%s\r\nContent-Disposition: form-data; name=\"data\"\r\nContent-Type: application/json\r\n\r\n" % boundary).encode(),
+        json.dumps(data).encode(), b"\r\n",
+        ("--%s\r\nContent-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\nContent-Type: application/java-archive\r\n\r\n"
+         % (boundary, os.path.basename(path))).encode(),
+        open(path, "rb").read(), b"\r\n",
+        ("--%s--\r\n" % boundary).encode(),
+    ])
+    headers = {"Authorization": token, "Content-Type": "multipart/form-data; boundary=" + boundary}
+    return request(MODRINTH_API + "/version", body, headers, "POST")
+
+
 def discord_payload(mod, log):
     """The embed publish.yml posted: image lines out of the text, the first image as the embed's picture."""
     image = re.search(r"^!\[[^\]]*\]\(([^)]*)\)", log, re.M)
@@ -186,15 +231,18 @@ def option(args, name, default):
 def main():
     args = sys.argv[1:]
     if not args or not os.path.isabs(args[0]):
-        fail("usage: publish_local.py <abs worktree> [--dry-run] [--only curseforge,github,discord] [--loader ...]")
+        fail("usage: publish_local.py <abs worktree> [--dry-run] [--only curseforge,modrinth,github,discord,modrinth-page] [--loader ...] [--jars-from-release]")
     tree = args[0]
     dry = "--dry-run" in args
-    only = option(args, "--only", "curseforge,github,discord").split(",")
+    only = option(args, "--only", DEFAULT_ONLY).split(",")
+    from_release = "--jars-from-release" in args
     loader_arg = option(args, "--loader", "all")
     if set(only) - TARGETS:
         fail("--only takes %s, not %s" % (sorted(TARGETS), sorted(set(only) - TARGETS)))
     if loader_arg not in LOADERS:
         fail("--loader takes %s, not %s" % (sorted(LOADERS), loader_arg))
+    if from_release and set(only) != {"modrinth"}:
+        fail("--jars-from-release goes with --only modrinth: the other targets need a build of the tag")
 
     p = props(tree)
     mc, mod, java = p["minecraft_version"], p["mod_version"], p["java"]
@@ -215,6 +263,7 @@ def main():
 
     # Everything a real run needs, checked before the first upload: nothing goes out half way for a missing piece.
     token = keychain("bmh-curseforge-token") if "curseforge" in only else ""
+    mr_token = keychain("bmh-modrinth-token") if {"modrinth", "modrinth-page"} & set(only) else ""
     hook = keychain("bmh-discord-webhook") if posts_discord else ""
     if not dry:
         remote = subprocess.run(["git", "-C", tree, "ls-remote", "origin", "refs/tags/%s^{}" % tag, "refs/tags/%s" % tag],
@@ -225,6 +274,8 @@ def main():
             gh("auth", "status")
         if "curseforge" in only and not token:
             fail("no CurseForge token in the Keychain (service bmh-curseforge-token), see the header of this script")
+        if {"modrinth", "modrinth-page"} & set(only) and not mr_token:
+            fail("no Modrinth token in the Keychain (service bmh-modrinth-token), see the header of this script")
         if posts_discord and not hook:
             fail("no Discord webhook in the Keychain (service bmh-discord-webhook), see the header of this script")
 
@@ -232,8 +283,19 @@ def main():
     # was verified on more (mc-26.1: one jar for 26.1, 26.1.1 and 26.1.2).
     game_versions = [v.strip() for v in p.get("release_game_versions", mc).split(",") if v.strip()]
     uploads = []
-    if only != ["discord"]:
+    fetched = None
+    if from_release:
+        fetched = tempfile.mkdtemp(prefix="bmh-release-jars-")
+        if dry:
+            print("DRY jars of release %s would be downloaded from GitHub" % tag, flush=True)
+        gh("release", "download", tag, "--repo", REPO, "--pattern", "*.jar", "--dir", fetched)
+    if set(only) & {"curseforge", "modrinth", "github"}:
         loaders = ["forge", "fabric"] + (["neoforge"] if "neoforge_version" in p else [])
+        if fetched:
+            # An old tag may predate a loader: publish the loaders whose jar is in the release (a lone jar is Forge).
+            names = [os.path.basename(j) for j in glob.glob(os.path.join(fetched, "*.jar"))]
+            loaders = [l for l in ["forge", "fabric", "neoforge"]
+                       if any("-%s-" % l in n for n in names) or (l == "forge" and len(names) == 1)]
         if loader_arg != "all":
             loaders = [loader_arg]
         for loader in loaders:
@@ -241,22 +303,23 @@ def main():
             listed = [label] + (["NeoForge"] if loader == "forge" and mc == "1.20.1" else [])
             uploads.append({
                 "loader": loader,
-                "file": jar(tree, loader),
+                "file": jar(tree, loader, fetched),
                 "displayName": "Balanced Minecraft Hardcore %s for %s %s" % (mod, label, mc),
                 "versionNames": game_versions + ["Java " + java, "Client", "Server"] + listed,
                 "relations": {"projects": [{"slug": "fabric-api", "type": "requiredDependency"}]} if loader == "fabric" else None,
             })
 
-        jarcheck = os.path.join(tree, ".claude", "skills", "verify-loaders", "scripts", "jarcheck.py")
-        java_home = "/opt/homebrew/opt/openjdk@" + java
-        check = subprocess.run([sys.executable, "-I", jarcheck, tree, mc, java_home], capture_output=True, text=True)
-        jars_line = [l for l in check.stdout.splitlines() if l.startswith("JARS ")]
-        print("%s: jarcheck %s" % (tag, jars_line[-1] if jars_line else "?"), flush=True)
-        if check.returncode != 0:
-            for line in check.stdout.splitlines():
-                if line.startswith("FAIL"):
-                    print("  " + line, flush=True)
-            fail("jarcheck failed: fix the jars before publishing")
+        if not from_release:
+            jarcheck = os.path.join(tree, ".claude", "skills", "verify-loaders", "scripts", "jarcheck.py")
+            java_home = "/opt/homebrew/opt/openjdk@" + java
+            check = subprocess.run([sys.executable, "-I", jarcheck, tree, mc, java_home], capture_output=True, text=True)
+            jars_line = [l for l in check.stdout.splitlines() if l.startswith("JARS ")]
+            print("%s: jarcheck %s" % (tag, jars_line[-1] if jars_line else "?"), flush=True)
+            if check.returncode != 0:
+                for line in check.stdout.splitlines():
+                    if line.startswith("FAIL"):
+                        print("  " + line, flush=True)
+                fail("jarcheck failed: fix the jars before publishing")
 
     if "curseforge" in only and uploads:
         # Every id resolved before the first upload: an unknown or ambiguous name stops the run with nothing sent.
@@ -274,6 +337,27 @@ def main():
                 answer = curseforge_upload(token, u["file"], metadata)
                 print("PUBLISHED curseforge %s: file id %s" % (u["loader"], (answer or {}).get("id")), flush=True)
 
+    if "modrinth" in only and uploads:
+        modrinth_check_names(game_versions)
+        have = modrinth_versions(mr_token) if mr_token else set()
+        number = "%s-%s" % (mc, mod)
+        for u in uploads:
+            label = {"forge": "Forge", "fabric": "Fabric", "neoforge": "NeoForge"}[u["loader"]]
+            loaders = [u["loader"]] + (["neoforge"] if u["loader"] == "forge" and mc == "1.20.1" else [])
+            deps = [{"project_id": MODRINTH_FABRIC_API, "dependency_type": "required"}] if u["loader"] == "fabric" else []
+            data = {"name": "Balanced Minecraft Hardcore %s for %s %s" % (mod, label, mc), "version_number": number,
+                    "changelog": log, "dependencies": deps, "game_versions": game_versions, "version_type": "release",
+                    "loaders": loaders, "featured": False, "project_id": MODRINTH_PROJECT, "file_parts": ["file"],
+                    "primary_file": "file"}
+            if (number, tuple(sorted(loaders))) in have:
+                print("SKIPPED modrinth %s: %s is already there" % (u["loader"], number), flush=True)
+            elif dry:
+                print("DRY modrinth %s: %s | %s | loaders %s | game versions %s | deps %s" % (
+                    u["loader"], os.path.basename(u["file"]), data["name"], loaders, game_versions, deps), flush=True)
+            else:
+                answer = modrinth_upload(mr_token, u["file"], data)
+                print("PUBLISHED modrinth %s: version id %s" % (u["loader"], (answer or {}).get("id")), flush=True)
+
     if "github" in only and uploads:
         title = "Balanced Minecraft Hardcore %s for %s" % (mod, mc)
         files = [u["file"] for u in uploads]
@@ -289,6 +373,21 @@ def main():
             else:
                 gh("release", "create", tag, "--repo", REPO, "--verify-tag", "--title", title, "--notes-file", notes, *files)
             print("PUBLISHED github release %s (%d jars)" % (tag, len(files)), flush=True)
+
+    if "modrinth-page" in only:
+        page = os.path.join(tree, "docs", "curseforge-description.md")
+        if not os.path.exists(page):
+            fail("no docs/curseforge-description.md in this worktree")
+        body = open(page, encoding="utf-8").read()
+        current = request("%s/project/%s" % (MODRINTH_API, MODRINTH_PROJECT))["body"]
+        if body.strip() == current.strip():
+            print("SKIPPED modrinth page: the text is already the same", flush=True)
+        elif dry:
+            print("DRY modrinth page: %d characters would replace the %d now there" % (len(body), len(current)), flush=True)
+        else:
+            request("%s/project/%s" % (MODRINTH_API, MODRINTH_PROJECT), json.dumps({"body": body}).encode(),
+                    {"Authorization": mr_token, "Content-Type": "application/json"}, "PATCH")
+            print("PUBLISHED modrinth page: %d characters" % len(body), flush=True)
 
     if posts_discord:
         payload = discord_payload(mod, log)
