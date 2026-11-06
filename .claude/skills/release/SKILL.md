@@ -21,8 +21,8 @@ git status --short          # clean tree
 for b in main $(git for-each-ref --format='%(refname:lstrip=3)' 'refs/remotes/origin/mc-*'); do
   git rev-parse -q --verify "refs/heads/${b}" >/dev/null || echo "   NO local branch $b: git branch --track $b origin/$b"
   echo "== $b behind/ahead: $(git rev-list --left-right --count "origin/${b}...${b}")"
-  # mc-1.21.1 (and any later non-1.20.x branch) has its own sources: skip it here.
-  [ "$b" = mc-1.21.1 ] || git diff --stat main "$b" -- . ':!forge/build.gradle' ':!gradle.properties' ':!README.md' ':!forge/src/main/resources/META-INF/mods.toml' ':!.vscode' | tail -1   # must print nothing
+  # mc-1.21.1 and mc-26.1 (and any later non-1.20.x branch) have their own sources: skip them here.
+  case "$b" in mc-1.21.1|mc-26.1) ;; *) git diff --stat main "$b" -- . ':!forge/build.gradle' ':!gradle.properties' ':!README.md' ':!forge/src/main/resources/META-INF/mods.toml' ':!.vscode' | tail -1 ;; esac   # must print nothing
   git cat-file -e "${b}:.github/workflows/publish.yml" 2>/dev/null && echo "   publish.yml still active on $b: port the move to .github/disabled-workflows first"
   git cat-file -e "${b}:CHANGELOG.md" 2>/dev/null || echo "   NO CHANGELOG.md on $b"
 done
@@ -157,7 +157,7 @@ done
 
 - Tag `origin/<b>` after a fetch, and only where it is the commit step 5 pushed. Never tag the local branch: the one checked out in the main checkout still points at its old commit.
 - `main` is the 1.20.4 branch and gets the `mc-1.20.4-v*` tag. From `mc-1.20.4-v1.1.0` to `mc-1.20.4-v1.7.0`, the 1.20.4 tags sit on the commits of `dev-49.0.31`, a copy of `main` deleted on 2026-11-06.
-- Format is exactly `mc-<mc>-v<mod>`.
+- Format is exactly `mc-<mc>-v<mod>`, with `<mc>` the branch's `minecraft_version`, not its name. `mc-26.1` builds against 26.1.2, so its tag is `mc-26.1.2-v<mod>` (owner's decision, 2026-11-06); `publish_local.py` reads the same value.
 
 **Show the user the list of tags and the commit each points to, and get a clear yes**: a tag is public and slow to move. Then push them (`git push origin <tag> ...`): the GitHub release of step 7 needs its tag on GitHub, and the script checks it before any upload. With the workflows disabled, a tag push starts nothing, so they can go in one push.
 

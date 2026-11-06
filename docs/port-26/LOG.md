@@ -99,3 +99,19 @@ Code map parts touched (errors per file in `facts/mc26/javac.log`): every one. R
 - Fix (commit 513fb5a): `F_ServerPlayerJourneyMixin` keeps its own 200-tick counter, counted down at the head of `ServerPlayer.tick`, and cancels `ServerPlayer.hurtServer(ServerLevel, DamageSource, float)` while it runs, except for damage in `#bypasses_invulnerability` (the 1.21.1 rule).
 - boot2: `Done (` on forge (22 s), fabric (16 s) and neoforge (16 s). Each log has `[BalancedMcHardcoreMain] Loading...`, the azimuth self-check, and `Echo Sense: tag bmh:echo_sense_ores lists 19 blocks.` No mixin error. Every loader logs `No key layers in MapLike[{}]`: vanilla cannot read the empty `generator-settings` of the verify `server.properties` and falls back to the default flat preset (`DedicatedServerProperties.java:269-277`), so the world is still flat.
 - Not covered by a boot: mixins on classes that load only on use (anvil, displays, item entities, the client). The verify self-tests and the client runs cover those.
+
+### 2.6 verify-loaders on 26.1 (commit 0a36018)
+- Agent `port-hooks` (log `docs/port-26/agent-hooks.md`) ported the Java hooks: `MockPlayers_26.1.java`, shared helpers in every MockPlayers copy, `hook/compat/ClientCompat_{1.21.1,26.1}.java` picked by `client_variant` in `lib.sh`. Checked by the coordinator: `compile_check.sh --selftest 26.1.2` gives `26.1.2: OK (107 classes)`, `--client 26.1.2` gives `OK (97 classes)`. The agent reports OK on 1.21.1 and 1.20 to 1.20.4 with scratch trees of `mc-1.21.1` and `main` (not rerun by the coordinator).
+- `jarcheck.py`: on 26.x no jar may ship a refmap, and every item needs `assets/bmh/items/<item>.json` whose models and textures exist. On the build of 8eb1721+: `JARS 163/163`.
+- Bots: `rule_names.js` turns the old rule names into 26.1 ids for 26.x; `bot_version` announces 26.1 to mineflayer.
+
+### 2.7 Respawn with a real death (death_client.sh, logs `$SCRATCH/verify/death-d26-*`)
+- Fabric: respawn packet t+889ms, then the first position packet at -10824,-60,-2503; overlay gone at t+5857ms; `final respawned=true alive=true screen=- overlay=-`. Frames show the fade, the night sky with the star line and "A new journey begins for you", then the arrival.
+- NeoForge: first position packet after the respawn packet at 9149,-60,6306; overlay gone at t+5841ms; same final line.
+- Forge: the first run failed before the hook (`GLFW may only be used on the main thread ... -XstartOnFirstThread`): ForgeGradle 7 does not add that flag on macOS. Fixed in `forge/build.gradle` (commit 8af7f90). Rerun (`death-d26b-forge`): position packet at -9167,-60,6277 right after the respawn packet, overlay gone at t+5924ms, same final line.
+
+### 2.8 The next versions, measured with `compile_check.sh` (Mojang jars, `$SCRATCH/logs/javac-26.{2,3}.log`)
+- 26.1: `26.1: OK (91 classes)`. The common code compiles against the 26.1 jar too (signatures only; the jar was not run on 26.1 or 26.1.1).
+- 26.2: 45 errors in 6 files: `StarReadingRenderer` (13: pipeline `withUniform`, `RenderPass.draw`, `getMainRenderTarget`, `getMainCamera`, `getGuiTicks`), `JourneyOverlay` (14), `JourneyCinematic` (6: `Minecraft.getOverlay/setOverlay`), `EchoSenseHandler` (6: the vanilla ore block tags and `EntityType.BLOCK_DISPLAY`), `PointSignal` (5), `ConfigScreen` (1: `setScreen`).
+- 26.3: 79 errors in 13 files: the same plus the blaze3d packages moved (`GpuBuffer`, `RenderPipeline`, `RenderPass`, `VertexFormat`), `AxeItem` gone (`EternalAxeItem`), `BundleContents.Mutable` and `itemCopyStream` changed (`EternalBundleItem`).
+- These are lower bounds (javac stops some checks after resolution errors) and say nothing about mixin targets.
