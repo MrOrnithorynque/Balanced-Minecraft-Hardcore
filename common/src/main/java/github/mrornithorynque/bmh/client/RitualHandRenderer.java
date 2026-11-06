@@ -21,14 +21,16 @@ public final class RitualHandRenderer {
 
     // Where the totem stops, in the camera's space: x to the right, y up, z toward the camera. Its top is just under
     // the crosshair, so the player still aims at the moon over it.
-    private static final float HOLD_Y = -0.15F;
+    private static final float HOLD_Y = -0.1F;
     private static final float HOLD_Z = -0.75F;
     // Where it starts: the normal place of an item in the hand (vanilla's applyItemArmTransform, no equip offset).
     private static final float START_X = 0.56F;
     private static final float START_Y = -0.52F;
     private static final float START_Z = -0.72F;
     private static final float RAISE_TICKS = 10.0F;
-    private static final float SCALE = 0.26F;
+    private static final float SCALE = 0.16F;
+    // The night light leaves the totem almost black: it catches the moonlight, so it is drawn at full brightness.
+    private static final int FULL_BRIGHT = 0xF000F0;
 
     private RitualHandRenderer() {
     }
@@ -61,7 +63,7 @@ public final class RitualHandRenderer {
         poseStack.scale(SCALE, SCALE, SCALE);
         // Face the camera: the fixed display of a flat item model shows its back to the camera.
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
-        renderer.renderItem(player, stack, ItemDisplayContext.FIXED, !rightArm, poseStack, buffers, light);
+        renderer.renderItem(player, stack, ItemDisplayContext.FIXED, !rightArm, poseStack, buffers, FULL_BRIGHT);
         poseStack.popPose();
     }
 }
