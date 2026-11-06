@@ -64,7 +64,7 @@ What differs from `mc-1.21.1`, where the rest of this file says otherwise. `docs
 - `CreativeModeTab.Output` is protected in vanilla: each loader fills the creative tab (`IPlatformHelper.creativeTabBuilder(items)`).
 - `ResourceLocation` is `Identifier` on 26.1 (same static factories). A change cherry-picked from another branch must rename it.
 - The client hooks of verify-loaders cannot call `Minecraft.tell` on 26.1: the version-specific calls live in `scripts/hook/compat/ClientCompat_<variant>.java` (26.1 queues frames with `schedule(wrapRunnable(...))`).
-- The branch is `mc-26.1`, but `minecraft_version` is `26.1.2` (the build target). The release skill builds the tag from `minecraft_version`, so it would give `mc-26.1.2-v<version>`: decide the tag name before the first 26.1 release.
+- The branch is `mc-26.1`, but `minecraft_version` is `26.1.2` (the build target). Its release tag is `mc-26.1.2-v<version>`, like every branch: the tag takes `minecraft_version`, never the branch name. The release skill and `publish_local.py` already do this.
 - NeoForge 26 reads the side with `FMLEnvironment.getDist()` (a method, not the `dist` field). `compile_check.sh 26.1.2` needs no Loom jar: it downloads the Mojang client jar.
 
 ## Code map
