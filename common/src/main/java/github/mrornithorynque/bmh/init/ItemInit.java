@@ -61,8 +61,10 @@ public class ItemInit {
                                                         .rarity(Rarity.EPIC)));
 
         // The Totem of Eternity after it saved a player. It is an Eternal Item: it stays with the player
-        // through death, and an Echo Heart at the anvil awakens it again.
-        public static final Supplier<Item> DORMANT_TOTEM_OF_ETERNITY = register("dormant_totem_of_eternity",
+        // through death. Only the moon ritual wakes it again (handlers/MoonRitualHandler).
+        // The id is sleeping_totem: an id that contains dormant_totem or totem_of_eternity makes the
+        // inventory checks of the test bots match the wrong item.
+        public static final Supplier<Item> DORMANT_TOTEM_OF_ETERNITY = register("sleeping_totem",
                         () -> new DormantTotemOfEternityItem(
                                         new Item.Properties()
                                                         .stacksTo(1)
