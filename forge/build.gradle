@@ -17,7 +17,12 @@ minecraft {
             // The dev runs load the classes from folders, which have no manifest: name the mixin config here.
             args '--mixin.config', "${mod_id}.mixins.json"
         }
-        register('client')
+        register('client') {
+            // GLFW on macOS needs the first thread. ForgeGradle 7 does not add this flag itself.
+            if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('mac')) {
+                jvmArgs '-XstartOnFirstThread'
+            }
+        }
         register('server') {
             args '--nogui'
         }
