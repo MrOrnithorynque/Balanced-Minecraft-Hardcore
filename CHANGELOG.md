@@ -13,7 +13,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ### Changed
 
-- On Minecraft 26.1, the BMH game rules have new names, in the style of the 26.1 game rules: bmh:random_death_spawn_point, bmh:display_text_on_respawn, bmh:food_and_health_regen_on_wake_up, bmh:only_carry_one_eternal_item_type, bmh:damage_eternal_item_when_dead and bmh:remove_coordinates_in_survival. A world from an older Minecraft version does not keep the values of these rules: they go back to ON.
+- On Minecraft 26.1, the BMH game rules have new names, in the style of the 26.1 game rules: bmh:random_death_spawn_point, bmh:display_text_on_respawn, bmh:food_and_health_regen_on_wake_up, bmh:only_carry_one_eternal_item_type, bmh:damage_eternal_item_when_dead and bmh:remove_coordinates_in_survival. A world from an older Minecraft version keeps the values of these rules.
 - On Minecraft 26.1, the Eternal Bundle shows its contents in the new vanilla bundle tooltip.
 - On Minecraft 26.1, the Eternal Axe scrapes copper golems, like every axe.
 
