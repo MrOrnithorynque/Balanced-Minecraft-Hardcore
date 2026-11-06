@@ -1,7 +1,7 @@
 #!/bin/bash
 # Verifies one BMH branch on every loader with nobody at the keyboard: a clean-checkout build and its jar checks, then for each
 # loader a dedicated server (the amulet scenario, then smoke_bot.js) and a singleplayer client with the throwaway smoke
-# hook (hook/), run on a copy of that server's world. It works in its own worktree <repo>/.claude/worktrees/verify-<label>,
+# hook (hook/, with the ClientCompat copy for the Minecraft version), run on a copy of that server's world. It works in its own worktree <repo>/.claude/worktrees/verify-<label>,
 # never commits, and removes the hook at the end (also when it is interrupted).
 # usage: branch.sh <origin branch or tag> <minecraft version> <label> [loaders...]
 #   loaders default to forge fabric, plus neoforge when the build made a NeoForge jar.
@@ -22,7 +22,8 @@ say() { echo "$*" | tee -a "$OUT/steps.txt"; }
 unhook() { # the throwaway hook never outlives the run
   [ -d "$WT" ] || return 0
   git -C "$WT" checkout -q -- common/src/main/resources/bmh.mixins.json neoforge/build.gradle 2>/dev/null
-  rm -f "$WT/$BMH_SRC/client/SmokeClient.java" "$WT/$BMH_SRC/mixin/Z_SmokeClientMixin.java"
+  rm -f "$WT/$BMH_SRC/client/SmokeClient.java" "$WT/$BMH_SRC/client/ClientCompat.java" "$WT/$BMH_SRC/mixin/Z_SmokeClientMixin.java"
+  fabric_bot_unhook "$WT"
 }
 trap 'release; unhook' EXIT
 
@@ -53,12 +54,14 @@ fi
 
 # 3. The throwaway client hook: its copy in common/src is never committed, unhook removes it (the source stays in scripts/hook/)
 cp "$SCRIPTS/hook/SmokeClient.java" "$WT/$BMH_SRC/client/SmokeClient.java"
+cp "$SCRIPTS/hook/compat/ClientCompat_$(client_variant "$MCV").java" "$WT/$BMH_SRC/client/ClientCompat.java"
 cp "$SCRIPTS/hook/Z_SmokeClientMixin.java" "$WT/$BMH_SRC/mixin/Z_SmokeClientMixin.java"
 python3 -I - "$WT/common/src/main/resources/bmh.mixins.json" <<'PY'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p)); d.setdefault("client", []).append("Z_SmokeClientMixin")
 open(p, "w").write(json.dumps(d, indent=4) + "\n")
 PY
+fabric_bot_hook "$WT" "$MCV"
 
 LINE="$LABEL $SHA build=$BUILD jars=$JARS"
 for L in $LOADERS; do
@@ -83,10 +86,10 @@ for L in $LOADERS; do
       cp "$SCRIPTS/rcon.py" "$OUT/rcon.py"
     fi
     if [ -n "$AMBOT" ]; then
-      with_timeout 600 node "$AMBOT" $PORT "$MCV" > "$OUT/amulet-$L.log" 2>&1
+      with_timeout 600 node "$AMBOT" $PORT "$(bot_version "$MCV")" > "$OUT/amulet-$L.log" 2>&1
       AM="$(grep -c '^PASS' "$OUT/amulet-$L.log")/$(grep -c -E '^(PASS|FAIL)' "$OUT/amulet-$L.log")"
     fi
-    with_timeout 600 env SMOKE_ITEMS="$ITEMS" SMOKE_RECIPES="$RECIPES" node "$SCRIPTS/smoke_bot.js" $PORT "$MCV" > "$OUT/bot-$L.log" 2>&1
+    with_timeout 600 env SMOKE_ITEMS="$ITEMS" SMOKE_RECIPES="$RECIPES" node "$SCRIPTS/smoke_bot.js" $PORT "$(bot_version "$MCV")" > "$OUT/bot-$L.log" 2>&1
     SM=$(grep '^SMOKE ' "$OUT/bot-$L.log" | tail -1 | cut -d' ' -f2)
     stop_server
   else

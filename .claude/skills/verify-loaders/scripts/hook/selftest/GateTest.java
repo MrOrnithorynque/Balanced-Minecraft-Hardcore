@@ -23,7 +23,7 @@ final class GateTest implements SelfTest.Test {
             ctx.check("ticks", now != null && now.getAttackStrengthScale(0) > charge,
                     "attack charge " + charge + " -> " + (now == null ? "gone" : now.getAttackStrengthScale(0))
                             + ", level tickCount " + ticks + " -> " + (now == null ? "gone" : now.tickCount));
-            now.kill();
+            MockPlayers.kill(now);
             ctx.later(5, () -> {
                 ServerPlayer dead = ctx.live(player);
                 ctx.check("dies", dead != null && dead.isDeadOrDying(), "dead " + (dead != null && dead.isDeadOrDying()));

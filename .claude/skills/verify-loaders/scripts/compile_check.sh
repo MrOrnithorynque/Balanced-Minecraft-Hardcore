@@ -3,20 +3,31 @@
 # jar (vanilla Minecraft with Mojang names) plus the libraries it needs from the Gradle cache. It proves that every vanilla
 # signature the shared code uses exists on that version. It does not prove that a mixin still hits its target, nor the
 # loaders' own code: the real build does.
-# usage: compile_check.sh [--selftest] [<minecraft version>...]
+# usage: compile_check.sh [--selftest] [--client] [<minecraft version>...]
 #   --selftest also compiles the self-test hook (hook/selftest, with the MockPlayers copy for each version), as selftest.sh
 #   copies it into common/src.
-#   With no version it reads minecraft_version in $TREE/gradle.properties: a value starting with 1.21 gives 1.21.1, anything
-#   else gives 1.20 1.20.1 1.20.2 1.20.3 1.20.4.
+#   --client also compiles the client hooks (hook/SmokeClient, hook/death and their mixins, with the ClientCompat copy for
+#   each version), as branch.sh and death_client.sh copy them into common/src. They need the tree's client classes: on 1.20
+#   to 1.21.1 the sword hook uses the tree's EternalSwordModel.
+#   With no version it reads minecraft_version in $TREE/gradle.properties: a value starting with 1.21 gives 1.21.1, a 26.x
+#   value gives that version, anything else gives 1.20 1.20.1 1.20.2 1.20.3 1.20.4.
+#   A 26.x version needs no Loom: the game ships unobfuscated, so the script downloads the Mojang client jar and its
+#   libraries once into ~/.gradle/caches/bmh-compile-check/<version> and compiles with Java 25.
 #   BMH_TREE=<worktree>   the checkout to compile (default: the one that holds this script)
-#   BMH_JDK17, BMH_JDK21  JDK homes (default Homebrew's openjdk@17 and openjdk@21; 1.21.x uses 21)
+#   BMH_JDK17, BMH_JDK21, BMH_JDK25  JDK homes (default Homebrew's openjdk@17, @21, @25; 1.21.x uses 21, 26.x uses 25)
 # A Loom jar is in ~/.gradle only after some branch of that version was built once with Gradle. Run it with bash: a file
 # list kept in a zsh variable does not split, so the sources go through a file here.
 # Exit status: 0 all compile, 1 a version fails, 2 a jar, a JDK or a library is missing.
 set -u
 SCRIPTS=$(cd "$(dirname "$0")" && pwd)
-SELFTEST=0
-[ "${1:-}" = --selftest ] && { SELFTEST=1; shift; }
+SELFTEST=0; CLIENT=0
+while :; do
+  case "${1:-}" in
+    --selftest) SELFTEST=1; shift ;;
+    --client) CLIENT=1; shift ;;
+    *) break ;;
+  esac
+done
 TREE=${BMH_TREE:-$(git -C "$SCRIPTS" rev-parse --show-toplevel)}
 GH=${GRADLE_USER_HOME:-$HOME/.gradle}
 LIBS=$GH/caches/modules-2/files-2.1
@@ -27,6 +38,7 @@ if [ $# -eq 0 ]; then
   MCV=$(sed -n 's/^minecraft_version=//p' "$TREE/gradle.properties" 2>/dev/null | head -1 | tr -d '[:space:]')
   case "$MCV" in
     1.21*) set -- 1.21.1 ;;
+    26.*) set -- "$MCV" ;;
     *) set -- 1.20 1.20.1 1.20.2 1.20.3 1.20.4 ;;
   esac
 fi
@@ -63,13 +75,70 @@ lib() { # <group> <artifact> <pins file> <minecraft version>
   find "$LIBS/$1/$2" -name "$2-[0-9]*.jar" ! -name '*-sources.jar' ! -name '*-javadoc.jar' ! -name '*-processor.jar' ! -name '*natives*' 2>/dev/null \
     | awk -F/ '{ print $NF "\t" $0 }' | sort -V | tail -1 | cut -f2
 }
-# The MockPlayers copy for a Minecraft version (the signatures of placeNewPlayer and ServerPlayer change at 1.20.2 and 1.20.5)
+# The MockPlayers copy for a Minecraft version (the signatures of placeNewPlayer and ServerPlayer change at 1.20.2 and
+# 1.20.5, and 26.1 renames or moves most of what the tests call). Keep it the same as the case in selftest.sh.
 mock_variant() {
   case "$1" in
     1.20|1.20.1) echo 1.20.1 ;;
     1.20.*) echo 1.20.4 ;;
+    26.*) echo 26.1 ;;
     *) echo 1.21.1 ;;
   esac
+}
+# The ClientCompat copy of the client hooks for a Minecraft version. Keep it the same as client_variant in lib.sh.
+client_variant() {
+  case "$1" in
+    26.*) echo 26.1 ;;
+    *) echo 1.21.1 ;;
+  esac
+}
+# Compiles the sources (and the hooks with --selftest and --client) for one version, with $JDK, $REL, $JAR and $CP set.
+compile() { # <minecraft version>
+  local v=$1
+  if [ ! -x "$JDK/bin/javac" ]; then echo "$v: no javac in $JDK"; MISSING=1; return; fi
+  mkdir -p "$WORK/out-$v"
+  cp "$WORK/sources.txt" "$WORK/sources-$v.txt"
+  if [ $SELFTEST = 1 ]; then
+    mkdir -p "$WORK/mock-$v"; cp "$SCRIPTS/hook/selftest/mock/MockPlayers_$(mock_variant "$v").java" "$WORK/mock-$v/MockPlayers.java"
+    find "$SCRIPTS/hook/selftest" -maxdepth 1 -name '*.java' | sed 's/.*/"&"/' >> "$WORK/sources-$v.txt"
+    echo "\"$WORK/mock-$v/MockPlayers.java\"" >> "$WORK/sources-$v.txt"
+  fi
+  if [ $CLIENT = 1 ]; then
+    mkdir -p "$WORK/client-$v"; cp "$SCRIPTS/hook/compat/ClientCompat_$(client_variant "$v").java" "$WORK/client-$v/ClientCompat.java"
+    find "$SCRIPTS/hook" -maxdepth 1 \( -name 'SmokeClient.java' -o -name 'Z_SmokeClientMixin.java' \) | sed 's/.*/"&"/' >> "$WORK/sources-$v.txt"
+    find "$SCRIPTS/hook/death" -name '*.java' | sed 's/.*/"&"/' >> "$WORK/sources-$v.txt"
+    echo "\"$WORK/client-$v/ClientCompat.java\"" >> "$WORK/sources-$v.txt"
+  fi
+  if "$JDK/bin/javac" --release "$REL" -proc:none -Xlint:none -nowarn -d "$WORK/out-$v" -cp "$JAR$CP" @"$WORK/sources-$v.txt" > "$WORK/javac-$v.log" 2>&1; then
+    echo "$v: OK ($(find "$WORK/out-$v" -name '*.class' | wc -l | tr -d ' ') classes)"
+  else
+    echo "$v: FAILED"; grep -A2 'error:' "$WORK/javac-$v.log" | head -24; FAILED=1
+  fi
+}
+# The classpath of an unobfuscated version (26.x): the Mojang client jar first, then the non-native libraries of its
+# version JSON, downloaded once (the JSON too) into $GH/caches/bmh-compile-check/<version>.
+mojang_classpath() { # <minecraft version>
+  python3 -I - "$1" "$GH/caches/bmh-compile-check/$1" <<'PY'
+import json, os, sys, urllib.request
+version, cache = sys.argv[1], sys.argv[2]
+os.makedirs(cache + "/libs", exist_ok=True)
+def get(url, path):
+    if not os.path.exists(path):
+        urllib.request.urlretrieve(url, path + ".part")
+        os.replace(path + ".part", path)
+    return path
+# The version JSON is kept too, so a full cache needs no network.
+if not os.path.exists(cache + "/version.json"):
+    manifest = json.load(urllib.request.urlopen("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"))
+    get(next(v["url"] for v in manifest["versions"] if v["id"] == version), cache + "/version.json")
+info = json.load(open(cache + "/version.json"))
+jars = [get(info["downloads"]["client"]["url"], cache + "/client.jar")]
+for lib in info["libraries"]:
+    art = lib.get("downloads", {}).get("artifact")
+    if art and "natives" not in lib["name"]:
+        jars.append(get(art["url"], cache + "/libs/" + art["path"].split("/")[-1]))
+print(":".join(jars))
+PY
 }
 echo "compile_check: $(wc -l < "$WORK/sources.txt" | tr -d ' ') sources of $TREE"
 for v in "$@"; do
@@ -78,6 +147,18 @@ for v in "$@"; do
     *) JDK=${BMH_JDK17:-/opt/homebrew/opt/openjdk@17}; REL=17 ;;
   esac
   CP=""
+  # 26.x ships unobfuscated: the Mojang client jar has the Mojang names, so it and the libraries of its version JSON
+  # are the classpath, with no Loom. They are kept in $GH/caches/bmh-compile-check/<version>.
+  case "$v" in
+    26.*)
+      JDK=${BMH_JDK25:-/opt/homebrew/opt/openjdk@25}; REL=25
+      CP=$(mojang_classpath "$v") || { echo "$v: could not download the Mojang jars"; MISSING=1; continue; }
+      MIXIN=$(lib org.spongepowered mixin /dev/null "$v")
+      [ -n "$MIXIN" ] || { echo "$v: missing library org.spongepowered:mixin (build any branch once)"; MISSING=1; continue; }
+      JAR=${CP%%:*}; CP=":${CP#*:}:$MIXIN"
+      compile "$v"
+      continue ;;
+  esac
   pins "$v" "$WORK/pins-$v.txt"
   for coords in "org.spongepowered mixin" "org.joml joml" "org.slf4j slf4j-api" "com.mojang datafixerupper" "com.mojang brigadier" \
     "com.google.guava guava" "it.unimi.dsi fastutil" "com.google.code.findbugs jsr305" "com.mojang logging" "com.mojang authlib" \
@@ -89,19 +170,7 @@ for v in "$@"; do
   done
   JAR=$(find "$LOOM" -mindepth 2 -maxdepth 2 -path "$LOOM/$v-loom.mappings.*" -name 'minecraft-merged-*.jar' ! -name '*sources*' 2>/dev/null | sort | head -1)
   if [ -z "$JAR" ]; then echo "$v: no Loom merged jar (build a $v branch once with Gradle)"; MISSING=1; continue; fi
-  if [ ! -x "$JDK/bin/javac" ]; then echo "$v: no javac in $JDK"; MISSING=1; continue; fi
-  mkdir -p "$WORK/out-$v"
-  cp "$WORK/sources.txt" "$WORK/sources-$v.txt"
-  if [ $SELFTEST = 1 ]; then
-    mkdir -p "$WORK/mock-$v"; cp "$SCRIPTS/hook/selftest/mock/MockPlayers_$(mock_variant "$v").java" "$WORK/mock-$v/MockPlayers.java"
-    find "$SCRIPTS/hook/selftest" -maxdepth 1 -name '*.java' | sed 's/.*/"&"/' >> "$WORK/sources-$v.txt"
-    echo "\"$WORK/mock-$v/MockPlayers.java\"" >> "$WORK/sources-$v.txt"
-  fi
-  if "$JDK/bin/javac" --release "$REL" -proc:none -Xlint:none -nowarn -d "$WORK/out-$v" -cp "$JAR$CP" @"$WORK/sources-$v.txt" > "$WORK/javac-$v.log" 2>&1; then
-    echo "$v: OK ($(find "$WORK/out-$v" -name '*.class' | wc -l | tr -d ' ') classes)"
-  else
-    echo "$v: FAILED"; grep -A2 'error:' "$WORK/javac-$v.log" | head -24; FAILED=1
-  fi
+  compile "$v"
 done
 [ $FAILED -eq 0 ] || exit 1
 [ $MISSING -eq 0 ] || exit 2

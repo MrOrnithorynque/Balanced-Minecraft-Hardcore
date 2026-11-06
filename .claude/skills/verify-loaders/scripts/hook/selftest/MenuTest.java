@@ -3,7 +3,6 @@ package github.mrornithorynque.bmh.selftest;
 import github.mrornithorynque.bmh.init.ItemInit;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AnvilMenu;
-import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.SmithingMenu;
 import net.minecraft.world.item.ItemStack;
@@ -41,7 +40,7 @@ final class MenuTest implements SelfTest.Test {
         ctx.check("smithing: the result is the Eternal Sword", result.is(ItemInit.ETERNAL_SWORD.get()), "result " + result);
         ctx.check("smithing: the result keeps Sharpness V", MockPlayers.sharpness(ctx.level, result) == 5,
                 "sharpness " + MockPlayers.sharpness(ctx.level, result));
-        menu.clicked(3, 0, ClickType.QUICK_MOVE, player);
+        MockPlayers.quickMove(menu, 3, player);
         ctx.check("smithing: taking it uses the three inputs up", !menu.getSlot(0).hasItem() && !menu.getSlot(1).hasItem()
                 && !menu.getSlot(2).hasItem() && player.getInventory().countItem(ItemInit.ETERNAL_SWORD.get()) == 1,
                 "template " + menu.getSlot(0).getItem() + ", base " + menu.getSlot(1).getItem() + ", addition "
@@ -62,7 +61,7 @@ final class MenuTest implements SelfTest.Test {
         ItemStack result = menu.getSlot(2).getItem().copy();
         ctx.check("anvil: a gold block repairs the Eternal Pickaxe", result.is(ItemInit.ETERNAL_PICKAXE.get()) && result.getDamageValue() < damage,
                 "damage " + damage + " -> " + result.getDamageValue() + ", cost " + menu.getCost());
-        menu.clicked(2, 0, ClickType.QUICK_MOVE, player);
+        MockPlayers.quickMove(menu, 2, player);
         int gold = menu.getSlot(1).getItem().getCount();
         ctx.check("anvil: taking it empties the left slot, one pickaxe in all", !menu.getSlot(0).hasItem()
                 && player.getInventory().countItem(ItemInit.ETERNAL_PICKAXE.get()) == 1 && gold < 10,
