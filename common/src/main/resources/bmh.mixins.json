@@ -33,7 +33,9 @@
         "F_SoundInstanceVolumeAccessor",
         "I_ClientPacketListenerTotemMixin",
         "K_GuiSpyglassMixin",
-        "M_RangeSelectPropertiesMixin"
+        "M_RangeSelectPropertiesMixin",
+        "O_GuiRitualBarMixin",
+        "P_ItemInHandRitualMixin"
     ],
     "injectors": {
         "defaultRequire": 1

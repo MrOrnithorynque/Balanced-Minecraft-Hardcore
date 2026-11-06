@@ -10,7 +10,7 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.TooltipDisplay;
 
 /**
- * A plain item with one gray line of help in its tooltip. The Dormant Totem and the Echo Heart use
+ * A plain item with one gray line of help in its tooltip. The Hollow Totem and the Echo Heart use
  * it: nothing else tells a player that they meet at an anvil.
  */
 public class HintItem extends Item {

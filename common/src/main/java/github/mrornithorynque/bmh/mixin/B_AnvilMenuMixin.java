@@ -23,11 +23,11 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * A Dormant Totem on the left and an Echo Heart on the right give the Totem of Eternity, for 39
+ * A Hollow Totem on the left and an Echo Heart on the right give the Totem of Eternity, for 39
  * levels, consuming both. The name field is ignored: the result is a fresh stack, and vanilla's
  * rename (done by setItemName on the old result) is overwritten by the createResult it calls next.
- * Common to the three loaders: no loader has to fire an event for it, and Forge's AnvilUpdateEvent
- * is skipped for this one combination only.
+ * Common to the three loaders: no loader has to fire an event for it, and Forge's AnvilUpdateEvent is
+ * skipped for this one combination only.
  * <p>
  * A repair of an Eternal tool with gold blocks always costs 15 levels and keeps the prior work penalty
  * of the tool. The head puts the penalty aside, so vanilla never finds the repair too expensive. The

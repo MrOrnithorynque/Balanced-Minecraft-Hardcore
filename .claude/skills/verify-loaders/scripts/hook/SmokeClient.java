@@ -1,5 +1,6 @@
 package github.mrornithorynque.bmh.client;
 
+import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.commands.CommandSourceStack;
@@ -7,19 +8,25 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * THROWAWAY verification hook. This file ships with the verify-loaders skill (scripts/hook/); its copy in common/src is
  * never committed: branch.sh copies it into its verify worktree and removes it at the end.
  * Only with BMH_SMOKE=1 in a singleplayer runClient: gives every BMH item, takes a real star reading at midnight (client
  * use, server item logic, client sky renderer), holds the Eternal Sword, lets the Totem of Eternity save the player,
- * saves four screenshots and quits the game. Every step logs a "[BMH-SMOKE]" line.
+ * wakes the Dormant Totem with the moon ritual, fails a second ritual, saves nine screenshots and quits the game. Every step logs a "[BMH-SMOKE]" line.
  * What differs between Minecraft versions is in ClientCompat, which branch.sh copies from hook/compat/ (one file per
  * version) next to this one.
  */
 public final class SmokeClient {
 
     private static final boolean ENABLED = "1".equals(System.getenv("BMH_SMOKE"));
+    // MoonRitualHandler.RITUAL_TICKS. The hook does not import the class: branch.sh also runs it on tags from before it.
+    private static final int RITUAL_TICKS = 300;
+    private static final int RITUAL_START = 300;
+    private static final int RITUAL_END = RITUAL_START + RITUAL_TICKS + 20;
+    private static final int FAIL_START = RITUAL_END + 30;
     private static int ticks = -1;
 
     private SmokeClient() {
@@ -90,9 +97,79 @@ public final class SmokeClient {
             String slot5 = String.valueOf(BuiltInRegistries.ITEM.getKey(mc.player.getInventory().getItem(5).getItem()));
             log("after the totem: health=" + mc.player.getHealth() + " slot5=" + slot5);
         } else if (ticks == 280) {
+            // The moon ritual with the Dormant Totem the save left in slot 5. At 15000 the moon is low in the east, so a
+            // wrong sign in the moon direction puts the crosshair on empty sky in the screenshots.
+            ClientCompat.selectSlot(mc, 5);
+            run(server, "time set 15000", "xp set @a 0 levels", "xp add @a 40 levels", "effect clear @a");
+        } else if (ticks >= RITUAL_START && ticks < RITUAL_END) {
+            aimAtMoon(mc);
+            mc.options.keyUse.setDown(true);
+            if (ticks == RITUAL_START) {
+                Vec3 moon = moonDirection(mc);
+                log("ritual start: dayTime=" + ClientCompat.dayTime(mc) + " moon=" + String.format("%.2f %.2f %.2f", moon.x, moon.y, moon.z)
+                        + " yaw=" + Math.round(mc.player.getYRot()) + " pitch=" + Math.round(mc.player.getXRot()) + " levels=" + mc.player.experienceLevel);
+            } else if (ticks == RITUAL_START + 150) {
+                log("ritual mid: using=" + mc.player.isUsingItem() + " levels=" + mc.player.experienceLevel);
+                shot(mc, "bmh-smoke-5-ritual.png");
+            } else if (ticks == RITUAL_START + 156) {
+                // A queued screenshot sees a camera change made in the same tick: each change gets its own tick.
+                mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+            } else if (ticks == RITUAL_START + 164) {
+                shot(mc, "bmh-smoke-6-ritual-back.png");
+            } else if (ticks == RITUAL_START + 168) {
+                mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+            } else if (ticks == RITUAL_START + 176) {
+                shot(mc, "bmh-smoke-7-ritual-front.png");
+            } else if (ticks == RITUAL_START + 180) {
+                mc.options.setCameraType(CameraType.FIRST_PERSON);
+            } else if (ticks == RITUAL_START + RITUAL_TICKS + 6) {
+                shot(mc, "bmh-smoke-8-woken.png");
+            }
+        } else if (ticks == RITUAL_END) {
+            mc.options.keyUse.setDown(false);
+        } else if (ticks == RITUAL_END + 10) {
+            log("after the ritual: slot5=" + BuiltInRegistries.ITEM.getKey(mc.player.getInventory().getItem(5).getItem())
+                    + " levels=" + mc.player.experienceLevel);
+            // A second ritual that fails: the player looks away after 40 ticks.
+            run(server, "item replace entity @a hotbar.5 with bmh:sleeping_totem", "xp set @a 0 levels", "xp add @a 40 levels");
+        } else if (ticks >= FAIL_START && ticks < FAIL_START + 46) {
+            if (ticks < FAIL_START + 40) {
+                aimAtMoon(mc);
+            } else {
+                mc.player.setXRot(0.0F);
+                mc.player.xRotO = 0.0F;
+            }
+            mc.options.keyUse.setDown(true);
+            if (ticks == FAIL_START + 44) {
+                shot(mc, "bmh-smoke-9-failed.png");
+            }
+        } else if (ticks == FAIL_START + 46) {
+            mc.options.keyUse.setDown(false);
+        } else if (ticks == FAIL_START + 56) {
+            log("after the failure: slot5=" + BuiltInRegistries.ITEM.getKey(mc.player.getInventory().getItem(5).getItem())
+                    + " levels=" + mc.player.experienceLevel);
+        } else if (ticks == FAIL_START + 66) {
             log("stopping");
             mc.stop();
         }
+    }
+
+    // The moon direction, the same math as MoonRitualHandler.moonDirection. The screenshots, not this code, prove it:
+    // the moon must be under the crosshair, and the server log says how far the look was from its own moon direction.
+    private static Vec3 moonDirection(Minecraft mc) {
+        double angle = mc.level.getTimeOfDay(1.0F) * Math.PI * 2.0;
+        return new Vec3(Math.sin(angle), -Math.cos(angle), 0.0);
+    }
+
+    // The yaw and pitch that look along the moon direction.
+    private static void aimAtMoon(Minecraft mc) {
+        Vec3 moon = moonDirection(mc);
+        float pitch = (float) -Math.toDegrees(Math.asin(moon.y));
+        float yaw = (float) Math.toDegrees(Math.atan2(-moon.x, moon.z));
+        mc.player.setYRot(yaw);
+        mc.player.yRotO = yaw;
+        mc.player.setXRot(pitch);
+        mc.player.xRotO = pitch;
     }
 
     private static void run(IntegratedServer server, String... commands) {

@@ -67,8 +67,20 @@ public class ItemInit {
                                                         .fireResistant()
                                                         .rarity(Rarity.EPIC)));
 
+        // The Totem of Eternity after it saved a player. It is an Eternal Item: it stays with the player
+        // through death. Only the moon ritual wakes it again (handlers/MoonRitualHandler).
+        // The id is sleeping_totem: an id that contains dormant_totem or totem_of_eternity makes the
+        // inventory checks of the test bots match the wrong item.
+        public static final Supplier<Item> DORMANT_TOTEM_OF_ETERNITY = register("sleeping_totem",
+                        properties -> new DormantTotemOfEternityItem(
+                                        properties
+                                                        .stacksTo(1)
+                                                        .fireResistant()
+                                                        .rarity(Rarity.EPIC)));
+
         // The two halves of the Totem of Eternity. Not Eternal Items: they drop on death like any item.
-        public static final Supplier<Item> DORMANT_TOTEM = register("dormant_totem",
+        // The Hollow Totem keeps the id dormant_totem: worlds from before 1.9.0 hold it under that id.
+        public static final Supplier<Item> HOLLOW_TOTEM = register("dormant_totem",
                         properties -> new HintItem(
                                         properties
                                                         .stacksTo(1)

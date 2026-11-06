@@ -23,7 +23,8 @@ public class CreativeTabInit {
                             ItemInit.ETERNAL_SWORD,
                             ItemInit.NAVIGATOR_AMULET,
                             ItemInit.TOTEM_OF_ETERNITY,
-                            ItemInit.DORMANT_TOTEM,
+                            ItemInit.DORMANT_TOTEM_OF_ETERNITY,
+                            ItemInit.HOLLOW_TOTEM,
                             ItemInit.ECHO_HEART,
                             () -> Items.BUNDLE))
                     .title(Component.translatable("itemGroup.BMH_tab"))
