@@ -29,6 +29,7 @@ final class OneEternalPerTypeTest implements SelfTest.Test {
         loop(ctx, "sword", ItemInit.ETERNAL_SWORD.get(), 0);
         loop(ctx, "bundle", ItemInit.ETERNAL_BUNDLE.get(), 8);
         loop(ctx, "totem", ItemInit.TOTEM_OF_ETERNITY.get(), 16);
+        loop(ctx, "dormant totem", ItemInit.DORMANT_TOTEM_OF_ETERNITY.get(), 48);
         offhand(ctx, 24);
 
         ctx.later(120, () -> {

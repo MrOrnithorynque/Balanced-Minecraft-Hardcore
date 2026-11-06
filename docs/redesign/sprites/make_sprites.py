@@ -62,19 +62,36 @@ def eternal_bundle_filled():
     return with_ring(original('eternal_bundle_filled.png'), 8, 10)
 
 
-# Dormant Totem: frame 0 of Louis's Totem of Eternity, asleep. Only the forehead gem and the eyes change:
+# Dormant Totem (sleeping_totem.png since the three totem states; it was dormant_totem.png before): frame 0 of
+# Louis's Totem of Eternity, asleep. Only the forehead gem and the eyes change:
 # the gem loses its light (dull violet-grey, no white spark), each eye closes: a lid a shade lighter than his face grey
 # over a near-black lash line that keeps a trace of the eye's green or cyan. Lids in the face's own grey left the
 # closed eyes invisible on their own (blind read 1). Everything else is his pixels.
 LID = h('5f5759')
 
 
-def dormant_totem():
+def sleeping_totem():
     f0 = original('totem_of_eternity.png').crop((0, 0, 16, 16))
     return paint(f0, {
         (7, 2): h('776a88'), (8, 2): h('5b4e72'), (7, 3): h('5b4e72'), (8, 3): h('3a2e4c'),
         (5, 5): LID, (6, 5): LID, (5, 6): h('101c14'), (6, 6): h('101c14'),
         (9, 5): LID, (10, 5): LID, (9, 6): h('0f1c1b'), (10, 6): h('0f1c1b'),
+    })
+
+
+# Hollow Totem (dormant_totem.png, the id the crafted totem kept): frame 0 of the Totem of Eternity with nothing
+# inside. The forehead gem socket and both eyes are empty: near-black holes, a shade lighter on their top row so they
+# read as holes and not as paint. No lid, no lash colour. A placeholder: the art is Louis's call.
+HOLE_TOP = h('1c1719')
+HOLE = h('0c0a0b')
+
+
+def hollow_totem():
+    f0 = original('totem_of_eternity.png').crop((0, 0, 16, 16))
+    return paint(f0, {
+        (7, 2): HOLE_TOP, (8, 2): HOLE_TOP, (7, 3): HOLE, (8, 3): HOLE,
+        (5, 5): HOLE_TOP, (6, 5): HOLE_TOP, (5, 6): HOLE, (6, 6): HOLE,
+        (9, 5): HOLE_TOP, (10, 5): HOLE_TOP, (9, 6): HOLE, (10, 6): HOLE,
     })
 
 
@@ -125,7 +142,8 @@ def echo_heart():
 SPRITES = {
     'eternal_bundle.png': eternal_bundle,
     'eternal_bundle_filled.png': eternal_bundle_filled,
-    'dormant_totem.png': dormant_totem,
+    'dormant_totem.png': hollow_totem,
+    'sleeping_totem.png': sleeping_totem,
     'echo_heart.png': echo_heart,
 }
 
@@ -210,13 +228,15 @@ def main(argv):
     review_sheet([('eternal_bundle.png', made['eternal_bundle.png']),
                   ('eternal_bundle_filled.png', made['eternal_bundle_filled.png']),
                   ('dormant_totem.png', made['dormant_totem.png']),
+                  ('sleeping_totem.png', made['sleeping_totem.png']),
                   ('echo_heart.png', made['echo_heart.png'])], SHEETS / 'review-sheet.png')
     before_after([('eternal_bundle: original | new', original('eternal_bundle.png'), made['eternal_bundle.png']),
                   ('eternal_bundle_filled: original | new', original('eternal_bundle_filled.png'),
                    made['eternal_bundle_filled.png']),
-                  ('totem_of_eternity frame 0 | dormant_totem', totem, made['dormant_totem.png'])],
+                  ('totem_of_eternity frame 0 | sleeping_totem', totem, made['sleeping_totem.png']),
+                  ('totem_of_eternity frame 0 | dormant_totem (hollow)', totem, made['dormant_totem.png'])],
                  SHEETS / 'before-after.png')
-    family_sheet([made['dormant_totem.png'], made['echo_heart.png'], totem, made['eternal_bundle.png'],
+    family_sheet([made['dormant_totem.png'], made['echo_heart.png'], totem, made['sleeping_totem.png'], made['eternal_bundle.png'],
                   made['eternal_bundle_filled.png']], SHEETS / 'family.png')
     if '--blind' in argv:
         out = Path(argv[argv.index('--blind') + 1])
