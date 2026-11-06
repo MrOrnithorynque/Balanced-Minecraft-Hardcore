@@ -73,7 +73,7 @@ for L in $LOADERS; do
   if [ $UP = 1 ]; then
     say "$L server up after $(( $(date +%s) - BOOT_START )) s"
     # The amulet scenario of this skill checks the named points. A tree from 1.5.0 to 1.6.x (one Home) runs the Home
-    # version kept on main in docs/redesign (dev-52.1.20 has no docs/redesign); a tree before 1.5.0 gets amulet=-.
+    # version kept on main in docs/redesign (mc-1.21.1 has no docs/redesign); a tree before 1.5.0 gets amulet=-.
     AMBOT=""
     if [ -f "$WT/$BMH_SRC/handlers/AmuletPoints.java" ]; then
       AMBOT=$SCRIPTS/amulet_scenario.js
