@@ -29,6 +29,7 @@ done
 security find-generic-password -s bmh-curseforge-token >/dev/null 2>&1 && echo "CurseForge token: in the Keychain" || echo "CurseForge token: MISSING"; security find-generic-password -s bmh-discord-webhook >/dev/null 2>&1 && echo "Discord webhook: in the Keychain" || echo "Discord webhook: MISSING"; gh auth status
 ```
 
+- A version branch never released before (a new Minecraft version) starts from the branch it was ported from: check line 2 of its `README.md` (the title, `BALANCED MINECRAFT HARDCORE <version>`) and its `.vscode/settings.json`, which differ per branch. `mc-26.1` first shipped with the title of 1.21.1.
 - Every branch is level with `origin` (`0	0`). Anything ahead means unpushed work; anything behind means pull first. A branch never pushed yet has no `origin/` ref and prints a fatal here. Steps 3 and 5 start from `origin/<b>`, so push a new branch once before step 3: `git -C /Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore push -u origin <b>`.
 - Everything but `forge/build.gradle`, `gradle.properties`, `README.md` and `.vscode` is identical on every 1.20.x branch (`mods.toml` excluded: `mc-1.20` lacks a commented-out template block, nothing else). If a branch differs, a change was not ported: port it (cherry-pick from `main`) before releasing. `mc-1.21.1` has its own sources and is skipped by that check: compare `git log` of `main` since the last release (its start point is in step 2) and of `mc-1.21.1` since its last `mc-1.21.1-v*` tag instead, and make sure every change since then reached it (ported by hand where the 1.21.1 code differs, see `.claude/CLAUDE.md`).
 - Step 5 needs `matrix.sh`, which needs mineflayer. The variable `BMH_BOT_MODULES` is not saved anywhere: find an install (`ls <dir>/node_modules/mineflayer`, see the `verify-loaders` skill, Setup). If there is none, ask the user now whether to install it from npm, not after the builds.
@@ -133,7 +134,7 @@ for b in $B; do
 done
 ```
 
-No force push. If the push is rejected, someone pushed meanwhile: stop and look. Once pushed, tell the user to pull in their checkout: the branch it has checked out keeps its old commit.
+No force push. If the push is rejected, someone pushed meanwhile: stop and look. Once pushed, tell the user to pull in their checkout: the branch it has checked out keeps its old commit. Often every version branch is checked out in some worktree (the main checkout, the `config-*` or other sessions' worktrees), so no local branch moves. To bring one up to date, fast-forward it in the worktree that holds it, only when that worktree is clean (`git -C <worktree> status --porcelain` prints nothing) and no Gradle or server runs there: `git -C <worktree> merge --ff-only origin/<b>`. `git worktree list` shows which worktree holds which branch.
 
 Run `bash .claude/skills/verify-loaders/scripts/matrix.sh` (as the `verify-loaders` skill says); every cell green before tagging.
 
