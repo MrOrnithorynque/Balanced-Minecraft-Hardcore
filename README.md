@@ -3,6 +3,7 @@
 <img src="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/resources/bmh_banner.png" align="center"> </h1>
 
 [![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/Czn9JQxMjT)
+[![Modrinth](https://img.shields.io/modrinth/dt/balanced-minecraft-hardcore?logo=modrinth&label=&suffix=%20&style=flat&color=242629&labelColor=5ca424&logoColor=1c1c1c)](https://modrinth.com/mod/balanced-minecraft-hardcore)
 
 Hardcore is too punishing: one death and your world is gone. Balanced Minecraft Hardcore (BMH) is the middle ground between normal Minecraft and Hardcore. When you die, you keep your world, but you wake up far away from home.
 
