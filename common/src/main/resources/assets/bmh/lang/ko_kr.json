@@ -7,7 +7,8 @@
     "item.bmh.eternal_sword": "영원의 검",
     "itemGroup.bmh_creative_tab": "BMH 탭",
     "itemGroup.BMH_tab": "BMH 탭",
-    "item.bmh.dormant_totem": "잠든 영원한 생명의 토템",
+    "item.bmh.dormant_totem": "속이 빈 영원한 생명의 토템",
+    "item.bmh.sleeping_totem": "잠든 영원한 생명의 토템",
     "item.bmh.echo_heart": "메아리의 심장",
 
     "bmh.journey.message": "%s, 새로운 여정이 시작됩니다."

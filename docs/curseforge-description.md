@@ -61,13 +61,15 @@ Sleeping is now slightly revamped, it can give you buff if you sleep well.
 
 The heart of every Eternal Item, made in three steps:
 
-1. Craft a **Dormant Totem of Eternal Life** (the old totem recipe).
+1. Craft a **Hollow Totem of Eternal Life** (the old totem recipe).
 2. Craft an **Echo Heart** from a nether star, echo shards and crying obsidian.
-3. Awaken the totem at an anvil: Dormant Totem on the left, Echo Heart on the right, for 39 levels.
+3. Awaken the totem at an anvil: Hollow Totem on the left, Echo Heart on the right, for 39 levels.
 
 The awakened totem glows like an enchanted item. It is the smithing template of the Eternal tools and the core of the Eternal Bundle.
 
-Carried anywhere in your inventory, the totem saves you from death once, like a Totem of Undying in your hand, and it also gives Fire Resistance. A Totem of Undying in your hand is used first. After it saves you, it turns back into a Dormant Totem: awaken it again with a new Echo Heart. You carry one at most, and a chest, a shulker box or any other container holds one at most.
+Carried anywhere in your inventory, the totem saves you from death once, like a Totem of Undying in your hand, and it also gives Fire Resistance. A Totem of Undying in your hand is used first. You carry one at most, and a chest, a shulker box or any other container holds one at most.
+
+After it saves you, it falls asleep: it becomes a **Dormant Totem of Eternal Life**. The Dormant Totem cannot save you, but it is still an Eternal Item: it stays with you when you die. Only the moon can wake it. At night, under open sky, hold use with the Dormant Totem and look at the moon. A bar fills over 15 seconds while your levels drain, 30 levels in all, and then the totem is awake again. The ritual must be done in one go: if you let go, look away, get hurt, lose the moon or run out of levels, the totem stays asleep and the levels already drained are gone.
 
 ![The Totem of Eternity saves you from your inventory](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/totem_of_eternity_save.gif)
 
