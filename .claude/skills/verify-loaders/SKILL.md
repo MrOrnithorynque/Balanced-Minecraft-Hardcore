@@ -1,6 +1,6 @@
 ---
 name: verify-loaders
-description: Verify a Balanced Minecraft Hardcore branch on Forge, Fabric and NeoForge with nobody at the keyboard (build, jar checks, a dedicated server with bots, the server self-tests of every feature, a quick-play client per loader, the 1.4.0 upgrade test, the Nether exile bot, a javac check on every Minecraft version), then a Sonnet reviewer reads the logs and screenshots. Use before a release, after porting a change to the dev branches, or when asked to test the mod, check every feature, or make sure it works on Forge, Fabric and NeoForge on every version.
+description: Verify a Balanced Minecraft Hardcore branch on Forge, Fabric and NeoForge with nobody at the keyboard (build, jar checks, a dedicated server with bots, the server self-tests of every feature, a quick-play client per loader, the 1.4.0 upgrade test, the Nether exile bot, a javac check on every Minecraft version), then a Sonnet reviewer reads the logs and screenshots. Use before a release, after porting a change to the version branches, or when asked to test the mod, check every feature, or make sure it works on Forge, Fabric and NeoForge on every version.
 ---
 
 # Verifying BMH on every loader
@@ -47,7 +47,7 @@ The worktrees stay after a run, ignored build files included. To clean up: `git 
 | `server_only.sh <label> <mc version> <loader> <bot> <name>` | One server of an existing verify worktree and one bot, e.g. `exile_bot.js` (a Nether anchor sends you 8 times fewer blocks away). |
 | `sheet.py`, `rcon.py` | A contact sheet of screenshots; a tiny RCON client (`rcon.py <port> <command>`). |
 
-One branch: `bash .claude/skills/verify-loaders/scripts/branch.sh dev-49.0.31 1.20.4 1.20.4`. Every branch: `matrix.sh`. A run nobody watches needs the charger in and the lid open (2026-11-04: a closed lid on 3 % battery slept the Mac while the app held its keep-awake; `caffeinate -i` covers idle sleep only). Before trusting a night's cells, run `pmset -g log | grep 'Entering Sleep'` over the run's window, and rerun any cell whose wall time is far above its siblings'.
+One branch: `bash .claude/skills/verify-loaders/scripts/branch.sh main 1.20.4 1.20.4`. Every branch: `matrix.sh`. A run nobody watches needs the charger in and the lid open (2026-11-04: a closed lid on 3 % battery slept the Mac while the app held its keep-awake; `caffeinate -i` covers idle sleep only). Before trusting a night's cells, run `pmset -g log | grep 'Entering Sleep'` over the run's window, and rerun any cell whose wall time is far above its siblings'.
 
 ## Reading `summary.txt`
 
