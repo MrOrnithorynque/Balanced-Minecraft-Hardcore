@@ -239,6 +239,8 @@ public class AmuletReading {
             tag.putLong(NIGHT_TAG, nightIndex(level.getDayTime()));
         }
 
+        BmhAdvancements.award(player, "navigation/stargazer");
+
         LOGGER.info("[BalancedMcHardcoreMain] Star reading for " + player.getName().getString() + ": azimuths " + azimuths
                 + ", " + charges(stack) + " charges left");
     }

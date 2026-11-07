@@ -139,6 +139,7 @@ public class EchoSenseHandler {
         }
 
         if (spawned > 0) {
+            BmhAdvancements.award(player, "eternity/echo_sense");
             level.playSound(null, pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
                     SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8F, 0.7F);
         }
