@@ -6,6 +6,8 @@ You can go back to where you were. It takes a long time, and you can die again o
 
 **Do not play on hardcore Minecraft: the mod works only on normal Minecraft.**
 
+[![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white&style=flat)](https://discord.gg/Czn9JQxMjT) [![GitHub](https://img.shields.io/badge/GitHub-Source-24292f?logo=github&logoColor=white&style=flat)](https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore)
+
 ## Features
 
 ### Dying Mechanic
