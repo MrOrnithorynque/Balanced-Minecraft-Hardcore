@@ -49,5 +49,7 @@
     "advancements.bmh.navigation.named_place.title": "Een naam voor een plek",
     "advancements.bmh.navigation.named_place.description": "Geef een bed of een leisteen een naam met het Amulet van de Navigator.",
     "advancements.bmh.navigation.own_sky.title": "Een eigen hemel",
-    "advancements.bmh.navigation.own_sky.description": "Bewaar 3 benoemde plekken op je Amulet van de Navigator."
+    "advancements.bmh.navigation.own_sky.description": "Bewaar 3 benoemde plekken op je Amulet van de Navigator.",
+    "advancements.bmh.journey.here_we_go_again.title": "Verdorie, daar gaan we weer",
+    "advancements.bmh.journey.here_we_go_again.description": "Sterf voor de tiende keer."
 }

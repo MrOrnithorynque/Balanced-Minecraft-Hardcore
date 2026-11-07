@@ -49,5 +49,7 @@
     "advancements.bmh.navigation.named_place.title": "Ein Name für einen Ort",
     "advancements.bmh.navigation.named_place.description": "Benenne ein Bett oder einen Leitstein mit dem Amulett des Navigators.",
     "advancements.bmh.navigation.own_sky.title": "Ein eigener Himmel",
-    "advancements.bmh.navigation.own_sky.description": "Behalte 3 benannte Orte auf deinem Amulett des Navigators."
+    "advancements.bmh.navigation.own_sky.description": "Behalte 3 benannte Orte auf deinem Amulett des Navigators.",
+    "advancements.bmh.journey.here_we_go_again.title": "Scheiße, schon wieder",
+    "advancements.bmh.journey.here_we_go_again.description": "Stirb zum zehnten Mal."
 }

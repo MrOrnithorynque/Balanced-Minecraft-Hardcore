@@ -49,5 +49,7 @@
     "advancements.bmh.navigation.named_place.title": "Un nome per un luogo",
     "advancements.bmh.navigation.named_place.description": "Dai un nome a un letto o a una calamita con l'Amuleto del Navigatore.",
     "advancements.bmh.navigation.own_sky.title": "Un cielo tutto tuo",
-    "advancements.bmh.navigation.own_sky.description": "Tieni 3 luoghi con nome sul tuo Amuleto del Navigatore."
+    "advancements.bmh.navigation.own_sky.description": "Tieni 3 luoghi con nome sul tuo Amuleto del Navigatore.",
+    "advancements.bmh.journey.here_we_go_again.title": "Merda, ci risiamo",
+    "advancements.bmh.journey.here_we_go_again.description": "Muori per la decima volta."
 }
