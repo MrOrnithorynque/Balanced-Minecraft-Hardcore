@@ -80,6 +80,23 @@ public final class MockPlayers {
         return packet instanceof ClientboundSetTitleTextPacket title ? title.getText() : null;
     }
 
+    /** The text of a subtitle packet, or null for any other packet. */
+    public static Component subtitleText(Packet<?> packet) {
+        return packet instanceof net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket subtitle ? subtitle.getText() : null;
+    }
+
+    /** The data the server saves for a player (its NBT), as an opaque object: the type changes with the version. */
+    public static Object saveData(ServerPlayer player) {
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        player.addAdditionalSaveData(tag);
+        return tag;
+    }
+
+    /** Loads the data of saveData into the player, like a login does. */
+    public static void loadData(ServerPlayer player, Object data) {
+        player.readAdditionalSaveData((net.minecraft.nbt.CompoundTag) data);
+    }
+
     public static void enchantSharpness(ServerLevel level, ItemStack stack, int value) {
         stack.enchant(Enchantments.SHARPNESS, value);
     }

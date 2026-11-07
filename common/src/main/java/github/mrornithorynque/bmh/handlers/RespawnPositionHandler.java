@@ -48,6 +48,13 @@ public class RespawnPositionHandler {
     // The players that got a distant respawn position, until the respawn effects read it.
     private static final Set<UUID> exiledPlayers = new HashSet<>();
 
+    // The center and the distance of each of those exiles, for the homecoming.
+    private static final Map<UUID, Exile> exiles = new HashMap<>();
+
+    /** Where an exile was measured from, and how far it went in Overworld blocks. */
+    public record Exile(BlockPos center, int distance) {
+    }
+
     // Called first on death, while the Eternal Items are still in the inventory.
     public static void onPlayerDeath(ServerPlayer serverPlayer) {
 
@@ -65,6 +72,12 @@ public class RespawnPositionHandler {
     public static boolean takeExiled(ServerPlayer serverPlayer) {
 
         return exiledPlayers.remove(serverPlayer.getUUID());
+    }
+
+    // The exile of a player that got a distant respawn position, once. Call it with takeExiled.
+    public static Exile takeExile(ServerPlayer serverPlayer) {
+
+        return exiles.remove(serverPlayer.getUUID());
     }
 
     /**
@@ -121,6 +134,7 @@ public class RespawnPositionHandler {
         LOGGER.info("[BalancedMcHardcoreMain] new respawn pos and bed : " + respawnPosition + ", " + bedLocation);
 
         exiledPlayers.add(serverPlayer.getUUID());
+        exiles.put(serverPlayer.getUUID(), new Exile(bedLocation.immutable(), distanceFromBed));
 
         // Only the position changes: the bed (or anchor) spawn point stays exactly as vanilla left it.
         return respawnPosition;

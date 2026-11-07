@@ -28,8 +28,16 @@ public class RespawnEffectHandler {
         }
 
         // Only a respawn that got a distant position is a new journey. In a hardcore world the player is a spectator now.
-        if (!RespawnPositionHandler.takeExiled(serverPlayer) || serverPlayer.level().getServer().isHardcore()) {
+        boolean exiled = RespawnPositionHandler.takeExiled(serverPlayer);
+        RespawnPositionHandler.Exile exile = RespawnPositionHandler.takeExile(serverPlayer);
+
+        if (!exiled || serverPlayer.level().getServer().isHardcore()) {
             return;
+        }
+
+        // The homes are fixed now: a bed or a point made later does not end this exile.
+        if (exile != null) {
+            HomecomingHandler.onExile(serverPlayer, exile);
         }
 
         // The player cannot see or move during the cinematic.
