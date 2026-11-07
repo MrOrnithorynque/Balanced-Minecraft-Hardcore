@@ -122,7 +122,7 @@ final class AdvancementTest implements SelfTest.Test {
         fighter.getInventory().setItem(0, new ItemStack(ItemInit.ETERNAL_SWORD.get()));
         fighter.getInventory().setItem(1, new ItemStack(ItemInit.ETERNAL_AXE.get()));
         MockPlayers.select(fighter, 0);
-        // The echo picks an Enemy, so husks (they stay in easy, not in peaceful). The axe hits the same husk.
+        // The echo picks an Enemy, so husks (they stay in easy, not in peaceful).
         Difficulty before = ctx.level.getDifficulty();
         ctx.server.setDifficulty(Difficulty.EASY, true);
         LivingEntity near = MockPlayers.husk(ctx.level, ctx.origin.getX() + 0.5, ctx.origin.getY() + 1, ctx.origin.getZ() + 22.5);
@@ -141,8 +141,11 @@ final class AdvancementTest implements SelfTest.Test {
                     ServerPlayer air = ctx.live(fighter);
                     air.fallDistance = 10;
                     air.setOnGround(false);
-                    air.attack(near);
+                    // A fresh husk: the sword may have killed the first one.
+                    LivingEntity target = MockPlayers.husk(ctx.level, ctx.origin.getX() + 0.5, ctx.origin.getY() + 1, ctx.origin.getZ() + 22.5);
+                    air.attack(target);
                     ctx.check("the axe's smash awards eternity/smash", BmhAdvancements.isDone(air, "eternity/smash"), "not done");
+                    target.discard();
                     near.discard();
                     far.discard();
                     ctx.server.setDifficulty(before, true);
