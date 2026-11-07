@@ -49,5 +49,7 @@
     "advancements.bmh.navigation.named_place.title": "Un nombre para un lugar",
     "advancements.bmh.navigation.named_place.description": "Nombra una cama o una piedra imán con el Amuleto del Navegante.",
     "advancements.bmh.navigation.own_sky.title": "Un cielo propio",
-    "advancements.bmh.navigation.own_sky.description": "Guarda 3 lugares con nombre en tu Amuleto del Navegante."
+    "advancements.bmh.navigation.own_sky.description": "Guarda 3 lugares con nombre en tu Amuleto del Navegante.",
+    "advancements.bmh.journey.here_we_go_again.title": "Mierda, otra vez",
+    "advancements.bmh.journey.here_we_go_again.description": "Muere por décima vez."
 }
