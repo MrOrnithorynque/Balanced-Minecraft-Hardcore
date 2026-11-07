@@ -77,10 +77,7 @@ public class MoonRitualHandler {
         return Math.toDegrees(Math.acos(dot));
     }
 
-    /**
-     * Null when a ritual can start or go on, else the lang key that says why not. The same test runs on both
-     * sides, so the client and the server agree on the start.
-     */
+    /** Null when a ritual can start or go on, else the lang key that says why not. The server decides. */
     @Nullable
     public static String blockedReason(Player player) {
 

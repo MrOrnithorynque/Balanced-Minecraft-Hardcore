@@ -39,27 +39,27 @@ public class DormantTotemOfEternityItem extends Item implements IEternalItem {
     }
 
     /**
-     * Both sides run the same test. The click is always consumed: with a PASS, vanilla also uses the item in the
-     * other hand in the same click. The server tells the player why the ritual does not start.
+     * Only the server starts the ritual. The client follows the server's "using" flag (LocalPlayer.onSyncedDataUpdated):
+     * a client that starts on its own guess shows a ritual that the server refused, for example when the look turns to
+     * the moon in the same tick as the click. The click is always consumed: with a PASS, vanilla also uses the item in
+     * the other hand in the same click. The server tells the player why the ritual does not start.
      */
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
 
-        String reason = MoonRitualHandler.blockedReason(player);
-
-        if (reason != null) {
-
-            if (player instanceof ServerPlayer serverPlayer) {
-                serverPlayer.sendOverlayMessage(Component.translatable(reason));
-            }
-
+        // A held use key sends the click again until the server's flag arrives: it must not start the ritual again.
+        if (!(player instanceof ServerPlayer serverPlayer) || player.isUsingItem()) {
             return InteractionResult.CONSUME;
         }
 
-        if (player instanceof ServerPlayer serverPlayer) {
-            MoonRitualHandler.start(serverPlayer);
+        String reason = MoonRitualHandler.blockedReason(serverPlayer);
+
+        if (reason != null) {
+            serverPlayer.sendOverlayMessage(Component.translatable(reason));
+            return InteractionResult.CONSUME;
         }
 
+        MoonRitualHandler.start(serverPlayer);
         player.startUsingItem(hand);
         return InteractionResult.CONSUME;
     }
