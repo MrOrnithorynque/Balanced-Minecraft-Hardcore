@@ -49,5 +49,7 @@
     "advancements.bmh.navigation.named_place.title": "Имя для места",
     "advancements.bmh.navigation.named_place.description": "Назовите кровать или магнетит Амулетом Навигатора.",
     "advancements.bmh.navigation.own_sky.title": "Собственное небо",
-    "advancements.bmh.navigation.own_sky.description": "Держите 3 названных места на Амулете Навигатора."
+    "advancements.bmh.navigation.own_sky.description": "Держите 3 названных места на Амулете Навигатора.",
+    "advancements.bmh.journey.here_we_go_again.title": "Чёрт, опять всё сначала",
+    "advancements.bmh.journey.here_we_go_again.description": "Умрите в десятый раз."
 }

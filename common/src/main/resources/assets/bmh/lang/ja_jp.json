@@ -49,5 +49,7 @@
     "advancements.bmh.navigation.named_place.title": "場所に名前を",
     "advancements.bmh.navigation.named_place.description": "航海士のアミュレットでベッドかロードストーンに名前を付ける。",
     "advancements.bmh.navigation.own_sky.title": "自分だけの空",
-    "advancements.bmh.navigation.own_sky.description": "航海士のアミュレットに名前付きの場所を3つ持つ。"
+    "advancements.bmh.navigation.own_sky.description": "航海士のアミュレットに名前付きの場所を3つ持つ。",
+    "advancements.bmh.journey.here_we_go_again.title": "くそっ、またか",
+    "advancements.bmh.journey.here_we_go_again.description": "10回目の死を迎える。"
 }

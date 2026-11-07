@@ -60,5 +60,7 @@
     "advancements.bmh.navigation.named_place.title": "Un nom pour un lieu",
     "advancements.bmh.navigation.named_place.description": "Nommez un lit ou une pierre magnétique avec l'Amulette du Navigateur.",
     "advancements.bmh.navigation.own_sky.title": "Un ciel à vous",
-    "advancements.bmh.navigation.own_sky.description": "Gardez 3 lieux nommés sur votre Amulette du Navigateur."
+    "advancements.bmh.navigation.own_sky.description": "Gardez 3 lieux nommés sur votre Amulette du Navigateur.",
+    "advancements.bmh.journey.here_we_go_again.title": "Merde, c'est reparti",
+    "advancements.bmh.journey.here_we_go_again.description": "Mourez pour la dixième fois."
 }

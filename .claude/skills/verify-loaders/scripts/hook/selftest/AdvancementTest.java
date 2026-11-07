@@ -15,6 +15,7 @@ import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.stats.Stats;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
@@ -30,7 +31,7 @@ final class AdvancementTest implements SelfTest.Test {
 
     private static final String[] ALL = {
             "root",
-            "journey/exile", "journey/far_away", "journey/home_at_last", "journey/long_way_home",
+            "journey/exile", "journey/far_away", "journey/here_we_go_again", "journey/home_at_last", "journey/long_way_home",
             "eternity/hollow_totem", "eternity/echo_heart", "eternity/awakening", "eternity/saved", "eternity/moon_ritual",
             "eternity/eternal_tool", "eternity/echo_strike", "eternity/smash", "eternity/echo_sense", "eternity/everything_stays",
             "navigation/amulet", "navigation/stargazer", "navigation/named_place", "navigation/own_sky" };
@@ -51,6 +52,7 @@ final class AdvancementTest implements SelfTest.Test {
         itemsAndHelper(ctx);
         awardPoints(ctx);
         exile(ctx);
+        tenthDeath(ctx);
     }
 
     // The helper awards once, and the vanilla triggers see the items.
@@ -183,9 +185,23 @@ final class AdvancementTest implements SelfTest.Test {
             int expected = min + (max - min) * easyLife / 9;
             ctx.check(label + ": a distant respawn awards journey/exile", BmhAdvancements.isDone(back, "journey/exile"), "not done");
             boolean far = BmhAdvancements.isDone(back, "journey/far_away");
+            ctx.check(label + ": the first death does not award the hidden journey/here_we_go_again",
+                    !BmhAdvancements.isDone(back, "journey/here_we_go_again"), "done");
             ctx.check(label + ": journey/far_away follows the distance (expected " + expected + ")", far == (expected >= 30000),
                     "far_away " + far);
             then.run();
+        });
+    }
+
+    // The tenth death awards the hidden advancement: the statistic starts at 9, so one more death makes 10.
+    private static void tenthDeath(SelfTest.Ctx ctx) {
+        ServerPlayer player = ctx.player("bmh-adv-tenth", 0, 42);
+        player.getStats().setValue(player, Stats.CUSTOM.get(Stats.DEATHS), 9);
+        MockPlayers.kill(player);
+        ctx.later(5, () -> {
+            ServerPlayer back = MockPlayers.respawn(ctx.server, ctx.live(player));
+            ctx.check("the tenth death awards journey/here_we_go_again", BmhAdvancements.isDone(back, "journey/here_we_go_again"),
+                    "deaths " + back.getStats().getValue(Stats.CUSTOM.get(Stats.DEATHS)));
         });
     }
 }

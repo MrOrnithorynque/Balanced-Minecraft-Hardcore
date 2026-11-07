@@ -4,6 +4,7 @@ import github.mrornithorynque.bmh.init.SoundInit;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.stats.Stats;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -22,12 +23,20 @@ public class RespawnEffectHandler {
     // The exile distance, in Overworld blocks, that earns the advancement "Far, far away".
     private static final int FAR_AWAY_BLOCKS = 30000;
 
+    // The number of deaths that earns the hidden advancement "Shit, here we go again".
+    private static final int AGAIN_DEATHS = 10;
+
     // Called on the server after a respawn, once the position and the kept items are settled.
     public static void onPlayerRespawn(Player player, boolean endConquered) {
 
         // Leaving the End is a vanilla respawn too, but not a new journey.
         if (endConquered || !(player instanceof ServerPlayer serverPlayer)) {
             return;
+        }
+
+        // The statistic counts every death, also the ones with no exile.
+        if (serverPlayer.getStats().getValue(Stats.CUSTOM.get(Stats.DEATHS)) >= AGAIN_DEATHS) {
+            BmhAdvancements.award(serverPlayer, "journey/here_we_go_again");
         }
 
         // Only a respawn that got a distant position is a new journey. In a hardcore world the player is a spectator now.
