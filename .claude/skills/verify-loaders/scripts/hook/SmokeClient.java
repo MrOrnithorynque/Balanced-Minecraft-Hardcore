@@ -104,6 +104,9 @@ public final class SmokeClient {
         } else if (ticks >= RITUAL_START && ticks < RITUAL_END) {
             aimAtMoon(mc);
             mc.options.keyUse.setDown(true);
+            if (ticks == RITUAL_START - 1 || ticks == RITUAL_START + 1 || ticks == RITUAL_START + 20) {
+                logServerRitualCheck(server, "tick " + ticks);
+            }
             if (ticks == RITUAL_START) {
                 Vec3 moon = moonDirection(mc);
                 log("ritual start: dayTime=" + ClientCompat.dayTime(mc) + " moon=" + String.format("%.2f %.2f %.2f", moon.x, moon.y, moon.z)
@@ -158,6 +161,23 @@ public final class SmokeClient {
     // the moon must be under the crosshair, and the server log says how far the look was from its own moon direction.
     private static Vec3 moonDirection(Minecraft mc) {
         return ClientCompat.moonDirection(mc);
+    }
+
+    // What the server thinks of a ritual started now: MoonRitualHandler.blockedReason (null when it may start), its moon
+    // direction and the time. Read by reflection: branch.sh also runs this hook on tags from before the class.
+    private static void logServerRitualCheck(IntegratedServer server, String when) {
+        server.execute(() -> {
+            try {
+                ServerPlayer target = server.getPlayerList().getPlayers().get(0);
+                Class<?> handler = Class.forName("github.mrornithorynque.bmh.handlers.MoonRitualHandler");
+                Object reason = handler.getMethod("blockedReason", net.minecraft.world.entity.player.Player.class).invoke(null, target);
+                Object error = handler.getMethod("aimError", net.minecraft.world.entity.player.Player.class).invoke(null, target);
+                log("server ritual check at " + when + ": reason=" + reason + " aim error=" + error + " yaw=" + Math.round(target.getYRot())
+                        + " pitch=" + Math.round(target.getXRot()));
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                log("server ritual check at " + when + ": " + e);
+            }
+        });
     }
 
     // The yaw and pitch that look along the moon direction.
