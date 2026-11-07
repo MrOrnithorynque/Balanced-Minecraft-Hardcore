@@ -22,3 +22,7 @@ Verify runs use `BMH_PORT`, `BMH_SELFTEST_PORT`, `BMH_LOCK_DIR`, `BMH_SLOT_PREFI
 - The nearest home within 24 blocks wins, the center wins a tie.
 - Title of a named point: the point name as a literal text. The center: `bmh.homecoming.home`.
 - Spectators and Creative players that fly home also trigger it. The record exists only after a Survival exile.
+
+## Later changes
+
+8. Real-death client run on 26.1 (NeoForge): the title shows. The particle ring sat below the first-person view. Louis then asked to drop the particles and keep the sound: `drawRing` and its constants are gone, the selftest asserts that no particle packet is sent. The changelog line and the code map in `.claude/CLAUDE.md` follow.
