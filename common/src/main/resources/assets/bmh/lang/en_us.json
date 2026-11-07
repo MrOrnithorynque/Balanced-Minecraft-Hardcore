@@ -118,5 +118,7 @@
     "advancements.bmh.navigation.named_place.title": "A name for a place",
     "advancements.bmh.navigation.named_place.description": "Name a bed or a lodestone with the Navigator's Amulet.",
     "advancements.bmh.navigation.own_sky.title": "A sky of your own",
-    "advancements.bmh.navigation.own_sky.description": "Keep 3 named places on your Navigator's Amulet."
+    "advancements.bmh.navigation.own_sky.description": "Keep 3 named places on your Navigator's Amulet.",
+    "advancements.bmh.journey.here_we_go_again.title": "Shit, here we go again",
+    "advancements.bmh.journey.here_we_go_again.description": "Die for the tenth time."
 }
