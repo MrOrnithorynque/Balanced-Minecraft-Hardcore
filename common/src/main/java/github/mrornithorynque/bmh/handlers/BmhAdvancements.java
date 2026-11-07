@@ -4,7 +4,7 @@ import javax.annotation.Nullable;
 
 import github.mrornithorynque.bmh.BalancedMcHardcore;
 
-import net.minecraft.advancements.AdvancementHolder;
+import net.minecraft.advancements.Advancement;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -27,7 +27,7 @@ public class BmhAdvancements {
      */
     public static boolean award(ServerPlayer player, String path) {
 
-        AdvancementHolder advancement = find(player.server, path);
+        Advancement advancement = find(player.server, path);
 
         return advancement != null && player.getAdvancements().award(advancement, CRITERION);
     }
@@ -41,14 +41,14 @@ public class BmhAdvancements {
     /** True when the player has completed the advancement {@code bmh:<path>}. False when it does not exist. */
     public static boolean isDone(ServerPlayer player, String path) {
 
-        AdvancementHolder advancement = find(player.server, path);
+        Advancement advancement = find(player.server, path);
 
         return advancement != null && player.getAdvancements().getOrStartProgress(advancement).isDone();
     }
 
     @Nullable
-    private static AdvancementHolder find(MinecraftServer server, String path) {
+    private static Advancement find(MinecraftServer server, String path) {
 
-        return server.getAdvancements().get(new ResourceLocation(BalancedMcHardcore.MODID, path));
+        return server.getAdvancements().getAdvancement(new ResourceLocation(BalancedMcHardcore.MODID, path));
     }
 }
