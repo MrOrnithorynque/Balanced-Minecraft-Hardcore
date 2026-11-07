@@ -80,3 +80,8 @@ Louis (chat): implement on one Minecraft version, he validates, then the change 
 - Louis (via the coordinator session): "Keep 30" for `RITUAL_LEVELS`. The other decision (refuse to start below the cost) stays open; the code keeps starting.
 - Final batch on the new commits: 1.21.1 Fabric, 26.1 NeoForge and 1.20.2 Fabric green; each client's first ritual drains 40 to 10 and wakes the totem, the failure keeps 4 drained levels. 1.20.4's first try failed at configuration (ForgeGradle read the Mojang version manifest while a parallel build rewrote it: "MalformedJsonException ... versions[209].url"; the cached manifests are valid afterwards); rerun alone as `f2-1.20.4`.
 - Another project's verify run (Frayed) shares `/private/tmp/bmh-runserver.lock`: a wait on that lock can be theirs.
+- `f2-1.20.4` (`bd0a5e2`): jars 296/296; Forge, Fabric, NeoForge: amulet 40/40, smoke 53/53, clients 9 shots, 0 errors; ritual 40 to 10 and the failure keeps 4 levels on each.
+
+## 10. State before the push (waiting for Louis's go)
+
+All seven branches verified on the final code, every loader green (1.20.x and 1.21.1 cells from batches where the later commits changed only the ritual start, rechecked on 1.20.4, 1.20.2, 1.21.1 and 26.1). Branches, each a fast-forward of its `origin` branch: `feat/totem-states` (main), `feat/totem-states-1.20.3`, `-1.20.2`, `-1.20.1`, `-1.20`, `-1.21.1`, `-26.1`. Nothing pushed, no release.
