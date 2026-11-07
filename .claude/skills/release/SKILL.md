@@ -151,7 +151,7 @@ for b in main mc-26.1 mc-1.21.1 mc-1.20.3 mc-1.20.2 mc-1.20.1 mc-1.20; do   # th
   [ "$(git rev-parse "origin/${b}")" = "$(git -C "$W/$b" rev-parse HEAD)" ] || { echo "$b: origin/$b is not the commit step 5 pushed, stop and look"; continue; }
   mc=$(git show "origin/${b}:gradle.properties" | grep '^minecraft_version=' | cut -d= -f2)
   mod=$(git show "origin/${b}:gradle.properties" | grep '^mod_version=' | cut -d= -f2)
-  git tag -a "mc-${mc}-v${mod}" "origin/${b}" -m "Balanced Minecraft Hardcore ${mod} for Minecraft ${mc}"
+  git tag -a "mc-${mc}-v${mod}" "origin/${b}" -m "BMH ${mod} for mc${mc}"
 done
 ```
 
