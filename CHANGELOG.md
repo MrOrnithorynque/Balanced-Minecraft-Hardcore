@@ -10,6 +10,8 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - The moon ritual wakes a Dormant Totem. At night, under open sky, hold use with the Dormant Totem and look at the moon. For 15 seconds your levels drain one by one, 30 levels in all. A chime rings at each level, higher and higher, and the totem trembles more and more. At the end, the totem is a Totem of Eternity again.
 - The moon ritual must be done in one go. If you let go, look away, get hurt, lose the moon or run out of levels, the totem stays asleep and the levels already drained are gone.
 
+![The moon ritual: the Dormant Totem raised under the moon, runes flow into it, the levels drain, the totem wakes](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/moon_ritual.gif)
+
 ### Changed
 
 - The totem that you craft is now the Hollow Totem of Eternal Life. Your old Dormant Totems become Hollow Totems, with the same use. It has a new texture: empty eyes and an empty forehead socket.
