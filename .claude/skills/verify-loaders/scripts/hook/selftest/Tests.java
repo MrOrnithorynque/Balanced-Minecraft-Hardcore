@@ -11,6 +11,7 @@ final class Tests {
             new OneEternalPerTypeTest(),
             new DeathKeepTest(),
             new RespawnTest(),
+            new HomecomingTest(),
             new SleepTest(),
             new CoordinatesTest(),
             new AxeSmashTest(),

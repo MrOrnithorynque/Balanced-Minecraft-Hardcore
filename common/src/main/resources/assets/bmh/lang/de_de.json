@@ -11,5 +11,10 @@
     "item.bmh.sleeping_totem": "Schlafendes Totem des Ewigen Lebens",
     "item.bmh.echo_heart": "Echo-Herz",
 
-    "bmh.journey.message": "Eine neue Reise beginnt für dich, %s."
+    "bmh.journey.message": "Eine neue Reise beginnt für dich, %s.",
+
+    "bmh.homecoming.home": "Zuhause",
+    "bmh.homecoming.subtitle": "%s Blöcke und %s Nächte seit deinem Aufbruch",
+    "bmh.homecoming.subtitle.one_night": "%s Blöcke und 1 Nacht seit deinem Aufbruch",
+    "bmh.homecoming.subtitle.no_nights": "%s Blöcke seit deinem Aufbruch"
 }
