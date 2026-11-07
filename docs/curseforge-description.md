@@ -71,6 +71,8 @@ After it saves you, it falls asleep: it becomes a **Dormant Totem of Eternal Lif
 
 ![The Totem of Eternity saves you from your inventory](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/totem_of_eternity_save.gif)
 
+![The moon ritual: the Dormant Totem raised under the moon, runes flow into it, the levels drain, the totem wakes](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/moon_ritual.gif)
+
 ![dormant_totem_crafting_grid](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/dormant_totem_crafting_grid.png)
 ![echo_heart_crafting_grid](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/echo_heart_crafting_grid.png)
 ![totem_of_eternity_anvil](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/totem_of_eternity_anvil.png)
