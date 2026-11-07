@@ -52,7 +52,6 @@ final class AdvancementTest implements SelfTest.Test {
         itemsAndHelper(ctx);
         awardPoints(ctx);
         exile(ctx);
-        tenthDeath(ctx);
     }
 
     // The helper awards once, and the vanilla triggers see the items.
@@ -165,7 +164,10 @@ final class AdvancementTest implements SelfTest.Test {
             ctx.server.setDifficulty(Difficulty.PEACEFUL, true);
             die(ctx, "peaceful", 30, () -> ctx.later(20, () -> {
                 ctx.server.setDifficulty(Difficulty.HARD, true);
-                die(ctx, "hard", 36, () -> ctx.server.setDifficulty(before, true));
+                die(ctx, "hard", 36, () -> {
+                    ctx.server.setDifficulty(before, true);
+                    tenthDeath(ctx);
+                });
             }));
         });
     }
@@ -193,8 +195,10 @@ final class AdvancementTest implements SelfTest.Test {
         });
     }
 
-    // The tenth death awards the hidden advancement: the statistic starts at 9, so one more death makes 10.
+    // The tenth death awards the hidden advancement, but only where BMH is on: the statistic starts at 9, so one more
+    // death makes 10. With the BMH rules off (a world made with the toggle off) the same death awards nothing.
     private static void tenthDeath(SelfTest.Ctx ctx) {
+        ctx.rule(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT, true);
         ServerPlayer player = ctx.player("bmh-adv-tenth", 0, 42);
         player.getStats().setValue(player, Stats.CUSTOM.get(Stats.DEATHS), 9);
         MockPlayers.kill(player);
@@ -202,6 +206,17 @@ final class AdvancementTest implements SelfTest.Test {
             ServerPlayer back = MockPlayers.respawn(ctx.server, ctx.live(player));
             ctx.check("the tenth death awards journey/here_we_go_again", BmhAdvancements.isDone(back, "journey/here_we_go_again"),
                     "deaths " + back.getStats().getValue(Stats.CUSTOM.get(Stats.DEATHS)));
+            ctx.rule(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT, false);
+            ServerPlayer plain = ctx.player("bmh-adv-tenth-off", 0, 48);
+            plain.getStats().setValue(plain, Stats.CUSTOM.get(Stats.DEATHS), 9);
+            MockPlayers.kill(plain);
+            ctx.later(5, () -> {
+                ServerPlayer plainBack = MockPlayers.respawn(ctx.server, ctx.live(plain));
+                ctx.check("with BMH off the tenth death awards nothing",
+                        !BmhAdvancements.isDone(plainBack, "journey/here_we_go_again")
+                                && !BmhAdvancements.isDone(plainBack, "journey/exile"),
+                        "deaths " + plainBack.getStats().getValue(Stats.CUSTOM.get(Stats.DEATHS)));
+            });
         });
     }
 }

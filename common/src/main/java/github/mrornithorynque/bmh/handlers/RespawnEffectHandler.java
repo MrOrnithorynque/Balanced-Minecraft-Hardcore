@@ -23,7 +23,7 @@ public class RespawnEffectHandler {
     // The exile distance, in Overworld blocks, that earns the advancement "Far, far away".
     private static final int FAR_AWAY_BLOCKS = 30000;
 
-    // The number of deaths that earns the hidden advancement "Shit, here we go again".
+    // The number of deaths (the vanilla statistic) that earns the hidden advancement "Shit, here we go again".
     private static final int AGAIN_DEATHS = 10;
 
     // Called on the server after a respawn, once the position and the kept items are settled.
@@ -34,11 +34,6 @@ public class RespawnEffectHandler {
             return;
         }
 
-        // The statistic counts every death, also the ones with no exile.
-        if (serverPlayer.getStats().getValue(Stats.CUSTOM.get(Stats.DEATHS)) >= AGAIN_DEATHS) {
-            BmhAdvancements.award(serverPlayer, "journey/here_we_go_again");
-        }
-
         // Only a respawn that got a distant position is a new journey. In a hardcore world the player is a spectator now.
         boolean exiled = RespawnPositionHandler.takeExiled(serverPlayer);
         int exileDistance = RespawnPositionHandler.takeExileDistance(serverPlayer);
@@ -47,7 +42,12 @@ public class RespawnEffectHandler {
             return;
         }
 
+        // The three journey advancements need BMH on in this world: only a distant respawn gets here.
         BmhAdvancements.award(serverPlayer, "journey/exile");
+
+        if (serverPlayer.getStats().getValue(Stats.CUSTOM.get(Stats.DEATHS)) >= AGAIN_DEATHS) {
+            BmhAdvancements.award(serverPlayer, "journey/here_we_go_again");
+        }
 
         if (exileDistance >= FAR_AWAY_BLOCKS) {
             BmhAdvancements.award(serverPlayer, "journey/far_away");
