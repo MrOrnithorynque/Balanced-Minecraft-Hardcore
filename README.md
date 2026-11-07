@@ -91,6 +91,10 @@ After it saves you, it falls asleep: it becomes a **Dormant Totem of Eternal Lif
 </p>
 
 <p align="center">
+  <img src="resources/showcase/moon_ritual.gif" alt="The moon ritual: the Dormant Totem raised under the moon, runes flow into it, the levels drain, the totem wakes" width="640">
+</p>
+
+<p align="center">
   <img src="resources/dormant_totem_crafting_grid.png" alt="dormant_totem_crafting_grid" width="200" style="margin-right: 10px;">
   <img src="resources/echo_heart_crafting_grid.png" alt="echo_heart_crafting_grid" width="200" style="margin-right: 10px;">
   <img src="resources/totem_of_eternity_anvil.png" alt="totem_of_eternity_anvil" width="200">
