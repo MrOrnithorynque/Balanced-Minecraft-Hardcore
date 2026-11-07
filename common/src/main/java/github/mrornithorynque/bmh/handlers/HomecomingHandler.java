@@ -9,7 +9,6 @@ import github.mrornithorynque.bmh.init.SoundInit;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -24,7 +23,7 @@ import net.minecraft.world.level.Level;
 
 /**
  * The end of an exile. When a player gets back near a home after a distant respawn, the server shows a title with the
- * distance and the time away, rings the bell and draws a ring of particles. Then the record is gone.
+ * distance and the time away and rings the bell. Then the record is gone.
  * The homes are fixed at the moment of the exile: the center of the exile and the amulet points the player had then.
  * The record lives on the player: mixin.C_ServerPlayerMixin saves it and copies it across death. The check runs once
  * a second from mixin.E_ServerPlayerMixin. All of it is server side. The client gets vanilla title packets only.
@@ -47,8 +46,6 @@ public final class HomecomingHandler {
 
     private static final String TAG = "bmh_homecoming";
     private static final long TICKS_PER_NIGHT = 24000L;
-    private static final int RING_PARTICLES = 24;
-    private static final double RING_RADIUS = 1.5D;
     private static final float BELL_PITCH = 0.8F;
 
     /** A place that ends the exile. The name is empty for the center of the exile. */
@@ -147,15 +144,13 @@ public final class HomecomingHandler {
 
         ((Holder) player).bmh$setHomecoming(null);
 
-        // The text follows the same rule as the text of the journey. The sound and the particles do not.
+        // The text follows the same rule as the text of the journey. The sound does not.
         if (level.getGameRules().getBoolean(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN)) {
             showTitle(player, record, home, nights(record, level.getGameTime()));
         }
 
         // No excluded player: the player hears the bell too. A client plays no sound of its own for this.
         level.playSound(null, player.blockPosition(), SoundInit.BELL_SOUND.get(), SoundSource.PLAYERS, 1.0F, BELL_PITCH);
-
-        drawRing(level, player.getX(), player.getY(), player.getZ());
     }
 
     private static void showTitle(ServerPlayer player, Record record, Home home, long nights) {
@@ -184,19 +179,6 @@ public final class HomecomingHandler {
         player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 70, 20));
         player.connection.send(new ClientboundSetSubtitleTextPacket(subtitle));
         player.connection.send(new ClientboundSetTitleTextPacket(title));
-    }
-
-    // A ring at the feet. With a count of 0 the offset is the direction and the last number the speed: the sparks rise slowly.
-    private static void drawRing(ServerLevel level, double x, double y, double z) {
-
-        for (int i = 0; i < RING_PARTICLES; i++) {
-
-            double angle = 2.0D * Math.PI * i / RING_PARTICLES;
-
-            level.sendParticles(ParticleTypes.END_ROD,
-                    x + RING_RADIUS * Math.cos(angle), y + 0.1D, z + RING_RADIUS * Math.sin(angle),
-                    0, 0.0D, 1.0D, 0.0D, 0.04D);
-        }
     }
 
     // Used by the mixin to save the record into the player's NBT. No record writes nothing.
