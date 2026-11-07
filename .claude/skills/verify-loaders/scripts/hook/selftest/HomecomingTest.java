@@ -16,7 +16,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * The homecoming (HomecomingHandler). An exile writes a record with the center and the amulet points of that moment. No
- * title before 24 blocks. At 23 blocks the title, the subtitle, the bell and the ring come once, and the record is gone.
+ * title before 24 blocks. At 23 blocks the title, the subtitle, the bell come once, and the record is gone.
  * A point made after the exile is no home. A record for another dimension is not read. A new exile replaces the record, a
  * save and a load keep it, and a death with no new exile keeps it. A named point shows its name. The subtitle follows the
  * nights.
@@ -107,7 +107,7 @@ final class HomecomingTest implements SelfTest.Test {
             ctx.check("the subtitle has no nights", seen.subtitles().equals(List.of(HomecomingHandler.SUBTITLE_NO_NIGHTS + "(1 args)")),
                     "subtitles " + seen.subtitles());
             ctx.check("the bell rings", seen.sounds() >= 1, "sound packets " + seen.sounds());
-            ctx.check("the ring of particles is sent", seen.particles() >= 24, "particle packets " + seen.particles());
+            ctx.check("no particles are sent", seen.particles() == 0, "particle packets " + seen.particles());
             ctx.check("the record is deleted", HomecomingHandler.get(live) == null, "record " + HomecomingHandler.get(live));
             HomecomingHandler.tick(live);
             ctx.check("nothing comes a second time", seen(live).nothing(), "extra packets");
@@ -175,13 +175,13 @@ final class HomecomingTest implements SelfTest.Test {
         ctx.check("the subtitle has a form for one night",
                 seen(player).subtitles().equals(List.of(HomecomingHandler.SUBTITLE_ONE_NIGHT + "(1 args)")), "one night");
 
-        // The text follows displayTextOnRespawn. The sound and the particles do not.
+        // The text follows displayTextOnRespawn. The sound does not.
         ctx.rule(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN, false);
         ((HomecomingHandler.Holder) player).bmh$setHomecoming(threeNights);
         HomecomingHandler.tick(player);
         Seen quiet = seen(player);
-        ctx.check("displayTextOnRespawn off hides the text but not the bell and the ring",
-                quiet.titles().isEmpty() && quiet.subtitles().isEmpty() && quiet.sounds() >= 1 && quiet.particles() >= 24,
+        ctx.check("displayTextOnRespawn off hides the text but not the bell",
+                quiet.titles().isEmpty() && quiet.subtitles().isEmpty() && quiet.sounds() >= 1,
                 "titles " + quiet.titles() + ", sounds " + quiet.sounds() + ", particles " + quiet.particles());
     }
 
