@@ -11,5 +11,10 @@
     "item.bmh.sleeping_totem": "잠든 영원한 생명의 토템",
     "item.bmh.echo_heart": "메아리의 심장",
 
-    "bmh.journey.message": "%s, 새로운 여정이 시작됩니다."
+    "bmh.journey.message": "%s, 새로운 여정이 시작됩니다.",
+
+    "bmh.homecoming.home": "집",
+    "bmh.homecoming.subtitle": "떠난 뒤 %s블록, %s번의 밤",
+    "bmh.homecoming.subtitle.one_night": "떠난 뒤 %s블록, 1번의 밤",
+    "bmh.homecoming.subtitle.no_nights": "떠난 뒤 %s블록"
 }
