@@ -6,7 +6,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ### Added
 
-- BMH now has an advancement tab, Balanced Hardcore, with three branches: your journey after a death, the Eternal Items and the Navigator's Amulet. It shows the way from the Hollow Totem to the moon ritual. It gives no reward.
+- BMH now has an advancement tab, Balanced Hardcore, with three branches: your journey after a death, the Eternal Items and the Navigator's Amulet. It shows the way from the Hollow Totem to the moon ritual. It gives no reward. One advancement stays hidden until you earn it.
 
 ## [1.9.0] - 2026-11-07
 
