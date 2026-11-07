@@ -7,7 +7,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 ### Added
 
 - The Totem of Eternity now has three states. After it saves you, it becomes a Dormant Totem of Eternal Life. The Dormant Totem stays with you when you die, like every Eternal Item, but it cannot save you.
-- The moon ritual wakes a Dormant Totem. At night, under open sky, hold use with the Dormant Totem and look at the moon. A bar fills over 15 seconds and your levels drain one by one, 30 levels in all. At the end, the totem is a Totem of Eternity again.
+- The moon ritual wakes a Dormant Totem. At night, under open sky, hold use with the Dormant Totem and look at the moon. For 15 seconds your levels drain one by one, 30 levels in all. A chime rings at each level, higher and higher, and the totem trembles more and more. At the end, the totem is a Totem of Eternity again.
 - The moon ritual must be done in one go. If you let go, look away, get hurt, lose the moon or run out of levels, the totem stays asleep and the levels already drained are gone.
 
 ### Changed

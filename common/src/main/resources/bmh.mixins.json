@@ -34,7 +34,6 @@
         "I_ClientPacketListenerTotemMixin",
         "K_GuiSpyglassMixin",
         "M_RangeSelectPropertiesMixin",
-        "O_GuiRitualBarMixin",
         "P_ItemInHandRitualMixin"
     ],
     "injectors": {

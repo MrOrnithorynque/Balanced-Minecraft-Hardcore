@@ -41,6 +41,10 @@ public class MoonRitualHandler {
     /** The largest angle between the look direction and the moon, in degrees. */
     public static final double AIM_DEGREES = 10.0;
 
+    // The pitch of the chime at the first level and at the last one.
+    private static final float CHIME_LOW_PITCH = 0.5F;
+    private static final float CHIME_HIGH_PITCH = 1.9F;
+
     /** A player who fails must wait this time before the next try, so a held use key does not start again at once. */
     public static final int FAIL_COOLDOWN_TICKS = 20;
 
@@ -97,6 +101,9 @@ public class MoonRitualHandler {
     /** The ritual starts. The server tells the log. */
     public static void start(ServerPlayer player) {
 
+        player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RESPAWN_ANCHOR_CHARGE,
+                SoundSource.PLAYERS, 0.8F, 1.3F);
+
         LOGGER.info("[BalancedMcHardcoreMain] Moon ritual started by " + player.getName().getString() + ": aimed "
                 + String.format("%.1f", aimError(player)) + " degrees from the moon, " + player.experienceLevel + " levels");
     }
@@ -121,14 +128,22 @@ public class MoonRitualHandler {
 
         int elapsed = RITUAL_TICKS - remaining + 1;
 
-        if (elapsed % TICKS_PER_LEVEL == 0 && !player.getAbilities().instabuild) {
+        if (elapsed % TICKS_PER_LEVEL == 0) {
 
-            if (player.experienceLevel < 1) {
-                fail(player, "bmh.ritual.levels");
-                return false;
+            if (!player.getAbilities().instabuild) {
+
+                if (player.experienceLevel < 1) {
+                    fail(player, "bmh.ritual.levels");
+                    return false;
+                }
+
+                player.giveExperienceLevels(-1);
             }
 
-            player.giveExperienceLevels(-1);
+            // A chime at each level, higher and higher: the ritual climbs toward the end.
+            float pitch = CHIME_LOW_PITCH + (CHIME_HIGH_PITCH - CHIME_LOW_PITCH) * elapsed / RITUAL_TICKS;
+            player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME,
+                    SoundSource.PLAYERS, 1.0F, pitch);
         }
 
         return true;
