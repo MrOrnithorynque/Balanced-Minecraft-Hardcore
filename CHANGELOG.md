@@ -4,6 +4,10 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Added
+
+- BMH now has an advancement tab, Balanced Hardcore, with three branches: your journey after a death, the Eternal Items and the Navigator's Amulet. It shows the way from the Hollow Totem to the moon ritual. It gives no reward.
+
 ## [1.9.0] - 2026-11-07
 
 The Totem of Eternity no longer starts over after it saves you. It falls asleep, stays with you, and the moon wakes it.
