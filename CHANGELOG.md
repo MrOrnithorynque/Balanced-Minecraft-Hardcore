@@ -12,6 +12,8 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ![The moon ritual: the Dormant Totem raised under the moon, runes flow into it, the levels drain, the totem wakes](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/moon_ritual.gif)
 
+- BMH must be installed on the server and on every client. The README and the mod page now say so. A client without BMH is disconnected. On Fabric for Minecraft 26.1, Fabric API refuses such a client at the connection, with a message that names the mod.
+
 ### Changed
 
 - The totem that you craft is now the Hollow Totem of Eternal Life. Your old Dormant Totems become Hollow Totems, with the same use. It has a new texture: empty eyes and an empty forehead socket.
