@@ -4,20 +4,25 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
-### Added
+## [1.9.0] - 2026-11-07
 
-- The Totem of Eternity now has three states. After it saves you, it becomes a Dormant Totem of Eternal Life. The Dormant Totem stays with you when you die, like every Eternal Item, but it cannot save you.
-- The moon ritual wakes a Dormant Totem. At night, under open sky, hold use with the Dormant Totem and look at the moon. For 15 seconds your levels drain one by one, 30 levels in all. A chime rings at each level, higher and higher, and the totem trembles more and more. At the end, the totem is a Totem of Eternity again.
-- The moon ritual must be done in one go. If you let go, look away, get hurt, lose the moon or run out of levels, the totem stays asleep and the levels already drained are gone.
+The Totem of Eternity no longer starts over after it saves you. It falls asleep, stays with you, and the moon wakes it.
 
 ![The moon ritual: the Dormant Totem raised under the moon, runes flow into it, the levels drain, the totem wakes](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/moon_ritual.gif)
 
-- BMH must be installed on the server and on every client. The README and the mod page now say so. A client without BMH is disconnected. On Fabric for Minecraft 26.1, Fabric API refuses such a client at the connection, with a message that names the mod.
+### Added
+
+- After it saves you, the Totem of Eternity becomes a Dormant Totem of Eternal Life. It cannot save you, but it is an Eternal Item: it stays with you when you die.
+- The moon ritual wakes a Dormant Totem. At night, under open sky, look at the moon and hold use. For 15 seconds the totem trembles, a chime climbs and your levels drain, 30 levels in all. Then your Totem of Eternity is back.
+- The ritual must be done in one go. If you let go, look away, get hurt, lose the moon or run out of levels, the totem stays asleep and the levels already spent are gone.
 
 ### Changed
 
-- The totem that you craft is now the Hollow Totem of Eternal Life. Your old Dormant Totems become Hollow Totems, with the same use. It has a new texture: empty eyes and an empty forehead socket.
-- An Echo Heart at the anvil now wakes only a Hollow Totem. A Dormant Totem wakes only with the moon ritual.
+- The totem you craft is now the Hollow Totem of Eternal Life, with a new texture: empty eyes and an empty forehead socket. Your old Dormant Totems become Hollow Totems, with the same use.
+- An Echo Heart at the anvil wakes only a Hollow Totem. A Dormant Totem wakes only under the moon.
+- The README and the mod page now say that BMH must be installed on the server and on every client. A client without BMH is disconnected.
+
+![The three states: the Hollow Totem you craft, the Totem of Eternity, the Dormant Totem after a save](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/totem_states.png)
 
 ## [1.8.0] - 2026-11-06
 
