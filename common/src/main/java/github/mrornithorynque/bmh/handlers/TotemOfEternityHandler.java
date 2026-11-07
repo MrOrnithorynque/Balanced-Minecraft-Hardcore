@@ -46,6 +46,7 @@ public class TotemOfEternityHandler {
                 player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 1));
                 player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 800, 0));
                 player.level().broadcastEntityEvent(player, (byte) 35);
+                BmhAdvancements.award(player, "eternity/saved");
 
                 LOGGER.info("[BalancedMcHardcoreMain] The Totem of Eternity saved " + player.getName().getString()
                         + " and is now dormant");

@@ -1,0 +1,25 @@
+{
+  "parent": "bmh:eternity/eternal_tool",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.eternity.echo_sense.description"
+    },
+    "icon": {
+      "item": "minecraft:diamond"
+    },
+    "title": {
+      "translate": "advancements.bmh.eternity.echo_sense.title"
+    },
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}
