@@ -1,0 +1,33 @@
+{
+  "parent": "bmh:eternity/echo_heart",
+  "criteria": {
+    "totem_of_eternity": {
+      "conditions": {
+        "items": [
+          {
+            "items": "bmh:totem_of_eternity"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.eternity.awakening.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "bmh:totem_of_eternity"
+    },
+    "title": {
+      "translate": "advancements.bmh.eternity.awakening.title"
+    },
+    "frame": "goal"
+  },
+  "requirements": [
+    [
+      "totem_of_eternity"
+    ]
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "parent": "bmh:eternity/hollow_totem",
+  "criteria": {
+    "eternal_sword": {
+      "conditions": {
+        "items": [
+          {
+            "items": "bmh:eternal_sword"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "eternal_axe": {
+      "conditions": {
+        "items": [
+          {
+            "items": "bmh:eternal_axe"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "eternal_pickaxe": {
+      "conditions": {
+        "items": [
+          {
+            "items": "bmh:eternal_pickaxe"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.eternity.eternal_tool.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "bmh:eternal_pickaxe"
+    },
+    "title": {
+      "translate": "advancements.bmh.eternity.eternal_tool.title"
+    },
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "eternal_sword",
+      "eternal_axe",
+      "eternal_pickaxe"
+    ]
+  ]
+}

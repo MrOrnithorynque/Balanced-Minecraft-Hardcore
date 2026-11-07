@@ -1,0 +1,33 @@
+{
+  "parent": "bmh:eternity/hollow_totem",
+  "criteria": {
+    "echo_heart": {
+      "conditions": {
+        "items": [
+          {
+            "items": "bmh:echo_heart"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.eternity.echo_heart.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "bmh:echo_heart"
+    },
+    "title": {
+      "translate": "advancements.bmh.eternity.echo_heart.title"
+    },
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "echo_heart"
+    ]
+  ]
+}

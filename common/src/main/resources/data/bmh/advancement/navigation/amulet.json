@@ -1,0 +1,33 @@
+{
+  "parent": "bmh:root",
+  "criteria": {
+    "navigator_amulet": {
+      "conditions": {
+        "items": [
+          {
+            "items": "bmh:navigator_amulet"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.navigation.amulet.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "bmh:navigator_amulet"
+    },
+    "title": {
+      "translate": "advancements.bmh.navigation.amulet.title"
+    },
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "navigator_amulet"
+    ]
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "parent": "bmh:journey/home_at_last",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.journey.long_way_home.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "minecraft:recovery_compass"
+    },
+    "title": {
+      "translate": "advancements.bmh.journey.long_way_home.title"
+    },
+    "frame": "challenge"
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

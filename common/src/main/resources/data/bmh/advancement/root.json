@@ -1,0 +1,27 @@
+{
+  "criteria": {
+    "start": {
+      "trigger": "minecraft:tick"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.root.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "bmh:navigator_amulet"
+    },
+    "title": {
+      "translate": "advancements.bmh.root.title"
+    },
+    "announce_to_chat": false,
+    "show_toast": false,
+    "background": "minecraft:textures/gui/advancements/backgrounds/stone.png"
+  },
+  "requirements": [
+    [
+      "start"
+    ]
+  ]
+}

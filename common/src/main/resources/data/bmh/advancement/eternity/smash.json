@@ -1,0 +1,26 @@
+{
+  "parent": "bmh:eternity/eternal_tool",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.eternity.smash.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "bmh:eternal_axe"
+    },
+    "title": {
+      "translate": "advancements.bmh.eternity.smash.title"
+    },
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

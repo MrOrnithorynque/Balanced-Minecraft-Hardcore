@@ -1,0 +1,26 @@
+{
+  "parent": "bmh:eternity/eternal_tool",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.eternity.echo_strike.description"
+    },
+    "icon": {
+      "count": 1,
+      "id": "bmh:eternal_sword"
+    },
+    "title": {
+      "translate": "advancements.bmh.eternity.echo_strike.title"
+    },
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}
