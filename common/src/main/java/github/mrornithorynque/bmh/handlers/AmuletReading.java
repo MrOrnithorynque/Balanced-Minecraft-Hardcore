@@ -244,6 +244,8 @@ public class AmuletReading {
             }
         });
 
+        BmhAdvancements.award(player, "navigation/stargazer");
+
         LOGGER.info("[BalancedMcHardcoreMain] Star reading for " + player.getName().getString() + ": azimuths " + azimuths
                 + ", " + chargesLeft + " charges left");
     }

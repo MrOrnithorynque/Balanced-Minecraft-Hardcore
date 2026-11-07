@@ -59,6 +59,8 @@ public class AxeSmashHandler {
         LOGGER.debug("[BalancedMcHardcoreMain] Smash: {} hits x{} after a {} block fall",
                 attacker.getGameProfile().name(), multiplier, attacker.fallDistance);
 
+        BmhAdvancements.award(attacker, "eternity/smash");
+
         // Half the fall distance, about half the fall damage.
         attacker.fallDistance *= 0.5F;
 

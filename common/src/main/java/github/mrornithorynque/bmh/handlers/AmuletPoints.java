@@ -31,6 +31,9 @@ public class AmuletPoints {
 
     public static final int MAX_NAME_LENGTH = 24;
 
+    // The number of points that earns the advancement "A sky of your own".
+    private static final int OWN_SKY_POINTS = 3;
+
     private static final String POINTS_TAG = "bmh_points";
     // 1.5.0 to 1.6.x kept one Home here. It becomes a point named Home when the player loads, and the next save drops it.
     private static final String LEGACY_HOME_TAG = "bmh_home";
@@ -137,6 +140,12 @@ public class AmuletPoints {
         }
 
         ((Holder) player).bmh$setPoints(points);
+
+        BmhAdvancements.award(player, "navigation/named_place");
+
+        if (points.size() >= OWN_SKY_POINTS) {
+            BmhAdvancements.award(player, "navigation/own_sky");
+        }
     }
 
     /** Removes the point on this block. False when there is none. */

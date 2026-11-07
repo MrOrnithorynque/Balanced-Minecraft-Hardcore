@@ -19,6 +19,9 @@ public class RespawnEffectHandler {
     // The client cinematic lasts about 5 s after the respawn, and longer while the terrain loads. Vanilla gives up to 60 ticks.
     private static final int JOURNEY_INVULNERABLE_TICKS = 200;
 
+    // The exile distance, in Overworld blocks, that earns the advancement "Far, far away".
+    private static final int FAR_AWAY_BLOCKS = 30000;
+
     // Called on the server after a respawn, once the position and the kept items are settled.
     public static void onPlayerRespawn(Player player, boolean endConquered) {
 
@@ -28,8 +31,17 @@ public class RespawnEffectHandler {
         }
 
         // Only a respawn that got a distant position is a new journey. In a hardcore world the player is a spectator now.
-        if (!RespawnPositionHandler.takeExiled(serverPlayer) || serverPlayer.level().getServer().isHardcore()) {
+        boolean exiled = RespawnPositionHandler.takeExiled(serverPlayer);
+        int exileDistance = RespawnPositionHandler.takeExileDistance(serverPlayer);
+
+        if (!exiled || serverPlayer.level().getServer().isHardcore()) {
             return;
+        }
+
+        BmhAdvancements.award(serverPlayer, "journey/exile");
+
+        if (exileDistance >= FAR_AWAY_BLOCKS) {
+            BmhAdvancements.award(serverPlayer, "journey/far_away");
         }
 
         // The player cannot see or move during the cinematic.

@@ -1,0 +1,25 @@
+{
+  "parent": "bmh:journey/exile",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.journey.home_at_last.description"
+    },
+    "icon": {
+      "id": "minecraft:red_bed"
+    },
+    "title": {
+      "translate": "advancements.bmh.journey.home_at_last.title"
+    },
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}
