@@ -1,10 +1,14 @@
 ![Balanced Minecraft Hardcore](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/bmh_banner.png)
 
+[![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/Czn9JQxMjT)
+
 Hardcore is too punishing: one death and your world is gone. Balanced Minecraft Hardcore (BMH) is the middle ground between normal Minecraft and Hardcore. When you die, you keep your world, but you wake up far away from home.
 
 You can go back to where you were. It takes a long time, and you can die again on the way. Or you can start a new adventure in the same world. The **Eternal Items** you carry stay with you and give you a head start.
 
 **Do not play on hardcore Minecraft: the mod works only on normal Minecraft.**
+
+[![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white&style=flat)](https://discord.gg/Czn9JQxMjT) [![GitHub](https://img.shields.io/badge/GitHub-Source-24292f?logo=github&logoColor=white&style=flat)](https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore)
 
 ## Features
 
