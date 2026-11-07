@@ -15,6 +15,7 @@ import github.mrornithorynque.bmh.utilities.BMHGameRules;
 import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
@@ -116,13 +117,16 @@ final class AdvancementTest implements SelfTest.Test {
         ctx.check("Echo Sense awards eternity/echo_sense", BmhAdvancements.isDone(player, "eternity/echo_sense"), "not done");
         ctx.level.setBlockAndUpdate(oreSpot.east(2), Blocks.AIR.defaultBlockState());
 
-        // The sword's echo and the axe's smash, on iron golems.
+        // The sword's echo and the axe's smash.
         ServerPlayer fighter = ctx.player("bmh-adv-fight", 0, 20);
         fighter.getInventory().setItem(0, new ItemStack(ItemInit.ETERNAL_SWORD.get()));
         fighter.getInventory().setItem(1, new ItemStack(ItemInit.ETERNAL_AXE.get()));
         MockPlayers.select(fighter, 0);
-        LivingEntity near = MockPlayers.golem(ctx.level, ctx.origin.getX() + 0.5, ctx.origin.getY() + 1, ctx.origin.getZ() + 22.5);
-        LivingEntity far = MockPlayers.golem(ctx.level, ctx.origin.getX() + 0.5, ctx.origin.getY() + 1, ctx.origin.getZ() + 25.5);
+        // The echo picks an Enemy, so husks (they stay in easy, not in peaceful). The axe hits the same husk.
+        Difficulty before = ctx.level.getDifficulty();
+        ctx.server.setDifficulty(Difficulty.EASY, true);
+        LivingEntity near = MockPlayers.husk(ctx.level, ctx.origin.getX() + 0.5, ctx.origin.getY() + 1, ctx.origin.getZ() + 22.5);
+        LivingEntity far = MockPlayers.husk(ctx.level, ctx.origin.getX() + 0.5, ctx.origin.getY() + 1, ctx.origin.getZ() + 25.5);
         ctx.later(30, () -> {
             ServerPlayer now = ctx.live(fighter);
             now.fallDistance = 0;
@@ -141,15 +145,28 @@ final class AdvancementTest implements SelfTest.Test {
                     ctx.check("the axe's smash awards eternity/smash", BmhAdvancements.isDone(air, "eternity/smash"), "not done");
                     near.discard();
                     far.discard();
+                    ctx.server.setDifficulty(before, true);
                 });
             });
         });
     }
 
-    // A distant respawn awards the exile, and "Far, far away" when the exile is 30000 blocks or more.
+    // A distant respawn awards the exile, and "Far, far away" when the exile is 30000 blocks or more. The formula gives
+    // less than 30000 on peaceful with the default config and more on hard, so both answers are checked.
     private static void exile(SelfTest.Ctx ctx) {
         ctx.rule(BMHGameRules.RULE_RANDOM_DEATH_SPAWN_POINT, true);
-        ServerPlayer player = ctx.player("bmh-adv-exile", 0, 30);
+        Difficulty before = ctx.level.getDifficulty();
+        ctx.later(60, () -> {
+            ctx.server.setDifficulty(Difficulty.PEACEFUL, true);
+            die(ctx, "peaceful", 30, () -> ctx.later(20, () -> {
+                ctx.server.setDifficulty(Difficulty.HARD, true);
+                die(ctx, "hard", 36, () -> ctx.server.setDifficulty(before, true));
+            }));
+        });
+    }
+
+    private static void die(SelfTest.Ctx ctx, String label, int dz, Runnable then) {
+        ServerPlayer player = ctx.player("bmh-adv-exile-" + label, 0, dz);
         player.getInventory().setItem(0, new ItemStack(ItemInit.ETERNAL_SWORD.get()));
         player.getInventory().setItem(1, new ItemStack(ItemInit.ETERNAL_PICKAXE.get()));
         player.getInventory().setItem(2, new ItemStack(ItemInit.ETERNAL_AXE.get()));
@@ -161,9 +178,11 @@ final class AdvancementTest implements SelfTest.Test {
             int max = Services.PLATFORM.maxDistanceFromBed();
             int easyLife = Math.min(9, 1 + 3 + ctx.level.getDifficulty().getId());
             int expected = min + (max - min) * easyLife / 9;
-            ctx.check("a distant respawn awards journey/exile", BmhAdvancements.isDone(back, "journey/exile"), "not done");
+            ctx.check(label + ": a distant respawn awards journey/exile", BmhAdvancements.isDone(back, "journey/exile"), "not done");
             boolean far = BmhAdvancements.isDone(back, "journey/far_away");
-            ctx.check("journey/far_away follows the distance (expected " + expected + ")", far == (expected >= 30000), "far_away " + far);
+            ctx.check(label + ": journey/far_away follows the distance (expected " + expected + ")", far == (expected >= 30000),
+                    "far_away " + far);
+            then.run();
         });
     }
 }

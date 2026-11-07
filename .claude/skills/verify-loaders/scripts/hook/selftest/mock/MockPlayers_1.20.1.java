@@ -33,6 +33,7 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.level.GameRules;
 
@@ -121,6 +122,15 @@ public final class MockPlayers {
         golem.setNoAi(true);
         level.addFreshEntity(golem);
         return golem;
+    }
+
+    /** A husk without AI, added to the level: an Enemy that the Eternal Sword's echo can pick, and that hits back at no one. */
+    public static LivingEntity husk(ServerLevel level, double x, double y, double z) {
+        Husk husk = EntityType.HUSK.create(level);
+        husk.moveTo(x, y, z, 0, 0);
+        husk.setNoAi(true);
+        level.addFreshEntity(husk);
+        return husk;
     }
 
     /** The world spawn point. */
