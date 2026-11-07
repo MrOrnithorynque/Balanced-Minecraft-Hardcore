@@ -11,5 +11,10 @@
     "item.bmh.sleeping_totem": "Slapende Totem van Eeuwig Leven",
     "item.bmh.echo_heart": "Echohart",
 
-    "bmh.journey.message": "Een nieuwe reis begint voor jou, %s."
+    "bmh.journey.message": "Een nieuwe reis begint voor jou, %s.",
+
+    "bmh.homecoming.home": "Thuis",
+    "bmh.homecoming.subtitle": "%s blokken en %s nachten sinds je vertrek",
+    "bmh.homecoming.subtitle.one_night": "%s blokken en 1 nacht sinds je vertrek",
+    "bmh.homecoming.subtitle.no_nights": "%s blokken sinds je vertrek"
 }

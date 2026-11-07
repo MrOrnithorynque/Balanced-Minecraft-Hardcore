@@ -11,5 +11,10 @@
     "item.bmh.sleeping_totem": "Totem dormiente dell'Eterna Vita",
     "item.bmh.echo_heart": "Cuore di Eco",
 
-    "bmh.journey.message": "Un nuovo viaggio comincia per te, %s."
+    "bmh.journey.message": "Un nuovo viaggio comincia per te, %s.",
+
+    "bmh.homecoming.home": "Casa",
+    "bmh.homecoming.subtitle": "%s blocchi e %s notti da quando sei partito",
+    "bmh.homecoming.subtitle.one_night": "%s blocchi e 1 notte da quando sei partito",
+    "bmh.homecoming.subtitle.no_nights": "%s blocchi da quando sei partito"
 }
