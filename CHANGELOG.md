@@ -6,7 +6,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ### Added
 
-- When you get back home after a distant respawn, a title tells you how many blocks and nights you were away, the bell rings and a ring of sparks rises around you. Home is the center of your exile, or a point of your Navigator's Amulet that you had named before you died. You must come within 24 blocks of it.
+- When you get back home after a distant respawn, a title tells you how many blocks and nights you were away and the bell rings. Home is the center of your exile, or a point of your Navigator's Amulet that you had named before you died. You must come within 24 blocks of it.
 
 ## [1.9.0] - 2026-11-07
 
