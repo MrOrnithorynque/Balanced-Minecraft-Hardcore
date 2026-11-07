@@ -220,6 +220,12 @@ def discord_payload(mod, log):
     return {"allowed_mentions": {"parse": []}, "embeds": [embed]}
 
 
+def display_name(mod, mc):
+    """The name of a file on CurseForge and of a version on Modrinth, in the format Create uses: BMH 1.8.0 for mc1.21.1.
+    The loader is not in it: both sites show it as a tag, and the jar's own file name has it."""
+    return "BMH %s for mc%s" % (mod, mc)
+
+
 def option(args, name, default):
     if name not in args:
         return default
@@ -307,7 +313,7 @@ def main():
             uploads.append({
                 "loader": loader,
                 "file": jar(tree, loader, fetched),
-                "displayName": "Balanced Minecraft Hardcore %s for %s %s" % (mod, label, mc),
+                "displayName": display_name(mod, mc),
                 "versionNames": game_versions + ["Java " + java, "Client", "Server"] + listed,
                 "relations": {"projects": [{"slug": "fabric-api", "type": "requiredDependency"}]} if loader == "fabric" else None,
             })
@@ -345,10 +351,9 @@ def main():
         have = modrinth_versions(mr_token) if mr_token else set()
         number = "%s-%s" % (mc, mod)
         for u in uploads:
-            label = {"forge": "Forge", "fabric": "Fabric", "neoforge": "NeoForge"}[u["loader"]]
             loaders = [u["loader"]] + (["neoforge"] if u["loader"] == "forge" and mc == "1.20.1" else [])
             deps = [{"project_id": MODRINTH_FABRIC_API, "dependency_type": "required"}] if u["loader"] == "fabric" else []
-            data = {"name": "Balanced Minecraft Hardcore %s for %s %s" % (mod, label, mc), "version_number": number,
+            data = {"name": display_name(mod, mc), "version_number": number,
                     "changelog": log, "dependencies": deps, "game_versions": game_versions, "version_type": "release",
                     "loaders": loaders, "featured": False, "project_id": MODRINTH_PROJECT, "file_parts": ["file"],
                     "primary_file": "file"}
