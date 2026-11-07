@@ -15,6 +15,7 @@ The worktree must be built (gradlew build) and sit on the commit of its tag mc-<
 gradle.properties. A real run checks, before any upload, that the tag is on GitHub at that commit, that gh
 is logged in, and that every secret it needs is there. The changelog is the "## [<mod>]" section of
 CHANGELOG.md, as the workflow used it. "--only discord" needs no jar: it reads only the changelog.
+"--only modrinth-page" needs no build and no tag: it runs on any commit of the branch.
 
 Secrets come from the macOS Keychain, never from the command line or a file:
   security add-generic-password -a "$USER" -s bmh-curseforge-token -w    (CurseForge author API token)
@@ -252,7 +253,9 @@ def main():
         tagged = git(tree, "rev-parse", tag + "^{commit}")
     except subprocess.CalledProcessError:
         tagged = None
-    if tagged is None and dry:
+    if set(only) == {"modrinth-page"}:
+        pass  # the page text is not part of a version: any commit of the branch may send it
+    elif tagged is None and dry:
         print("WARNING no tag %s yet: a real run needs it on this commit, pushed to GitHub" % tag, flush=True)
     elif tagged is None:
         fail("no tag %s here: create it on this commit and push it first" % tag)
