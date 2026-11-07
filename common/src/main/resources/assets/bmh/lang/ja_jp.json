@@ -11,5 +11,10 @@
     "item.bmh.sleeping_totem": "眠れる永遠の命のトーテム",
     "item.bmh.echo_heart": "残響の心臓",
 
-    "bmh.journey.message": "%sの新たな旅が始まる。"
+    "bmh.journey.message": "%sの新たな旅が始まる。",
+
+    "bmh.homecoming.home": "故郷",
+    "bmh.homecoming.subtitle": "旅立ってから %s ブロック、%s 夜",
+    "bmh.homecoming.subtitle.one_night": "旅立ってから %s ブロック、1 夜",
+    "bmh.homecoming.subtitle.no_nights": "旅立ってから %s ブロック"
 }
