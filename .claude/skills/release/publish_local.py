@@ -221,8 +221,8 @@ def discord_payload(mod, log):
 
 
 def display_name(mod, mc):
-    """The name of a file on CurseForge and of a version on Modrinth, in the format Create uses: BMH 1.8.0 for mc1.21.1.
-    The loader is not in it: both sites show it as a tag, and the jar's own file name has it."""
+    """The name of a file on CurseForge, of a version on Modrinth and of a GitHub release, in the format Create uses:
+    BMH 1.8.0 for mc1.21.1. The loader is not in it: the sites show it as a tag, and the jar's own file name has it."""
     return "BMH %s for mc%s" % (mod, mc)
 
 
@@ -367,7 +367,7 @@ def main():
                 print("PUBLISHED modrinth %s: version id %s" % (u["loader"], (answer or {}).get("id")), flush=True)
 
     if "github" in only and uploads:
-        title = "Balanced Minecraft Hardcore %s for %s" % (mod, mc)
+        title = display_name(mod, mc)
         files = [u["file"] for u in uploads]
         if dry:
             print("DRY github release %s: %s | %s" % (tag, title, [os.path.basename(f) for f in files]), flush=True)
