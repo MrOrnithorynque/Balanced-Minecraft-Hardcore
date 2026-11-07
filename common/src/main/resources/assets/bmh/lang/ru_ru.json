@@ -11,5 +11,10 @@
     "item.bmh.sleeping_totem": "Спящий тотем вечной жизни",
     "item.bmh.echo_heart": "Сердце эха",
 
-    "bmh.journey.message": "Для тебя начинается новое путешествие, %s."
+    "bmh.journey.message": "Для тебя начинается новое путешествие, %s.",
+
+    "bmh.homecoming.home": "Дом",
+    "bmh.homecoming.subtitle": "%s блоков и %s ночей с тех пор, как вы ушли",
+    "bmh.homecoming.subtitle.one_night": "%s блоков и 1 ночь с тех пор, как вы ушли",
+    "bmh.homecoming.subtitle.no_nights": "%s блоков с тех пор, как вы ушли"
 }
