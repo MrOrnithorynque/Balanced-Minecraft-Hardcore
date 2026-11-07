@@ -87,19 +87,19 @@ final class HomecomingTest implements SelfTest.Test {
         HomecomingHandler.Record nether = new HomecomingHandler.Record("minecraft:the_nether", record.arrivalTime(),
                 record.distance(), record.homes());
         ((HomecomingHandler.Holder) back).bmh$setHomecoming(nether);
-        back.teleportTo(spawn.getX() + 0.5, spawn.getY() + 1, spawn.getZ() + 0.5);
+        back.setPos(spawn.getX() + 0.5, spawn.getY() + 1, spawn.getZ() + 0.5);
         HomecomingHandler.tick(back);
         ctx.check("a record for another dimension is not read",
                 seen(back).nothing() && HomecomingHandler.get(back) == nether, "record " + HomecomingHandler.get(back));
         ((HomecomingHandler.Holder) back).bmh$setHomecoming(record);
 
         // Just outside the radius: nothing.
-        back.teleportTo(spawn.getX() + 0.5 + HomecomingHandler.RADIUS + 1, spawn.getY() + 1, spawn.getZ() + 0.5);
+        back.setPos(spawn.getX() + 0.5 + HomecomingHandler.RADIUS + 1, spawn.getY() + 1, spawn.getZ() + 0.5);
         HomecomingHandler.tick(back);
         ctx.check("no title at 25 blocks", seen(back).nothing() && HomecomingHandler.get(back) != null, "record " + HomecomingHandler.get(back));
 
         // Inside: the once-a-second clock of the player tick finds it without a manual call.
-        back.teleportTo(spawn.getX() + 0.5 + HomecomingHandler.RADIUS - 1, spawn.getY() + 1, spawn.getZ() + 0.5);
+        back.setPos(spawn.getX() + 0.5 + HomecomingHandler.RADIUS - 1, spawn.getY() + 1, spawn.getZ() + 0.5);
         ctx.later(25, () -> {
             ServerPlayer live = ctx.live(back);
             Seen seen = seen(live);
@@ -148,7 +148,7 @@ final class HomecomingTest implements SelfTest.Test {
     }
 
     private static void namedPoint(SelfTest.Ctx ctx, ServerPlayer player, HomecomingHandler.Record record, BlockPos second) {
-        player.teleportTo(second.getX() + 0.5 + 10, second.getY() + 1, second.getZ() + 0.5);
+        player.setPos(second.getX() + 0.5 + 10, second.getY() + 1, second.getZ() + 0.5);
         HomecomingHandler.tick(player);
         Seen seen = seen(player);
         ctx.check("a named point shows its name", seen.titles().equals(List.of("Second")), "titles " + seen.titles());
@@ -162,7 +162,7 @@ final class HomecomingTest implements SelfTest.Test {
         HomecomingHandler.Record threeNights = new HomecomingHandler.Record(record.dimension(), now - 3 * 24000L - 5, 6000,
                 List.of(new HomecomingHandler.Home("", spawn)));
         ((HomecomingHandler.Holder) player).bmh$setHomecoming(threeNights);
-        player.teleportTo(spawn.getX() + 0.5, spawn.getY() + 1, spawn.getZ() + 0.5);
+        player.setPos(spawn.getX() + 0.5, spawn.getY() + 1, spawn.getZ() + 0.5);
         HomecomingHandler.tick(player);
         Seen many = seen(player);
         ctx.check("the subtitle counts nights", many.subtitles().equals(List.of(HomecomingHandler.SUBTITLE + "(2 args)")),
