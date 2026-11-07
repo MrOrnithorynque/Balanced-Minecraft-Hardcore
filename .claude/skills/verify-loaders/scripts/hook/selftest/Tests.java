@@ -15,7 +15,8 @@ final class Tests {
             new CoordinatesTest(),
             new AxeSmashTest(),
             new MenuTest(),
-            new EternalWearTest());
+            new EternalWearTest(),
+            new AdvancementTest());
 
     private Tests() {
     }

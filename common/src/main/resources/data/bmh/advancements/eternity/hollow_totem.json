@@ -1,0 +1,34 @@
+{
+  "parent": "bmh:root",
+  "criteria": {
+    "dormant_totem": {
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "bmh:dormant_totem"
+            ]
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.eternity.hollow_totem.description"
+    },
+    "icon": {
+      "item": "bmh:dormant_totem"
+    },
+    "title": {
+      "translate": "advancements.bmh.eternity.hollow_totem.title"
+    },
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "dormant_totem"
+    ]
+  ]
+}
