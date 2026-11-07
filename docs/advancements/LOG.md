@@ -1,0 +1,11 @@
+# Advancements log
+
+Numbered steps, newest last. A fresh agent can resume from here. The plan is `PLAN.md` (copy of the coordinating session's plan).
+Branches (local only, nothing pushed): `feat/advancements` (1.20.4, from `origin/main` 89b3e7e), then `feat/advancements-1.20`, `-1.20.1`, `-1.20.2`, `-1.20.3` (cherry-picks) and hand ports `-1.21.1`, `-26.1`.
+
+1. Read the plan and the code. Award points: `RespawnEffectHandler.onPlayerRespawn` (exile, far away), `TotemOfEternityHandler.trySave`, `MoonRitualHandler.succeed`, `EchoStrikeHandler.deliver`, `AxeSmashHandler.onSmash`, `EchoSenseHandler.onOreBroken`, `AmuletReading.record`, `AmuletPoints.put`.
+2. Vanilla shapes read from the jars (`~/.gradle/caches/fabric-loom/<version>/minecraft-extracted_server.jar`): 1.20.4 `advancements/`, icon `item`, `inventory_changed` items `[{"items":[ids]}]`. 1.21.1 `advancement/`, icon `{"count":1,"id"}`, items as a string. 26.1.2 `advancement/`, icon `{"id"}`, background `minecraft:gui/advancements/backgrounds/stone` (no `textures/`, no `.png`). Root trigger `minecraft:tick` has no conditions.
+3. JSON and lang keys come from a generator, `advancements-gen_adv.py` in the shared notes folder (`gen_adv.py <tree> <1.20|1.21|26>`). It writes the 19 JSON files and the 38 keys in the ten lang files (idempotent).
+4. Finding: `ServerAdvancementManager.getAdvancement` returns `Advancement` on 1.20 and 1.20.1. From 1.20.2 it is `get` returning `AdvancementHolder`. So `BmhAdvancements.java` differs on `mc-1.20` and `mc-1.20.1` (the only 1.20.x file that does).
+5. Exile distance: `RespawnPositionHandler` keeps the Overworld-block distance of each exile in `exileDistances`, read once by `takeExileDistance` in `RespawnEffectHandler`.
+6. Checks written: `advancement_check.py` (data) and `hook/selftest/AdvancementTest.java` (awards), both under `.claude/skills/verify-loaders/scripts/`.

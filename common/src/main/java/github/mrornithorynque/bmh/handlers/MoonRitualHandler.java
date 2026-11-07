@@ -186,6 +186,7 @@ public class MoonRitualHandler {
         ServerLevel level = player.serverLevel();
 
         player.awardStat(Stats.ITEM_USED.get(dormant));
+        BmhAdvancements.award(player, "eternity/moon_ritual");
         level.broadcastEntityEvent(player, (byte) 35);
         level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS,
                 1.0F, 1.0F);

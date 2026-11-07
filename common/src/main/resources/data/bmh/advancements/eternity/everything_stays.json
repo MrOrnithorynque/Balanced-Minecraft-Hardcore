@@ -1,0 +1,54 @@
+{
+  "parent": "bmh:eternity/eternal_tool",
+  "criteria": {
+    "all": {
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "bmh:eternal_sword"
+            ]
+          },
+          {
+            "items": [
+              "bmh:eternal_axe"
+            ]
+          },
+          {
+            "items": [
+              "bmh:eternal_pickaxe"
+            ]
+          },
+          {
+            "items": [
+              "bmh:eternal_bundle"
+            ]
+          },
+          {
+            "items": [
+              "bmh:totem_of_eternity"
+            ]
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.eternity.everything_stays.description"
+    },
+    "icon": {
+      "item": "bmh:eternal_bundle"
+    },
+    "title": {
+      "translate": "advancements.bmh.eternity.everything_stays.title"
+    },
+    "frame": "challenge"
+  },
+  "requirements": [
+    [
+      "all"
+    ]
+  ]
+}

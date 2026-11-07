@@ -131,6 +131,7 @@ public class EchoStrikeHandler {
         }
 
         drawLine(level, origin, end);
+        BmhAdvancements.award(attacker, "eternity/echo_strike");
         level.playSound(null, end.x, end.y, end.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 0.6F, 1.6F);
 
         LOGGER.debug("[BalancedMcHardcoreMain] Echo Strike: {} echoes {} onto {} ({} blocks away)",

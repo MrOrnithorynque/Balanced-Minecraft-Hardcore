@@ -1,0 +1,25 @@
+{
+  "parent": "bmh:eternity/saved",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.eternity.moon_ritual.description"
+    },
+    "icon": {
+      "item": "minecraft:clock"
+    },
+    "title": {
+      "translate": "advancements.bmh.eternity.moon_ritual.title"
+    },
+    "frame": "goal"
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}
