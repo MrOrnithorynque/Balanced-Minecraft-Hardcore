@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import github.mrornithorynque.bmh.handlers.AmuletPoints;
+import github.mrornithorynque.bmh.handlers.BmhAdvancements;
 import github.mrornithorynque.bmh.handlers.HomecomingHandler;
 import github.mrornithorynque.bmh.platform.Services;
 import github.mrornithorynque.bmh.utilities.BMHGameRules;
@@ -183,6 +184,30 @@ final class HomecomingTest implements SelfTest.Test {
         ctx.check("displayTextOnRespawn off hides the text but not the bell",
                 quiet.titles().isEmpty() && quiet.subtitles().isEmpty() && quiet.sounds() >= 1,
                 "titles " + quiet.titles() + ", sounds " + quiet.sounds() + ", particles " + quiet.particles());
+        awards(ctx, record.dimension());
+    }
+
+    // The two advancements of the homecoming. The text rule is still off here: the awards do not depend on it. A near
+    // exile gives "Home at last" only, a far one (40000 blocks) gives "The long way home" too.
+    private static void awards(SelfTest.Ctx ctx, String dimension) {
+        BlockPos spawn = MockPlayers.worldSpawn(ctx.level);
+        long now = ctx.level.getGameTime();
+        ServerPlayer near = ctx.player("bmh-homecoming-near", 0, 4);
+        ServerPlayer far = ctx.player("bmh-homecoming-far", 0, 8);
+        ctx.check("a fresh player has neither homecoming advancement",
+                !BmhAdvancements.isDone(near, "journey/home_at_last") && !BmhAdvancements.isDone(far, "journey/long_way_home"), "done at the start");
+        arriveAt(near, new HomecomingHandler.Record(dimension, now - 5, 5000, List.of(new HomecomingHandler.Home("", spawn))), spawn);
+        arriveAt(far, new HomecomingHandler.Record(dimension, now - 5, 40000, List.of(new HomecomingHandler.Home("", spawn))), spawn);
+        ctx.check("a near homecoming awards journey/home_at_last", BmhAdvancements.isDone(near, "journey/home_at_last"), "not done");
+        ctx.check("a near homecoming (5000 blocks) does not award journey/long_way_home", !BmhAdvancements.isDone(near, "journey/long_way_home"), "done");
+        ctx.check("a far homecoming awards journey/home_at_last", BmhAdvancements.isDone(far, "journey/home_at_last"), "not done");
+        ctx.check("a far homecoming (40000 blocks) awards journey/long_way_home", BmhAdvancements.isDone(far, "journey/long_way_home"), "not done");
+    }
+
+    private static void arriveAt(ServerPlayer player, HomecomingHandler.Record record, BlockPos spawn) {
+        ((HomecomingHandler.Holder) player).bmh$setHomecoming(record);
+        player.setPos(spawn.getX() + 0.5, spawn.getY() + 1, spawn.getZ() + 0.5);
+        HomecomingHandler.tick(player);
     }
 
     private static String key(Component text) {

@@ -11,3 +11,12 @@ Branches (local only, nothing pushed): `feat/advancements` (1.20.4, from `origin
 6. Checks written: `advancement_check.py` (data) and `hook/selftest/AdvancementTest.java` (awards), both under `.claude/skills/verify-loaders/scripts/`.
 7. Louis asked for a hidden advancement for the tenth death: `journey/here_we_go_again` (title "Shit, here we go again", frame challenge, `"hidden": true`, parent `journey/exile`). `RespawnEffectHandler.onPlayerRespawn` awards it when the vanilla statistic `minecraft:deaths` is 10 or more, at every respawn except the End exit. The self-test sets the statistic to 9, kills the player and checks the award. Now 20 entries.
 8. Louis: the death advancements only count where BMH is on in the world. The tenth-death check moved after the exile check, so it needs a distant respawn (the BMH rule on, survival, not hardcore) like `journey/exile` and `journey/far_away`. The statistic still counts the deaths from before BMH was on. The self-test adds a player in a world with the rule off: no award.
+
+## Integration
+
+The homecoming feature (`feat/homecoming[-<version>]`) and this feature are merged on `feat/integrated[-<version>]`. Nothing is pushed.
+
+9. Merge of `feat/homecoming` into the advancements branch. The conflicts were `RespawnEffectHandler`, `RespawnPositionHandler`, eight lang files and `CHANGELOG.md`. The lang files and the changelog keep both sides. The two Java files keep both sides for the merge commit, so that the next commit can be replayed on every version.
+10. Reconciliation commit: one `Exile(center, distance)` record from the homecoming feature serves both. The `exileDistances` map and `takeExileDistance` of this feature are gone. `RespawnEffectHandler` reads the distance from the record. `FAR_AWAY_BLOCKS` (30000) moves to `BmhAdvancements`.
+11. Wiring commit: `HomecomingHandler.arrive` awards `journey/home_at_last` always and `journey/long_way_home` when the record distance is `FAR_AWAY_BLOCKS` or more. The awards do not depend on the text rule. `HomecomingTest` checks a near exile (5000 blocks) and a far one (40000 blocks) with the text rule off. `advancement_check.py` no longer has the list of entries that are wired later.
+

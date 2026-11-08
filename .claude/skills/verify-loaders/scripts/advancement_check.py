@@ -8,13 +8,10 @@ It checks:
   - every parent exists, and one root has the tick trigger
   - every title and description key exists in all ten lang files
   - every path given to BmhAdvancements.award(...) in the Java code is an "impossible" advancement
-  - every "impossible" advancement is awarded by the code (the list WIRED_LATER below is the exception, and is reported)
+  - every "impossible" advancement is awarded by the code
 Exit status 0 when all is well, 1 on any problem.
 """
 import json, os, re, sys
-
-# Awarded by the follow-up that wires the homecoming feature, not by this feature.
-WIRED_LATER = {"journey/home_at_last", "journey/long_way_home"}
 
 tree = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../.."))
@@ -103,10 +100,8 @@ for root, _, files in os.walk(src):
 impossible = {p for p, a in found.items() if any(c.get("trigger") == "minecraft:impossible" for c in a.get("criteria", {}).values())}
 for p in sorted(awarded - impossible):
     problems.append("the code awards %s, which is not an impossible advancement" % p)
-for p in sorted(impossible - awarded - WIRED_LATER):
+for p in sorted(impossible - awarded):
     problems.append("%s has the impossible trigger and no code awards it" % p)
-for p in sorted((impossible & WIRED_LATER) - awarded):
-    notes.append("%s is not awarded yet (wired later)" % p)
 
 print("advancement_check %s: Minecraft %s, folder %s, %d advancements (%d by code, %d by inventory), %d lang files" % (
     tree, mcv, right, len(found), len(impossible), len(found) - len(impossible) - 1, len(langs)))
