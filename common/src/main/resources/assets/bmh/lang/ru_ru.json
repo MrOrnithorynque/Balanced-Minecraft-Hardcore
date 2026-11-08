@@ -51,5 +51,10 @@
     "advancements.bmh.navigation.own_sky.title": "Собственное небо",
     "advancements.bmh.navigation.own_sky.description": "Держите 3 названных места на Амулете Навигатора.",
     "advancements.bmh.journey.here_we_go_again.title": "Чёрт, опять всё сначала",
-    "advancements.bmh.journey.here_we_go_again.description": "Умрите в десятый раз."
+    "advancements.bmh.journey.here_we_go_again.description": "Умрите в десятый раз.",
+
+    "bmh.homecoming.home": "Дом",
+    "bmh.homecoming.subtitle": "%s блоков и %s ночей с тех пор, как вы ушли",
+    "bmh.homecoming.subtitle.one_night": "%s блоков и 1 ночь с тех пор, как вы ушли",
+    "bmh.homecoming.subtitle.no_nights": "%s блоков с тех пор, как вы ушли"
 }

@@ -51,5 +51,10 @@
     "advancements.bmh.navigation.own_sky.title": "Ein eigener Himmel",
     "advancements.bmh.navigation.own_sky.description": "Behalte 3 benannte Orte auf deinem Amulett des Navigators.",
     "advancements.bmh.journey.here_we_go_again.title": "Scheiße, schon wieder",
-    "advancements.bmh.journey.here_we_go_again.description": "Stirb zum zehnten Mal."
+    "advancements.bmh.journey.here_we_go_again.description": "Stirb zum zehnten Mal.",
+
+    "bmh.homecoming.home": "Zuhause",
+    "bmh.homecoming.subtitle": "%s Blöcke und %s Nächte seit deinem Aufbruch",
+    "bmh.homecoming.subtitle.one_night": "%s Blöcke und 1 Nacht seit deinem Aufbruch",
+    "bmh.homecoming.subtitle.no_nights": "%s Blöcke seit deinem Aufbruch"
 }
