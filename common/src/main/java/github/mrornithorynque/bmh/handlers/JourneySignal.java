@@ -29,6 +29,8 @@ public final class JourneySignal {
 
         if (RespawnPositionHandler.isDistantRespawn(serverPlayer) && !serverPlayer.server.isHardcore()) {
             send(serverPlayer, Component.translatableWithFallback(DEPARTURE, ""));
+            // The client fades to black meanwhile; the search runs while the player watches the cinematic.
+            RespawnSearch.start(serverPlayer);
         }
     }
 
