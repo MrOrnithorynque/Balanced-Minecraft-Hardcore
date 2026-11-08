@@ -6,6 +6,7 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ### Added
 
+- When you get back home after a distant respawn, a title tells you how many blocks and nights you were away and the bell rings. Home is the center of your exile, or a point of your Navigator's Amulet that you had named before you died. You must come within 24 blocks of it.
 - BMH now has an advancement tab, Balanced Hardcore, with three branches: your journey after a death, the Eternal Items and the Navigator's Amulet. It shows the way from the Hollow Totem to the moon ritual. It gives no reward. One advancement stays hidden until you earn it.
 
 ## [1.9.0] - 2026-11-07
