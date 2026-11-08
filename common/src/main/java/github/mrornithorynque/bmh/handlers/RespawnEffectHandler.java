@@ -15,9 +15,6 @@ public class RespawnEffectHandler {
     // The client cinematic lasts about 5 s after the respawn, and longer while the terrain loads. Vanilla gives 60 ticks.
     private static final int JOURNEY_INVULNERABLE_TICKS = 200;
 
-    // The exile distance, in Overworld blocks, that earns the advancement "Far, far away".
-    private static final int FAR_AWAY_BLOCKS = 30000;
-
     // The number of deaths (the vanilla statistic) that earns the hidden advancement "Shit, here we go again".
     private static final int AGAIN_DEATHS = 10;
 
@@ -31,7 +28,6 @@ public class RespawnEffectHandler {
 
         // Only a respawn that got a distant position is a new journey. In a hardcore world the player is a spectator now.
         boolean exiled = RespawnPositionHandler.takeExiled(serverPlayer);
-        int exileDistance = RespawnPositionHandler.takeExileDistance(serverPlayer);
         RespawnPositionHandler.Exile exile = RespawnPositionHandler.takeExile(serverPlayer);
 
         if (!exiled || serverPlayer.server.isHardcore()) {
@@ -45,7 +41,7 @@ public class RespawnEffectHandler {
             BmhAdvancements.award(serverPlayer, "journey/here_we_go_again");
         }
 
-        if (exileDistance >= FAR_AWAY_BLOCKS) {
+        if (exile != null && exile.distance() >= BmhAdvancements.FAR_AWAY_BLOCKS) {
             BmhAdvancements.award(serverPlayer, "journey/far_away");
         }
 
