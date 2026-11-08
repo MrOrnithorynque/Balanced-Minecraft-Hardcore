@@ -32,6 +32,7 @@ public class RespawnEffectHandler {
         // Only a respawn that got a distant position is a new journey. In a hardcore world the player is a spectator now.
         boolean exiled = RespawnPositionHandler.takeExiled(serverPlayer);
         int exileDistance = RespawnPositionHandler.takeExileDistance(serverPlayer);
+        RespawnPositionHandler.Exile exile = RespawnPositionHandler.takeExile(serverPlayer);
 
         if (!exiled || serverPlayer.server.isHardcore()) {
             return;
@@ -46,6 +47,11 @@ public class RespawnEffectHandler {
 
         if (exileDistance >= FAR_AWAY_BLOCKS) {
             BmhAdvancements.award(serverPlayer, "journey/far_away");
+        }
+
+        // The homes are fixed now: a bed or a point made later does not end this exile.
+        if (exile != null) {
+            HomecomingHandler.onExile(serverPlayer, exile);
         }
 
         // The player cannot see or move during the cinematic.

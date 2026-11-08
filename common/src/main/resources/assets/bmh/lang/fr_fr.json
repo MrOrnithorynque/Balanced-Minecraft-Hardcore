@@ -16,6 +16,11 @@
 
     "bmh.journey.message": "Un nouveau voyage commence pour vous, %s.",
 
+    "bmh.homecoming.home": "Chez vous",
+    "bmh.homecoming.subtitle": "%s blocs et %s nuits depuis votre départ",
+    "bmh.homecoming.subtitle.one_night": "%s blocs et 1 nuit depuis votre départ",
+    "bmh.homecoming.subtitle.no_nights": "%s blocs depuis votre départ",
+
     "bmh.config.title": "Balanced Minecraft Hardcore",
     "bmh.config.minDistanceFromBed": "Distance de réapparition minimale (%s à %s blocs)",
     "bmh.config.maxDistanceFromBed": "Distance de réapparition maximale (%s à %s blocs)",
