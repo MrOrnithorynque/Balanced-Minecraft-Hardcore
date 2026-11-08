@@ -17,6 +17,9 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public class BmhAdvancements {
 
+    /** The exile distance, in Overworld blocks, that earns "Far, far away" and "The long way home". */
+    public static final int FAR_AWAY_BLOCKS = 30000;
+
     // The only criterion of an advancement that the server code awards.
     private static final String CRITERION = "done";
 

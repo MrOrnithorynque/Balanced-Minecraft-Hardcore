@@ -48,9 +48,6 @@ public class RespawnPositionHandler {
     // The players that got a distant respawn position, until the respawn effects read it.
     private static final Set<UUID> exiledPlayers = new HashSet<>();
 
-    // The distance of that exile in Overworld blocks, for the advancements.
-    private static final Map<UUID, Integer> exileDistances = new HashMap<>();
-
     // The center and the distance of each of those exiles, for the homecoming.
     private static final Map<UUID, Exile> exiles = new HashMap<>();
 
@@ -62,14 +59,6 @@ public class RespawnPositionHandler {
     public static void onPlayerDeath(ServerPlayer serverPlayer) {
 
         distancesFromBed.put(serverPlayer.getUUID(), calculateDistanceFromBed(serverPlayer));
-    }
-
-    // The distance, in Overworld blocks, of the exile that takeExiled just confirmed. 0 when there is none.
-    public static int takeExileDistance(ServerPlayer serverPlayer) {
-
-        Integer distance = exileDistances.remove(serverPlayer.getUUID());
-
-        return distance != null ? distance : 0;
     }
 
     // The conditions of a distant respawn. The game rules are the same in every level.
@@ -144,8 +133,6 @@ public class RespawnPositionHandler {
         LOGGER.info("[BalancedMcHardcoreMain] new respawn pos and bed : " + respawnPosition + ", " + bedLocation);
 
         exiledPlayers.add(serverPlayer.getUUID());
-        exileDistances.put(serverPlayer.getUUID(), distanceFromBed);
-
         exiles.put(serverPlayer.getUUID(), new Exile(bedLocation.immutable(), distanceFromBed));
 
         // Only the position changes: the bed (or anchor) spawn point stays exactly as vanilla left it.
