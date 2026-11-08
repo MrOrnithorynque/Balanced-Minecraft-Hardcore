@@ -28,8 +28,8 @@ Journey branch
 |---|---|---|---|
 | `journey/exile` | Not the end | task | award in `RespawnEffectHandler.onPlayerRespawn` after `takeExiled` |
 | `journey/far_away` | Far, far away | goal | award there when the exile distance is 30000 blocks or more |
-| `journey/home_at_last` | Home at last | task | first homecoming (wired later, see below) |
-| `journey/long_way_home` | The long way home | challenge | homecoming after an exile of 30000 blocks or more (wired later) |
+| `journey/home_at_last` | Home at last | task | first homecoming (`HomecomingHandler`, see below) |
+| `journey/long_way_home` | The long way home | challenge | homecoming after an exile of 30000 blocks or more (`HomecomingHandler`) |
 
 Eternity branch
 | id | title | frame | how |
@@ -59,7 +59,7 @@ Where several handlers award for a hand-held ability, check the real event fires
 
 ## The two homecoming advancements
 
-`journey/home_at_last` and `journey/long_way_home` belong to the other feature (see `2026-11-07-homecoming.md`), which is built in a parallel session. Create their JSON files now (trigger `impossible`), but do not call them from code. After both features are merged, one small follow-up commit per branch wires the award into `HomecomingHandler`. The coordinating session (the one that wrote this plan) will message you when that is ready, or do it.
+`journey/home_at_last` and `journey/long_way_home` belong to the other feature (see `docs/homecoming/PLAN.md`). They are awarded by `HomecomingHandler.arrive`, when the homecoming record is deleted: `home_at_last` always, `long_way_home` when the exile distance is `BmhAdvancements.FAR_AWAY_BLOCKS` (30000) or more. The text rule `displayTextOnRespawn` does not change the awards.
 
 ## Other files
 
