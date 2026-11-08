@@ -51,5 +51,10 @@
     "advancements.bmh.navigation.own_sky.title": "Een eigen hemel",
     "advancements.bmh.navigation.own_sky.description": "Bewaar 3 benoemde plekken op je Amulet van de Navigator.",
     "advancements.bmh.journey.here_we_go_again.title": "Verdorie, daar gaan we weer",
-    "advancements.bmh.journey.here_we_go_again.description": "Sterf voor de tiende keer."
+    "advancements.bmh.journey.here_we_go_again.description": "Sterf voor de tiende keer.",
+
+    "bmh.homecoming.home": "Thuis",
+    "bmh.homecoming.subtitle": "%s blokken en %s nachten sinds je vertrek",
+    "bmh.homecoming.subtitle.one_night": "%s blokken en 1 nacht sinds je vertrek",
+    "bmh.homecoming.subtitle.no_nights": "%s blokken sinds je vertrek"
 }

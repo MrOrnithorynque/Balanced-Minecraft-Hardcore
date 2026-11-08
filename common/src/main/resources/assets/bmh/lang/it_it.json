@@ -51,5 +51,10 @@
     "advancements.bmh.navigation.own_sky.title": "Un cielo tutto tuo",
     "advancements.bmh.navigation.own_sky.description": "Tieni 3 luoghi con nome sul tuo Amuleto del Navigatore.",
     "advancements.bmh.journey.here_we_go_again.title": "Merda, ci risiamo",
-    "advancements.bmh.journey.here_we_go_again.description": "Muori per la decima volta."
+    "advancements.bmh.journey.here_we_go_again.description": "Muori per la decima volta.",
+
+    "bmh.homecoming.home": "Casa",
+    "bmh.homecoming.subtitle": "%s blocchi e %s notti da quando sei partito",
+    "bmh.homecoming.subtitle.one_night": "%s blocchi e 1 notte da quando sei partito",
+    "bmh.homecoming.subtitle.no_nights": "%s blocchi da quando sei partito"
 }

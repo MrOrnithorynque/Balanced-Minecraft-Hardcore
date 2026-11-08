@@ -108,6 +108,25 @@ public final class MockPlayers {
         return packet instanceof ClientboundSetTitleTextPacket title ? title.text() : null;
     }
 
+    /** The text of a subtitle packet, or null for any other packet. */
+    public static Component subtitleText(Packet<?> packet) {
+        return packet instanceof net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket subtitle ? subtitle.text() : null;
+    }
+
+    /** The data the server saves for a player (its NBT), as an opaque object: the type changes with the version. */
+    public static Object saveData(ServerPlayer player) {
+        net.minecraft.world.level.storage.TagValueOutput output = net.minecraft.world.level.storage.TagValueOutput
+                .createWithContext(net.minecraft.util.ProblemReporter.DISCARDING, player.registryAccess());
+        player.saveWithoutId(output);
+        return output.buildResult();
+    }
+
+    /** Loads the data of saveData into the player, like a login does. */
+    public static void loadData(ServerPlayer player, Object data) {
+        player.load(net.minecraft.world.level.storage.TagValueInput.create(
+                net.minecraft.util.ProblemReporter.DISCARDING, player.registryAccess(), (net.minecraft.nbt.CompoundTag) data));
+    }
+
     private static Holder<Enchantment> sharpnessHolder(ServerLevel level) {
         return level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.SHARPNESS);
     }

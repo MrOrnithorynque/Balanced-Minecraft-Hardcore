@@ -51,5 +51,10 @@
     "advancements.bmh.navigation.own_sky.title": "나만의 하늘",
     "advancements.bmh.navigation.own_sky.description": "항해사의 부적에 이름 붙인 장소 3곳을 지닌다.",
     "advancements.bmh.journey.here_we_go_again.title": "젠장, 또 시작이네",
-    "advancements.bmh.journey.here_we_go_again.description": "열 번째로 죽는다."
+    "advancements.bmh.journey.here_we_go_again.description": "열 번째로 죽는다.",
+
+    "bmh.homecoming.home": "집",
+    "bmh.homecoming.subtitle": "떠난 뒤 %s블록, %s번의 밤",
+    "bmh.homecoming.subtitle.one_night": "떠난 뒤 %s블록, 1번의 밤",
+    "bmh.homecoming.subtitle.no_nights": "떠난 뒤 %s블록"
 }

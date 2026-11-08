@@ -51,5 +51,10 @@
     "advancements.bmh.navigation.own_sky.title": "Um céu só seu",
     "advancements.bmh.navigation.own_sky.description": "Guarde 3 lugares com nome no seu Amuleto do Navegador.",
     "advancements.bmh.journey.here_we_go_again.title": "Droga, lá vamos nós de novo",
-    "advancements.bmh.journey.here_we_go_again.description": "Morra pela décima vez."
+    "advancements.bmh.journey.here_we_go_again.description": "Morra pela décima vez.",
+
+    "bmh.homecoming.home": "Lar",
+    "bmh.homecoming.subtitle": "%s blocos e %s noites desde que você partiu",
+    "bmh.homecoming.subtitle.one_night": "%s blocos e 1 noite desde que você partiu",
+    "bmh.homecoming.subtitle.no_nights": "%s blocos desde que você partiu"
 }
