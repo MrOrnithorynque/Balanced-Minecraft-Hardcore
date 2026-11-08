@@ -161,6 +161,13 @@ public final class HomecomingHandler {
 
         ((Holder) player).bmh$setHomecoming(null);
 
+        // The advancements do not depend on the text rule: the player is home either way.
+        BmhAdvancements.award(player, "journey/home_at_last");
+
+        if (record.distance() >= BmhAdvancements.FAR_AWAY_BLOCKS) {
+            BmhAdvancements.award(player, "journey/long_way_home");
+        }
+
         // The text follows the same rule as the text of the journey. The sound does not.
         if (level.getGameRules().get(BMHGameRules.RULE_DISPLAY_TEXT_ON_RESPAWN)) {
             showTitle(player, record, home, nights(record, level.getGameTime()));
