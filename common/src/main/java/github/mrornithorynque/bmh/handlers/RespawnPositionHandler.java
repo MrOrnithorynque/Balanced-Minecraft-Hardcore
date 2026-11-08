@@ -38,7 +38,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 public class RespawnPositionHandler {
 
     private static final int MAX_EASY_LIFE = 9;
-    private static final int MAX_POSITION_ATTEMPTS = 32;
+    static final int MAX_POSITION_ATTEMPTS = 32;
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -59,6 +59,12 @@ public class RespawnPositionHandler {
     public static void onPlayerDeath(ServerPlayer serverPlayer) {
 
         distancesFromBed.put(serverPlayer.getUUID(), calculateDistanceFromBed(serverPlayer));
+    }
+
+    // The distance of the last death, or null. RespawnSearch reads it at death to look for a landing spot early.
+    static Integer peekDistance(ServerPlayer serverPlayer) {
+
+        return distancesFromBed.get(serverPlayer.getUUID());
     }
 
     // The conditions of a distant respawn. The game rules are the same in every level.
@@ -120,13 +126,26 @@ public class RespawnPositionHandler {
             LOGGER.info("[BalancedMcHardcoreMain] No bed in this dimension, using world spawn as center");
         }
 
-        int exileDistance = toLevelBlocks(respawnLevel, distanceFromBed);
-        BlockPos respawnPosition = calculateRandomPosition(respawnLevel, bedLocation, exileDistance);
+        // The spot is usually ready: the search starts at death and the server holds the respawn until it ends.
+        RespawnSearch search = RespawnSearch.take(serverPlayer);
+        BlockPos respawnPosition;
+
+        if (search != null && search.isFinished() && search.matches(respawnLevel, bedLocation)) {
+
+            respawnPosition = search.result();
+        } else {
+
+            if (search != null) {
+                LOGGER.warn("[BalancedMcHardcoreMain] The spot found at death does not fit this respawn, searching now");
+            }
+
+            int exileDistance = toLevelBlocks(respawnLevel, distanceFromBed);
+            respawnPosition = calculateRandomPosition(respawnLevel, bedLocation, exileDistance);
+        }
 
         if (respawnPosition == null) {
 
-            LOGGER.warn("[BalancedMcHardcoreMain] No safe respawn position found after " + MAX_POSITION_ATTEMPTS
-                    + " attempts, using default respawn position");
+            LOGGER.warn("[BalancedMcHardcoreMain] No safe respawn position found, using default respawn position");
             return null;
         }
 
@@ -141,7 +160,7 @@ public class RespawnPositionHandler {
 
     // The distance is measured in Overworld blocks, but a Nether block covers 8 of them. Dividing by the
     // respawn level's coordinate scale makes an anchor exile as far in world terms as an Overworld one.
-    private static int toLevelBlocks(ServerLevel serverLevel, int worldDistance) {
+    static int toLevelBlocks(ServerLevel serverLevel, int worldDistance) {
 
         double coordinateScale = serverLevel.dimensionType().coordinateScale();
         // Capped at the farthest a world border can reach: a data pack with a tiny scale would overflow an int.
@@ -157,16 +176,9 @@ public class RespawnPositionHandler {
 
         for (int attempt = 0; attempt < MAX_POSITION_ATTEMPTS; attempt++) {
 
-            BlockPos randomEdgePoint = findRandomEdgePoint(serverLevel.getRandom(), bedPosition, distanceFromBed);
+            BlockPos randomEdgePoint = candidatePoint(serverLevel, bedPosition, distanceFromBed);
 
-            if (!serverLevel.getWorldBorder().isWithinBounds(randomEdgePoint)) {
-                continue;
-            }
-
-            // Cheap check first: biome lookup does not generate the chunk.
-            Holder<Biome> biome = serverLevel.getBiome(randomEdgePoint.atY(serverLevel.getSeaLevel()));
-
-            if (biome.is(BiomeTags.IS_OCEAN) || biome.is(BiomeTags.IS_DEEP_OCEAN) || biome.is(BiomeTags.IS_RIVER)) {
+            if (randomEdgePoint == null) {
                 continue;
             }
 
@@ -178,6 +190,25 @@ public class RespawnPositionHandler {
         }
 
         return null;
+    }
+
+    // A random point on the circle, or null when the border or the biome rules it out. Loads no chunk.
+    static BlockPos candidatePoint(ServerLevel serverLevel, BlockPos center, int distance) {
+
+        BlockPos randomEdgePoint = findRandomEdgePoint(serverLevel.getRandom(), center, distance);
+
+        if (!serverLevel.getWorldBorder().isWithinBounds(randomEdgePoint)) {
+            return null;
+        }
+
+        // Cheap check first: biome lookup does not generate the chunk.
+        Holder<Biome> biome = serverLevel.getBiome(randomEdgePoint.atY(serverLevel.getSeaLevel()));
+
+        if (biome.is(BiomeTags.IS_OCEAN) || biome.is(BiomeTags.IS_DEEP_OCEAN) || biome.is(BiomeTags.IS_RIVER)) {
+            return null;
+        }
+
+        return randomEdgePoint;
     }
 
     private static int calculateDistanceFromBed(ServerPlayer serverPlayer) {
@@ -211,8 +242,9 @@ public class RespawnPositionHandler {
         return distanceFromBed;
     }
 
-    // Returns the feet position on solid, dry ground with two free blocks above, or null.
-    private static BlockPos findSafePosition(ServerLevel serverLevel, int x, int z) {
+    // Returns the feet position on solid, dry ground with two free blocks above, or null. It loads the chunk at x, z
+    // and waits for it: RespawnSearch calls it once the chunk is ready.
+    static BlockPos findSafePosition(ServerLevel serverLevel, int x, int z) {
 
         int minY = serverLevel.getMinBuildHeight();
         int y;

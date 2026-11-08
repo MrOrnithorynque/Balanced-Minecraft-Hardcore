@@ -16,6 +16,7 @@
         "E_ServerPlayerGameModeMixin",
         "E_ServerPlayerMixin",
         "F_PlayerListRespawnMixin",
+        "F_ServerGamePacketListenerMixin",
         "F_ServerPlayerAccessor",
         "G_ItemEntityMixin",
         "I_ContainerTotemMixin",
