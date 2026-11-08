@@ -4,10 +4,18 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+Coming home after an exile now has a moment of its own, and BMH has an advancement tab.
+
+![Home: the title you see when you get back near your home after a distant respawn](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/homecoming_title.gif)
+
 ### Added
 
-- When you get back home after a distant respawn, a title tells you how many blocks and nights you were away and the bell rings. Home is the center of your exile, or a point of your Navigator's Amulet that you had named before you died. You must come within 24 blocks of it.
+- When you get back home after a distant respawn, a title tells you how many blocks and nights you were away, and the bell rings. Home is your respawn bed or anchor, or the world spawn if you have none. A point of your Navigator's Amulet that you named before you died also counts. You must come within 24 blocks of it.
 - BMH now has an advancement tab, Balanced Hardcore, with three branches: your journey after a death, the Eternal Items and the Navigator's Amulet. It shows the way from the Hollow Totem to the moon ritual. It gives no reward. One advancement stays hidden until you earn it.
+
+![The Balanced Hardcore advancement tab, with the tooltip of one advancement](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/advancements_tab.png)
+
+![Toasts and chat lines when you earn a goal](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/advancements_toasts.png)
 
 ### Fixed
 
