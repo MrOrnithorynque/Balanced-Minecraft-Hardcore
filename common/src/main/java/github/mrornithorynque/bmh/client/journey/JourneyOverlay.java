@@ -59,8 +59,10 @@ public final class JourneyOverlay extends Overlay {
     private static final long ARRIVAL_WAIT = 1000;
     private static final long TERRAIN_GRACE = 500;
     private static final long DISSOLVE = 1000;
-    // Vanilla's terrain screen also stops waiting after 30 s.
+    // Vanilla's terrain screen also stops waiting after 30 s. The count starts at the respawn.
     private static final long GIVE_UP = 30000;
+    // The server holds the respawn while it generates the landing chunk, and gives up after 120 s itself.
+    private static final long SERVER_WAIT = 150000;
 
     // The sky, the stars and the blocks draw on a grid twice as fine as the GUI, in whole screen pixels.
     private static final double ART_RESOLUTION = 2.0;
@@ -289,7 +291,7 @@ public final class JourneyOverlay extends Overlay {
 
         chimeStars(now - this.darkStart);
 
-        if (this.dissolveStart < 0 && (readyToReveal(now, respawned) || now - this.start > GIVE_UP)) {
+        if (this.dissolveStart < 0 && (readyToReveal(now, respawned) || gaveUp(now))) {
             // The pixels break up from the last star of the chain.
             int[] last = chainPoint(SEGMENTS, camera(this.chainLength[SEGMENTS], width, height), width, height);
             this.dissolveX = last[0];
@@ -307,6 +309,12 @@ public final class JourneyOverlay extends Overlay {
         }
 
         return true;
+    }
+
+    // The server may hold the respawn for a long time: the wait for the terrain counts from the respawn, not from the start.
+    private boolean gaveUp(long now) {
+
+        return this.respawnedAt >= 0 ? now - this.respawnedAt > GIVE_UP : now - this.start > SERVER_WAIT;
     }
 
     private boolean readyToReveal(long now, boolean respawned) {

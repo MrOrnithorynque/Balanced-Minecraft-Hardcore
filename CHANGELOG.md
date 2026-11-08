@@ -9,6 +9,10 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 - When you get back home after a distant respawn, a title tells you how many blocks and nights you were away and the bell rings. Home is the center of your exile, or a point of your Navigator's Amulet that you had named before you died. You must come within 24 blocks of it.
 - BMH now has an advancement tab, Balanced Hardcore, with three branches: your journey after a death, the Eternal Items and the Navigator's Amulet. It shows the way from the Hollow Totem to the moon ritual. It gives no reward. One advancement stays hidden until you earn it.
 
+### Fixed
+
+- A distant respawn no longer freezes the game while the new place generates. The server now prepares the place from the moment you die, and the journey screen waits until it is ready. This matters most in modpacks with a slow world generator, where the freeze could last almost a minute. If the place is not ready after 2 minutes, you respawn at your normal spawn point.
+
 ## [1.9.0] - 2026-11-07
 
 The Totem of Eternity no longer starts over after it saves you. It falls asleep, stays with you, and the moon wakes it.

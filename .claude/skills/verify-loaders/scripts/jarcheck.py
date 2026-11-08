@@ -53,6 +53,10 @@ if V121:
 else:
     REFMAP_IDS["forge"]["F_PlayerListRespawnMixin"].append("m_45786_")
     REFMAP_IDS["fabric"]["F_PlayerListRespawnMixin"].append("method_17892")
+# The held respawn of a distant journey (RespawnSearch): ServerGamePacketListenerImpl.handleClientCommand, tick and
+# onDisconnect, and its @Shadow field player. Forge 1.21.1 ships no refmap, and its shadow keeps the official name.
+if V121:
+    REFMAP_IDS["fabric"]["F_ServerGamePacketListenerMixin"] = ["method_12068", "method_10839", "method_18784"]
 # The last point of an Eternal tool: ItemStack.hurt on 1.20.x, the player and slot hurtAndBreak methods on 1.21.1
 # (Fabric only there: Forge 1.21.1 ships no refmap).
 if V121:
@@ -64,6 +68,8 @@ SHADOW_FIELDS = {
     "forge": {"B_AnvilMenuMixin": ["f_39000_", "f_39002_"], "E_ServerPlayerGameModeMixin": ["f_9245_"]},
     "fabric": {"B_AnvilMenuMixin": ["field_7776", "field_7770"], "E_ServerPlayerGameModeMixin": ["field_14008"]},
 }
+if V121:
+    SHADOW_FIELDS["fabric"]["F_ServerGamePacketListenerMixin"] = ["field_14140"]
 # A mixin that only adds a method overriding a vanilla one has no refmap entry: the build renames the method
 # inside the shipped class (I_ContainerTotemMixin adds Container.canPlaceItem). Its runtime name must show in javap.
 ADDED_METHODS = {
