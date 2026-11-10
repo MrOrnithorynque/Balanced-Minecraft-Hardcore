@@ -17,6 +17,10 @@ Coming home after an exile now has a moment of its own, and BMH has an advanceme
 
 ![Toasts and chat lines when you earn a goal](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/advancements_toasts.png)
 
+### Changed
+
+- The Eternal tools no longer show their durability in the tooltip. Vanilla shows it with advanced tooltips (F3+H), as for every other item. The tooltip keeps a line about the 7% that each death removes.
+
 ### Fixed
 
 - A distant respawn no longer freezes the game while the new place generates. The server now prepares the place from the moment you die, and the journey screen waits until it is ready. This matters most in modpacks with a slow world generator, where the freeze could last almost a minute. If the place is not ready after 2 minutes, you respawn at your normal spawn point.
