@@ -81,10 +81,22 @@ public final class MockPlayers {
         player.connection.handleAcceptPlayerLoad(new ServerboundPlayerLoadedPacket());
     }
 
-    /** The Respawn button: the same packet that a client sends, so the connection also forgets that it waits for the respawn. */
+    /**
+     * The Respawn button: the same packet that a client sends, so the connection also forgets that it waits for the respawn.
+     * BMH holds that packet while its background search for the landing spot runs, and the connection's tick drives the
+     * search. The server never ticks the connection of a mock player, so the mock drives the search itself, with the server
+     * waiting the way vanilla waits for a chunk (managedBlock), until the held packet is answered.
+     */
     public static ServerPlayer respawn(MinecraftServer server, ServerPlayer player) {
         ServerGamePacketListenerImpl connection = player.connection;
         connection.handleClientCommand(new ServerboundClientCommandPacket(ServerboundClientCommandPacket.Action.PERFORM_RESPAWN));
+        if (connection.getPlayer() == player && player.getHealth() <= 0.0F) {
+            long deadline = System.currentTimeMillis() + 60_000L;
+            server.managedBlock(() -> {
+                github.mrornithorynque.bmh.handlers.RespawnSearch.tick(player);
+                return connection.getPlayer() != player || System.currentTimeMillis() > deadline;
+            });
+        }
         ServerPlayer back = connection.getPlayer();
         clientLoaded(back);
         return back;
