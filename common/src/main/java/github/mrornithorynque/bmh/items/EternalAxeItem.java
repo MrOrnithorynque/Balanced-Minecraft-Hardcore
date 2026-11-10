@@ -27,7 +27,7 @@ public class EternalAxeItem extends AxeItem implements IEternalItem {
         super.appendHoverText(stack, context, display, lines, flag);
         EternalTooltips.addAbility(stack, lines, "tooltip.bmh.ability.eternal_axe");
         EternalTooltips.addHeavy(lines);
-        EternalTooltips.addDurability(stack, lines);
+        EternalTooltips.addDeathWear(lines);
     }
 
     @Override

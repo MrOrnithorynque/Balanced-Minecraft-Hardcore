@@ -26,7 +26,7 @@ public class EternalPickaxeItem extends Item implements IEternalItem {
         super.appendHoverText(stack, context, display, lines, flag);
         EternalTooltips.addAbility(stack, lines, "tooltip.bmh.ability.eternal_pickaxe");
         EternalTooltips.addHeavy(lines);
-        EternalTooltips.addDurability(stack, lines);
+        EternalTooltips.addDeathWear(lines);
     }
 
     @Override

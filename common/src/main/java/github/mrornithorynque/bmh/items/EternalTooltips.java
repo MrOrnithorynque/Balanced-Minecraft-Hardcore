@@ -37,13 +37,11 @@ public final class EternalTooltips {
     }
 
     /**
-     * The durability that is left, and the 7% that each death removes (KeepItemAfterDeath). Vanilla shows
-     * the durability only with advanced tooltips (F3+H).
+     * The 7% of durability that each death removes (KeepItemAfterDeath). The durability that is left is
+     * not here: vanilla shows it with advanced tooltips (F3+H), like for every other item.
      */
-    public static void addDurability(ItemStack stack, Consumer<Component> lines) {
+    public static void addDeathWear(Consumer<Component> lines) {
 
-        int left = stack.getMaxDamage() - stack.getDamageValue();
-
-        lines.accept(Component.translatable("tooltip.bmh.durability", left, stack.getMaxDamage()).withStyle(ChatFormatting.GRAY));
+        lines.accept(Component.translatable("tooltip.bmh.death_wear").withStyle(ChatFormatting.GRAY));
     }
 }
