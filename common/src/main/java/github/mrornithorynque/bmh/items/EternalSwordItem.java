@@ -25,7 +25,7 @@ public class EternalSwordItem extends SwordItem implements IEternalItem {
         super.appendHoverText(stack, level, lines, flag);
         EternalTooltips.addAbility(stack, lines, "tooltip.bmh.ability.eternal_sword");
         EternalTooltips.addHeavy(lines);
-        EternalTooltips.addDurability(stack, lines);
+        EternalTooltips.addDeathWear(lines);
     }
 
     @Override
