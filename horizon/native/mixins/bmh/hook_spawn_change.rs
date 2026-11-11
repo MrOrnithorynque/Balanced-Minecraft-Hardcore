@@ -3,5 +3,6 @@ fn bmh_hook_spawn_change(game: &mut crate::game::Game<'_>, pos: [i32; 3], angle:
     if !game.native_on(crate::game::bmh::ID) {
         return;
     }
+    crate::game::bmh_respawn::on_spawn_change(game, pos, angle);
     crate::game::bmh_amulet::on_spawn_change(game, pos, angle);
 }

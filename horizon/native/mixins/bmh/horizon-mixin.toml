@@ -657,6 +657,31 @@ bindings = [
 ]
 
 [[injection]]
+id = "hook_level_tick_post"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_level_tick_post"
+helper = "hook_level_tick_post.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "dimension", ty = "&str", value = "dimension" },
+]
+
+[[injection]]
+id = "hook_player_spawn_point_set"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_spawn_point_set"
+helper = "hook_player_spawn_point_set.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "dimension", ty = "&str", value = "dimension" },
+  { name = "pos", ty = "[i32; 3]", value = "pos" },
+  { name = "cause", ty = "&str", value = "cause" },
+  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
+]
+
+[[injection]]
 id = "hook_use_duration"
 kind = "HEAD"
 target = "horizon_client::game::native_hooks::Game<'_>::native_use_duration"
