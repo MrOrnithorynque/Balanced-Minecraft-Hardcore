@@ -354,6 +354,15 @@ bindings = [
 ]
 
 [[injection]]
+id = "hook_frame"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_frame"
+helper = "hook_frame.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+]
+
+[[injection]]
 id = "hook_world_drawn"
 kind = "HEAD"
 target = "horizon_client_render::gfx::native_render::native_world_drawn"
