@@ -228,17 +228,22 @@ The binaries were not started: a world needs the prepared game files.
 
 ## Resume here
 
-State on 2026-11-11, evening. Branch `horizon-26.3`, local only, tip 2001fc3 plus this log.
+State on 2026-11-11, 20:25. Branch `horizon-26.3`, local only. The run stopped here on purpose, at 54 % of the
+5-hour usage window (the owner's line is 60 %). The tree is clean and every step above is committed.
 
-Done: the content mod, the skeleton (65 hooks), the areas respawn, settings and journey.
+Done: the content mod, the skeleton (66 hooks), the areas respawn, settings and journey, the game binary with
+the mod inside (`check.sh build`), the game preparation script and the in-game test script (not run).
 Not done, in this order:
 
 1. Fix the open findings of `docs/horizon/review/respawn-*.json` (one agent in a worktree; check each finding's
    evidence first; both gates must pass).
 2. Review settings and journey the same way (two lenses each: parity with the Java mod, use of the host game),
    then fix.
-3. The in-game test of the slice with `horizon-ctl` (launch a world offscreen, `/kill`, wait for the events,
-   read the log lines, screenshots): write it as `horizon/tools/test-slice.sh`. It needs prepared game files.
+3. Run the in-game test of the slice. It is written and has never run against a game:
+   `sh horizon/tools/prepare-game.sh --server-jar <path>` once (it says what is missing), then
+   `sh horizon/tools/test-slice.sh`. `docs/horizon/TESTING.md` lists its checks and its open questions for the
+   first real run (the flags after `launch --wait`, the JSON field names, the `damage` command). Expect to fix
+   the script on that first run. It needs prepared game files.
 4. Port the seven other areas: homecoming, eternal, totem, ritual, tools, amulet, sky. Amulet before sky and
    homecoming (they read its points and its reading). The brief of an area agent is `docs/horizon/briefs/port.md`
    (its absolute paths name the first session scratchpad: change them); its rules are the ones of ARCHITECTURE.md and of the first three area logs.
