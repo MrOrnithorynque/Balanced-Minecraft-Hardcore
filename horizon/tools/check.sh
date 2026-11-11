@@ -3,7 +3,11 @@
 # Horizon's own tool: native.py check. Prints only what matters and exits with
 # the status of the tool.
 #
-# Usage: sh horizon/tools/check.sh
+# Usage: sh horizon/tools/check.sh           compile only (native.py check, about 30 seconds)
+#        sh horizon/tools/check.sh build     build the game and horizon-ctl with the bundle
+#                                            (native.py build, Horizon's fast profile, several
+#                                            minutes the first time); the last line it prints
+#                                            is the folder of the two binaries
 # Environment:
 #   BMH_HORIZON_CACHE  the cache folder (default: ~/Library/Caches/bmh-horizon).
 #                      It holds horizon-mods (a clone of the registry repo, with
@@ -11,6 +15,12 @@
 #
 # Written for /bin/bash 3.2 on macOS: no associative arrays, no empty arrays.
 set -eu
+
+action="${1:-check}"
+case "$action" in
+    check|build) ;;
+    *) echo "check.sh: unknown action '$action'. Use check or build." >&2; exit 64 ;;
+esac
 
 here="$(cd "$(dirname "$0")" && pwd)"
 bundle="$(cd "$here/../native" && pwd)"
@@ -51,17 +61,20 @@ trap 'rm -rf "$lock"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-log="$logs/check-$(date +%Y%m%d-%H%M%S)-$$.log"
+log="$logs/$action-$(date +%Y%m%d-%H%M%S)-$$.log"
 echo "check.sh: bundle $bundle"
 echo "check.sh: full log $log"
 
 status=0
-(cd "$mods" && python3 native/tools/native.py check "$bundle") > "$log" 2>&1 || status=$?
+(cd "$mods" && python3 native/tools/native.py "$action" "$bundle") > "$log" 2>&1 || status=$?
 
 # Cargo progress lines carry no news: drop them, print the rest.
 grep -Ev '^[[:space:]]*(Checking|Compiling|Downloaded|Downloading|Locking|Adding|Updating)[[:space:]]' "$log" || true
 
 if [ "$status" -ne 0 ]; then
-    echo "check.sh: native.py check failed with status $status." >&2
+    echo "check.sh: native.py $action failed with status $status." >&2
+elif [ "$action" = build ]; then
+    # native.py builds into its own cache. Both binaries are in this folder.
+    echo "$mods/native/target/cargo/fast"
 fi
 exit "$status"

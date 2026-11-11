@@ -197,6 +197,61 @@ bmh 1.9.0 (mod, API 0.2, both)
   no code: content only, nothing to run
 ```
 
+## Step 3. The core slice: respawn, settings, journey (coordinator)
+
+Three areas are ported, each by one agent in its own worktree, then merged here:
+
+| Area | Commit | Unit tests | Its log |
+|---|---|---|---|
+| respawn | 63d0592 | 31 | `docs/horizon/log/respawn.md` |
+| settings | 073c2d9 | 24 | `docs/horizon/log/settings.md` |
+| journey | 2001fc3 | 30 | `docs/horizon/log/journey.md` |
+
+On the merged tree at 2001fc3: `sh horizon/tools/test-logic.sh` gives 106 passed, 0 failed, and
+`sh horizon/tools/check.sh` gives `"check": "ok"` on Horizon fdc87ae. That is all the proof there is: the game
+has not run with the mod. Each area's log has its list "To check in the game".
+
+Two independent reviewers read the respawn area at 63d0592 (parity with the Java mod; use of the host game).
+Their findings are in `docs/horizon/review/respawn-parity.json` (5) and `respawn-semantics.json` (7). They are
+open. The three that matter most:
+
+1. Once the mod moves the respawn point, Horizon skips vanilla's bed and anchor resolution. A Nether anchor
+   never loses a charge, an anchor with no charge still counts as a centre, and a missing bed gives no message.
+2. At death, a bed or anchor in a chunk that is not loaded counts as "still there". A bed that is gone then
+   still centres the exile.
+3. A player who disconnects while dead and comes back gets no exile: the search and the pending death are
+   dropped at logout.
+
+`sh horizon/tools/check.sh build` builds the game and `horizon-ctl` with the bundle (Horizon fast profile). It ran
+at 2001fc3: `Finished fast profile [optimized] target(s) in 3m 13s`, a `horizon-client` of 82 MB and `horizon-ctl`.
+The binaries were not started: a world needs the prepared game files.
+
+## Resume here
+
+State on 2026-11-11, evening. Branch `horizon-26.3`, local only, tip 2001fc3 plus this log.
+
+Done: the content mod, the skeleton (65 hooks), the areas respawn, settings and journey.
+Not done, in this order:
+
+1. Fix the open findings of `docs/horizon/review/respawn-*.json` (one agent in a worktree; check each finding's
+   evidence first; both gates must pass).
+2. Review settings and journey the same way (two lenses each: parity with the Java mod, use of the host game),
+   then fix.
+3. The in-game test of the slice with `horizon-ctl` (launch a world offscreen, `/kill`, wait for the events,
+   read the log lines, screenshots): write it as `horizon/tools/test-slice.sh`. It needs prepared game files.
+4. Port the seven other areas: homecoming, eternal, totem, ritual, tools, amulet, sky. Amulet before sky and
+   homecoming (they read its points and its reading). The brief of an area agent is `docs/horizon/briefs/port.md`
+   (its absolute paths name the first session scratchpad: change them); its rules are the ones of ARCHITECTURE.md and of the first three area logs.
+5. Skills and a CLAUDE.md for this branch; remove the Java sources when the port is complete.
+
+Blocked on the owner: Minecraft 26.3 must be installed and played once, and the 26.3 server jar downloaded.
+Without them no game runs. `/Applications/Horizon.app` is still refused by Gatekeeper (only the launcher needs
+it; the build from source does not).
+
+Rules of the run that the owner gave: stop cleanly when the 5-hour usage window reaches 60 %; stop when the
+weekly usage passes 40 % (all models) and 50 % (Fable); use Sonnet for bounded work and Opus for new structural
+code.
+
 ## To check in the game
 
 Nothing here is done until a run in the game shows it. Each area adds its rows.
