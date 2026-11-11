@@ -1,0 +1,14 @@
+{
+    "end": {
+        "subtitles": "sounds.bmh.end",
+        "sounds": [
+            "bmh:end"
+        ]
+    },
+    "bell_sfx": {
+        "subtitles": "sounds.bmh.bell_sfx",
+        "sounds": [
+            "bmh:bell_sfx"
+        ]
+    }
+}

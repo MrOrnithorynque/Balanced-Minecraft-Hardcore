@@ -1,0 +1,9 @@
+{
+    "type": "minecraft:smithing_transform",
+    "template": "bmh:totem_of_eternity",
+    "base": "minecraft:netherite_axe",
+    "addition": "minecraft:echo_shard",
+    "result": {
+        "id": "bmh:eternal_axe"
+    }
+}

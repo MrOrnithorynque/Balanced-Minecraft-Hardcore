@@ -1,0 +1,4 @@
+# The logic crate the bundle adds to the game (mixins/bmh/logic), with its tests: cargo test.
+[workspace]
+members = ["mixins/bmh/logic"]
+resolver = "3"

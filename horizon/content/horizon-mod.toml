@@ -1,0 +1,8 @@
+id = "bmh"
+name = "Balanced Minecraft Hardcore"
+version = "1.9.0"
+description = "Death sends you on a distant respawn instead of ending the run. Content part: items, recipes, tags, advancements, models, textures, sounds and language files."
+authors = ["MrOrnithorynque"]
+api = "0.2"
+side = "both"
+capabilities = ["registries"]

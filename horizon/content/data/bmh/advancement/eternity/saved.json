@@ -1,0 +1,25 @@
+{
+  "parent": "bmh:eternity/awakening",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancements.bmh.eternity.saved.description"
+    },
+    "icon": {
+      "id": "bmh:sleeping_totem"
+    },
+    "title": {
+      "translate": "advancements.bmh.eternity.saved.title"
+    },
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

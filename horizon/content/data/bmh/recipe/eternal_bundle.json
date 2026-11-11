@@ -1,0 +1,19 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "SGS",
+        "LTL",
+        "LNL"
+    ],
+    "key": {
+        "S": "minecraft:string",
+        "G": "minecraft:gold_ingot",
+        "L": "minecraft:leather",
+        "N": "minecraft:netherite_scrap",
+        "T": "bmh:totem_of_eternity"
+    },
+    "result": {
+        "id": "bmh:eternal_bundle",
+        "count": 1
+    }
+}

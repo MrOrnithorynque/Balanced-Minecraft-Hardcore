@@ -1,0 +1,15 @@
+{
+  "template": "minecraft:netherite_sword",
+  "max_stack_size": 1,
+  "rarity": "epic",
+  "components": {
+    "minecraft:max_damage": 33000,
+    "minecraft:enchantable": { "value": 80 },
+    "minecraft:repairable": { "items": "#bmh:eternal_tool_materials" },
+    "minecraft:damage_resistant": { "types": "#minecraft:is_fire" },
+    "minecraft:attribute_modifiers": [
+      { "type": "minecraft:attack_damage", "id": "minecraft:base_attack_damage", "amount": 10.0, "operation": "add_value", "slot": "mainhand" },
+      { "type": "minecraft:attack_speed", "id": "minecraft:base_attack_speed", "amount": -1.4, "operation": "add_value", "slot": "mainhand" }
+    ]
+  }
+}

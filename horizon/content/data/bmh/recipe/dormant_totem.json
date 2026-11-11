@@ -1,0 +1,19 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "nAn",
+        "DET",
+        " n "
+    ],
+    "key": {
+        "n": "minecraft:netherite_ingot",
+        "A": "minecraft:amethyst_block",
+        "D": "minecraft:diamond_block",
+        "E": "minecraft:totem_of_undying",
+        "T": "minecraft:emerald_block"
+    },
+    "result": {
+        "id": "bmh:dormant_totem",
+        "count": 1
+    }
+}

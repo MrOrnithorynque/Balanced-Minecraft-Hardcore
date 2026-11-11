@@ -1,0 +1,9 @@
+{
+  "template": "minecraft:echo_shard",
+  "max_stack_size": 1,
+  "rarity": "epic",
+  "components": {
+    "minecraft:damage_resistant": { "types": "#minecraft:is_fire" },
+    "minecraft:enchantment_glint_override": true
+  }
+}

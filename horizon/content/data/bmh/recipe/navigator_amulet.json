@@ -1,0 +1,18 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        " S ",
+        "CKC",
+        " Y "
+    ],
+    "key": {
+        "S": "minecraft:string",
+        "C": "minecraft:copper_ingot",
+        "K": "minecraft:compass",
+        "Y": "minecraft:spyglass"
+    },
+    "result": {
+        "id": "bmh:navigator_amulet",
+        "count": 1
+    }
+}

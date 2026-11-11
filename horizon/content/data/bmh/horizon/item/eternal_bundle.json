@@ -1,0 +1,8 @@
+{
+  "template": "minecraft:bundle",
+  "max_stack_size": 1,
+  "rarity": "epic",
+  "components": {
+    "minecraft:damage_resistant": { "types": "#minecraft:is_fire" }
+  }
+}

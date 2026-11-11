@@ -1,0 +1,889 @@
+# Balanced Minecraft Hardcore on Horizon: the native part (docs/horizon/ARCHITECTURE.md).
+# Every hook is named by its target path (decision D3). docs/horizon/HOOKS.md lists them.
+[mod]
+id = "bmh"
+version = "1.9.0"
+priority = 100
+
+# The Nightly of 2026-11-08 (decision D1): it compiles the pending hooks that BMH needs.
+[compatibility]
+horizon_revision = "fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca"
+
+# The pure logic, with its unit tests (cargo test in horizon/native).
+[[crate]]
+id = "logic"
+path = "logic"
+
+# One module per area, plus `bmh` (ids and the Options > Mods row).
+[[module]]
+id = "bmh"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh"
+source = "bmh.rs"
+
+[[module]]
+id = "respawn"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh_respawn"
+source = "bmh_respawn.rs"
+
+[[module]]
+id = "homecoming"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh_homecoming"
+source = "bmh_homecoming.rs"
+
+[[module]]
+id = "eternal"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh_eternal"
+source = "bmh_eternal.rs"
+
+[[module]]
+id = "totem"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh_totem"
+source = "bmh_totem.rs"
+
+[[module]]
+id = "ritual"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh_ritual"
+source = "bmh_ritual.rs"
+
+[[module]]
+id = "tools"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh_tools"
+source = "bmh_tools.rs"
+
+[[module]]
+id = "amulet"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh_amulet"
+source = "bmh_amulet.rs"
+
+[[module]]
+id = "sky"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh_sky"
+source = "bmh_sky.rs"
+
+[[module]]
+id = "journey"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh_journey"
+source = "bmh_journey.rs"
+
+[[module]]
+id = "settings"
+file = "crates/horizon-client/src/game.rs"
+name = "bmh_settings"
+source = "bmh_settings.rs"
+
+[[module]]
+id = "tools_lib"
+file = "crates/horizon-client/src/client_lib.rs"
+name = "bmh_tools_lib"
+source = "bmh_tools_lib.rs"
+visibility = "pub"
+
+[[module]]
+id = "sky_render"
+file = "crates/horizon-client-render/src/lib.rs"
+name = "bmh_sky_render"
+source = "bmh_sky_render.rs"
+visibility = "pub"
+
+[[module]]
+id = "amulet_world"
+file = "crates/horizon-world/src/lib.rs"
+name = "bmh_amulet_world"
+source = "bmh_amulet_world.rs"
+visibility = "pub"
+
+[[module]]
+id = "totem_world"
+file = "crates/horizon-world/src/lib.rs"
+name = "bmh_totem_world"
+source = "bmh_totem_world.rs"
+visibility = "pub"
+
+[[injection]]
+id = "hook_mods"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_mods"
+helper = "hook_mods.rs"
+bindings = [
+  { name = "mods", ty = "&mut Vec<horizon_client::mod_api::NativeMod>", value = "&mut *mods" },
+]
+
+[[injection]]
+id = "hook_player_respawn_position"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_respawn_position"
+helper = "hook_player_respawn_position.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "dimension", ty = "&mut String", value = "&mut *dimension" },
+  { name = "pos", ty = "&mut [f64; 3]", value = "&mut *pos" },
+  { name = "yaw", ty = "&mut f32", value = "&mut *yaw" },
+  { name = "pitch", ty = "&mut f32", value = "&mut *pitch" },
+]
+
+[[injection]]
+id = "hook_living_death"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_living_death"
+helper = "hook_living_death.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "entity", ty = "u32", value = "entity" },
+  { name = "kind", ty = "&str", value = "kind" },
+  { name = "damage_type", ty = "&str", value = "damage_type" },
+  { name = "attacker", ty = "u32", value = "attacker" },
+  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
+]
+
+[[injection]]
+id = "hook_loot_drops"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_loot_drops"
+helper = "hook_loot_drops.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "context", ty = "&horizon_client::mod_api::NativeLootDrops<'_>", value = "context" },
+  { name = "drops", ty = "&mut Vec<horizon_client::items::ItemStack>", value = "&mut *drops" },
+]
+
+[[injection]]
+id = "hook_player_died"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_died"
+helper = "hook_player_died.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "cause", ty = "Option<&str>", value = "cause" },
+]
+
+[[injection]]
+id = "hook_player_tick"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_tick"
+helper = "hook_player_tick.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+]
+
+[[injection]]
+id = "hook_player_respawned"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_respawned"
+helper = "hook_player_respawned.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+]
+
+[[injection]]
+id = "hook_player_logged_out"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_logged_out"
+helper = "hook_player_logged_out.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+]
+
+[[injection]]
+id = "hook_server_tick"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_server_tick"
+helper = "hook_server_tick.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "context", ty = "&horizon_client::mod_api::NativeLifecycleContext", value = "context" },
+  { name = "phase", ty = "horizon_client::mod_api::ServerTickPhase", value = "phase" },
+]
+
+[[injection]]
+id = "hook_living_incoming_damage"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_living_incoming_damage"
+helper = "hook_living_incoming_damage.rs"
+bindings = [
+  { name = "entity", ty = "i32", value = "entity" },
+  { name = "kind", ty = "&str", value = "kind" },
+  { name = "damage_type", ty = "&str", value = "damage_type" },
+  { name = "causing", ty = "i32", value = "causing" },
+  { name = "direct", ty = "i32", value = "direct" },
+  { name = "amount", ty = "&mut f32", value = "&mut *amount" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_living_incoming_damage_v2"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_living_incoming_damage_v2"
+helper = "hook_living_incoming_damage_v2.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "entity", ty = "i32", value = "entity" },
+  { name = "kind", ty = "&str", value = "kind" },
+  { name = "damage_type", ty = "&str", value = "damage_type" },
+  { name = "causing", ty = "i32", value = "causing" },
+  { name = "source_position", ty = "Option<[f64; 3]>", value = "source_position" },
+  { name = "victim_position", ty = "[f64; 3]", value = "victim_position" },
+  { name = "victim_view", ty = "[f64; 3]", value = "victim_view" },
+  { name = "weapon", ty = "Option<&horizon_client::items::ItemStack>", value = "weapon" },
+  { name = "amount", ty = "&mut f32", value = "&mut *amount" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_difficulty_changed"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_difficulty_changed"
+helper = "hook_difficulty_changed.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "from", ty = "&str", value = "from" },
+  { name = "to", ty = "&str", value = "to" },
+]
+
+[[injection]]
+id = "hook_net_from_server"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_net_from_server"
+helper = "hook_net_from_server.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "channel", ty = "&str", value = "channel" },
+  { name = "data", ty = "&[u8]", value = "data" },
+]
+
+[[injection]]
+id = "hook_net_from_client"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_net_from_client"
+helper = "hook_net_from_client.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "channel", ty = "&str", value = "channel" },
+  { name = "data", ty = "&[u8]", value = "data" },
+]
+
+[[injection]]
+id = "hook_screen_mouse_button_pressed_pre"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_screen_mouse_button_pressed_pre"
+helper = "hook_screen_mouse_button_pressed_pre.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "screen", ty = "&horizon_client::mod_api::NativeScreenView<'_>", value = "screen" },
+  { name = "button", ty = "i32", value = "button" },
+  { name = "modifiers", ty = "u32", value = "modifiers" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_screen_key_pressed_pre"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_screen_key_pressed_pre"
+helper = "hook_screen_key_pressed_pre.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "screen", ty = "&horizon_client::mod_api::NativeScreenView<'_>", value = "screen" },
+  { name = "key", ty = "&str", value = "key" },
+  { name = "repeat", ty = "bool", value = "repeat" },
+  { name = "modifiers", ty = "u32", value = "modifiers" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_screen_char_typed_pre"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_screen_char_typed_pre"
+helper = "hook_screen_char_typed_pre.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "screen", ty = "&horizon_client::mod_api::NativeScreenView<'_>", value = "screen" },
+  { name = "c", ty = "char", value = "c" },
+  { name = "modifiers", ty = "u32", value = "modifiers" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_screen_render_post"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_screen_render_post"
+helper = "hook_screen_render_post.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "batch", ty = "&mut horizon_client::hud::HudBatch", value = "&mut *batch" },
+  { name = "screen", ty = "&horizon_client::mod_api::NativeScreenView<'_>", value = "screen" },
+]
+
+[[injection]]
+id = "hook_gui_render_post"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_gui_render_post"
+helper = "hook_gui_render_post.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "batch", ty = "&mut horizon_client::hud::HudBatch", value = "&mut *batch" },
+  { name = "gui_hidden", ty = "bool", value = "gui_hidden" },
+  { name = "focused", ty = "bool", value = "focused" },
+]
+
+[[injection]]
+id = "hook_music"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_music"
+helper = "hook_music.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "music", ty = "&mut Option<horizon_client::music::Music>", value = "&mut *music" },
+  { name = "volume", ty = "&mut f32", value = "&mut *volume" },
+]
+
+[[injection]]
+id = "hook_world_drawn"
+kind = "HEAD"
+target = "horizon_client_render::gfx::native_render::native_world_drawn"
+helper = "hook_world_drawn.rs"
+bindings = [
+  { name = "world", ty = "&mut crate::gfx::native_render::WorldDrawn<'_>", value = "&mut *world" },
+]
+
+[[injection]]
+id = "hook_render_needs"
+kind = "HEAD"
+target = "horizon_client_render::gfx::native_render::native_render_needs"
+helper = "hook_render_needs.rs"
+bindings = [
+  { name = "needs", ty = "&mut crate::gfx::native_render::RenderNeeds", value = "&mut *needs" },
+]
+
+[[injection]]
+id = "hook_register_configs"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_register_configs"
+helper = "hook_register_configs.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "configs", ty = "&mut Vec<crate::game::native_configs::NativeConfig>", value = "&mut *configs" },
+]
+
+[[injection]]
+id = "hook_config_loading"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_config_loading"
+helper = "hook_config_loading.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "config", ty = "&crate::game::native_configs::NativeConfigFile", value = "config" },
+]
+
+[[injection]]
+id = "hook_config_reloading"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_config_reloading"
+helper = "hook_config_reloading.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "config", ty = "&crate::game::native_configs::NativeConfigFile", value = "config" },
+]
+
+[[injection]]
+id = "hook_register_commands"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_register_commands"
+helper = "hook_register_commands.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "commands", ty = "&mut Vec<horizon_client::mod_api::NativeCommand>", value = "&mut *commands" },
+]
+
+[[injection]]
+id = "hook_perform_command"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_perform_command"
+helper = "hook_perform_command.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "&horizon_client::mod_api::NativeServerPlayer", value = "player" },
+  { name = "command", ty = "&str", value = "command" },
+  { name = "ran", ty = "&mut bool", value = "&mut *ran" },
+]
+
+[[injection]]
+id = "hook_settings"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_settings"
+helper = "hook_settings.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "mod_id", ty = "&str", value = "mod_id" },
+  { name = "buttons", ty = "&mut Vec<String>", value = "&mut *buttons" },
+]
+
+[[injection]]
+id = "hook_settings_click"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_settings_click"
+helper = "hook_settings_click.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "mod_id", ty = "&str", value = "mod_id" },
+  { name = "button", ty = "usize", value = "button" },
+]
+
+[[injection]]
+id = "hook_world_lifecycle"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_world_lifecycle"
+helper = "hook_world_lifecycle.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "context", ty = "&horizon_client::mod_api::NativeLifecycleContext", value = "context" },
+  { name = "phase", ty = "horizon_client::mod_api::WorldPhase", value = "phase" },
+  { name = "error_text", ty = "&str", value = "error_text" },
+]
+
+[[injection]]
+id = "hook_player_bed_leave"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_bed_leave"
+helper = "hook_player_bed_leave.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "pos", ty = "[i32; 3]", value = "pos" },
+]
+
+[[injection]]
+id = "hook_inventory_tick"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_inventory_tick"
+helper = "hook_inventory_tick.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "slot", ty = "i32", value = "slot" },
+  { name = "selected", ty = "bool", value = "selected" },
+]
+
+[[injection]]
+id = "hook_item_picked_up"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_item_picked_up"
+helper = "hook_item_picked_up.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "item", ty = "&str", value = "item" },
+  { name = "count", ty = "u32", value = "count" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_item_damaged"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_item_damaged"
+helper = "hook_item_damaged.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "item", ty = "&str", value = "item" },
+  { name = "amount", ty = "&mut i32", value = "&mut *amount" },
+  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
+]
+
+[[injection]]
+id = "hook_hurt_enemy"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_hurt_enemy"
+helper = "hook_hurt_enemy.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "entity", ty = "u32", value = "entity" },
+  { name = "kind", ty = "&str", value = "kind" },
+]
+
+[[injection]]
+id = "hook_player_attack_cooldown_reset"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_attack_cooldown_reset"
+helper = "hook_player_attack_cooldown_reset.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+]
+
+[[injection]]
+id = "hook_entity_join_level"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_entity_join_level"
+helper = "hook_entity_join_level.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "dimension", ty = "&str", value = "dimension" },
+  { name = "entity", ty = "u32", value = "entity" },
+  { name = "kind", ty = "&str", value = "kind" },
+  { name = "pos", ty = "[f64; 3]", value = "pos" },
+  { name = "loaded_from_disk", ty = "bool", value = "loaded_from_disk" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_destroy_block"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_destroy_block"
+helper = "hook_destroy_block.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "pos", ty = "[i32; 3]", value = "pos" },
+  { name = "state", ty = "horizon_world::registry::BlockStateId", value = "state" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_living_fall"
+kind = "HEAD"
+target = "horizon_client_lib::landing::native_living_fall"
+helper = "hook_living_fall.rs"
+bindings = [
+  { name = "entity", ty = "u32", value = "entity" },
+  { name = "kind", ty = "&str", value = "kind" },
+  { name = "distance", ty = "&mut f64", value = "&mut *distance" },
+  { name = "multiplier", ty = "&mut f32", value = "&mut *multiplier" },
+  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
+]
+
+[[injection]]
+id = "hook_item_expire"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_item_expire"
+helper = "hook_item_expire.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "entity", ty = "u32", value = "entity" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "extra_life", ty = "&mut i32", value = "&mut *extra_life" },
+]
+
+[[injection]]
+id = "hook_item_spawn"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_item_spawn"
+helper = "hook_item_spawn.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "entity", ty = "u32", value = "entity" },
+  { name = "item", ty = "&str", value = "item" },
+  { name = "count", ty = "i32", value = "count" },
+  { name = "pos", ty = "[f64; 3]", value = "pos" },
+]
+
+[[injection]]
+id = "hook_use_item"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_use_item"
+helper = "hook_use_item.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "claimed", ty = "&mut bool", value = "&mut *claimed" },
+]
+
+[[injection]]
+id = "hook_use_item_on"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_use_item_on"
+helper = "hook_use_item_on.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "pos", ty = "[i32; 3]", value = "pos" },
+  { name = "face", ty = "[i32; 3]", value = "face" },
+  { name = "claimed", ty = "&mut bool", value = "&mut *claimed" },
+]
+
+[[injection]]
+id = "hook_interaction_key"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_interaction_key"
+helper = "hook_interaction_key.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "button", ty = "i32", value = "button" },
+  { name = "key_mapping", ty = "&str", value = "key_mapping" },
+  { name = "hand", ty = "horizon_client::first_person::Hand", value = "hand" },
+  { name = "swing_hand", ty = "&mut bool", value = "&mut *swing_hand" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_player_toggle_sneak"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_toggle_sneak"
+helper = "hook_player_toggle_sneak.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "sneaking", ty = "bool", value = "sneaking" },
+]
+
+[[injection]]
+id = "hook_spawn_change"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_spawn_change"
+helper = "hook_spawn_change.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "pos", ty = "[i32; 3]", value = "pos" },
+  { name = "angle", ty = "[f32; 2]", value = "angle" },
+]
+
+[[injection]]
+id = "hook_use_duration"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_use_duration"
+helper = "hook_use_duration.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "duration", ty = "&mut i32", value = "&mut *duration" },
+]
+
+[[injection]]
+id = "hook_living_entity_use_item_start"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_living_entity_use_item_start"
+helper = "hook_living_entity_use_item_start.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "entity", ty = "Option<i32>", value = "entity" },
+  { name = "hand", ty = "horizon_client::first_person::Hand", value = "hand" },
+  { name = "duration", ty = "&mut i32", value = "&mut *duration" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_living_entity_use_item_tick"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_living_entity_use_item_tick"
+helper = "hook_living_entity_use_item_tick.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "entity", ty = "Option<i32>", value = "entity" },
+  { name = "hand", ty = "horizon_client::first_person::Hand", value = "hand" },
+  { name = "duration", ty = "&mut i32", value = "&mut *duration" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_living_entity_use_item_stop"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_living_entity_use_item_stop"
+helper = "hook_living_entity_use_item_stop.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "entity", ty = "Option<i32>", value = "entity" },
+  { name = "hand", ty = "horizon_client::first_person::Hand", value = "hand" },
+  { name = "duration", ty = "i32", value = "duration" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_living_entity_use_item_finish"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_living_entity_use_item_finish"
+helper = "hook_living_entity_use_item_finish.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "entity", ty = "Option<i32>", value = "entity" },
+  { name = "hand", ty = "horizon_client::first_person::Hand", value = "hand" },
+  { name = "duration", ty = "i32", value = "duration" },
+  { name = "result", ty = "&mut Option<horizon_client::items::ItemStack>", value = "&mut *result" },
+]
+
+[[injection]]
+id = "hook_on_use_tick"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_on_use_tick"
+helper = "hook_on_use_tick.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "entity", ty = "Option<i32>", value = "entity" },
+  { name = "remaining", ty = "i32", value = "remaining" },
+]
+
+[[injection]]
+id = "hook_release_using"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_release_using"
+helper = "hook_release_using.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "entity", ty = "Option<i32>", value = "entity" },
+  { name = "time_left", ty = "i32", value = "time_left" },
+  { name = "used", ty = "&mut bool", value = "&mut *used" },
+]
+
+[[injection]]
+id = "hook_render_hand_pose"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_render_hand_pose"
+helper = "hook_render_hand_pose.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "hand", ty = "horizon_client::first_person::Hand", value = "hand" },
+  { name = "stack", ty = "Option<&horizon_client::items::ItemStack>", value = "stack" },
+  { name = "partial", ty = "f32", value = "partial" },
+  { name = "swing", ty = "f32", value = "swing" },
+  { name = "equip", ty = "f32", value = "equip" },
+  { name = "x", ty = "&mut f32", value = "&mut *x" },
+  { name = "y", ty = "&mut f32", value = "&mut *y" },
+  { name = "z", ty = "&mut f32", value = "&mut *z" },
+  { name = "pitch", ty = "&mut f32", value = "&mut *pitch" },
+  { name = "yaw", ty = "&mut f32", value = "&mut *yaw" },
+  { name = "roll", ty = "&mut f32", value = "&mut *roll" },
+  { name = "scale", ty = "&mut f32", value = "&mut *scale" },
+]
+
+[[injection]]
+id = "hook_modify_default_components"
+kind = "HEAD"
+target = "horizon_world::item_defaults::native_modify_default_components"
+helper = "hook_modify_default_components.rs"
+bindings = [
+  { name = "item", ty = "&str", value = "item" },
+  { name = "components", ty = "&mut serde_json::Map<String, serde_json::Value>", value = "&mut *components" },
+]
+
+[[injection]]
+id = "hook_tooltip"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_tooltip"
+helper = "hook_tooltip.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "lines", ty = "&mut Vec<(horizon_client::text::Text, u32)>", value = "&mut *lines" },
+]
+
+[[injection]]
+id = "hook_item_bar"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_item_bar"
+helper = "hook_item_bar.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "bar", ty = "&mut Option<(i32, u32)>", value = "&mut *bar" },
+]
+
+[[injection]]
+id = "hook_inventory_move_item"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_inventory_move_item"
+helper = "hook_inventory_move_item.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "source", ty = "[i32; 3]", value = "source" },
+  { name = "destination", ty = "[i32; 3]", value = "destination" },
+  { name = "item", ty = "&str", value = "item" },
+  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
+]
+
+[[injection]]
+id = "hook_hopper_pickup_item"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::GameLevel<'_>::native_hopper_pickup_item"
+helper = "hook_hopper_pickup_item.rs"
+bindings = [
+  { name = "dimension", ty = "crate::game::LevelDimension", value = "dimension" },
+  { name = "pos", ty = "horizon_core::position::BlockPos", value = "pos" },
+  { name = "item", ty = "&str", value = "item" },
+  { name = "count", ty = "u32", value = "count" },
+  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
+]
+
+[[injection]]
+id = "hook_player_container_open"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_container_open"
+helper = "hook_player_container_open.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "dimension", ty = "&str", value = "dimension" },
+  { name = "menu", ty = "&str", value = "menu" },
+  { name = "pos", ty = "Option<[i32; 3]>", value = "pos" },
+]
+
+[[injection]]
+id = "hook_player_container_close"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_container_close"
+helper = "hook_player_container_close.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "dimension", ty = "&str", value = "dimension" },
+  { name = "menu", ty = "&str", value = "menu" },
+  { name = "pos", ty = "Option<[i32; 3]>", value = "pos" },
+]
+
+[[injection]]
+id = "hook_anvil_update"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_anvil_update"
+helper = "hook_anvil_update.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "left", ty = "&horizon_client::items::ItemStack", value = "left" },
+  { name = "right", ty = "Option<&horizon_client::items::ItemStack>", value = "right" },
+  { name = "item_name", ty = "Option<&str>", value = "item_name" },
+  { name = "vanilla_output", ty = "Option<&horizon_client::items::ItemStack>", value = "vanilla_output" },
+  { name = "vanilla_xp_cost", ty = "i32", value = "vanilla_xp_cost" },
+  { name = "vanilla_material_cost", ty = "i32", value = "vanilla_material_cost" },
+  { name = "output", ty = "&mut Option<horizon_client::items::ItemStack>", value = "&mut *output" },
+  { name = "xp_cost", ty = "&mut i32", value = "&mut *xp_cost" },
+  { name = "material_cost", ty = "&mut i32", value = "&mut *material_cost" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+]
+
+[[injection]]
+id = "hook_world_primitives"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_world_primitives"
+helper = "hook_world_primitives.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "partial", ty = "f32", value = "partial" },
+  { name = "camera", ty = "[f64; 3]", value = "camera" },
+  { name = "primitives", ty = "&mut horizon_client::world_primitives::WorldPrimitives", value = "&mut *primitives" },
+]

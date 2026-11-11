@@ -1,0 +1,16 @@
+{
+  "title": "itemGroup.BMH_tab",
+  "icon": "bmh:totem_of_eternity",
+  "items": [
+    "bmh:eternal_axe",
+    "bmh:eternal_bundle",
+    "bmh:eternal_pickaxe",
+    "bmh:eternal_sword",
+    "bmh:navigator_amulet",
+    "bmh:totem_of_eternity",
+    "bmh:sleeping_totem",
+    "bmh:dormant_totem",
+    "bmh:echo_heart",
+    "minecraft:bundle"
+  ]
+}
