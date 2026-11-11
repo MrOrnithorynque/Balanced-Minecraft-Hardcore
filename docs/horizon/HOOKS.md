@@ -153,6 +153,22 @@ integrator files of `bmh_logic`: `ids.rs`, `wire.rs` (every mod message, as ARCH
 | Amulet points of a player | amulet | homecoming | `bmh_amulet::points(game, player) -> Vec<bmh_logic::contract::AmuletPoint>` (`name`, `pos`). |
 | World rules and config values | settings | respawn, homecoming, eternal, tools, amulet | `bmh_settings::rule(game, bmh_logic::contract::Rule) -> bool` and `bmh_settings::config(game) -> bmh_logic::contract::Config` (`min_distance`, `max_distance`, `max_amulet_points`). Server side only. Both carry `#[allow(dead_code)]` until every reader is merged. |
 
+### The /bmh command root
+
+Two areas own subcommands of `/bmh`: settings owns `rule`, amulet owns `point`. The helpers
+`hook_register_commands.rs` and `hook_perform_command.rs` already call both areas, settings first.
+Neither area touches the file of the other. An area adds a subcommand like this:
+
+- In `on_register_commands`, push one `NativeCommand` for each usage, and start each usage with `bmh <sub>`
+  (`bmh point save <pos:block_pos> <name:text>`). The server merges all usages that share the word `bmh` into
+  one tree, and each usage keeps its own operator level (`NativeCommand::new` for everyone, `op(usage, 2)` for
+  operators). Do not push a bare `bmh` usage.
+- In `on_perform_command`, split the line into words. If the first two words are not `bmh <sub>`, return at once
+  and leave `ran` alone. If they are, set `*ran = true` and answer with `native_feedback`.
+- Settings pushes `bmh rule`, `bmh rule <name:word>` and `bmh rule <name:word> <value:boolean>` at level 2 and
+  runs them through `bmh_logic::settings::parse_rule_command`, which answers `NotMine` for any other line.
+  Amulet needs nothing from settings.
+
 A message between the two sides of one area (the Echo Sense glow of tools, the amulet screens) also goes in
 `wire.rs`, in a section with the area's name, as an integrator change that the area names in its report.
 
