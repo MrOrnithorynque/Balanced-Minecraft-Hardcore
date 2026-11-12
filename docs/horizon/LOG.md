@@ -269,6 +269,23 @@ Since that stop (2026-11-11 20:57 to 2026-11-12 02:10):
   book of the toolchain and of the agent method, the skills of step 5.
 - At 02:10 the owner said: wait until 05:35 (the usage window resets), then continue.
 
+State on 2026-11-12, 05:40. The run is stopped by the owner's weekly guard: the week is at 53 % (all models) and
+53 % (Fable), past both of his numbers (40 % and 50 %). Other sessions used the budget during the night. Nothing
+was started after the wake-up at 05:35, apart from the read below. Do not start agents again without his word.
+
+The preparer's refusal is understood (read on 2026-11-12, no change made):
+
+- The whole message says: the launcher may have rewritten the version file, or Mojang published it again; either
+  prepare from the Horizon launcher, or save Mojang's own file
+  `https://piston-meta.mojang.com/v1/packages/11f1aefe473eefba0af62e3286c33b692807b2eb/26.3.json` as
+  `<Horizon tree>/.local/minecraft/26.3/manifest.json` and prepare again. The Horizon tree is
+  `$BMH_HORIZON_CACHE/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca`.
+- The checksum of the launcher's file (`9f67e10e...`) is in the accepted list of neither the Nightly nor Horizon
+  `main` (read at d9b9996, 2026-11-12). So a newer Horizon does not help: the fix is the file above.
+- That file is a download (about 45 KB, from Mojang). The owner gave his word for the server jar only: ask him
+  first. Then make `prepare-game.sh` do it by itself behind a flag, or at least print this fix when the preparer
+  refuses the file.
+
 `/Applications/Horizon.app` is still refused by Gatekeeper. Only the launcher needs it; the build from source does
 not.
 
