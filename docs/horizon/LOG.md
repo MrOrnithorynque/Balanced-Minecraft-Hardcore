@@ -249,12 +249,39 @@ Not done, in this order:
    (its absolute paths name the first session scratchpad: change them); its rules are the ones of ARCHITECTURE.md and of the first three area logs.
 5. Skills and a CLAUDE.md for this branch; remove the Java sources when the port is complete.
 
-Blocked on the owner: Minecraft 26.3 must be installed and played once, and the 26.3 server jar downloaded.
-Without them no game runs. `/Applications/Horizon.app` is still refused by Gatekeeper (only the launcher needs
-it; the build from source does not).
+Since that stop (2026-11-11 20:57 to 2026-11-12 02:10):
+
+- The owner installed Minecraft 26.3. `prepare-game.sh` accepts the launcher folder (version json, client jar,
+  libraries, assets).
+- The 26.3 server jar is downloaded, with the owner's permission, to
+  `~/Library/Caches/bmh-horizon/minecraft-server-26.3/server.jar` (62,294,556 bytes, sha1
+  `33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c`, the one `research-lock.json` pins).
+- `sh horizon/tools/prepare-game.sh --server-jar <that file>` compiles `horizon-prepare`, then fails:
+  `versions/26.3/26.3.json is not a 26.3 version file Horizon knows (sha1 9f67e10ed013deeaad20ac3c800652765d493408)`.
+  The rest of the message was not read. Probable cause, not checked: Mojang published the 26.3 version file again
+  after the Nightly of 2026-11-08, and that Nightly accepts older checksums only (the audit cites
+  `crates/horizon-prepare/src/artifacts.rs:722-745`). Next: read the whole message (run the script again), compare
+  the accepted list in the Nightly with the one on Horizon `main`, and look for the flag the preparer offers for
+  this case. Do not edit the launcher's file.
+- So step 3 above (the in-game run) is no longer blocked on the owner. It is blocked on that check.
+- The owner asked for a harness healing (`/harness:healing`): a report of skill fixes and of knowledge to keep,
+  then his go, then the edits, then the inquisitor. Not started. Candidates: a CLAUDE.md for this branch, a run
+  book of the toolchain and of the agent method, the skills of step 5.
+- At 02:10 the owner said: wait until 05:35 (the usage window resets), then continue.
+
+`/Applications/Horizon.app` is still refused by Gatekeeper. Only the launcher needs it; the build from source does
+not.
+
+The tools of the run live in the first session's scratchpad, which a restart of the Mac erases:
+`BMH_HORIZON_CACHE=<scratchpad>/src` (the `horizon-mods` clone with `native/target`: the Nightly's tree, cargo's
+cache, the built game), `<scratchpad>/src/horizon` (a clone of Horizon `main`, to read), and
+`<scratchpad>/target-tools/debug/cargo-horizon-mod` (the content checker, `BMH_HORIZON_MOD_BIN`). To make them
+again: `sh horizon/tools/check.sh` clones `horizon-mods` and builds on first use (minutes);
+`cargo build -p cargo-horizon-mod` in a clone of `https://github.com/horizon-rust/horizon` gives the checker.
 
 Rules of the run that the owner gave: stop cleanly when the 5-hour usage window reaches 60 %; stop when the
-weekly usage passes 40 % (all models) and 50 % (Fable); use Sonnet for bounded work and Opus for new structural
+weekly usage passes 40 % (all models) and 50 % (Fable): on 2026-11-12 00:13 the week was at 38 % and 28 %, so
+ask the owner which of the two numbers stops the run before the next large fan-out; use Sonnet for bounded work and Opus for new structural
 code.
 
 ## To check in the game
