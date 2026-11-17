@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g h i j), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i k l n m j), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -15,7 +15,9 @@
 #   --out DIR    where the screenshots go (default: the scratch folder, printed at the end)
 # Scenarios: a mods row, rules and rules file; b distant respawn; c immunity; d cinematic
 #   screenshots; e rule off; f creative; g advancement; h the nine items (one screenshot);
-#   i a respawn point that does not work; j dead when the game closes (it quits and relaunches).
+#   i a respawn point that does not work; k the Create New World button and two worlds; l the settings page
+#   and the config file; n the journey (message rule, held input, immediate respawn); m a rule and a config
+#   across a restart (it quits and relaunches); j dead when the game closes (it quits and relaunches).
 # Environment: BMH_HORIZON_CACHE (default ~/Library/Caches/bmh-horizon).
 # Exit codes: 0 all checks passed (SKIPs allowed), 1 a check failed, 77 no prepared files,
 #   64 a bad option, 3 the game did not start.
@@ -50,7 +52,7 @@ while [ "$#" -gt 0 ]; do
                      bindir="$2"; shift 2 ;;
         --out)       [ "$#" -ge 2 ] || { echo "test-slice.sh: --out needs a folder." >&2; exit 64; }
                      outdir="$2"; shift 2 ;;
-        -h|--help)   sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help)   sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "test-slice.sh: unknown option '$1'." >&2; exit 64 ;;
     esac
 done
@@ -761,6 +763,412 @@ if wanted i; then
         fi
     else
         fail i1 "no respawn happened: $DR_NOTE"
+    fi
+fi
+
+# ---- k. The Create New World button ------------------------------------------------------------------
+# game-checks-1 (2026-11-17). The button is drawn by the mod, not a widget: "ui" does not list it. Its
+# state is the mod setting file (CHOICE_FILE), and a new world copies it into <world>/bmh/rules.txt.
+CHOICE_FILE="$GAMEDIR/horizon-mods/.horizon-mod-data/bmh/balanced_hardcore"
+choice_now() { cat "$CHOICE_FILE" 2>/dev/null | tr -d ' \n'; }
+
+# leave_world: pause, Save and Quit to Title, wait for the title screen.
+leave_world() {
+    # A journey that is still running holds the screen (its hold screen takes Escape): wait for the end.
+    ctl wait-for screen playing --timeout 30 >/dev/null
+    ctl pause >/dev/null
+    ctl click save-and-quit-to-title >/dev/null
+    ctl wait-for screen title --timeout 60 >/dev/null
+    sleep 3
+}
+
+# open_create_screen: the title screen to the Create New World screen. It also opens the screen
+# directly when no world is saved yet.
+open_create_screen() {
+    ctl click singleplayer >/dev/null
+    sleep 2
+    ctl click create-new-world >/dev/null
+    sleep 2
+}
+
+# make_world NAME: on the Create New World screen, name the world, create it, wait for it to open.
+make_world() {
+    ctl type --field name --replace "$1" >/dev/null
+    ctl click create-new-world >/dev/null
+    ctl wait-for loaded --timeout 200 >/dev/null
+    sleep 4
+}
+
+# gui_width: the GUI width of the open screen (ui reply).
+gui_width() { jget "$(ctl ui)" 'int(d["gui_size"][0])'; }
+
+if wanted k; then
+    echo "--- k. the Create New World button: where it is, what a click does, what the worlds hold"
+    ctl command "gamemode survival" >/dev/null
+    leave_world
+    open_create_screen
+    gw="$(gui_width)"
+    if [ "$(jget "$(ctl ui)" '[w["id"] for w in d["widgets"] if w["kind"]=="tab"]')" = "['game', 'world', 'more']" ]; then
+        pass k0 "the Create New World screen is open (GUI width $gw)"
+    else
+        fail k0 "the Create New World screen did not open: $(ctl ui | head -c 300)"
+    fi
+    bx=$((gw - 110))
+    ctl click-at "$bx" 14 >/dev/null
+    sleep 1
+    c1="$(choice_now)"
+    ctl click-at "$bx" 14 >/dev/null
+    sleep 1
+    c2="$(choice_now)"
+    if [ "$c1" = false ] && [ "$c2" = true ]; then
+        pass k1 "a click on the button flips the choice: first click '$c1', second click '$c2' (file $CHOICE_FILE)"
+    else
+        fail k1 "the clicks did not flip the choice: first '$c1', second '$c2'"
+    fi
+    # The button is 210 wide at the top right of the whole screen. At the default GUI scale of a
+    # 2560 x 1440 window (GUI width 427) it covers the World tab (152 to 276) and the More tab (276
+    # to 400). A click on the middle of the More tab must open that tab, not flip the button.
+    mb="$(jget "$(ctl ui)" '[w["bounds"] for w in d["widgets"] if w["id"]=="more"][0]')"
+    mx="$(jget "$(ctl ui)" 'int([w["bounds"] for w in d["widgets"] if w["id"]=="more"][0][0] + [w["bounds"] for w in d["widgets"] if w["id"]=="more"][0][2] / 2)')"
+    ctl click-at "$mx" 12 >/dev/null
+    sleep 1
+    c3="$(choice_now)"
+    if [ -z "$mx" ] || [ -z "$c2" ]; then
+        fail k2 "no More tab or no choice file to read (tab bounds '$mb', choice '$c2')"
+    elif [ "$c3" = "$c2" ]; then
+        pass k2 "a click on the middle of the More tab ($mx, 12; tab bounds $mb) leaves the button alone"
+    else
+        fail k2 "a click on the middle of the More tab ($mx, 12; tab bounds $mb) flipped the button ('$c2' to '$c3'): the button lies over the tab"
+    fi
+    # Back to ON (the state of a Java world), then make the ON world.
+    [ "$(choice_now)" = true ] || ctl click-at "$bx" 14 >/dev/null
+    sleep 1
+    make_world bmhon
+    f="$GAMEDIR/saves/bmhon/bmh/rules.txt"
+    if [ -f "$f" ] && [ "$(grep -Ec '^[a-z_]+ = true$' "$f")" -eq 6 ]; then
+        pass k3 "a world made with the button ON: six rules true ($f)"
+    else
+        fail k3 "a world made with the button ON: rules.txt: $(grep -c . "$f" 2>/dev/null) lines, $(grep -Ec '= true$' "$f" 2>/dev/null) true"
+    fi
+    leave_world
+    open_create_screen
+    ctl click-at "$bx" 14 >/dev/null
+    sleep 1
+    make_world bmhoff
+    f="$GAMEDIR/saves/bmhoff/bmh/rules.txt"
+    if [ -f "$f" ] && [ "$(grep -Ec '^[a-z_]+ = false$' "$f")" -eq 6 ]; then
+        pass k4 "a world made with the button OFF: six rules false ($f)"
+    else
+        fail k4 "a world made with the button OFF: rules.txt: $(grep -c . "$f" 2>/dev/null) lines, $(grep -Ec '= false$' "$f" 2>/dev/null) false"
+    fi
+    leave_world
+    # The Java button starts ON on every new Create New World screen: its state is the rules of the
+    # screen. Here the choice is a setting that stays OFF for the next world. A player who forgets it
+    # makes a world with no BMH rule.
+    open_create_screen
+    c5="$(choice_now)"
+    if [ "$c5" = true ]; then
+        pass k5 "a new Create New World screen starts ON (as the Java button does)"
+    else
+        fail k5 "a new Create New World screen starts with the last choice '$c5' (the Java button starts ON each time)"
+    fi
+    [ "$c5" = true ] || ctl click-at "$bx" 14 >/dev/null
+    ctl click cancel >/dev/null
+    sleep 1
+    ctl click back >/dev/null
+    sleep 1
+    ctl open "$WORLD" >/dev/null
+    ctl wait-for loaded --timeout 200 >/dev/null
+    sleep 3
+    ctl command "gamemode survival" >/dev/null
+    if [ "$(jget "$(state)" 'd["screen"]')" = playing ]; then
+        pass k6 "the test world is open again"
+    else
+        fail k6 "the test world did not open again: $(state | head -c 200)"
+    fi
+fi
+
+# ---- l. The settings page and the config file ----------------------------------------------------------
+cfgval() { sed -n "s/^$1 *= *\([0-9]*\).*/\1/p" "$GAMEDIR/config/bmh-common.toml" 2>/dev/null | head -n 1; }
+# cfg_click ID COUNT: click a widget of the settings page COUNT times, then wait for the reload.
+cfg_click() {
+    i=0
+    while [ "$i" -lt "$2" ]; do ctl click "$1" >/dev/null; sleep 0.3; i=$((i + 1)); done
+    sleep 1.5
+}
+if wanted l; then
+    echo "--- l. Options > Mods > BMH settings: the six buttons, the limits, the file, the next death"
+    ctl command "gamemode survival" >/dev/null
+    ctl options mods >/dev/null
+    sleep 1
+    if jget "$(ctl ui)" '[w["label"] for w in d["widgets"]]' | grep -q 'Balanced Minecraft Hardcore'; then
+        pass l0 "Options > Mods has the BMH row: $(jget "$(ctl ui)" '[w["label"] for w in d["widgets"] if "Balanced" in (w["label"] or "")][0]')"
+    else
+        fail l0 "no BMH row on Options > Mods: $(ctl ui | head -c 300)"
+    fi
+    ctl click settings >/dev/null
+    sleep 1
+    ids="$(jget "$(ctl ui)" '" ".join(sorted(w["id"] for w in d["widgets"] if w["id"] != "done"))')"
+    if [ "$ids" = "amulet-points amulet-points-2 maximum-respawn-distance maximum-respawn-distance-2 minimum-respawn-distance minimum-respawn-distance-2" ]; then
+        pass l1 "the settings page has the six stepper buttons: $(jget "$(ctl ui)" '" | ".join(w["label"] for w in d["widgets"] if w["id"] != "done")')"
+    else
+        fail l1 "the settings page buttons are: $ids"
+    fi
+    cfg_click minimum-respawn-distance-2 1
+    cfg_click minimum-respawn-distance 2
+    if [ "$(cfgval minDistanceFromBed)" = 15000 ]; then
+        pass l2 "min distance: one click down at 5000 changes nothing, two clicks up give 15000 in the file"
+    else
+        fail l2 "min distance in the file: $(cfgval minDistanceFromBed), expected 15000"
+    fi
+    cfg_click maximum-respawn-distance-2 12
+    if [ "$(cfgval maxDistanceFromBed)" = 15000 ] && [ "$(cfgval minDistanceFromBed)" = 15000 ]; then
+        pass l3 "the max stops at the min: max $(cfgval maxDistanceFromBed), min $(cfgval minDistanceFromBed)"
+    else
+        fail l3 "the max went below the min or the min moved: max $(cfgval maxDistanceFromBed), min $(cfgval minDistanceFromBed)"
+    fi
+    cfg_click minimum-respawn-distance 1
+    if [ "$(cfgval minDistanceFromBed)" = 15000 ]; then
+        pass l4 "the min cannot pass the max: still $(cfgval minDistanceFromBed)"
+    else
+        fail l4 "the min passed the max: $(cfgval minDistanceFromBed) with max $(cfgval maxDistanceFromBed)"
+    fi
+    cfg_click maximum-respawn-distance 45
+    cfg_click amulet-points-2 6
+    lo="$(cfgval maxAmuletPoints)"
+    cfg_click amulet-points 20
+    hi="$(cfgval maxAmuletPoints)"
+    if [ "$(cfgval maxDistanceFromBed)" = 200000 ] && [ "$lo" = 1 ] && [ "$hi" = 16 ]; then
+        pass l5 "the ranges hold: max distance 200000, amulet points $lo at the bottom and $hi at the top"
+    else
+        fail l5 "the ranges: max distance $(cfgval maxDistanceFromBed) (expected 200000), amulet points $lo and $hi (expected 1 and 16)"
+    fi
+    # The same distance for the next death with no restart: min = max = 15000.
+    cfg_click maximum-respawn-distance-2 37
+    cfg_click amulet-points-2 11
+    ctl click done >/dev/null
+    sleep 1
+    ctl click done >/dev/null
+    sleep 1
+    ctl key esc tap >/dev/null
+    ctl resume >/dev/null
+    sleep 1
+    if [ "$(cfgval minDistanceFromBed)" = 15000 ] && [ "$(cfgval maxDistanceFromBed)" = 15000 ]; then
+        ensure_point
+        ctl command "gamemode survival" >/dev/null
+        if death_and_respawn ctl 1; then
+            pos="$(position_of)"
+            res="$(dist_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$spawn_x" "$spawn_z" 15000 64)"
+            if [ "${res##* }" = ok ]; then
+                pass l6 "the next death uses the new distance with no restart: ${res%% *} blocks, expected 15000"
+            else
+                fail l6 "the next death after the clicks: ${res%% *} blocks, expected 15000"
+            fi
+        else
+            fail l6 "no respawn: $DR_NOTE"
+        fi
+    else
+        fail l6 "the file does not hold min = max = 15000: $(cfgval minDistanceFromBed) $(cfgval maxDistanceFromBed)"
+    fi
+    # Back to the defaults through the page (5000, 60000, 5).
+    ctl options mods >/dev/null
+    sleep 1
+    ctl click settings >/dev/null
+    sleep 1
+    cfg_click maximum-respawn-distance 9
+    cfg_click minimum-respawn-distance-2 2
+    ctl click done >/dev/null
+    sleep 1
+    ctl click done >/dev/null
+    sleep 1
+    ctl key esc tap >/dev/null
+    ctl resume >/dev/null
+    if [ "$(cfgval minDistanceFromBed)" = 5000 ] && [ "$(cfgval maxDistanceFromBed)" = 60000 ] && [ "$(cfgval maxAmuletPoints)" = 5 ]; then
+        pass l7 "back to the defaults through the page: 5000, 60000, 5"
+    else
+        fail l7 "the defaults did not come back: $(cfgval minDistanceFromBed) $(cfgval maxDistanceFromBed) $(cfgval maxAmuletPoints)"
+    fi
+fi
+
+# ---- n. The journey on the real death screen path --------------------------------------------------------
+# journey_probe DIR HOLD: die, wait for the landing, click Respawn, then for 7 s take a screenshot and read
+# the screen name and the position after each one. HOLD=1 also holds W and taps Escape, E, Space once the
+# mod's hold screen is up. Prints: cream_max mod_frames positions_during_mod black_frames pil_ok
+journey_probe() {
+    mkdir -p "$1"
+    CTL_BIN="$CTL" CTL_SOCK="$SOCK" PROBE_DIR="$1" PROBE_HOLD="$2" PROBE_LOG="$(logfile)" python3 -W ignore - <<'EOF'
+import os, subprocess, json, time
+ctl, sock, out, hold, log = os.environ["CTL_BIN"], os.environ["CTL_SOCK"], os.environ["PROBE_DIR"], os.environ["PROBE_HOLD"] == "1", os.environ["PROBE_LOG"]
+def c(*a):
+    return subprocess.run([ctl, "--socket", sock, "--timeout", "60"] + list(a), capture_output=True, text=True).stdout
+def landings():
+    try:
+        return open(log, errors="ignore").read().count("Landing spot ready")
+    except OSError:
+        return 0
+try:
+    from PIL import Image
+    pil = True
+except ImportError:
+    pil = False
+n0 = landings()
+c("command", "kill @s")
+c("wait-for", "screen", "dead", "--timeout", "30")
+t = time.time()
+while landings() <= n0 and time.time() - t < 150:
+    time.sleep(0.5)
+time.sleep(1.5)
+t0 = time.time()
+c("click-button", "respawn")
+cream, mod_frames, black, positions, i, sent = 0, 0, 0, set(), 0, False
+while time.time() - t0 < 7:
+    f = "%s/f%03d.png" % (out, i)
+    c("screenshot", f)
+    st = json.loads(c("state") or "{}")
+    screen = st.get("screen")
+    if screen == "mod":
+        mod_frames += 1
+        if st.get("player"):
+            positions.add(tuple(round(v, 1) for v in st["player"]["position"]))
+        if hold and not sent:
+            c("key", "w", "down")
+            for k in ("esc", "e", "space"):
+                c("key", k, "tap")
+            sent = True
+    if pil:
+        im = Image.open(f).convert("RGB").resize((640, 360))
+        # Only frames of the hold screen: after the dissolve starts the frame is the world, and a pale
+        # sand or snow block has the colour of the message (full run 2026-11-17: 278 pixels with the rule off, probably sand).
+        if screen == "mod":
+            k = sum(1 for r, g, b in im.getdata() if r > 230 and 215 < g < 250 and 180 < b < 225 and r - b > 25)
+            cream = max(cream, k)
+        if sum(im.convert("L").getdata()) / (640 * 360) < 3:
+            black += 1
+        os.remove(f)
+    i += 1
+if hold:
+    c("key", "w", "up")
+    c("release")
+print(cream, mod_frames, len(positions), black, 1 if pil else 0)
+EOF
+}
+
+if wanted n; then
+    echo "--- n. the journey on the death screen path: message rule, held input, immediate respawn"
+    ensure_point
+    ctl command "gamemode survival" >/dev/null
+    ctl command "bmh rule random_death_spawn_point true" >/dev/null
+    ctl command "bmh rule display_text_on_respawn true" >/dev/null
+    out="$(journey_probe "$SHOTS/n-on" 0)"
+    set -- $out
+    if [ "$5" != 1 ]; then
+        skip n1 "python3 has no PIL: the pixels of the message cannot be counted"
+    else
+        if [ "$2" -gt 5 ] && [ "$1" -gt 100 ]; then
+            pass n1 "rule on: the journey showed $2 frames of the hold screen, $1 cream pixels of message at most, $4 black frames"
+        else
+            fail n1 "rule on: hold frames $2, cream pixels $1 (expected more than 100), black frames $4"
+        fi
+        ctl wait 60 >/dev/null
+        ctl command "bmh rule display_text_on_respawn false" >/dev/null
+        out="$(journey_probe "$SHOTS/n-off" 0)"
+        set -- $out
+        if [ "$2" -gt 5 ] && [ "$1" -le 30 ]; then
+            pass n2 "rule off: the journey ran ($2 hold frames, $4 black frames) and showed no message ($1 cream pixels at most)"
+        else
+            fail n2 "rule off: hold frames $2, cream pixels $1 (expected at most 30)"
+        fi
+        ctl command "bmh rule display_text_on_respawn true" >/dev/null
+    fi
+    ctl wait 60 >/dev/null
+    out="$(journey_probe "$SHOTS/n-hold" 1)"
+    set -- $out
+    if [ "$2" -gt 5 ] && [ "$3" -eq 1 ]; then
+        pass n3 "W held and Escape, E, Space tapped on the hold screen: $2 frames, $3 position, screen stayed 'mod'"
+    else
+        fail n3 "during the journey: hold frames $2, distinct positions $3 (expected 1 over more than 5 frames)"
+    fi
+    pos_a="$(position_of)"
+    ctl move forward 1 >/dev/null
+    pos_b="$(position_of)"
+    if [ "$pos_a" != "$pos_b" ]; then
+        pass n4 "the player moves again after the journey: $pos_a to $pos_b"
+    else
+        fail n4 "the player cannot move after the journey: $pos_a"
+    fi
+    rm -rf "$SHOTS/n-on" "$SHOTS/n-off" "$SHOTS/n-hold"
+    # Immediate respawn: the game rule skips the death screen, so the mod's hold never runs. The exile
+    # must still happen (the area log expects the cinematic to start in black at the arrival).
+    ctl wait 60 >/dev/null
+    ctl command "gamerule immediate_respawn true" >/dev/null
+    warn_before="$(count_log 'WARN.*BalancedMcHardcoreMain')"
+    ctl command "kill @s" >/dev/null
+    sleep 6
+    pos="$(position_of)"
+    res="$(dist_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$spawn_x" "$spawn_z" "$expected" 64)"
+    warns="$(( $(count_log 'WARN.*BalancedMcHardcoreMain') - warn_before ))"
+    ctl command "gamerule immediate_respawn false" >/dev/null
+    if [ "${res##* }" = ok ] && [ "$warns" -eq 0 ]; then
+        pass n5 "immediate_respawn true: the exile still happens, ${res%% *} blocks from the point, expected $expected"
+    else
+        fail n5 "immediate_respawn true: ${res%% *} blocks from the point, expected $expected; new WARN lines $warns: $(grep 'WARN.*BalancedMcHardcoreMain' "$(logfile)" | tail -n 1 | sed 's/^[^]]*\]: //')"
+    fi
+    ctl wait 40 >/dev/null
+fi
+
+# ---- m. Rules and config across a restart --------------------------------------------------------------
+# A rule set to false must survive a quit. A hand edited config value outside its range gives the default
+# of its key (NeoForge's ModConfigSpec corrects it the same way). Runs the game twice, so it runs just
+# before j.
+if wanted m; then
+    echo "--- m. a rule at false and a config out of range, then a quit and a second launch"
+    ensure_point
+    ctl command "gamemode survival" >/dev/null
+    ctl command "bmh rule display_text_on_respawn false" >/dev/null
+    ctl save >/dev/null
+    ctl quit >/dev/null
+    n=0
+    while [ -n "$GAMEPID" ] && kill -0 "$GAMEPID" 2>/dev/null && [ "$n" -lt 60 ]; do sleep 1; n=$((n + 1)); done
+    cp "$GAMEDIR/config/bmh-common.toml" "$scratch/bmh-common.toml.before" 2>/dev/null || true
+    cat > "$GAMEDIR/config/bmh-common.toml" <<'TOML'
+#Minimum distance from bed to respawn
+#Range: 5000 ~ 200000
+minDistanceFromBed = 3000
+#Maximum distance from bed to respawn
+#Range: 5000 ~ 200000
+maxDistanceFromBed = 999999
+#Most points a player can keep on the Navigator's Amulet
+#Range: 1 ~ 16
+maxAmuletPoints = 99
+TOML
+    launch_game --wait
+    if [ "$launch_status" -ne 0 ]; then
+        fail m1 "the second launch failed (status $launch_status)"
+    else
+        reply="$(ctl command "bmh rule display_text_on_respawn")"
+        if printf '%s' "$reply" | grep -q 'set to false'; then
+            pass m1 "the rule at false survived the quit: $(jget "$reply" 'd["chat"][0]')"
+        else
+            fail m1 "the rule did not survive the quit: $(printf '%s' "$reply" | head -c 200)"
+        fi
+        ctl command "bmh rule display_text_on_respawn true" >/dev/null
+        ctl command "gamemode survival" >/dev/null
+        if death_and_respawn ctl 1; then
+            pos="$(position_of)"
+            res="$(dist_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$spawn_x" "$spawn_z" 23333 64)"
+            if [ "${res##* }" = ok ]; then
+                pass m2 "min 3000, max 999999, points 99 in the file: the defaults apply, ${res%% *} blocks, expected 23333"
+            else
+                fail m2 "out of range values in the file: ${res%% *} blocks, expected 23333 (the defaults, Normal)"
+            fi
+        else
+            fail m2 "no respawn: $DR_NOTE"
+        fi
+        echo "test-slice.sh: INFO m3: the file after the start: $(grep -E '^[a-zA-Z]+ *=' "$GAMEDIR/config/bmh-common.toml" | tr '\n' ' ') (the mod does not rewrite it)"
+        if [ -f "$scratch/bmh-common.toml.before" ]; then
+            cp "$scratch/bmh-common.toml.before" "$GAMEDIR/config/bmh-common.toml"
+            sleep 2
+        fi
     fi
 fi
 

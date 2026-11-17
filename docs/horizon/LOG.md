@@ -243,7 +243,7 @@ The binaries were not started: a world needs the prepared game files.
 
 ## Resume here
 
-State on 2026-11-17, 20:05. Branch `horizon-26.3`, local only (never pushed: the owner did not ask).
+State on 2026-11-17, 20:40. Branch `horizon-26.3`, local only (never pushed: the owner did not ask).
 
 Done: the content mod (loads in the game: nine items with textures, a recipe, the advancement tab, the sounds),
 the skeleton (66 hooks), the area respawn (verified in the game), the areas settings and journey (ported; the
@@ -251,9 +251,14 @@ slice test passes with them; not reviewed yet), the test system, the harness of 
 
 Not done, in this order:
 
-1. Read `docs/horizon/log/game-checks-1.md` (the first look at settings and journey in the game; it may still be
-   in work or missing if the run stopped early). Fix the defects it lists: one fix agent per area, each in its own
-   worktree, one at a time with game rights.
+1. Fix the five defects that the first look at settings and journey in the game found
+   (`docs/horizon/log/game-checks-1.md`, with screenshots and one command each): the Create New World button
+   lies over the World and More tabs at the default GUI scale (major); with the game rule `immediate_respawn`
+   a death gives no exile and no journey (major); the Create World choice stays OFF for the next new world;
+   one frame of the arrival world shows before the black on the path without the hold; a config value out of
+   range is not written back. The slice test has scenarios k, l, m, n for these areas: its checks k2, k5 and n5
+   fail on those defects, on purpose, until they are fixed. One fix agent per area, each in its own worktree,
+   one at a time with game rights.
 2. Review settings and journey with the two lenses (parity with the Java mod, use of the host game), save the
    findings under `docs/horizon/review/`, then fix.
 3. Port the seven other areas with the skill `horizon-port-area`: amulet first (it also sets the default

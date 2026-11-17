@@ -84,6 +84,21 @@ Facts the test uses, and where they come from:
 | i2 | After i1: the chat has "You have no home bed or charged respawn anchor, or it was obstructed". | The player is told, as vanilla's `NO_RESPAWN_BLOCK_AVAILABLE` does. | That the point is forgotten (it is not: GAPS.md 3.3 C2). |
 | j1 | `/spawnpoint`, `/kill`, `horizon-ctl quit` while dead, a second launch on the same world: the death screen, then a new `Landing spot ready` line. | A player dead when the game closes gets a search when the world opens (review semantics-1). Horizon kills such a player once more at login. | A relog on a dedicated server (no server in these tests). |
 | j2 | After j1, `horizon-ctl respawn`: about 23333 blocks from the point. | The exile happens after the restart. | The distance of a death with Eternal Items across a restart. |
+| k0, k1 | Pause, Save and Quit to Title, Singleplayer, Create New World. Clicks the mod's button at the top right (GUI width minus 110, 14; the button is drawn by the mod, `ui` does not list it) twice and reads the mod setting file `horizon-mods/.horizon-mod-data/bmh/balanced_hardcore`. | The button flips ON and OFF and stores the choice. | The look (see `game-checks-1-shots/`). |
+| k2 | A click on the middle of the More tab must open the tab and leave the button alone. | Fails while the button lies over the tabs (default GUI scale of a 2560 x 1440 window). A mod defect. | Other GUI scales. |
+| k3, k4 | Makes a world with the button ON, then one with it OFF: `rules.txt` holds six `true` and six `false` lines. | The choice reaches the new world. | A Java world import. |
+| k5 | A new Create New World screen must start ON, as the Java button does. | Fails while the OFF choice stays for the next world. A mod defect (or a decision: see `game-checks-1.md`). | |
+| k6 | `horizon-ctl open` opens the test world again. | Cleanup. | |
+| l0, l1 | Options > Mods has the BMH row. Its settings page has six buttons with the ids `minimum-respawn-distance`, `maximum-respawn-distance` and `amulet-points`, each with a `-2` twin that lowers. | The page and the labels. | That the labels fit at every GUI scale. |
+| l2 to l5 | Clicks on every button: 5000 steps, one step for the points, min not above max, ranges 5000 to 200000 and 1 to 16, read from `config/bmh-common.toml`. | The stepper and its limits. | The error lines of the Java screen (there are none here). |
+| l6 | Min = max = 15000 through the page, then a death: 15000 blocks from the point, with no restart. | A changed distance applies to the next death. | |
+| l7 | Back to 5000, 60000 and 5 through the page. | Cleanup. | |
+| n1, n2 | Click-button Respawn, then seven seconds of screenshots with the screen name. Counts cream pixels (the message colour) and black frames with PIL. n1 rule `display_text_on_respawn` on: message. n2 off: the journey runs, no message. SKIP when PIL is missing. | The message rule. | The look and the text position. |
+| n3 | The same with W held and Escape, E, Space tapped when the screen is `mod`: one position only, the screen stays `mod`. | The hold screen takes the input. | A real keyboard (the control tool sends the keys). |
+| n4 | `move forward 1` after the journey: the position changes. | Input comes back. | |
+| n5 | `gamerule immediate_respawn true`, `/kill`: the exile must still happen (23333 blocks) and the log has no new `WARN` line of the mod. | Fails now: the player respawns at the point with a `WARN` line "The landing search ... did not end". A mod defect. | The cinematic after an immediate respawn. |
+| m1 | A rule at false, `quit`, a second launch: the rule is still false. | Rules survive a restart. | |
+| m2 | A hand edited config (3000, 999999, 99) before the second launch: a death uses the defaults (23333 blocks). A line `INFO m3` prints the file: the mod does not rewrite it. | Out of range values give the key's default. | |
 
 ## SKIPs the test has
 
@@ -100,7 +115,7 @@ screen, the frame cost. See the next section.
 
 ## Checks from the area logs that the script does not cover
 
-A person does these in a window (`test-slice.sh --window --keep` leaves a world, or start the game by hand).
+`docs/horizon/log/game-checks-1.md` has the first in-game check of the settings and journey areas (what was settled, what is open). A person does the rest in a window (`test-slice.sh --window --keep` leaves a world, or start the game by hand).
 
 | Area, number | What to do by hand |
 |---|---|
