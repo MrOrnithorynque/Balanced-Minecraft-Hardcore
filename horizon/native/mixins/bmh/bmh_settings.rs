@@ -13,9 +13,10 @@
 // - The config (S3) is `config/bmh-common.toml`. The game hands its text to `config_loading` and
 //   `config_reloading`. The values are in `COMMON_CONFIG`, one value for the whole process: the
 //   window, the integrated server and a dedicated server read the same file.
-// - The Create New World choice (S2) is a mod setting, `balanced_hardcore`, in the mod data folder
-//   (`CLIENT_CHOICE` caches it for the window). The server reads the same file when it opens a
-//   new world for the first time.
+// - The Create New World choice (S2) belongs to one Create New World screen: each new screen starts
+//   ON (`CLIENT_CHOICE`). A flip is also written to the mod setting `balanced_hardcore` in the mod
+//   data folder. That file is only the channel to the server, which reads it when it opens the new
+//   world for the first time.
 //
 // A command line `bmh rule ...` is mine. `bmh point ...` belongs to the amulet area: see
 // docs/horizon/HOOKS.md, "The /bmh command root".
@@ -42,8 +43,12 @@ static SERVER_RULES: Mutex<Store> = Mutex::new(Store::EMPTY);
 /// share one file, so they share this value too.
 static COMMON_CONFIG: Mutex<Config> = Mutex::new(Config::DEFAULT);
 
-/// The Create New World choice, as the window last read or wrote it.
+/// The Create New World choice of the screen the window shows (or showed last).
 static CLIENT_CHOICE: Mutex<Option<bool>> = Mutex::new(None);
+
+/// True while the last screen a hook saw was one of the Create New World screens. A Create New World
+/// screen that follows any other screen is a new one, and its choice starts ON.
+static CREATE_OPEN: Mutex<bool> = Mutex::new(false);
 
 /// The lock of a static. A panic in another hook leaves the value usable.
 fn lock<T>(value: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -272,17 +277,47 @@ fn open_world(game: &mut crate::game::Game<'_>) {
 // The Create New World button (S2)
 // ---------------------------------------------------------------------------------------------
 
-/// The choice of the window: on by default, as the Java rules are.
-fn create_choice(game: &crate::game::Game<'_>) -> bool {
-    if let Some(choice) = *lock(&CLIENT_CHOICE) {
-        return choice;
+/// The choice of the screen: ON until the player flips it.
+fn create_choice() -> bool {
+    lock(&CLIENT_CHOICE).unwrap_or(true)
+}
+
+/// The hooks tell which screen is open. A Create New World screen that opens after another screen
+/// (the world list, the title, a world, anything) is a new screen: its choice starts ON, as the
+/// state of the Java button does (CreateWorldGameTabMixin.java:39 reads the rules of the screen).
+/// The file for the server is reset with it, so the world made from this screen reads this
+/// screen's choice. The flat and buffet editors belong to the same screen and keep the choice.
+fn track_screen(game: &crate::game::Game<'_>, id: &str) {
+    let in_create = logic::is_create_screen(id);
+    let was_open = std::mem::replace(&mut *lock(&CREATE_OPEN), in_create);
+    if in_create && !was_open {
+        *lock(&CLIENT_CHOICE) = Some(true);
+        game.native_set_setting(crate::game::bmh::ID, logic::CHOICE_SETTING, logic::bool_text(true));
     }
-    let choice = game
-        .native_setting(crate::game::bmh::ID, logic::CHOICE_SETTING)
-        .and_then(|text| logic::parse_choice(&text))
-        .unwrap_or(true);
-    *lock(&CLIENT_CHOICE) = Some(choice);
-    choice
+}
+
+/// The tab that the Create New World screen shows (0 Game, 1 World, 2 More). `NativeScreenView`
+/// has no tab, so this reads the title's state: `Game.title` is private to `game.rs`, and this
+/// module sits inside it. None when the title shows another screen, and while the title prepares
+/// the world (it takes no click then).
+fn create_tab(game: &crate::game::Game<'_>) -> Option<usize> {
+    let title = game.title.as_ref()?;
+    match &title.mode {
+        crate::title::Mode::Create { options, .. } if !title.preparing() => Some(options.tab),
+        _ => None,
+    }
+}
+
+/// The button of the screen, when it is drawn and takes clicks: on the Create New World screen, in
+/// the Game tab, under Allow Commands.
+fn button_rect(
+    game: &crate::game::Game<'_>,
+    screen: &horizon_client::mod_api::NativeScreenView<'_>,
+) -> Option<[f32; 4]> {
+    if screen.id != logic::CREATE_SCREEN {
+        return None;
+    }
+    logic::button_rect(screen.rect, create_tab(game)?)
 }
 
 // S2: a click on the Balanced Hardcore button of the Create New World screen.
@@ -294,29 +329,33 @@ pub(super) fn on_screen_mouse_button_pressed_pre(
     canceled: &mut bool,
 ) {
     let _ = modifiers;
-    if *canceled || button != 0 || screen.id != logic::CREATE_SCREEN {
+    track_screen(game, screen.id);
+    if *canceled || button != 0 {
         return;
     }
-    if !logic::inside(logic::button_rect(screen.rect), screen.mouse) {
+    let Some(rect) = button_rect(game, screen) else {
+        return;
+    };
+    if !logic::inside(rect, screen.mouse) {
         return;
     }
-    let choice = !create_choice(game);
+    let choice = !create_choice();
     *lock(&CLIENT_CHOICE) = Some(choice);
     game.native_set_setting(crate::game::bmh::ID, logic::CHOICE_SETTING, logic::bool_text(choice));
     *canceled = true;
 }
 
-// S2: draw the Balanced Hardcore button on the Create New World screen.
+// S2: draw the Balanced Hardcore button in the Game tab of the Create New World screen.
 pub(super) fn on_screen_render_post(
     game: &crate::game::Game<'_>,
     batch: &mut horizon_client::hud::HudBatch,
     screen: &horizon_client::mod_api::NativeScreenView<'_>,
 ) {
     use horizon_client::text::Text;
-    if screen.id != logic::CREATE_SCREEN {
+    track_screen(game, screen.id);
+    let Some(rect) = button_rect(game, screen) else {
         return;
-    }
-    let rect = logic::button_rect(screen.rect);
+    };
     let hovered = logic::inside(rect, screen.mouse);
     let sprite = if hovered {
         "gui/sprites/widget/button_highlighted"
@@ -326,7 +365,7 @@ pub(super) fn on_screen_render_post(
     // The fill shows if the sprite is missing; the sprite covers it otherwise.
     game.native_fill(batch, rect, 0xFF30_3030);
     game.native_gui_nine_slice(batch, sprite, rect, 0xFFFF_FFFF);
-    let state = if create_choice(game) { "options.on" } else { "options.off" };
+    let state = if create_choice() { "options.on" } else { "options.off" };
     let label = Text::option_name_value(
         Text::translate("bmh.createWorld.balancedHardcore", &[]),
         Text::translate(state, &[]),
@@ -359,14 +398,46 @@ pub(super) fn on_register_configs(
     ));
 }
 
-/// Takes the values of the config text the game read.
+/// The path of the config file.
+fn config_path() -> Result<PathBuf, String> {
+    crate::game::Game::native_config_dir()
+        .map(|dir| dir.join(logic::CONFIG_FILE))
+        .map_err(|error| error.to_string())
+}
+
+/// Takes the values of the config text the game read. A value outside its range gets the default of
+/// its key, and the file is written again with the corrected values, as NeoForge's `ModConfigSpec`
+/// does. The write happens once: the corrected file asks for no second write, and a second hook
+/// call that still holds the old text finds the file already correct and leaves it alone.
 fn apply_config(config: &crate::game::native_configs::NativeConfigFile) {
     if config.mod_id != crate::game::bmh::ID
         || config.kind != crate::game::native_configs::NativeConfigKind::Common
     {
         return;
     }
-    *lock(&COMMON_CONFIG) = logic::parse_config(&config.text);
+    let (values, corrected) = logic::parse_config_checked(&config.text);
+    *lock(&COMMON_CONFIG) = values;
+    if corrected {
+        write_corrected_config(values);
+    }
+}
+
+/// Writes the corrected config file unless the file already holds that text.
+fn write_corrected_config(values: Config) {
+    let text = logic::config_text(values);
+    let written = config_path().and_then(|path| {
+        if std::fs::read_to_string(&path).is_ok_and(|current| current == text) {
+            return Ok(false);
+        }
+        std::fs::write(&path, &text).map(|()| true).map_err(|error| error.to_string())
+    });
+    match written {
+        Ok(true) => log::info!(
+            "[BalancedMcHardcoreMain] The config file held a value outside its range. It is written again with the default of that key."
+        ),
+        Ok(false) => {}
+        Err(error) => log::warn!("[BalancedMcHardcoreMain] The corrected config file is not saved: {error}"),
+    }
 }
 
 // S3: read the config values at load.
@@ -425,12 +496,8 @@ pub(super) fn on_settings_click(game: &mut crate::game::Game<'_>, mod_id: &str, 
         return;
     }
     *lock(&COMMON_CONFIG) = next;
-    let written = crate::game::Game::native_config_dir()
-        .map_err(|error| error.to_string())
-        .and_then(|dir| {
-            std::fs::write(dir.join(logic::CONFIG_FILE), logic::config_text(next))
-                .map_err(|error| error.to_string())
-        });
+    let written = config_path()
+        .and_then(|path| std::fs::write(path, logic::config_text(next)).map_err(|error| error.to_string()));
     if let Err(error) = written {
         log::warn!("[BalancedMcHardcoreMain] The config file is not saved: {error}");
     }

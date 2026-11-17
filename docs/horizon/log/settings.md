@@ -64,8 +64,8 @@ World rules (S1):
 
 Config (S3): `config/bmh-common.toml`, kind `Common`, in the layout NeoForge writes, with the Java comments and
 ranges. `parse_config` gives a value outside its range, or one that is not an integer, the default of its key
-(`ModConfigSpec` corrects such a value to the default of the key). The area does not rewrite the file to
-correct it. Min above max stays in `config()`, as in Java: the respawn area uses `max(min, max)`
+(`ModConfigSpec` corrects such a value to the default of the key). Since fix round 1 the area also writes
+the corrected file back once (see "Fix round 1"). Min above max stays in `config()`, as in Java: the respawn area uses `max(min, max)`
 (`RespawnPositionHandler.java:223-226`).
 
 Page (S4): six buttons, a "[+]" and a "[-]" for each of the min distance, the max distance and the amulet
@@ -73,9 +73,10 @@ points, with the value in the label. A click steps 5000 blocks (distances) or 1 
 range. The minimum never goes above the maximum: a click that would do it changes nothing. A click writes the
 whole file at once and updates the value. The reload that follows within a second gives the same values.
 
-Create World (S2): a button 210 by 20 in the top right corner of screen `world_create`, drawn in
-`screen_render_post` with the vanilla button sprite, a label "Balanced Hardcore: ON/OFF" and the Java tooltip.
-A click flips the choice and stores it with `set_setting` (`balanced_hardcore`). The choice is on by default.
+Create World (S2): a button 210 by 20 in the Game tab of screen `world_create`, in the row under Allow Commands
+(first version: floating in the top right corner, fixed in "Fix round 1"). It is drawn in `screen_render_post`
+with the vanilla button sprite, a label "Balanced Hardcore: ON/OFF" and the Java tooltip. A click flips the
+choice and stores it with `set_setting` (`balanced_hardcore`). Each new Create New World screen starts ON.
 
 ## What I could and could not do for a Java world (verify-5 G4)
 
@@ -111,16 +112,18 @@ Could not:
 
 1. The six rules are not game rules: no `/gamerule bmh:...`, no completion, no game rules screen. They live in
    `<world>/bmh/rules.txt` and `/bmh rule`. GAPS S1, decision D5.
-2. The Create World button floats in the top right corner of the screen. It is not in the Game tab, not synced
-   with the More tab and not greyed out in Hardcore or Debug. It sets the value for each new world, not for the
-   one on screen. GAPS S2. There is also no narrator text and no click sound.
+2. The Create World button is drawn by the mod in the Game tab, but it is not a widget of the tab. It is not synced
+   with the More tab and not greyed out in Hardcore or Debug. It sets the value for the world made from its
+   screen, as the Java button does. GAPS S2. There is also no narrator text and no click sound. More in "Fix
+   round 1", "What still differs from the Java mod".
 3. The config page has buttons only: a step of 5000 blocks and 1 point, no free number, no error line
    (`bmh.config.outOfRange` and `bmh.config.minAboveMax` have no place to show). The note text
    (`bmh.config.note`) has no place either. A click that would put the minimum above the maximum does nothing.
    GAPS S4, Settled 8.
 4. A hand edited config value outside its range gets the key's default. The integrator's
    `Config::clamped` (contract.rs) clamps instead, and this area does not use it, because Forge's
-   `defineInRange` corrects to the default. The file is not rewritten.
+   `defineInRange` corrects to the default. The file is written back once with the corrected values
+   (fix round 1), as NeoForge does.
 5. The page labels use three new short names, because the Java labels carry the range ("Minimum respawn
    distance (5000 to 200000 blocks)") and would not fit in a button.
 6. The first open of a world checks "new world" with the game time. Java registers the rules at world
@@ -141,8 +144,8 @@ Could not:
 4. `/bmh rule random_death_spawn_point false`, then die: the respawn is the vanilla one at once, with no restart
    (the rule is read from the cache). Then restart the game and the world: the value is still false.
 5. The merged tree: with the amulet area ported, `/bmh point` and `/bmh rule` both complete and both run.
-6. The Create World button: the screen id is `world_create`, the button shows in the top right corner and is
-   not hidden under the vanilla tab bar at a large GUI scale. The sprite names `gui/sprites/widget/button` and
+6. The Create World button: the screen id is `world_create`. Settled in fix round 1: the button shows in the
+   Game tab under Allow Commands and not over the tab bar. The sprite names `gui/sprites/widget/button` and
    `button_highlighted` draw a button with the nine-slice call (the fill under it shows if they do not). The
    click flips ON/OFF, and a new world made while it reads OFF has `bmh/rules.txt` with six `false` lines.
 7. The click on the button does not also reach a vanilla widget under it (the hook sets `canceled`).
@@ -169,3 +172,101 @@ Could not:
 
   The other nine lang files do not hold the `bmh.config.*` keys of the Java mod either, so I did not add the
   seven keys there. The integrator adds them with the others (HOOKS.md, "Content files").
+
+## Fix round 1 (2026-11-17)
+
+Three defects of `game-checks-1.md`, all in the settings area. Files: `bmh_settings.rs`, `logic/src/settings.rs`,
+`tools/test-slice.sh`, `TESTING.md`, this log. The worktree was cut from `horizon-26.3` at 3ef393f.
+
+### Steps
+
+1. Read the game's source for what a hook tells about the open Create New World screen.
+   `NativeScreenView` has `id`, `menu`, `title`, `rect`, `slots`, `mouse` and `partial_tick`. It has no tab and no
+   widget list (mod_api.rs:297-335). The control tool's `ui` lists the widgets, but a mod cannot call it.
+2. Found the tab anyway. The title screen keeps it in `Game.title`: `Title.mode` is `Mode::Create { options, .. }` and
+   `options.tab` is 0 for Game, 1 for World, 2 for More (title.rs:272, title/create_world.rs `WorldOptions.tab`). All
+   three are `pub`, and so is `Title::preparing()`. `Game.title` itself is private to `game.rs`, and the settings
+   module is declared inside `game.rs`, so the module can read it. The manifest, the hooks and HOOKS.md did not change.
+3. Defect 1 (the button over the tabs). `logic::button_rect(window, tab)` now gives the place of the button, or
+   None when the tab is not the Game tab. It uses the arithmetic of the game's own `grid()`: the Game tab's grid
+   is 210 wide and 117 high, at half of the free width and one sixth of the free height (`ceil` of the size, then
+   `trunc`). Allow Commands is the last row of that grid. The new row is 8 pixels under it, 210 by 20. At GUI
+   427 x 240 that is (108, 160) and at 854 x 480 it is (322, 200). Both match the bounds the game reports for
+   Allow Commands (108, 132) and (322, 172), plus 28. The module draws the button and takes the click only when
+   `create_tab` says the Game tab is open. It also leaves the button out while the title prepares the world
+   (`Title::preparing()`), because the title takes no click then.
+4. Defect 2 (the choice stays). `track_screen` runs in the render hook and in the click hook. A Create New World
+   screen (`world_create`, `world_create_flat`, `world_create_buffet`) that follows any other screen is a new one: the
+   choice in the window becomes ON and `true` goes to the setting file. The setting file is only the channel to the
+   server, which reads it when it opens the new world. So the world made from a screen reads that screen's choice.
+   The Superflat editor belongs to the same screen and keeps the choice. `create_choice` no longer reads the file.
+5. Defect 3 (the config file). `logic::parse_config_checked` gives the values and whether the file held a value to
+   correct: a known key whose value is no integer or is out of range. `apply_config` writes `config_text(values)`
+   once when it is true. It does not write when the file already holds that text, so a second hook call with the
+   old text does nothing. The corrected file asks for no second write. The log says "The config file held a value
+   outside its range. It is written again with the default of that key." once.
+6. Unit tests: 122 pass. Six new tests in `logic/src/settings.rs` replace the one test of the corner place: the
+   button place at two GUI sizes, only in the Game tab, never over the footer, the three Create screens, the
+   correction flag and the clean corrected text.
+7. Test script: k1, k2 and k5 now use the real place of the button (read from the Allow Commands widget). New
+   checks: k2b (no button on More and World), k5c (Cancel, then a new screen starts ON), k5d (the Superflat editor keeps
+   the choice). m3 is a real check now: the file holds the defaults, keeps its three `#Range` lines, and the log has
+   exactly one rewrite line. TESTING.md has the rows.
+8. Looked at the game by hand (offscreen, a scratch home under the scratchpad, never the owner's `play` folder) at
+   GUI width 427 and 854 for each tab, and for the OFF state, the Superflat editor and a new screen.
+
+### Evidence
+
+Gates: `sh horizon/tools/test-logic.sh` 122 passed, `sh horizon/tools/check.sh` `"check": "ok"`.
+`sh horizon/tools/test-slice.sh --no-build --only k,l,m` (the game built from this tree with `check.sh build`):
+`21 passed, 0 failed, 0 skipped`, among them k1, k2, k2b, k5, k5c, k5d and m3. The k2, k5 and m3 lines read
+"leaves the button alone", "starts ON ... file 'true', first click 'false', second 'true'" and "the out of range file
+is written back once, with the defaults: minDistanceFromBed=5000 maxDistanceFromBed=60000 maxAmuletPoints=5".
+
+Screenshots, 1280 pixels wide, in `docs/horizon/log/settings-fix-1-shots/`. I looked at each one.
+
+| File | What it shows |
+|---|---|
+| `game-tab-gui427-on.png` | GUI 427 x 240: "Balanced Hardcore: ON" under Allow Commands, same width, tabs free. |
+| `game-tab-gui427-off.png` | The same after one click: OFF. |
+| `world-tab-gui427.png` | World tab at 427: no button, every World widget in place. |
+| `more-tab-gui427.png` | More tab at 427: no button, the three More buttons. |
+| `game-tab-gui854-on.png` | GUI 854 x 480 (GUI scale 3): the button under Allow Commands. |
+| `game-tab-gui854-off.png` | The same after a click: OFF. |
+| `world-tab-gui854.png`, `more-tab-gui854.png` | World and More at 854: no button. |
+| `game-tab-gui854-off-kept-after-flat-editor.png` | OFF, Superflat editor opened and closed: still OFF. |
+| `game-tab-gui854-new-screen-starts-on.png` | After the OFF screen, Cancel and a new Create New World screen: ON. |
+
+By hand at GUI 427, with the choice file read after each click: a click on the button in the Game tab flipped it
+(true to false). A click at the same place on the More tab and on the World tab changed nothing.
+
+### What still differs from the Java mod
+
+- The Java place was reachable, but the mechanism is not the Java one. The button is drawn and clicked by the mod
+  over the title's screen, not a child of the tab's grid. The title's own widgets do not move: the Horizon grid is
+  117 high and the Java grid, with the extra row, would be 145 high and one row higher. Here the three vanilla
+  buttons stay where Horizon puts them and the new row is under them.
+- Not greyed out in Hardcore or Debug. `options.hardcore` is readable now (`Mode::Create`, `WorldOptions`), so a
+  later round can grey it out. Not done here.
+- Not synced with the Game Rules screen of the More tab. The screen's rules (`options.rules`) are the game's own
+  rules and know no BMH rule. The button holds its own choice.
+- No narrator text and no click sound.
+- A window less than 240 GUI pixels high has no room for the row above the footer: the button is left out so that
+  it never lies over Create New World and Cancel. The game keeps the GUI at 320 x 240 or more (setting GUI scale 8
+  here left the GUI at 427 x 240, scale 6), so a normal window never reaches this.
+- The module reads `Game.title`, `Mode::Create` and `options.tab`, which are not a hook API. They are the pinned
+  Nightly's own types (fdc87aec). A Horizon update that renames one of them stops the build, it does not break the
+  button in silence. D8 is about injections into game functions, and this is not one.
+- The setting file `balanced_hardcore` keeps the last screen's choice between screens. Nothing reads it except the
+  server at the first open of a new world, and each new screen writes `true` first.
+- Config: only a known key with a bad value counts as a correction. A missing key, a key of another name and a
+  minimum above the maximum are left alone (NeoForge adds a missing key, this area does not). The write replaces the
+  whole file with the NeoForge layout, so a hand written comment is lost, as NeoForge's own correction does.
+
+### To check in the game
+
+1. The tooltip of the button (hover) at its new place: only the old place was seen in the first run.
+2. The Buffet editor (`world_create_buffet`) keeps the choice as the Superflat editor does. Only Superflat was driven.
+3. A real mouse at GUI scale 2 and 4 (only 427 and 854 were seen).
+4. A dedicated server with a bad config: the first `config_loading` there writes the corrected file.
+

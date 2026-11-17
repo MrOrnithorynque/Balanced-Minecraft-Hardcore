@@ -294,7 +294,16 @@ pub fn config_text(config: Config) -> String {
 /// The values of a config file. A key that is missing, is no integer or is outside its range gets
 /// its default: `ModConfigSpec` corrects such a value to the default of the key.
 pub fn parse_config(text: &str) -> Config {
+    parse_config_checked(text).0
+}
+
+/// The values of a config file, and whether the file holds a value that was corrected: a known key
+/// whose value is no integer or is outside its range. A missing key is not a correction, and nor is
+/// a minimum above the maximum (the Java mod keeps it too). NeoForge's `ModConfigSpec` writes the
+/// corrected file back, so the module does the same once when this answers true.
+pub fn parse_config_checked(text: &str) -> (Config, bool) {
     let mut config = Config::DEFAULT;
+    let mut corrected = false;
     for line in text.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
@@ -303,27 +312,32 @@ pub fn parse_config(text: &str) -> Config {
         let Some((key, value)) = line.split_once('=') else {
             continue;
         };
+        let key = key.trim();
+        if ![KEY_MIN_DISTANCE, KEY_MAX_DISTANCE, KEY_MAX_POINTS].contains(&key) {
+            continue;
+        }
         // A comment may follow the value on the same line.
         let value = value.split('#').next().unwrap_or("").trim();
-        let Ok(value) = value.parse::<i32>() else {
+        let Some(value) = value.parse::<i32>().ok().filter(|value| in_range(key, *value)) else {
+            corrected = true;
             continue;
         };
-        match key.trim() {
-            KEY_MIN_DISTANCE if in_distance_range(value) => config.min_distance = value,
-            KEY_MAX_DISTANCE if in_distance_range(value) => config.max_distance = value,
-            KEY_MAX_POINTS if in_points_range(value) => config.max_amulet_points = value,
-            _ => {}
+        match key {
+            KEY_MIN_DISTANCE => config.min_distance = value,
+            KEY_MAX_DISTANCE => config.max_distance = value,
+            _ => config.max_amulet_points = value,
         }
     }
-    config
+    (config, corrected)
 }
 
-fn in_distance_range(value: i32) -> bool {
-    (Config::MIN_DISTANCE..=Config::MAX_DISTANCE).contains(&value)
-}
-
-fn in_points_range(value: i32) -> bool {
-    (Config::MIN_AMULET_POINTS..=Config::MAX_AMULET_POINTS).contains(&value)
+/// True when `value` is inside the range of the config key `key`.
+fn in_range(key: &str, value: i32) -> bool {
+    if key == KEY_MAX_POINTS {
+        (Config::MIN_AMULET_POINTS..=Config::MAX_AMULET_POINTS).contains(&value)
+    } else {
+        (Config::MIN_DISTANCE..=Config::MAX_DISTANCE).contains(&value)
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -428,28 +442,55 @@ pub fn step(config: Config, field: Field, raise: bool) -> Config {
 /// The id of the screen that gets the button (`NativeScreenView.id`).
 pub const CREATE_SCREEN: &str = "world_create";
 
-/// The name of the mod setting that keeps the choice, in the mod's data folder.
+/// The ids of the screens that belong to one Create New World session: the screen itself and the two
+/// editors it opens from the World tab (`NativeScreenView.id`, native-mods.md API 326). The choice of
+/// the button stays while the player moves between them.
+pub fn is_create_screen(id: &str) -> bool {
+    matches!(id, "world_create" | "world_create_flat" | "world_create_buffet")
+}
+
+/// The name of the mod setting that keeps the choice, in the mod's data folder. It is the channel
+/// to the server, which reads it when it opens the new world. Each new Create New World screen
+/// writes `true` into it first.
 pub const CHOICE_SETTING: &str = "balanced_hardcore";
 
-/// The width of the button in GUI pixels. The Java button is 210 wide (CreateWorldGameTabMixin.java:41).
+/// The width of the button in GUI pixels. The Java button is 210 wide (CreateWorldGameTabMixin.java:41),
+/// as wide as the buttons of the Game tab.
 pub const BUTTON_WIDTH: f32 = 210.0;
 
 /// The height of the button (CreateWorldGameTabMixin.java:41).
 pub const BUTTON_HEIGHT: f32 = 20.0;
 
-/// The gap between the button and the corner of the window.
-pub const BUTTON_MARGIN: f32 = 4.0;
+/// The index of the Game tab in the tab bar (Game 0, World 1, More 2).
+pub const GAME_TAB: usize = 0;
 
-/// The button in the top right corner of the window: `window` is `[x, y, width, height]`.
-/// The Game tab cannot be reached (GAPS S2), so the button floats.
-pub fn button_rect(window: [f32; 4]) -> [f32; 4] {
-    let [x, y, width, _] = window;
-    [
-        x + width - BUTTON_WIDTH - BUTTON_MARGIN,
-        y + BUTTON_MARGIN,
-        BUTTON_WIDTH,
-        BUTTON_HEIGHT,
-    ]
+// The layout of the Game tab in Horizon's title screen (Nightly fdc87aec, `title/create_world.rs`,
+// `grid`): the tab bar is 24 high, the footer 33, and the tab's grid is 210 wide and 117 high. It
+// sits at half of the free width and one sixth of the free height. Name box, Game Mode, Difficulty
+// and Allow Commands are in the grid; Allow Commands ends at its bottom edge.
+const TAB_BAR: f32 = 24.0;
+const FOOTER: f32 = 33.0;
+const GAME_GRID_HEIGHT: f32 = 117.0;
+/// The gap between two rows of the tab (a 20 high button and 8 pixels, `gy + 41`, `+ 69`, `+ 97`).
+const ROW_GAP: f32 = 8.0;
+
+/// The button of the Game tab: 210 by 20, in the next row under Allow Commands, as the Java button
+/// is (CreateWorldGameTabMixin.java:50-52, one more row of the tab's grid). `window` is `[x, y,
+/// width, height]` of the screen in GUI pixels and `tab` the open tab. None when the open tab is
+/// not the Game tab, and when the window is so low that the row would reach the footer's buttons.
+/// The arithmetic is the game's own (`ceil` of the size, then `trunc`), so the button lines up
+/// with the buttons above it.
+pub fn button_rect(window: [f32; 4], tab: usize) -> Option<[f32; 4]> {
+    if tab != GAME_TAB {
+        return None;
+    }
+    let [x, y, width, height] = window;
+    let (width, height) = (width.ceil(), height.ceil());
+    let area = height - TAB_BAR - FOOTER;
+    let grid_x = ((width - BUTTON_WIDTH) * 0.5).trunc();
+    let grid_y = TAB_BAR + ((area - GAME_GRID_HEIGHT) * 0.166_666_67).trunc();
+    let top = grid_y + GAME_GRID_HEIGHT + ROW_GAP;
+    (top + BUTTON_HEIGHT <= height - FOOTER).then_some([x + grid_x, y + top, BUTTON_WIDTH, BUTTON_HEIGHT])
 }
 
 /// True when the pointer is inside the rectangle.
@@ -716,14 +757,103 @@ mod tests {
     }
 
     #[test]
-    fn the_button_sits_in_the_top_right_corner() {
-        let rect = button_rect([0.0, 0.0, 427.0, 240.0]);
-        assert_eq!(rect, [213.0, 4.0, 210.0, 20.0]);
-        assert!(inside(rect, [300.0, 10.0]));
-        assert!(inside(rect, [213.0, 4.0]));
-        assert!(!inside(rect, [423.0, 10.0]));
-        assert!(!inside(rect, [300.0, 24.0]));
-        assert!(!inside(rect, [212.0, 10.0]));
+    fn the_button_sits_under_allow_commands_in_the_game_tab() {
+        // GUI 427 x 240 (2560 x 1440 at the default scale): grid at (108, 35), Allow Commands at y
+        // 132 to 152 (gy + 97), so the new row is at y 160, 8 under it.
+        let rect = button_rect([0.0, 0.0, 427.0, 240.0], GAME_TAB).expect("room for the row");
+        assert_eq!(rect, [108.0, 160.0, 210.0, 20.0]);
+        // As wide as the tab's buttons, and on their column.
+        assert_eq!(rect[2], 210.0);
+        assert_eq!(rect[0], ((427.0_f32.ceil() - 210.0) * 0.5).trunc());
+        assert!(inside(rect, [200.0, 170.0]));
+        assert!(inside(rect, [108.0, 160.0]));
+        assert!(!inside(rect, [318.0, 170.0]));
+        assert!(!inside(rect, [200.0, 180.0]));
+        assert!(!inside(rect, [107.0, 170.0]));
+        // GUI 854 x 480 (GUI scale 3): the free height is 480 - 57 = 423, the grid starts at
+        // 24 + trunc((423 - 117) / 6) = 75, so the row is at 75 + 125 = 200.
+        let big = button_rect([0.0, 0.0, 854.0, 480.0], GAME_TAB).expect("room for the row");
+        assert_eq!(big, [322.0, 200.0, 210.0, 20.0]);
+    }
+
+    #[test]
+    fn the_button_is_only_in_the_game_tab() {
+        let window = [0.0, 0.0, 427.0, 240.0];
+        assert!(button_rect(window, 0).is_some());
+        assert_eq!(button_rect(window, 1), None);
+        assert_eq!(button_rect(window, 2), None);
+        assert_eq!(button_rect(window, 9), None);
+    }
+
+    #[test]
+    fn the_button_never_reaches_the_footer() {
+        // The footer's buttons start 33 pixels above the bottom. Find the lowest window that fits
+        // the row and check that the button ends above the footer for every height from there.
+        for height in 150..1000 {
+            let height = height as f32;
+            match button_rect([0.0, 0.0, 427.0, height], GAME_TAB) {
+                Some(rect) => assert!(rect[1] + rect[3] <= height - 33.0, "height {height}"),
+                None => assert!(height < 260.0, "height {height} has room but no button"),
+            }
+        }
+        // The game keeps the GUI at 320 x 240 or more (the highest GUI scale of a window stops
+        // there), and the row fits at that size.
+        assert!(button_rect([0.0, 0.0, 320.0, 240.0], GAME_TAB).is_some());
+        // Only a window under 240 pixels high has no room: the button is left out, so that it never
+        // lies over the footer's Create New World and Cancel.
+        assert_eq!(button_rect([0.0, 0.0, 320.0, 180.0], GAME_TAB), None);
+    }
+
+    #[test]
+    fn the_create_session_has_three_screens() {
+        assert!(is_create_screen("world_create"));
+        assert!(is_create_screen("world_create_flat"));
+        assert!(is_create_screen("world_create_buffet"));
+        assert!(!is_create_screen("world_select"));
+        assert!(!is_create_screen("title"));
+        assert!(!is_create_screen("paused"));
+        assert_eq!(CREATE_SCREEN, "world_create");
+    }
+
+    #[test]
+    fn a_corrected_config_value_is_told() {
+        // A value outside the range, and a value that is no integer, are corrections.
+        let (config, corrected) = parse_config_checked("minDistanceFromBed = 3000\n");
+        assert_eq!(config, Config::DEFAULT);
+        assert!(corrected);
+        assert!(parse_config_checked("maxDistanceFromBed = 999999").1);
+        assert!(parse_config_checked("maxAmuletPoints = 99").1);
+        assert!(parse_config_checked("maxAmuletPoints = 0").1);
+        assert!(parse_config_checked("minDistanceFromBed = abc").1);
+        assert!(parse_config_checked("minDistanceFromBed = 5000.0").1);
+        // A good value keeps its place and is no correction.
+        let (config, corrected) = parse_config_checked(&config_text(Config::DEFAULT));
+        assert_eq!(config, Config::DEFAULT);
+        assert!(!corrected);
+        let good = Config { min_distance: 10_000, max_distance: 150_000, max_amulet_points: 16 };
+        assert_eq!(parse_config_checked(&config_text(good)), (good, false));
+        // Not corrections: an empty file, a key that is missing, a line of another key, a comment
+        // after the value, and a minimum above the maximum (both in range, as in Java).
+        assert!(!parse_config_checked("").1);
+        assert!(!parse_config_checked("maxAmuletPoints = 7\n").1);
+        assert!(!parse_config_checked("other = 12345678\n[section]\nnoequals\n").1);
+        assert!(!parse_config_checked("maxDistanceFromBed = 7000 # a comment").1);
+        assert!(!parse_config_checked("minDistanceFromBed = 200000\nmaxDistanceFromBed = 5000\n").1);
+    }
+
+    #[test]
+    fn the_corrected_text_is_clean() {
+        // The text the module writes back parses to the same values and asks for no second write.
+        let text = "minDistanceFromBed = 3000\nmaxDistanceFromBed = 999999\nmaxAmuletPoints = 99\n";
+        let (config, corrected) = parse_config_checked(text);
+        assert!(corrected);
+        let written = config_text(config);
+        assert_eq!(parse_config_checked(&written), (Config::DEFAULT, false));
+        // A good key beside a bad one is kept in the corrected file.
+        let (config, _) = parse_config_checked("minDistanceFromBed = 12000\nmaxAmuletPoints = 99\n");
+        assert_eq!(config.min_distance, 12_000);
+        assert_eq!(config.max_amulet_points, 5);
+        assert_eq!(parse_config_checked(&config_text(config)), (config, false));
     }
 
     #[test]

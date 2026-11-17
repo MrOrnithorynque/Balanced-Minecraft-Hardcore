@@ -1,6 +1,6 @@
 # Game checks 1: settings and journey in the real game
 
-Date: 2026-11-17. Branch `horizon-26.3`. Game: the built `horizon-client` of
+Date: 2026-11-17. Branch `horizon-26.3`. The three settings defects of the last table are fixed: see `settings.md`, "Fix round 1". Game: the built `horizon-client` of
 `~/Library/Caches/bmh-horizon/horizon-mods/native/target/cargo/fast` (offscreen, no audio, window 2560 x 1440, GUI
 scale auto = 6, GUI size 427 x 240). Scratch home and worlds only. I changed no code of the mod.
 
@@ -148,11 +148,11 @@ cinematic does start, in black after one frame of the new place, with no fade. T
 
 | Area | Severity | What | Expected | Evidence | Reproduce |
 |---|---|---|---|---|---|
-| settings | major | The Create New World button lies over the World and More tabs at GUI width 427 (default scale of 2560 x 1440). A click on the More tab flips the button; the More tab cannot be opened with the mouse. | The button must not hide a tab (the Java button sits in the Game tab). | `create-world-default-scale-button-over-tabs.png`, script k2 | `bash horizon/tools/test-slice.sh --only k` |
-| settings | minor | The OFF choice stays for the next Create New World screen. | The Java button starts ON on each new screen. | script k5, second Create screen read "OFF" | `bash horizon/tools/test-slice.sh --only k` |
+| settings | major | FIXED 2026-11-17 (settings fix round 1). The Create New World button lies over the World and More tabs at GUI width 427 (default scale of 2560 x 1440). A click on the More tab flips the button; the More tab cannot be opened with the mouse. | The button must not hide a tab (the Java button sits in the Game tab). | `create-world-default-scale-button-over-tabs.png`, script k2. Now: the button sits in the Game tab under Allow Commands, and only there (`settings-fix-1-shots/`, k1, k2, k2b pass). | `bash horizon/tools/test-slice.sh --only k` |
+| settings | minor | FIXED 2026-11-17 (settings fix round 1). The OFF choice stays for the next Create New World screen. | The Java button starts ON on each new screen. | script k5, second Create screen read "OFF". Now: k5, k5c and k5d pass; `settings-fix-1-shots/game-tab-gui854-new-screen-starts-on.png`. | `bash horizon/tools/test-slice.sh --only k` |
 | respawn | major | With the game rule `immediate_respawn` true, a death gives the vanilla respawn at the point and a WARN: no exile, no journey. | The exile happens as with the death screen. | `immediate-respawn-no-exile-no-journey.png`, log WARN, script n5 | `bash horizon/tools/test-slice.sh --only n` |
 | journey | minor | After `horizon-ctl respawn` (and so the gamepad path) one frame of the arrival world shows before the black. | The cinematic starts in black. | `journey-ctl-respawn-flash-of-arrival-world.png` | `horizon-ctl command "kill @s"`, wait for the landing line, `horizon-ctl respawn`, then `screenshot` every 0.1 s |
-| settings | minor | A hand edited config value out of range is not written back (the page shows the defaults, the file keeps the bad value). | NeoForge corrects the file. | check 4 | `bash horizon/tools/test-slice.sh --only m` prints the file |
+| settings | minor | FIXED 2026-11-17 (settings fix round 1). A hand edited config value out of range is not written back (the page shows the defaults, the file keeps the bad value). | NeoForge corrects the file. | check 4. Now: m3 is a real check and passes (the file holds 5000, 60000, 5 after the start, one rewrite line in the log). | `bash horizon/tools/test-slice.sh --only m` |
 
 ## Settled
 
@@ -187,7 +187,8 @@ cinematic does start, in black after one frame of the new place, with no fade. T
 ## Scenarios added to `test-slice.sh`
 
 k0 to k6 (the button and two worlds), l0 to l7 (page, limits, file, next death), n1 to n5 (message rule, held input, immediate
-respawn), m1 and m2 (rule and config across a restart). Expected failing now: k2, k5, n5 (mod defects).
+respawn), m1 and m2 (rule and config across a restart). Expected failing now: n5 (a mod defect). k2 and k5 pass since
+settings fix round 1, and m3 is a real check there (k2b, k5c, k5d are new).
 
 ## Full run of `test-slice.sh`
 

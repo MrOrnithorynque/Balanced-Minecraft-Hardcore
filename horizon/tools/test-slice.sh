@@ -769,8 +769,22 @@ fi
 # ---- k. The Create New World button ------------------------------------------------------------------
 # game-checks-1 (2026-11-17). The button is drawn by the mod, not a widget: "ui" does not list it. Its
 # state is the mod setting file (CHOICE_FILE), and a new world copies it into <world>/bmh/rules.txt.
+# Settings fix round 1 (2026-11-17): the button sits in the Game tab, in the row under Allow Commands, as
+# wide as the tab's buttons. Its place is read from the bounds of the Allow Commands widget of "ui".
 CHOICE_FILE="$GAMEDIR/horizon-mods/.horizon-mod-data/bmh/balanced_hardcore"
 choice_now() { cat "$CHOICE_FILE" 2>/dev/null | tr -d ' \n'; }
+# button_xy: the middle of the button, "X Y" in GUI pixels: the middle of Allow Commands, then the
+# button's own row (its height 20 and the row gap 8, then half of the 20 high button). Empty when the
+# open tab is not the Game tab.
+button_xy() {
+    jget "$(ctl ui)" '" ".join(str(int(v)) for v in (lambda b: (b[0] + b[2] / 2, b[1] + b[3] + 8 + 10))([w["bounds"] for w in d["widgets"] if w["id"]=="allow-commands"][0]))'
+}
+# flip_button: one click on the button of the Game tab.
+flip_button() {
+    xy="$(button_xy)"
+    ctl click-at "${xy%% *}" "${xy##* }" >/dev/null
+    sleep 1
+}
 
 # leave_world: pause, Save and Quit to Title, wait for the title screen.
 leave_world() {
@@ -813,23 +827,20 @@ if wanted k; then
     else
         fail k0 "the Create New World screen did not open: $(ctl ui | head -c 300)"
     fi
-    bx=$((gw - 110))
-    ctl click-at "$bx" 14 >/dev/null
-    sleep 1
+    flip_button
     c1="$(choice_now)"
-    ctl click-at "$bx" 14 >/dev/null
-    sleep 1
+    flip_button
     c2="$(choice_now)"
     if [ "$c1" = false ] && [ "$c2" = true ]; then
-        pass k1 "a click on the button flips the choice: first click '$c1', second click '$c2' (file $CHOICE_FILE)"
+        pass k1 "a click on the button (row under Allow Commands, '$(button_xy)') flips the choice: first click '$c1', second click '$c2' (file $CHOICE_FILE)"
     else
-        fail k1 "the clicks did not flip the choice: first '$c1', second '$c2'"
+        fail k1 "the clicks did not flip the choice: first '$c1', second '$c2' (button at '$(button_xy)')"
     fi
-    # The button is 210 wide at the top right of the whole screen. At the default GUI scale of a
-    # 2560 x 1440 window (GUI width 427) it covers the World tab (152 to 276) and the More tab (276
-    # to 400). A click on the middle of the More tab must open that tab, not flip the button.
+    # The button is 210 wide in the Game tab, under Allow Commands. It never lies over a tab: a click on
+    # the middle of the More tab must open that tab and leave the choice alone.
     mb="$(jget "$(ctl ui)" '[w["bounds"] for w in d["widgets"] if w["id"]=="more"][0]')"
     mx="$(jget "$(ctl ui)" 'int([w["bounds"] for w in d["widgets"] if w["id"]=="more"][0][0] + [w["bounds"] for w in d["widgets"] if w["id"]=="more"][0][2] / 2)')"
+    bxy="$(button_xy)"
     ctl click-at "$mx" 12 >/dev/null
     sleep 1
     c3="$(choice_now)"
@@ -840,8 +851,26 @@ if wanted k; then
     else
         fail k2 "a click on the middle of the More tab ($mx, 12; tab bounds $mb) flipped the button ('$c2' to '$c3'): the button lies over the tab"
     fi
+    # The button shows in the Game tab only. On the More tab (open now) and on the World tab, a click at
+    # the place the button has in the Game tab must not flip it.
+    more_open="$(jget "$(ctl ui)" '[w["selected"] for w in d["widgets"] if w["id"]=="more"][0]')"
+    ctl click-at "${bxy%% *}" "${bxy##* }" >/dev/null
+    sleep 1
+    c4="$(choice_now)"
+    ctl click world >/dev/null
+    sleep 1
+    ctl click-at "${bxy%% *}" "${bxy##* }" >/dev/null
+    sleep 1
+    c4w="$(choice_now)"
+    if [ "$more_open" = True ] && [ -n "$bxy" ] && [ "$c4" = "$c2" ] && [ "$c4w" = "$c2" ]; then
+        pass k2b "no button on the More and World tabs: a click at the Game tab's place ($bxy) leaves the choice at '$c2'"
+    else
+        fail k2b "a click at the button's place ($bxy) changed the choice on another tab: More open '$more_open', '$c2' to '$c4' (More), '$c4w' (World)"
+    fi
+    ctl click game >/dev/null
+    sleep 1
     # Back to ON (the state of a Java world), then make the ON world.
-    [ "$(choice_now)" = true ] || ctl click-at "$bx" 14 >/dev/null
+    [ "$(choice_now)" = true ] || flip_button
     sleep 1
     make_world bmhon
     f="$GAMEDIR/saves/bmhon/bmh/rules.txt"
@@ -852,8 +881,7 @@ if wanted k; then
     fi
     leave_world
     open_create_screen
-    ctl click-at "$bx" 14 >/dev/null
-    sleep 1
+    flip_button
     make_world bmhoff
     f="$GAMEDIR/saves/bmhoff/bmh/rules.txt"
     if [ -f "$f" ] && [ "$(grep -Ec '^[a-z_]+ = false$' "$f")" -eq 6 ]; then
@@ -863,16 +891,52 @@ if wanted k; then
     fi
     leave_world
     # The Java button starts ON on every new Create New World screen: its state is the rules of the
-    # screen. Here the choice is a setting that stays OFF for the next world. A player who forgets it
-    # makes a world with no BMH rule.
+    # screen. The choice of the last world (OFF) must not come back. The first click then turns it OFF,
+    # which also shows that the button's own state, not only the file, started ON.
     open_create_screen
     c5="$(choice_now)"
-    if [ "$c5" = true ]; then
-        pass k5 "a new Create New World screen starts ON (as the Java button does)"
+    flip_button
+    c5a="$(choice_now)"
+    flip_button
+    c5b="$(choice_now)"
+    if [ "$c5" = true ] && [ "$c5a" = false ] && [ "$c5b" = true ]; then
+        pass k5 "a new Create New World screen starts ON (as the Java button does): file '$c5', first click '$c5a', second '$c5b'"
     else
-        fail k5 "a new Create New World screen starts with the last choice '$c5' (the Java button starts ON each time)"
+        fail k5 "a new Create New World screen: file '$c5' (the Java button starts ON each time), first click '$c5a', second '$c5b'"
     fi
-    [ "$c5" = true ] || ctl click-at "$bx" 14 >/dev/null
+    # Cancel and a new screen: OFF is forgotten again.
+    flip_button
+    c5o="$(choice_now)"
+    ctl click cancel >/dev/null
+    sleep 1
+    ctl click create-new-world >/dev/null
+    sleep 2
+    c5c="$(choice_now)"
+    if [ "$c5o" = false ] && [ "$c5c" = true ]; then
+        pass k5c "Cancel with the button OFF, then a new Create New World screen: ON again"
+    else
+        fail k5c "Cancel with the button '$c5o', then a new Create New World screen: '$c5c' (expected ON)"
+    fi
+    # The editor of a Superflat world is part of the same screen: the choice stays while the player
+    # opens it and comes back.
+    flip_button
+    c5f="$(choice_now)"
+    ctl click world >/dev/null
+    sleep 0.5
+    ctl click world-type >/dev/null
+    sleep 0.5
+    ctl click customize >/dev/null
+    sleep 1
+    ctl click done >/dev/null
+    sleep 1
+    ctl click game >/dev/null
+    sleep 1
+    c5d="$(choice_now)"
+    if [ "$c5f" = false ] && [ "$c5d" = false ]; then
+        pass k5d "the Superflat editor and back to the Game tab keep the choice ($c5d)"
+    else
+        fail k5d "the Superflat editor and back: before '$c5f', after '$c5d' (expected OFF, OFF)"
+    fi
     ctl click cancel >/dev/null
     sleep 1
     ctl click back >/dev/null
@@ -1118,8 +1182,8 @@ fi
 
 # ---- m. Rules and config across a restart --------------------------------------------------------------
 # A rule set to false must survive a quit. A hand edited config value outside its range gives the default
-# of its key (NeoForge's ModConfigSpec corrects it the same way). Runs the game twice, so it runs just
-# before j.
+# of its key and the file is written back once (NeoForge's ModConfigSpec corrects it the same way). Runs
+# the game twice, so it runs just before j.
 if wanted m; then
     echo "--- m. a rule at false and a config out of range, then a quit and a second launch"
     ensure_point
@@ -1164,7 +1228,17 @@ TOML
         else
             fail m2 "no respawn: $DR_NOTE"
         fi
-        echo "test-slice.sh: INFO m3: the file after the start: $(grep -E '^[a-zA-Z]+ *=' "$GAMEDIR/config/bmh-common.toml" | tr '\n' ' ') (the mod does not rewrite it)"
+        # NeoForge's ModConfigSpec writes the corrected file back. The mod does the same, once: each key
+        # holds its default, the Java comments are there, and the log tells one rewrite.
+        cfg_after="$(grep -E '^[a-zA-Z]+ *=' "$GAMEDIR/config/bmh-common.toml" | tr -d ' ' | tr '\n' ' ')"
+        cfg_rewrites="$(count_log 'config file held a value outside its range')"
+        cfg_ranges="$(grep -c '^#Range' "$GAMEDIR/config/bmh-common.toml" 2>/dev/null || true)"
+        if [ "$(cfgval minDistanceFromBed)" = 5000 ] && [ "$(cfgval maxDistanceFromBed)" = 60000 ] \
+            && [ "$(cfgval maxAmuletPoints)" = 5 ] && [ "${cfg_ranges:-0}" -eq 3 ] && [ "$cfg_rewrites" -eq 1 ]; then
+            pass m3 "the out of range file is written back once, with the defaults: $cfg_after"
+        else
+            fail m3 "the out of range file after the start: $cfg_after, $cfg_ranges '#Range' lines (expected 3), $cfg_rewrites rewrite lines in the log (expected 1)"
+        fi
         if [ -f "$scratch/bmh-common.toml.before" ]; then
             cp "$scratch/bmh-common.toml.before" "$GAMEDIR/config/bmh-common.toml"
             sleep 2

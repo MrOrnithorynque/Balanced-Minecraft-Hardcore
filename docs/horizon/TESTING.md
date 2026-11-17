@@ -84,10 +84,13 @@ Facts the test uses, and where they come from:
 | i2 | After i1: the chat has "You have no home bed or charged respawn anchor, or it was obstructed". | The player is told, as vanilla's `NO_RESPAWN_BLOCK_AVAILABLE` does. | That the point is forgotten (it is not: GAPS.md 3.3 C2). |
 | j1 | `/spawnpoint`, `/kill`, `horizon-ctl quit` while dead, a second launch on the same world: the death screen, then a new `Landing spot ready` line. | A player dead when the game closes gets a search when the world opens (review semantics-1). Horizon kills such a player once more at login. | A relog on a dedicated server (no server in these tests). |
 | j2 | After j1, `horizon-ctl respawn`: about 23333 blocks from the point. | The exile happens after the restart. | The distance of a death with Eternal Items across a restart. |
-| k0, k1 | Pause, Save and Quit to Title, Singleplayer, Create New World. Clicks the mod's button at the top right (GUI width minus 110, 14; the button is drawn by the mod, `ui` does not list it) twice and reads the mod setting file `horizon-mods/.horizon-mod-data/bmh/balanced_hardcore`. | The button flips ON and OFF and stores the choice. | The look (see `game-checks-1-shots/`). |
-| k2 | A click on the middle of the More tab must open the tab and leave the button alone. | Fails while the button lies over the tabs (default GUI scale of a 2560 x 1440 window). A mod defect. | Other GUI scales. |
+| k0, k1 | Pause, Save and Quit to Title, Singleplayer, Create New World. Clicks the mod's button twice and reads the mod setting file `horizon-mods/.horizon-mod-data/bmh/balanced_hardcore`. The button is drawn by the mod and `ui` does not list it, so the script finds its place from the Allow Commands widget: the middle of that widget, plus 28 pixels down (the 20 high button and the 8 pixel row gap). | The button flips ON and OFF in the Game tab, in the row under Allow Commands, and stores the choice. | The look (see `settings-fix-1-shots/`). |
+| k2 | A click on the middle of the More tab must open the tab and leave the choice alone. | The button does not lie over a tab at the default GUI scale of a 2560 x 1440 window (GUI width 427). | Other GUI scales (width 854 was seen by hand, `settings-fix-1-shots/`). |
+| k2b | On the More tab and on the World tab, a click at the place the button has in the Game tab leaves the choice alone. | The button is drawn and clickable in the Game tab only. | The look of the other tabs (see `settings-fix-1-shots/`). |
 | k3, k4 | Makes a world with the button ON, then one with it OFF: `rules.txt` holds six `true` and six `false` lines. | The choice reaches the new world. | A Java world import. |
-| k5 | A new Create New World screen must start ON, as the Java button does. | Fails while the OFF choice stays for the next world. A mod defect (or a decision: see `game-checks-1.md`). | |
+| k5 | After a world made with OFF, a new Create New World screen starts ON, as the Java button does: the choice file reads `true`, the first click turns it OFF and the second ON (so the button's own state started ON, not only the file). | Each new screen starts ON. | The picture of the button (see `settings-fix-1-shots/game-tab-gui854-new-screen-starts-on.png`). |
+| k5c | Button OFF, Cancel, Create New World again: ON. | A screen that was left starts ON again. | |
+| k5d | Button OFF, World tab, World Type to Superflat, Customize, Done, Game tab: the choice is still OFF. | The Superflat editor is part of the same screen and keeps the choice. | The Buffet editor (same code path, ids `world_create_flat` and `world_create_buffet`). |
 | k6 | `horizon-ctl open` opens the test world again. | Cleanup. | |
 | l0, l1 | Options > Mods has the BMH row. Its settings page has six buttons with the ids `minimum-respawn-distance`, `maximum-respawn-distance` and `amulet-points`, each with a `-2` twin that lowers. | The page and the labels. | That the labels fit at every GUI scale. |
 | l2 to l5 | Clicks on every button: 5000 steps, one step for the points, min not above max, ranges 5000 to 200000 and 1 to 16, read from `config/bmh-common.toml`. | The stepper and its limits. | The error lines of the Java screen (there are none here). |
@@ -98,7 +101,8 @@ Facts the test uses, and where they come from:
 | n4 | `move forward 1` after the journey: the position changes. | Input comes back. | |
 | n5 | `gamerule immediate_respawn true`, `/kill`: the exile must still happen (23333 blocks) and the log has no new `WARN` line of the mod. | Fails now: the player respawns at the point with a `WARN` line "The landing search ... did not end". A mod defect. | The cinematic after an immediate respawn. |
 | m1 | A rule at false, `quit`, a second launch: the rule is still false. | Rules survive a restart. | |
-| m2 | A hand edited config (3000, 999999, 99) before the second launch: a death uses the defaults (23333 blocks). A line `INFO m3` prints the file: the mod does not rewrite it. | Out of range values give the key's default. | |
+| m2 | A hand edited config (3000, 999999, 99) before the second launch: a death uses the defaults (23333 blocks). | Out of range values give the key's default. | |
+| m3 | After m2: the file holds 5000, 60000 and 5, still has its three `#Range` lines, and the log has exactly one line "The config file held a value outside its range". | The mod writes the corrected file back once, as NeoForge's config does. | A key that is missing from the file (the mod leaves it alone, as before). |
 
 ## SKIPs the test has
 
@@ -134,7 +138,7 @@ screen, the frame cost. See the next section.
 | settings 1 | Make a Java world with BMH, run `/gamerule bmh:random_death_spawn_point false`, open it in Horizon, run `/bmh rule`. Check `rules.txt` and the log line `World rules created: java world = true`. |
 | settings 3 | `/bmh rule` completes for an operator and not under level 2. The answer reads "Game rule bmh:x has been updated to: false". |
 | settings 4 | Set a rule, restart the game and the world: the value stays. |
-| settings 6, 7 | The Create World button: top right, not under the tab bar at a large GUI scale, flips ON/OFF, a new world made while OFF has six `false` lines. A click does not reach a widget under it. |
+| settings 6, 7 | The Create World button: in the Game tab under Allow Commands, flips ON/OFF, a new world made while OFF has six `false` lines (k3, k4). The look is in `log/settings-fix-1-shots/`. The button is not greyed in Hardcore and does not follow the Game Rules screen (settings.md, "Differences"). |
 | settings 8 | Options > Mods > BMH: six buttons, the labels fit, a click changes `config/bmh-common.toml`. |
 | settings 9, 10 | Edit `config/bmh-common.toml` by hand: the next death uses the new distance within a second. The config loads in a dedicated server too. |
 | journey 1, 3 | Die in the world, click Respawn: fade to black, no loading screen or world before the dissolve. Click at the button edges, Tab then Enter, Title Screen then No or Escape. |
