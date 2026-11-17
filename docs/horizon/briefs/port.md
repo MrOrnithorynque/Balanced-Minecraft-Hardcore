@@ -112,8 +112,13 @@ minutes, and do not run it more often than you need. Compile early: wire one fun
 No other cargo command, no gradle, no download, no git add, commit, stash or branch change. No sub-agents, no
 background jobs. The shell is zsh: quote globs, never `echo ====`, `cd` only in a subshell.
 
-The game itself cannot run on this machine yet (its files are not prepared). So a compile and the unit tests are
-all the proof you can give. Say exactly that in your report: never write that a feature "works".
+The game runs on this machine since 2026-11-17 (`docs/horizon/TESTING.md`, `docs/horizon/log/first-run.md`).
+Only an agent whose prompt gives it "game rights" may build the game and run it: two builds at once would swap
+the binary under a running test. Without game rights, a compile and the unit tests are all the proof you can
+give: say exactly that in your report, and never write that a feature "works". With game rights: run the
+scenarios of `horizon/tools/test-slice.sh` that cover your area (`--only`), add a scenario for what you built or
+fixed, always offscreen and with no game left running, and cite the log line, the reply or the screenshot for
+each claim.
 
 ## Your structured result
 

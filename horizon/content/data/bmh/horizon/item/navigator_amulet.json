@@ -1,11 +1,5 @@
 {
   "template": "minecraft:compass",
   "max_stack_size": 1,
-  "rarity": "common",
-  "components": {
-    "minecraft:lodestone_tracker": {
-      "target": { "dimension": "minecraft:overworld", "pos": [0, 64, -30000000] },
-      "tracked": false
-    }
-  }
+  "rarity": "common"
 }
