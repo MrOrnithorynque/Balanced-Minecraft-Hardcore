@@ -289,12 +289,19 @@ The preparer's refusal is understood (read on 2026-11-12, no change made):
 `/Applications/Horizon.app` is still refused by Gatekeeper. Only the launcher needs it; the build from source does
 not.
 
-The tools of the run live in the first session's scratchpad, which a restart of the Mac erases:
-`BMH_HORIZON_CACHE=<scratchpad>/src` (the `horizon-mods` clone with `native/target`: the Nightly's tree, cargo's
-cache, the built game), `<scratchpad>/src/horizon` (a clone of Horizon `main`, to read), and
-`<scratchpad>/target-tools/debug/cargo-horizon-mod` (the content checker, `BMH_HORIZON_MOD_BIN`). To make them
-again: `sh horizon/tools/check.sh` clones `horizon-mods` and builds on first use (minutes);
-`cargo build -p cargo-horizon-mod` in a clone of `https://github.com/horizon-rust/horizon` gives the checker.
+State on 2026-11-17. The week's usage is new (2 % and 3 %), and the owner said "continue". A restart of the Mac
+erased the first session's scratchpad, as expected.
+
+- The tools now live in the default cache `~/Library/Caches/bmh-horizon`, which a restart keeps: `horizon-mods`
+  (Horizon's registry clone with `native/target`: the Nightly's tree under `horizon/<commit>`, cargo's cache, the
+  built game under `cargo/fast`), `target-tools/debug/cargo-horizon-mod` (the content checker; set
+  `BMH_HORIZON_MOD_BIN` to it), `minecraft-server-26.3/server.jar`, and the logs. `sh horizon/tools/check.sh`
+  makes the first two again when they are missing; `cargo build --locked -p cargo-horizon-mod` in the Nightly's
+  tree, with `CARGO_TARGET_DIR=~/Library/Caches/bmh-horizon/target-tools`, makes the checker.
+- Trap: when the app starts the session again, this worktree is back on the session's own branch
+  (`claude/horizon-minecraft-mod-port-0812eb`, the Java `main`), with `horizon/` showing as untracked build
+  folders. Nothing is lost: run `git switch horizon-26.3`.
+- `docs/horizon/briefs/port.md` names the cache paths now.
 
 Rules of the run that the owner gave: stop cleanly when the 5-hour usage window reaches 60 %; stop when the
 weekly usage passes 40 % (all models) and 50 % (Fable): on 2026-11-12 00:13 the week was at 38 % and 28 %, so

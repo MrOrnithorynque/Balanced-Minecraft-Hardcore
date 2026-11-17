@@ -28,12 +28,12 @@ outside R, except through the two build scripts below.
 
 Other paths (absolute, read only):
 
-- HN = /private/tmp/claude-501/-Users-louisobenicherousse-Projects-Balanced-Minecraft-Hardcore--claude-worktrees-busy-visvesvaraya-4dfefc/98064f78-7ec0-4895-a546-21e1425d1f47/scratchpad/src/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca
+- HN = /Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca
   Horizon's source at the Nightly the mod compiles against. Hook points are `native_<hook>` functions of `Game`,
   most in HN/crates/horizon-client/src/game/native_hooks.rs (large: search it, never read it whole), some in other
   HN/crates/horizon-client/src/game/native_*.rs files. The typed view of the same hooks and helpers (trait `Host`,
   events) is HN/crates/horizon-client/src/mod_api.rs. HN/docs/native-mods.md documents every hook and helper.
-- MODS = /private/tmp/claude-501/-Users-louisobenicherousse-Projects-Balanced-Minecraft-Hardcore--claude-worktrees-busy-visvesvaraya-4dfefc/98064f78-7ec0-4895-a546-21e1425d1f47/scratchpad/src/horizon-mods
+- MODS = /Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods
   Horizon's own native mods, real code to copy patterns from: MODS/native/smp (server logic, commands, storage),
   recipes and minimap (screens, HUD and world drawing), zoom, coords-hud, voicechat-server (mod messages).
 
@@ -104,7 +104,7 @@ them. Do not edit other content files: report what the content mod lacks.
 ## Gates (both must pass before you report "done")
 
     sh "$R/horizon/tools/test-logic.sh"
-    BMH_HORIZON_CACHE=/private/tmp/claude-501/-Users-louisobenicherousse-Projects-Balanced-Minecraft-Hardcore--claude-worktrees-busy-visvesvaraya-4dfefc/98064f78-7ec0-4895-a546-21e1425d1f47/scratchpad/src sh "$R/horizon/tools/check.sh"
+    BMH_HORIZON_CACHE=/Users/louisobenicherousse/Library/Caches/bmh-horizon sh "$R/horizon/tools/check.sh"
 
 The first runs the unit tests (seconds). The second compiles your worktree's bundle into Horizon; it waits for a
 lock that the other agents share, so a run can take a few minutes: run it in the foreground, with a timeout of ten
