@@ -47,3 +47,10 @@
   `minecraft:lodestone_tracker` with target dimension `minecraft:overworld`, pos [0, 64, -30000000], `tracked` false. The needle model
   (`assets/bmh/items/navigator_amulet.json`, vanilla `minecraft:compass`, target `lodestone`) then points north. Without it the needle spins.
 - Respawn area: do not log a failed arrival `playsound` or an already-held advancement as a warning when no other player is near (or make b4 count them separately).
+
+## Coordinator's note (2026-11-17)
+
+The two screenshots this log cites (`shots/creative.png`, `shots/page2.png`) are not on disk: the folder
+`~/Library/Caches/bmh-horizon/scratch/content-run/shots` is empty. So the claim "every texture shows" has no
+evidence that can be opened, and it does not count until a screenshot is kept. The game log of that run does show
+that the content loaded. The slice test gets a scenario that gives the nine items and keeps a screenshot.
