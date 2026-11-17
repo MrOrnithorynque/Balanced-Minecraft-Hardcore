@@ -36,6 +36,15 @@ You are the coordinator. Area agents write the code in their own worktrees. You 
 8. Update `docs/horizon/LOG.md` (a step with the commit, the test count and what is not proven) and `docs/horizon/HOOKS.md` if the agent wired a hook (its report names every change outside its files; read each one).
 9. Review (next section), then the fix round, then update LOG.md "Resume here".
 
+## In the game
+
+The game runs since 2026-11-17 (skill `horizon-build-test`). So a port is not done at the merge:
+
+- Give "game rights" to one agent at a time, in its prompt: only that agent runs `check.sh build`, `test-slice.sh` or the game. Two builds at once swap the binary under a running test.
+- Each area adds its scenario to `horizon/tools/test-slice.sh` (PASS and FAIL lines, never weakened) and its row to `docs/horizon/TESTING.md`. A check that fails on a defect of the mod stays red until the mod is fixed.
+- Evidence or it did not happen. A screenshot that a report cites must be on disk at that path when the agent finishes, kept under `docs/horizon/log/<name>-shots/` and scaled down to 1280 pixels. Open it yourself before you relay the claim: on 2026-11-17 an agent cited two screenshots that were not on disk, and its claim was thrown out.
+- The owner's own play folder is `play/` in the cache: no agent touches it.
+
 ## Review after the merge
 
 Two read-only reviewers per area, with different lenses, in clean contexts:
@@ -61,9 +70,9 @@ The GAPS rows are my reading of ARCHITECTURE.md and GAPS.md (not stated in one p
 
 | Area | Module and logic file | GAPS rows | Java sources (`handlers/` etc. under `bmh/`) | Contracts it gives | Contracts it reads |
 |---|---|---|---|---|---|
-| respawn (done) | `bmh_respawn.rs`, `respawn.rs` | C1 to C9 | `RespawnPositionHandler`, `RespawnSearch`, `RespawnEffectHandler`, `JourneySignal`, `mixin/F_*` (server) | Journey signals (`wire::JourneySignal`), `Exile` | Eternal Items, rules and config, Held Respawn request |
-| settings (done) | `bmh_settings.rs`, `settings.rs` | S1 to S4 | `utilities/BMHGameRules`, `BMHConfigLimits`, `neoforge/NeoForgeConfig`, `client/config/ConfigScreen`, `mixin/CreateWorldGameTabMixin`, `N_*` | `bmh_settings::rule`, `bmh_settings::config`, the `/bmh rule` subcommand | none |
-| journey (done) | `bmh_journey.rs`, `journey.rs` | C4 (client side), C15, C16, C17 | `client/journey/*`, `mixin/F_GuiTitleMixin`, `F_LocalPlayerRespawnMixin`, `F_MinecraftOverlayMixin` | Held Respawn request (`wire::RespawnRequest`) | Journey signals |
+| respawn (done, verified in the game) | `bmh_respawn.rs`, `respawn.rs` | C1 to C9 | `RespawnPositionHandler`, `RespawnSearch`, `RespawnEffectHandler`, `JourneySignal`, `mixin/F_*` (server) | Journey signals (`wire::JourneySignal`), `Exile` | Eternal Items, rules and config, Held Respawn request |
+| settings (ported; defects open, not reviewed) | `bmh_settings.rs`, `settings.rs` | S1 to S4 | `utilities/BMHGameRules`, `BMHConfigLimits`, `neoforge/NeoForgeConfig`, `client/config/ConfigScreen`, `mixin/CreateWorldGameTabMixin`, `N_*` | `bmh_settings::rule`, `bmh_settings::config`, the `/bmh rule` subcommand | none |
+| journey (ported; defects open, not reviewed) | `bmh_journey.rs`, `journey.rs` | C4 (client side), C15, C16, C17 | `client/journey/*`, `mixin/F_GuiTitleMixin`, `F_LocalPlayerRespawnMixin`, `F_MinecraftOverlayMixin` | Held Respawn request (`wire::RespawnRequest`) | Journey signals |
 | amulet | `bmh_amulet.rs`, `amulet.rs` (and `bmh_amulet_world.rs`) | A1 to A6 | `items/NavigatorAmuletItem`, `handlers/Amulet*`, `client/amulet/*` | `bmh_amulet::points(game, player) -> Vec<contract::AmuletPoint>`, the reading (no contract fixed yet), the `/bmh point` subcommand | Eternal Items, rules and config |
 | sky | `bmh_sky.rs`, `stars.rs` (and `bmh_sky_render.rs`) | V1, V2 | `client/sky/*`, `mixin/D_*`, `K_*` | none | the amulet's reading and points (no contract fixed yet) |
 | homecoming | `bmh_homecoming.rs`, `homecoming.rs` | C10 | `handlers/HomecomingHandler`, `mixin/C_ServerPlayerMixin`, `E_ServerPlayerMixin` | none | `Exile` (`bmh_homecoming::on_exile`), amulet points, rules and config |

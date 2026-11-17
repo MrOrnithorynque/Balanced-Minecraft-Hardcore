@@ -49,20 +49,19 @@ Prepares the game files once, from the owner's own Minecraft 26.3. It never down
 
 ### `horizon/tools/test-slice.sh [options]`
 
-The in-game test of settings, respawn and journey. It drives a real game through `horizon-ctl`, offscreen. Options: `--only a,b` (scenarios a to g), `--keep` (keep the scratch folder `<cache>/slice.XXXXXX`), `--window` (a window, not offscreen), `--no-build` (skip `check.sh build`, use `<cache>/horizon-mods/native/target/cargo/fast`), `--resources DIR`, `--bin-dir DIR`, `--out DIR` (screenshots). Exit codes: 0 all checks passed (SKIPs allowed); 1 a check failed; 77 no prepared files; 3 the game did not start or the build failed; 64 bad option. A trap quits the game and removes the scratch world on every exit.
+The in-game test of the content, settings, respawn and journey. It drives a real game through `horizon-ctl`, offscreen. Options: `--only a,b` (scenarios a to n), `--keep` (keep the scratch folder `<cache>/slice.XXXXXX`), `--window` (a window, not offscreen), `--no-build` (skip `check.sh build`, use `<cache>/horizon-mods/native/target/cargo/fast`), `--resources DIR`, `--bin-dir DIR`, `--out DIR` (screenshots). Exit codes: 0 all checks passed (SKIPs allowed); 1 a check failed; 77 no prepared files; 3 the game did not start or the build failed; 64 bad option. A trap quits the game and removes the scratch world on every exit.
 
-What each scenario proves and does not prove is in `docs/horizon/TESTING.md` ("The checks of test-slice.sh"). Scenarios: a mods row, `/bmh rule` and `rules.txt`; b distant respawn and its distance; c 200 ticks of immunity; d screenshots of the cinematic (a person must look at them); e rule off; f creative; g the advancement `bmh:journey/exile`. The look, the sound and the feel are never tested by the script: they are the hand table of TESTING.md.
+What each scenario proves and does not prove is in `docs/horizon/TESTING.md` ("The checks of test-slice.sh"). Scenarios: a mods row, `/bmh rule` and `rules.txt`; b distant respawn and its distance; c 200 ticks of immunity; d screenshots of the cinematic (a person must look at them); e rule off; f creative; g the advancement `bmh:journey/exile`; h the nine items in the inventory (a kept screenshot); i a blocked respawn point; j a restart while the player is dead; k the Create New World button; l the Options > Mods page; m a rule and the config across a restart; n the journey message, the held input and `immediate_respawn`. The look, the sound and the feel are never tested by the script: they are the hand table of TESTING.md.
 
-Open questions for the first real run (TESTING.md, last paragraph). Expect to fix the script:
+The script first ran against the real game on 2026-11-17 (`docs/horizon/log/first-run.md`). The questions it was written with are settled there and in TESTING.md. On that day a full run took about 6 minutes and gave 43 passed, 3 failed: `k2`, `k5` and `n5` fail on purpose, on open defects of the mod (`docs/horizon/log/game-checks-1.md`). A red check stays red until the mod is fixed: never weaken one.
 
-- Does `launch --wait` accept the game arguments after `--wait` as the script writes them?
-- Does `click-button respawn` reach the mod's hold of the Respawn click?
-- Do the `damage` command and `advancement revoke` exist? (Scenario c skips without `damage`.)
-- Does `save` write the advancement file of the world?
-- Does the reply of the command `/bmh rule` carry its text? (a2 also reads `messages`.)
-- Do the JSON field names the script reads match the real replies? (`state.player.position`, `block_pos`, `health`, `on_ground`, `dimension`, `events.last`, `block.block`, `launch` reply `pid`.)
+One agent at a time may build or run the game ("game rights"): `check.sh build` replaces the binary that a running test or `play.sh` starts next.
 
-Also open from GAPS.md section 7: for example whether `run_command` works from `server_tick` on the integrated server, and whether `gui_render_post` covers every frame between death and arrival. Each area log has its own "To check in the game".
+Still open, for a person or a later run: `docs/horizon/log/game-checks-1.md` ("Still open and why"), the hand table of TESTING.md, and each area log's "To check in the game".
+
+### `horizon/tools/play.sh [--build] [game arguments]`
+
+Starts the built game in a window for a person, with the content mod on. It uses its own folders `play/home` and `play/game` in the cache (worlds, options, logs), so it touches no other install, and no test touches them. `--build` runs `check.sh build` first. Exit code 78: the built game or the prepared game files are missing.
 
 ## The preparer's refusal of the version file
 

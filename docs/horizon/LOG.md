@@ -243,7 +243,7 @@ The binaries were not started: a world needs the prepared game files.
 
 ## Resume here
 
-State on 2026-11-17, 20:40. Branch `horizon-26.3`, local only (never pushed: the owner did not ask).
+State on 2026-11-17, 21:25. Branch `horizon-26.3`, local only (never pushed: the owner did not ask).
 
 Done: the content mod (loads in the game: nine items with textures, a recipe, the advancement tab, the sounds),
 the skeleton (66 hooks), the area respawn (verified in the game), the areas settings and journey (ported; the
@@ -251,14 +251,21 @@ slice test passes with them; not reviewed yet), the test system, the harness of 
 
 Not done, in this order:
 
-1. Fix the five defects that the first look at settings and journey in the game found
-   (`docs/horizon/log/game-checks-1.md`, with screenshots and one command each): the Create New World button
-   lies over the World and More tabs at the default GUI scale (major); with the game rule `immediate_respawn`
-   a death gives no exile and no journey (major); the Create World choice stays OFF for the next new world;
-   one frame of the arrival world shows before the black on the path without the hold; a config value out of
-   range is not written back. The slice test has scenarios k, l, m, n for these areas: its checks k2, k5 and n5
-   fail on those defects, on purpose, until they are fixed. One fix agent per area, each in its own worktree,
-   one at a time with game rights.
+0. Two things are in flight since 2026-11-17, 21:20:
+   - A separate session, "Fix the Create World button and settings defects" (Sonnet, its own worktree, a branch
+     named after `horizon-fix-settings`, cut from `horizon-26.3`), fixes the three settings defects below (k2, k5,
+     the config file). When it reports `DONE <branch> <sha>`: check its screenshots under
+     `docs/horizon/log/settings-fix-1-shots/`, run the two gates and `sh horizon/tools/test-slice.sh --only k,l,m`
+     on its commit, then bring it in (`git cherry-pick <sha>` on `horizon-26.3`).
+   - A second harness healing was applied with the owner's word ("All four"): the branch's `.claude/CLAUDE.md`, the
+     skills `horizon-build-test` and `horizon-port-area`, one line in the owner's global skill
+     `coordinate-sessions` and one in his global `CLAUDE.md`. No inspector has read these edits yet: run the
+     `inquisitor` agent on those five files.
+1. Fix the defects that the first look at settings and journey in the game found
+   (`docs/horizon/log/game-checks-1.md`, with screenshots and one command each). The three of settings are with the
+   session above. Left for the respawn and journey areas: with the game rule `immediate_respawn` a death gives no
+   exile and no journey (major, check n5); one frame of the arrival world shows before the black on the path
+   without the hold. One fix agent per area, each in its own worktree, one at a time with game rights.
 2. Review settings and journey with the two lenses (parity with the Java mod, use of the host game), save the
    findings under `docs/horizon/review/`, then fix.
 3. Port the seven other areas with the skill `horizon-port-area`: amulet first (it also sets the default

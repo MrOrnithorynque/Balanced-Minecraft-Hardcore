@@ -36,8 +36,9 @@ Run from the repo root. Use `sh` or `bash`, with absolute paths in scripts you w
 | `sh horizon/tools/check.sh` | The bundle compiles into Horizon's source at the pinned commit (`native.py check`). Not that a hook fires. | about 30 s warm, minutes the first time |
 | `sh horizon/tools/content-check.sh` | The content mod builds and `cargo horizon-mod check` accepts it. Needs `BMH_HORIZON_MOD_BIN`. | short |
 | `sh horizon/tools/check.sh build` | The game and `horizon-ctl` build with the bundle. It prints the folder of the binaries last. | 3 min 13 s once (LOG.md) |
-| `sh horizon/tools/prepare-game.sh --server-jar <jar>` | The game files are prepared in `~/Library/Caches/bmh-horizon/resources/26.3`. | not measured |
-| `sh horizon/tools/test-slice.sh` | The in-game checks of settings, respawn and journey. A first run was started on 2026-11-17; its result is not recorded here. | not measured |
+| `sh horizon/tools/prepare-game.sh --server-jar <jar>` | The game files are prepared in `~/Library/Caches/bmh-horizon/resources/26.3` (three steps: prepare, sounds, check). It passed on 2026-11-17. | under a minute once the preparer is built |
+| `sh horizon/tools/test-slice.sh` | The in-game checks of the content, settings, respawn and journey, in the real game, offscreen. On 2026-11-17: 46 checks, of which `k2`, `k5` and `n5` fail on purpose, on open defects (`docs/horizon/log/game-checks-1.md`). | about 6 minutes; `--only` runs some scenarios |
+| `sh horizon/tools/play.sh` | Nothing: it starts the built game in a window for a person, with its own folders under `play/` in the cache. | seconds |
 
 The two gates of every change are `test-logic.sh` and `check.sh`. Load the skill `horizon-build-test` for options, exit codes and errors.
 
@@ -59,7 +60,7 @@ Ownership and form:
 - One area, one owner. An agent edits only its area files (its `bmh_<area>*.rs` modules, its logic file as `ARCHITECTURE.md` lists it, `docs/horizon/log/<area>.md`, and the content files `HOOKS.md` gives it). The integrator owns the manifest, `hook_*.rs`, `bmh.rs`, `logic/src/lib.rs`, `wire.rs`, `ids.rs`, `contract.rs`, `logic/Cargo.toml`, HOOKS.md and the content files that HOOKS.md ("Content files") does not give to an area. Skill `horizon-port-area` has the details.
 - Parity first: numbers, orders, texts and sounds come from the Java source, with the Java `file:line` in a comment and a unit test that pins the value.
 - A helper file holds one function. A warning is an error. A panic stops the game: no `unwrap`, `expect` or panicking index on data from the world, a file or a message. Where the hook has a `Game`, check `game.native_on(bmh::ID)` first in the hook helper. `ARCHITECTURE.md` ("Module and helper rules", "State") has the rest.
-- A compile proves little. A hook that compiles can fire at another moment, for another player, or not at all. Nothing is done until a run in the game shows it. Each area keeps "To check in the game" in `docs/horizon/log/<area>.md`. Never write that a feature "works" from a compile and unit tests.
+- A compile proves little. A hook that compiles can fire at another moment, for another player, or not at all. Nothing is done until a run in the game shows it. Each area keeps "To check in the game" in `docs/horizon/log/<area>.md`. Never write that a feature "works" from a compile and unit tests. The game runs since 2026-11-17: a claim that a feature works cites its in-game check, a log line or a screenshot that is on disk.
 - Review is not optional. The respawn area compiled and passed its tests, and two reviewers still found major defects (`docs/horizon/review/`).
 - Writing style: Simplified Technical English (ASD-STE100) in comments, logs and messages: short sentences (at most 25 words), active voice, simple present, no idioms. Never an em-dash or an en-dash. Do not rewrite old text only to change its style.
 - Changelog: `CHANGELOG.md` at the repo root is the Java mod's, with a section `## [Unreleased]`. Whether Horizon changes get lines there is not decided in any file under `docs/horizon`: ask the owner before you edit it.
@@ -72,6 +73,7 @@ Ownership and form:
 - The cache. The tools live in `~/Library/Caches/bmh-horizon` (`BMH_HORIZON_CACHE` changes it). A restart of the Mac keeps it. A `/private/tmp` scratchpad does not survive a restart. Never commit or share the prepared game files in it.
 - `check.sh` holds a lock folder `check.lock` in the cache. A second run waits (up to 20 minutes, then exit 75). Do not run it while another run is in progress, and do not delete a lock whose process is alive.
 - No download of Minecraft or Mojang files without the owner's word. `check.sh` fetches Horizon's own sources by itself on a cold cache (`horizon-mods`, the Nightly's tree). `prepare-game.sh` never downloads Minecraft. `/Applications/Horizon.app` is refused by Gatekeeper; only the launcher needs it, the build from source does not.
+- Game rights. One agent at a time builds the game (`check.sh build`) or runs it: two builds at once swap the binary under a running test. The owner's own play folder is `play/` in the cache: no test and no agent touches it.
 - Usage rules of the owner's long runs (stop at 60 % of the 5-hour window; weekly 40 % all models and 50 % Fable) are in LOG.md "Resume here" and in `horizon-port-area`.
 - Shell is zsh: quote globs, never `echo ====`, `cd` only in a subshell, absolute paths.
 
@@ -79,4 +81,4 @@ Ownership and form:
 
 - `horizon-build-test`: any build error, game preparation, in-game test, a new machine or an erased cache.
 - `horizon-port-area`: port, review or fix one area as the coordinator; merge an agent's work; the order of the areas left.
-- The old Java skills (`add-mixin`, `port-minecraft-version`, `release`, `verify-loaders`) are for the Java branches. Do not use them here. They exist on `main` and the `mc-*` branches and are planned to leave this branch.
+- The old Java skills (`add-mixin`, `port-minecraft-version`, `release`, `verify-loaders`) are for the Java branches. Do not use them here. They exist only on `main` and the `mc-*` branches.
