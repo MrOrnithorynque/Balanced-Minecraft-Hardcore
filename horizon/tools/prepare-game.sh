@@ -3,8 +3,8 @@
 # Minecraft 26.3. It never downloads Minecraft. It checks four things first. For
 # each missing thing it prints one line that says what is missing and what to do,
 # then it exits 78 and changes nothing. When all four are there, it builds and
-# runs horizon-prepare from the Horizon source tree in the cache, then runs its
-# --check and prints the folder of the prepared files.
+# runs horizon-prepare from the Horizon source tree in the cache, then its sounds
+# step and its --check and prints the folder of the prepared files.
 #
 # Usage: sh horizon/tools/prepare-game.sh [--minecraft-dir DIR] [--server-jar PATH] [--dry-run]
 #   --minecraft-dir DIR  the folder of the official launcher
@@ -120,6 +120,7 @@ fi
 if [ "$dry" -eq 1 ] || [ "$missing" -eq 0 ]; then
     echo "prepare-game.sh: commands (tree $tree):"
     echo "  (cd '$tree' && JAVA_HOME='${jdk:-<JDK>}' '${cargo_bin:-cargo}' run --release -p horizon-prepare -- --prepare --server-jar '${server_jar:-<server.jar>}' --minecraft-dir '$mc_dir' --output '$out')"
+    echo "  (cd '$tree' && JAVA_HOME='${jdk:-<JDK>}' '${cargo_bin:-cargo}' run --release -p horizon-prepare -- sounds --minecraft-dir '$mc_dir' --output '$out')"
     echo "  (cd '$tree' && JAVA_HOME='${jdk:-<JDK>}' '${cargo_bin:-cargo}' run --release -p horizon-prepare -- --check --output '$out')"
 fi
 
@@ -136,6 +137,9 @@ fi
 mkdir -p "$out"
 (cd "$tree" && JAVA_HOME="$jdk" "$cargo_bin" run --release -p horizon-prepare -- \
     --prepare --server-jar "$server_jar" --minecraft-dir "$mc_dir" --output "$out")
+# --prepare does not copy the sounds (about 380 MB), and --check fails without them.
+(cd "$tree" && JAVA_HOME="$jdk" "$cargo_bin" run --release -p horizon-prepare -- \
+    sounds --minecraft-dir "$mc_dir" --output "$out")
 (cd "$tree" && JAVA_HOME="$jdk" "$cargo_bin" run --release -p horizon-prepare -- --check --output "$out")
 echo "prepare-game.sh: the prepared files are in:"
 echo "$out"

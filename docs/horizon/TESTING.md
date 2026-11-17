@@ -1,9 +1,7 @@
 # Testing the Horizon mod
 
-Status on 2026-11-11: `prepare-game.sh` and `test-slice.sh` are written and checked for syntax. **Neither script has
-run against a game.** The game needs files that come from the owner's own Minecraft 26.3, and that is not installed
-on this machine. The first real run will probably find script bugs, such as a wrong JSON field or a command reply
-with another shape. Read every FAIL with that in mind.
+Status on 2026-11-17: `test-slice.sh` ran against the real game (see `docs/horizon/log/first-run.md`). The script bugs
+of the first run are fixed. The four FAILs left are mod defects. `prepare-game.sh` now also runs the sounds step.
 
 ## What the owner does once
 
@@ -212,3 +210,21 @@ Not run and not checked: every scenario of `test-slice.sh`. Reply shapes the scr
 accepts the game arguments after `--wait` as written, whether `click-button respawn` reaches the mod's hold, whether
 `damage` and `advancement revoke` exist, whether `save` writes the advancement file, and whether the command reply
 carries the text of `/bmh rule` (a2 also reads `messages`).
+
+## What was run on 2026-11-17
+
+The script ran against the real game (offscreen, no audio). Result of the last full run: 14 passed, 4 failed, 0 skipped.
+The details, the screenshots and the defects are in `docs/horizon/log/first-run.md`. Script changes:
+
+- The launch reply is the whole game state: the pid is `launch.pid`. The script prints a short form.
+- `state` has `dimension` at the top level, not in `player`.
+- New checks: b0 (fresh world, no bed, runs before a), b0s (the same after a save), a4 (the content mod loaded), b4 (no
+  Sound or Advancement warning), g1 fails on "Unknown advancement" instead of skipping.
+- All scenarios after b0 set a `/spawnpoint` on the player's block first (`ensure_point`) and measure from it. Without it the
+  mod gives the vanilla respawn (defect 1), and the rest of the chain could not be tested.
+- Scenario c hits at about tick 140 (vanilla immunity is 60 ticks), then once more after the end.
+- `prepare-game.sh` runs `horizon-prepare sounds --minecraft-dir DIR --output OUT` after `--prepare`. Checked with `bash -n`
+  and `--dry-run` only.
+
+The open questions of the first run (reply of `click-button respawn`, `damage`, `advancement revoke`, `save`) are answered:
+`damage` and `advancement revoke` exist, `click-button respawn` works, whether `save` writes an advancement file is open (the advancement data was not loaded).

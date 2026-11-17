@@ -278,8 +278,10 @@ reply="$(HORIZON_HOME="$HOMEDIR" HORIZON_NO_AUDIO=1 HORIZON_TELEMETRY_URL=off HO
     "$CTL" --socket "$SOCK" --timeout 900 launch --game "$GAME" --world "$WORLD" --seed "$SEED" --wait \
     --resources "$resources" --game-dir "$GAMEDIR" --home "$HOMEDIR" --dev-mod "$content" $extra 2>&1)"
 launch_status=$?
-echo "test-slice.sh: launch reply: $reply"
-GAMEPID="$(jget "$reply" 'd.get("pid", "")')"
+# The launch reply is the whole state of the game. Print only what a person needs.
+echo "test-slice.sh: launch reply: $(jget "$reply" '{"ok": d.get("launch", {}).get("ok"), "pid": d.get("launch", {}).get("pid"), "screen": d.get("screen"), "dimension": d.get("dimension"), "player": d.get("player")}')"
+# The pid is in the "launch" object of the reply (horizon-ctl 2026-11-17 first run), not at the top.
+GAMEPID="$(jget "$reply" 'd.get("launch", {}).get("pid") or d.get("pid", "")')"
 if [ "$launch_status" -ne 0 ]; then
     echo "test-slice.sh: the game did not start or the world did not load (status $launch_status)." >&2
     echo "test-slice.sh: log tail:" >&2
@@ -302,6 +304,48 @@ echo "test-slice.sh: expected distant respawn distance (Normal, no Eternal Item)
 
 DISTANT_DONE=0
 
+# A respawn point. The mod can only start a distant respawn when the game hands it the world
+# spawn as the block of the point it searched for. On the first run (2026-11-17) the game handed
+# a random spot of the spawn area instead, so a player with no bed and no /spawnpoint got the
+# vanilla respawn (scenario b, check b0). Every other scenario sets a /spawnpoint on the
+# player's block first, so that it tests the rest of the chain. Sets POINT_SET and moves
+# spawn_x and spawn_z to the point: the circle is round the point.
+POINT_SET=0
+ensure_point() {
+    [ "$POINT_SET" -eq 1 ] && return 0
+    # After a distant respawn the player may stand far from loaded terrain near the start: a
+    # /spawnpoint needs a loaded position, and any loaded spot works (the circle is round it).
+    st="$(state)"
+    px="$(jget "$st" 'd["player"]["block_pos"][0]')"
+    py="$(jget "$st" 'd["player"]["block_pos"][1]')"
+    pz="$(jget "$st" 'd["player"]["block_pos"][2]')"
+    reply="$(ctl command "spawnpoint @s $px $py $pz")"
+    echo "test-slice.sh: spawnpoint at $px $py $pz: $(printf '%s' "$reply" | head -c 200)"
+    spawn_x="$px"
+    spawn_z="$pz"
+    POINT_SET=1
+}
+
+# ---- b0. Distant respawn in a fresh world: no bed, no save yet -----------------------------------
+# This runs before scenario a on purpose: a1 opens a menu and the game saves the world then. On the
+# first run (2026-11-17) the mod gave the vanilla respawn here ("No distant respawn"), every time.
+if wanted b; then
+    echo "--- b0. fresh world, no bed, no save yet: the distant respawn from the world spawn"
+    ctl command "gamemode survival" >/dev/null
+    before_new="$(count_log 'new respawn pos and bed')"
+    if death_and_respawn ctl 1; then
+        pos="$(position_of)"
+        res="$(dist_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$spawn_x" "$spawn_z" "$expected" 64)"
+        if [ "${res##* }" = ok ] && [ "$(count_log 'new respawn pos and bed')" -gt "$before_new" ]; then
+            pass b0 "fresh world, no bed: distant respawn ${res%% *} blocks from the world spawn, expected $expected"
+        else
+            fail b0 "fresh world, no bed: ${res%% *} blocks from the world spawn, expected $expected; 'new respawn pos and bed' lines +$(( $(count_log 'new respawn pos and bed') - before_new )), 'No distant respawn' lines total $(count_log 'No distant respawn')"
+        fi
+    else
+        fail b0 "no respawn happened: $DR_NOTE"
+    fi
+fi
+
 # ---- a. Mods row and rules ---------------------------------------------------------------------
 if wanted a; then
     echo "--- a. mods row and rules"
@@ -319,6 +363,11 @@ if wanted a; then
         fi
     else
         skip a1 "horizon-ctl 'options mods' did not open the Mods page"
+    fi
+    if [ "$(count_log 'content not loaded')" -gt 0 ]; then
+        fail a4 "the game did not load the content mod: $(grep -m1 'content not loaded' "$(logfile)" | sed 's/^[^]]*\]: //')"
+    else
+        pass a4 "the content mod (items, language, advancements) loaded with no warning"
     fi
     rule_reply="$(ctl command "bmh rule")"
     msgs="$(ctl messages 10)"
@@ -344,6 +393,26 @@ fi
 if wanted b; then
     echo "--- b. distant respawn (survival, rule on, path: wait for the landing line, then horizon-ctl respawn)"
     ctl command "gamemode survival" >/dev/null
+    if [ "$POINT_SET" -eq 0 ]; then
+        # b0s: the same as b0, after a save. On the first run b0 failed and b0s passed. The cause
+        # is probably that level.dat has a stale spawn (y 64 instead of 126) until the first save,
+        # and the mod reads the world spawn from that file.
+        ctl save >/dev/null
+        before_new="$(count_log 'new respawn pos and bed')"
+        if death_and_respawn ctl 1; then
+            pos="$(position_of)"
+            res="$(dist_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$spawn_x" "$spawn_z" "$expected" 64)"
+            if [ "${res##* }" = ok ] && [ "$(count_log 'new respawn pos and bed')" -gt "$before_new" ]; then
+                pass b0s "no bed: distant respawn ${res%% *} blocks from the world spawn, expected $expected"
+            else
+                fail b0s "no bed: ${res%% *} blocks from the world spawn, expected $expected; 'new respawn pos and bed' lines +$(( $(count_log 'new respawn pos and bed') - before_new )), 'No distant respawn' lines total $(count_log 'No distant respawn')"
+            fi
+        else
+            fail b0s "no respawn happened: $DR_NOTE"
+        fi
+    fi
+    ensure_point
+    ctl command "gamemode survival" >/dev/null
     before_new="$(count_log 'new respawn pos and bed')"
     before_none="$(count_log 'No distant respawn')"
     if death_and_respawn ctl 1; then
@@ -363,10 +432,16 @@ if wanted b; then
         else
             fail b2 "log: new-pos lines +$(( $(count_log 'new respawn pos and bed') - before_new )), 'No distant respawn' lines +$(( $(count_log 'No distant respawn') - before_none ))"
         fi
+        warns="$(( $(count_log 'Sound command failed') + $(count_log 'not awarded to') ))"
+        if [ "$warns" -eq 0 ]; then
+            pass b4 "the arrival sounds and the advancement award ran with no warning"
+        else
+            fail b4 "$warns warning line(s) in the log: $(grep -m1 'Sound command failed' "$(logfile)" | sed 's/^[^]]*\]: //'); $(grep -m1 'not awarded to' "$(logfile)" | sed 's/^[^]]*\]: //')"
+        fi
         st="$(state)"
         health="$(jget "$st" 'd["player"]["health"]')"
         ground="$(jget "$st" 'd["player"]["on_ground"]')"
-        dim="$(jget "$st" 'd["player"]["dimension"]')"
+        dim="$(jget "$st" 'd["dimension"]')"
         bx="$(jget "$st" 'd["player"]["block_pos"][0]')"
         by="$(jget "$st" 'd["player"]["block_pos"][1]')"
         bz="$(jget "$st" 'd["player"]["block_pos"][2]')"
@@ -389,10 +464,15 @@ fi
 # ---- c. Immunity -------------------------------------------------------------------------------
 if wanted c; then
     echo "--- c. 200 ticks of damage immunity after the arrival"
+    ensure_point
     ctl command "gamemode survival" >/dev/null
     if death_and_respawn ctl 1; then
         DISTANT_DONE=$((DISTANT_DONE + 1))
         h0="$(health_of)"
+        # The game gives 60 ticks of immunity at a respawn. The mod gives 200. Hit at about
+        # tick 140 after the respawn (the 40 ticks of death_and_respawn plus 100 here), so that a
+        # vanilla-length immunity would fail this check.
+        ctl wait 100 >/dev/null
         dmg="$(ctl command "damage @s 6")"
         if printf '%s' "$dmg" | grep -qi '"error"'; then
             skip c "the command 'damage' is not available: $(printf '%s' "$dmg" | head -c 200)"
@@ -405,7 +485,7 @@ if wanted c; then
             else
                 fail c1 "health dropped inside the immunity: before $h0, after $h1"
             fi
-            ctl wait 220 >/dev/null
+            ctl wait 150 >/dev/null
             h2="$(health_of)"
             ctl command "damage @s 6" >/dev/null
             ctl wait 5 >/dev/null
@@ -434,6 +514,7 @@ shot_files=""
 shot_death() { shot death-screen; }
 if wanted d; then
     echo "--- d. cinematic screenshots (path: click-button Respawn, so the mod's hold and fade run)"
+    ensure_point
     ctl command "gamemode survival" >/dev/null
     DR_HOOK=shot_death
     # The death screen shot is taken inside death_and_respawn, after the landing line, before the
@@ -487,6 +568,7 @@ fi
 # ---- e. Rule off -------------------------------------------------------------------------------
 if wanted e; then
     echo "--- e. rule random_death_spawn_point false: vanilla respawn"
+    ensure_point
     ctl command "gamemode survival" >/dev/null
     ctl command "bmh rule random_death_spawn_point false" >/dev/null
     rules_file="$(find "$GAMEDIR" -path '*/bmh/rules.txt' 2>/dev/null | head -n 1)"
@@ -518,6 +600,7 @@ fi
 # ---- f. Creative -------------------------------------------------------------------------------
 if wanted f; then
     echo "--- f. creative: a death gives the vanilla respawn"
+    ensure_point
     ctl command "gamemode creative" >/dev/null
     before_new="$(count_log 'new respawn pos and bed')"
     if death_and_respawn ctl 0; then
@@ -537,6 +620,7 @@ fi
 # ---- g. Advancement ----------------------------------------------------------------------------
 if wanted g; then
     echo "--- g. advancement bmh:journey/exile after the first distant respawn"
+    ensure_point
     ctl command "gamemode survival" >/dev/null
     if [ "$DISTANT_DONE" -eq 0 ]; then
         death_and_respawn ctl 1 && DISTANT_DONE=$((DISTANT_DONE + 1))
@@ -564,6 +648,8 @@ print(d.get("bmh:journey/exile", {}).get("done"))' "$adv_file")"
         rv="$(ctl command "advancement revoke @s only bmh:journey/exile")"
         if printf '%s' "$rv" | grep -qi 'revoked'; then
             pass g1 "advancement revoke found bmh:journey/exile granted (it is now revoked)"
+        elif printf '%s' "$rv" | grep -qi 'unknown advancement'; then
+            fail g1 "the game does not know bmh:journey/exile (the advancement data is not loaded): $(printf '%s' "$rv" | head -c 200)"
         elif printf '%s' "$rv" | grep -qi "couldn't\|could not\|no advancement"; then
             fail g1 "the player does not have bmh:journey/exile: $(printf '%s' "$rv" | head -c 300)"
         else
