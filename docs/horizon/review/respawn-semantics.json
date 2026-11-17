@@ -2,56 +2,70 @@
  "area": "respawn",
  "lens": "semantics",
  "reviewed_commit": "63d0592",
- "status": "open: not fixed yet",
+ "status": "closed",
  "findings": [
   {
    "severity": "major",
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "A dead player who disconnects and reconnects (dedicated or LAN), or quits to the title screen and reopens the world in single player, gets no distant respawn. Logout drops the search and the pending death. The player comes back still dead, no new search starts, and the respawn then keeps the vanilla bed or spawn point. Java still exiles in this case. This is an easy way around the core mechanic.",
    "evidence": "Ours bmh_respawn.rs:553 \"cancel_search(game, player);\" and :558 \"s.deaths.remove(&player);\" in on_player_logged_out; :402-404 \"let Some(mut running) = running else { return; };\" in on_player_respawn_position. Horizon native_hooks.rs:6980-6981 \"the drops and experience, `native_player_died`; they are then saved dead\"; lan_actions.rs:3904 \"if !host.hub.guests[i].dead {\" (a relogged dead player still respawns through the hook). Java RespawnPositionHandler.java:104 \"Computed at death; fall back to the current inventory if the server restarted in between.\" and :144 \"respawnPosition = calculateRandomPosition(respawnLevel, bedLocation, exileDistance);\" (it exiles even with no search; F_ServerGamePacketListenerMixin.java:46 drops only the search).",
-   "fix": "Keep the pending death (world distance) past logout, in a player attachment or a map not cleared in player_logged_out. In player_logged_in, for a player who is dead (health 0 in server_players), start the search again and send Departure. That way the respawn finds a search, as Java's fallback does."
+   "fix": "Keep the pending death (world distance) past logout, in a player attachment or a map not cleared in player_logged_out. In player_logged_in, for a player who is dead (health 0 in server_players), start the search again and send Departure. That way the respawn finds a search, as Java's fallback does.",
+   "status": "fixed",
+   "note": "Cause in the game: Horizon kills a player who logs in dead once more ('joined the game' then 'died'); the old handle_death returned at once because the player cache is filled by player_tick only. Now the death uses server_players and the stored distance. Game j1/j2: quit while dead, relaunch, 'Landing spot ready', exile 23331.4 blocks from the point."
   },
   {
    "severity": "major",
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "A distant respawn from a Nether respawn anchor never uses up an anchor charge. Horizon skips the block resolution once a mod moves the position, so an anchor charged once works for every exile. Also, an anchor with 0 charges (drained by non-distant respawns) still counts as a centre here. Java takes the vanilla result first, so the charge goes down, and a depleted anchor gives missingRespawnBlock, which centres the exile on the world spawn.",
    "evidence": "Ours bmh_respawn.rs:429-430 \"*pos = logic::bottom_center(feet);\" / \"dimension.clone_from(&running.search.dimension);\"; :244 \"block.is_none_or(|name| name.ends_with(\"_bed\") || name == \"minecraft:respawn_anchor\")\" (no charge test). Horizon lan_actions.rs:3964-3965 \"if chosen {\" / \"(elsewhere, in_frame_bed) = (None, None);\", so :4048-4049 \"if let Some(config) = elsewhere {\" / \"self.respawn_trip(conn, config);\" never runs, and server_travel.rs:640 \"match self.find_respawn_and_use(config, true) {\" (the deplete) is not reached; native_hooks.rs:7310-7311 \"the player is placed exactly there, with no bed or anchor used\". Java F_PlayerListRespawnMixin.java:41 \"Right after vanilla's own search: a respawn anchor still loses a charge, and a missing bed still shows its message.\"",
-   "fix": "After a distant respawn whose point is a non-forced anchor, take one charge off yourself: from level_tick_post of the Nether, read the anchor state and write charges-1 with native_set_block. Also read the `charges` property in still_there and treat 0 as gone. Or add a GAPS row for this difference."
+   "fix": "After a distant respawn whose point is a non-forced anchor, take one charge off yourself: from level_tick_post of the Nether, read the anchor state and write charges-1 with native_set_block. Also read the `charges` property in still_there and treat 0 as gone. Or add a GAPS row for this difference.",
+   "status": "fixed",
+   "note": "Same fix as parity-1: an anchor counts only charged (or forced) in the Nether; a non-forced one loses a charge in level_tick_post after the arrival (native_set_block_property) with the deplete sound to the player. Unit tests the_point_resolves_as_vanilla_does, an_anchor_gives_one_charge_a_respawn. Single player never hands a Nether point (lan_actions.rs:3929-3940): dedicated server hand check only."
   },
   {
    "severity": "minor",
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "Departure reaches the client at least one tick after the death screen packet. Horizon sends PlayerCombatKill at once inside guest_die. Our Departure is queued at ServerTickEnd, and the mod-message flush runs in tick_lan, which comes before that hook, so the message leaves only in the next tick. Java sends the departure during the death event, before the death screen opens. The client shows the bare death screen for at least one tick before the fade.",
    "evidence": "Ours bmh_respawn.rs:575-577 \"let deaths = std::mem::take(&mut server().deaths);\" (ServerTickEnd) and :267 \"send(game, player, &JourneySignal::Departure);\". Horizon lan_actions.rs:4408-4410 \"host.hub.send_to(\" / \"conn,\" / \"&C::PlayerCombatKill(...)\" inside guest_die; lan.rs:2826 \"self.flush_native_net(&mut host);\" inside tick_lan; levels.rs:597 \"self.native_lifecycle_server_tick_end(paused);\" after all level passes. Java JourneySignal.java:25-27 \"Called last on death, once no other mod can cancel it: the client then fades to black on the death screen\" (CLAUDE.md: \"departure at death, before the death screen opens\").",
-   "fix": "Send Departure from player_died (the death is final by then), using the tick cache for the Eternal count, and keep the search start at ServerTickEnd with the loot_drops count. Or have the journey client cover the death screen from PlayerCombatKill until Departure or a short timeout."
+   "fix": "Send Departure from player_died (the death is final by then), using the tick cache for the Eternal count, and keep the search start at ServerTickEnd with the loot_drops count. Or have the journey client cover the death screen from PlayerCombatKill until Departure or a short timeout.",
+   "status": "deferred",
+   "note": "Evidence holds: PlayerCombatKill leaves at once in guest_die (lan_actions.rs:4408), mod messages at the next tick_lan flush (native_net.rs:120). No tier N or F hook sends a message before the death screen packet. Listed in GAPS.md 3.3 (C8) and the respawn log; the journey client could cover the death screen from PlayerCombatKill."
   },
   {
    "severity": "minor",
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "A failed read of the player's .dat is cached for the whole session as \"world spawn\". This happens when the file is missing or stale, for example a single-player owner whose world loads the file that level.dat names and whose own file is absent or older. Every later death then searches around the world spawn. The game still hands over the bed, so the hook logs \"No distant respawn\" and the player keeps the bed, until a new spawn point is set.",
    "evidence": "Ours bmh_respawn.rs:278-281 \"let point = point_from_file(game, player);\" / \"known.point = Some(point.clone());\" (None from a failed read becomes Some(None)); :220 reads only \"lan::playerdata::path(&dir, player)\". Horizon lan/playerdata.rs:76-79 \"PlayerList.loadPlayerData for the world's single-player owner: the file level.dat names (`singleplayer_uuid`)... before the owner's own file. Builds that save the owner to the named file alone (0.2.93) leave the own file behind, stale (#5351).\" Java RespawnSearch.java start reads \"ServerPlayer.RespawnConfig config = serverPlayer.getRespawnConfig();\" live at each death.",
-   "fix": "Cache only a successful read: when point_from_file returns None because the file or its `respawn` tag is absent, leave `point` as None so the next death reads again. Better, after a mismatch in on_player_respawn_position, store the handed (dimension, block) as the player's point."
+   "fix": "Cache only a successful read: when point_from_file returns None because the file or its `respawn` tag is absent, leave `point` as None so the next death reads again. Better, after a mismatch in on_player_respawn_position, store the handed (dimension, block) as the player's point.",
+   "status": "fixed",
+   "note": "No cache: each death reads the live point with native_player_compound (the file only when that answers nothing). Game log of every death with a point: 'Respawn point RespawnPoint { ... forced: true } reads ...' (b1, c, d, e, i, j)."
   },
   {
    "severity": "minor",
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "Normal play fills the log with warnings. In single player, or with nobody else near the landing, both /playsound lines fail (no target), which logs \"Sound command failed\" twice on every distant respawn. From the second exile on, `advancement grant ... only bmh:journey/exile done` fails because it is already granted, which logs \"not awarded\" on every respawn. A real failure looks the same in the log.",
    "evidence": "Ours bmh_respawn.rs:609-610 \"if !game.native_run_command(&line) {\" / \"log::warn!(... \"Sound command failed: {line}\")\"; :592-593 \"if !crate::game::bmh::award(game, &name, path) {\" / \"log::warn!(... not awarded ...)\". Horizon commands.rs:1052-1055 \"if found.is_empty() {\" / \"return Err(err(\" / \"argument.entity.notfound.player\"; commands.rs:3172-3176 \"if results.iter().map(|r| r.1).sum::<i32>() == 0 {\" / \"return Err(CommandError::new(...failure\".",
-   "fix": "Skip the sound commands when no other player is in the level within 16 blocks (read server_players in level_tick_post), and log a failed award only for a first-time exile, or check native_run_command_captured's result. Or lower both logs to debug."
+   "fix": "Skip the sound commands when no other player is in the level within 16 blocks (read server_players in level_tick_post), and log a failed award only for a first-time exile, or check native_run_command_captured's result. Or lower both logs to debug.",
+   "status": "fixed",
+   "note": "Sounds run only when logic::someone_hears finds another player in the level within 16 blocks; an award runs only when native_player_advancements says it is not done; a real failure still logs WARN. Unit test a_sound_needs_a_player_within_16_blocks; game b4: 'no warning line of the mod after 3 distant respawn(s) alone in the world'."
   },
   {
    "severity": "minor",
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "Needs a game. If the player waits on the death screen after \"Landing spot ready\" for more than 6000 ticks, the landing ticket is gone. The hook then still places the player exactly at the stored feet in a chunk that may be unloaded, and Horizon looks for no spot there. Check: die in survival, wait over 5 minutes on the death screen after the log line, click Respawn, and watch for a fall, a suffocation or a long loading stall.",
    "evidence": "Ours bmh_respawn.rs:354-359 \"server().kept.push(Kept {\" ... \"ticks_left: logic::LANDING_TICKET_TICKS,\" and :380 \"game.native_force_chunk_in(&kept.owner, &kept.dimension, kept.chunk, false);\"; logic/src/respawn.rs:23 \"pub const LANDING_TICKET_TICKS: u32 = 6000;\". Horizon native_hooks.rs:7310-7311 \"Change the dimension or the position and the player is placed exactly there, with no bed or anchor used and no spot looked for\"; lan_actions.rs:4031 \"host.hub.respawn(i, spawn, rotation, &ctx);\".",
-   "fix": "Run the check. If it misbehaves, keep the landing ticket until the respawn takes the search (release it in on_player_respawn_position, in player_respawned or at logout), not on a 6000 tick timer."
+   "fix": "Run the check. If it misbehaves, keep the landing ticket until the respawn takes the search (release it in on_player_respawn_position, in player_respawned or at logout), not on a 6000 tick timer.",
+   "status": "fixed",
+   "note": "The landing ticket is held until the respawn takes the search (Search::landing_chunk), then 6000 ticks; logout and a new death release it. Unit test the_search_draws_holds_and_finds (landing_chunk). The 5-minute wait on the death screen was not run in the game."
   },
   {
    "severity": "minor",
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "Needs a game. The search timeout is wall-clock time. While the integrated server is paused, neither level_tick_post nor ServerTickEnd fires, but the 120 s keep running, so the first tick after a long pause fails the search and the player gets the vanilla point. Java fell back to a search at the respawn instead. Check: die in single player, alt-tab or pause (if the death screen allows it) for over 120 s, come back, respawn, and look for \"took more than 120 s\".",
    "evidence": "Ours bmh_respawn.rs:336 \"if logic::timed_out(running.started.elapsed().as_millis()) {\" and :583 \"logic::timed_out(r.started.elapsed().as_millis())\". Horizon levels.rs:496 \"let running = (!paused && !self.agent.hold_server).then(|| self.clock.world_runs());\" and :513 \"let observe_level =\" / \"running.is_some() && ...\"; native_hooks.rs:2569 \"A paused pass fires nothing\". Java RespawnPositionHandler.java:144 \"respawnPosition = calculateRandomPosition(respawnLevel, bedLocation, exileDistance);\" (the fallback).",
-   "fix": "Count the timeout in server ticks that ran (count up in ServerTickEnd), not in wall time. Or pause the timer while no ServerTickEnd arrives."
+   "fix": "Count the timeout in server ticks that ran (count up in ServerTickEnd), not in wall time. Or pause the timer while no ServerTickEnd arrives.",
+   "status": "fixed",
+   "note": "The timeout counts server ticks that ran (TIMEOUT_TICKS = 2400, counted in ServerTickEnd), so a paused server uses none of it. Unit test the_timeout_is_120_seconds_of_server_ticks. A long pause was not run in the game."
   }
  ],
  "verdict": "The landing search, the ticket handling, the hook order and the per-player state cleanup hold up against Horizon's code: I found no lock held across a game call, no panic path, and no leaked ticket. Two gameplay defects remain. A player who reconnects or reloads the world while dead gets no exile at all. A Nether anchor never loses a charge, because Horizon skips the block resolution once a mod moves the respawn. The rest are a timing difference for the Departure signal, a cached failed file read, warnings logged on every respawn, and two checks that need a running game."

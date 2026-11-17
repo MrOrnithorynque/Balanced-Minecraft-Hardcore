@@ -109,6 +109,14 @@ Counts over the 59 rows: N 36, M 0, F 11, X 7, G 5.
 
 ### 3.3 Built, but looks or feels different
 
+- C2 (respawn fix round 1): once the mod moves the respawn, Horizon skips the bed and anchor resolution. The mod
+  resolves the point at death itself (anchor charge and Nether, bed and Overworld, room at a forced point), uses the
+  anchor charge and tells `block.minecraft.spawn.not_valid` after the arrival. Three parts stay different: no
+  stand-up search (an obstructed bed or anchor still counts as one that works), a point that does not work is not
+  forgotten (no helper clears a respawn point), and in a world never saved the first circle with no point is centred
+  on level.dat's placeholder world spawn (no helper reads the world spawn; the game's one is learned at that respawn).
+- C8 (respawn fix round 1): `Departure` reaches the client after the death screen packet. Horizon sends
+  `PlayerCombatKill` at once and mod messages at the next flush, so no hook can put a message before it.
 - C3: a search can take longer (no cheap ocean filter, 25 chunks per candidate).
 - C6, T2: void and `/kill` types come from a hard-coded list.
 - C7, C17: sounds one tick late; journey chimes ignore the Players slider.

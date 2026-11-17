@@ -2,7 +2,7 @@
  "area": "respawn",
  "lens": "parity",
  "reviewed_commit": "63d0592",
- "status": "open: not fixed yet",
+ "status": "closed",
  "verdict": "The distance formula, level scaling, edge point, awards, immunity length and sound lines match the Java mod, and the unit-test values I recomputed by hand (about fifteen assertions) all hold. The real gaps are in the respawn-block handling: once a landing is chosen, Horizon never runs vanilla's bed and anchor resolution, and the bed-present test at death treats an unloaded chunk as present. These change where the exile is centred, and the Java anchor-charge and missing-bed behaviour is lost; none of this is in log/respawn.md. Four more minor gaps follow, including a shield that survives death and a world spawn that is required even when a bed supplies the centre.",
  "findings": [
   {
@@ -10,35 +10,45 @@
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "Once the hook moves the position, Horizon skips vanilla's respawn-block resolution (find_respawn_and_use). Java keeps it: the anchor still loses a charge, a missing or obstructed bed shows its message and the point is forgotten, and an uncharged anchor, an obstructed bed or an unfree forced point count as 'missing', which moves the exile centre to the world spawn in the Overworld. Horizon never charges the anchor, shows no message, keeps the dead point, and centres the exile on the bed or anchor. The log's 'the game resolves it at the respawn' (code comment, line 238) is false on the chosen path. Not listed in Differences.",
    "evidence": "OURS bmh_respawn.rs:288-291 `Some(p) if p.forced || still_there(game, &p) => (p.dimension, p.pos)` and :244 `block.is_none_or(|name| name.ends_with(\"_bed\") || name == \"minecraft:respawn_anchor\")`; HN game/lan_actions.rs:3963-3965 `let chosen = ...; if chosen { (elsewhere, in_frame_bed) = (None, None);` so :4074 `host.hub.missing_respawn_block(conn)` and resolve_server_respawn (server_travel.rs:640-672, respawn_anchor.rs:477-509 where `anchor_charges(state) - 1` is applied) never run; HN native_hooks.rs:7311 'the player is placed exactly there, with no bed or anchor used'. JAVA F_PlayerListRespawnMixin.java:41 'a respawn anchor still loses a charge, and a missing bed still shows its message'; RespawnPositionHandler.java:120-121 `ServerPlayer.RespawnConfig respawnConfig = missingRespawnBlock ? null : serverPlayer.getRespawnConfig();` then :126 world spawn of respawnLevel.",
-   "fix": "In on_player_respawn_position, when a landing is chosen, replay the resolution with native reads: read anchor charges/obstruction (native_level_block_property \"charges\", block above the bed head, anchor only in the Nether) and treat a failure as missing, so the centre and level are the world spawn and the Overworld (re-run the search or fall back to vanilla). Decrement the charge of a non-forced working anchor with native_set_block. Ask Horizon for a helper that runs resolve_server_respawn on the chosen path. Otherwise add this to Differences and GAPS C2."
+   "fix": "In on_player_respawn_position, when a landing is chosen, replay the resolution with native reads: read anchor charges/obstruction (native_level_block_property \"charges\", block above the bed head, anchor only in the Nether) and treat a failure as missing, so the centre and level are the world spawn and the Overworld (re-run the search or fall back to vanilla). Decrement the charge of a non-forced working anchor with native_set_block. Ask Horizon for a helper that runs resolve_server_respawn on the chosen path. Otherwise add this to Differences and GAPS C2.",
+   "status": "fixed",
+   "note": "Fix round 1: the point is resolved at death as vanilla does (logic::point_use: charged Nether anchor, Overworld bed, forced point with room; else Missing, centre the world spawn), the anchor charge is used and block.minecraft.spawn.not_valid is told after the arrival. Unit test the_point_resolves_as_vanilla_does; game i1 log 'reads minecraft:stone: Missing, centre [0, 126, 0]', i2 chat line. Left (GAPS 3.3 C2): no stand-up search, the point is not forgotten. Anchor charge: hand check."
   },
   {
    "severity": "major",
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "At death, a bed or anchor whose chunk is not loaded counts as 'still there'. Java reads the block (getBlockState loads the chunk), so a bed that is gone gives a world-spawn centre. Deaths are usually far from the bed, so the chunk is usually unloaded. Horizon then centres the exile on the old bed. The unreadable case is not in Differences, and its stated reason ('the game resolves it at the respawn') does not hold because the chosen path never resolves it (see the first finding).",
    "evidence": "OURS bmh_respawn.rs:237-244 '/// A block the server cannot read now (its chunk is not loaded) counts as there' and `block.is_none_or(|name| ...)`; HN game/native_level_refs.rs:35 `(inside && world.chunks.contains_key(&(x >> 4, z >> 4))).then(|| world.block(x, y, z))` returns None for an unloaded chunk. JAVA RespawnSearch.java:79 `!(config.forced() || isRespawnBlock(level.getBlockState(bed)))` then :81-82 `level = server.overworld(); bed = level.getRespawnData().pos();`.",
-   "fix": "When the block is unreadable, hold the bed's chunk with native_force_chunk_in, wait until native_level_block answers, and only then pick the centre and start the candidate draw. Release the bed chunk afterwards. Or record it as a listed difference."
+   "fix": "When the block is unreadable, hold the bed's chunk with native_force_chunk_in, wait until native_level_block answers, and only then pick the centre and start the candidate draw. Release the bed chunk afterwards. Or record it as a listed difference.",
+   "status": "fixed",
+   "note": "The point's chunk is held at death (force_chunk_in) and its block is read in level_tick_post of its level before the centre is chosen. Game run 2026-11-17: a death 23 333 blocks from the point gave 'Respawn point ... [-1070, 63, 23308] ... reads minecraft:short_grass: Forced' (scenario c), then the exile round it."
   },
   {
    "severity": "minor",
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "The immunity entry is never cleared on death. Java's counter lives on the ServerPlayer, and the respawn builds a new one at 0. Here the shield is keyed by entity id and removed only at logout or when it reaches 0. A player who dies from void or /kill during the 200 ticks and then respawns without a distant respawn (rule off, vanilla fallback, search failed) keeps the remaining ticks of damage immunity. The count-down only runs in player_tick, which does not fire while dead.",
    "evidence": "OURS bmh_respawn.rs:477-480 `on_player_died ... server().deaths.insert(player, None);` (no shields change); :535 `s.shields.insert(me.entity_id, logic::JOURNEY_INVULNERABLE_TICKS)` is the only insert; :503-506 count-down only in on_player_tick. JAVA F_ServerPlayerJourneyMixin.java:26 `private int bmh$journeyTicks;` (per instance), reset by the new ServerPlayer from PlayerList.respawn.",
-   "fix": "In on_player_died, remove the shield of that player's entity (known.entity from `players`). Do the same in on_player_respawned when no exile is given."
+   "fix": "In on_player_died, remove the shield of that player's entity (known.entity from `players`). Do the same in on_player_respawned when no exile is given.",
+   "status": "fixed",
+   "note": "player_died clears the shield of the dying player's entity (logic::Shields::clear). Unit test the_shield_lasts_200_ticks_and_a_death_ends_it; game c3: /kill inside the immunity, vanilla respawn, damage at tick 80: 'health 20.0 then 14.0'."
   },
   {
    "severity": "minor",
    "file": "horizon/native/mixins/bmh/bmh_respawn.rs",
    "what": "handle_death returns early (after sending Departure, then Ready) when no world spawn is known, even if the player has a usable bed or forced point and so needs no world spawn. In a world whose level.dat has no spawn yet (the author's own open question 7), a player with a bed gets no distant respawn. Java uses the world spawn only when no usable bed exists. Not listed.",
    "evidence": "OURS bmh_respawn.rs:269-274 `let Some(spawn) = world_spawn(game, spawn_in_file) else { ... send(game, player, &JourneySignal::Ready); return; };` placed before the point is read at :275-291. JAVA RespawnSearch.java:76-83 the world spawn is read only inside `if (level == null || bed == null || !(config.forced() || isRespawnBlock(...)))`.",
-   "fix": "Move the world_spawn lookup into the fallback arm (no point, or point gone) and bail out only there."
+   "fix": "Move the world_spawn lookup into the fallback arm (no point, or point gone) and bail out only there.",
+   "status": "fixed",
+   "note": "The world spawn is read only for no point or a point that does not work (handle_death None arm, resolve Missing arm). A bed or forced point needs no world spawn. Shown in the game only for the Missing arm (i1); the no-world-spawn case needs a world with no level.dat, not set up."
   },
   {
    "severity": "minor",
    "file": "horizon/native/mixins/bmh/logic/src/respawn.rs",
    "what": "Java behaviours that are easy to get wrong have no test: (1) the y given to the biome test is the level's sea level (63 Overworld, 32 Nether, 0 End), but the Fake world ignores y, so a wrong sea_level passes every test; LevelShape::of is tested only for the Nether logical height. (2) chunk_of on negative coordinates (arithmetic shift) is never tested, and it decides which chunk is held and released. (3) A later software-border edge: fractional border bounds are not covered. (4) The still_there/expected/handed matching in bmh_respawn.rs, the part with the most unlisted differences, sits in the untested game file.",
    "evidence": "OURS logic/respawn.rs:760-762 `fn biome(&mut self, x: i32, _y: i32, z: i32) -> Option<String> { self.biomes.get(&(x, z)).cloned() }` and :374-376 `world.biome(x, shape.sea_level, z)`; :302-304 `[x >> 4, z >> 4]` with no negative-coordinate assertion except via positive 1000-block cases. JAVA RespawnPositionHandler.java:206 `serverLevel.getBiome(randomEdgePoint.atY(serverLevel.getSeaLevel()))`.",
-   "fix": "Make Fake::biome record the y it receives and assert it equals shape.sea_level for the three dimensions. Add assert_eq!(chunk_of(-1,-17), [-1,-2]). Move the center/expected selection of bmh_respawn.rs into logic and test it."
+   "fix": "Make Fake::biome record the y it receives and assert it equals shape.sea_level for the three dimensions. Add assert_eq!(chunk_of(-1,-17), [-1,-2]). Move the center/expected selection of bmh_respawn.rs into logic and test it.",
+   "status": "fixed",
+   "note": "Tests added: the_biome_test_reads_at_sea_level (Fake records y: 63, 32, 0), chunks_of_negative_columns_round_down, a_fractional_border_keeps_min_inclusive_max_exclusive, the_handed_point_must_fit_the_search (the matching moved to logic::respawn_fit)."
   }
  ]
 }

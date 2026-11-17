@@ -77,6 +77,13 @@ Facts the test uses, and where they come from:
 | e3 | The rule is set back to true. | Cleanup. | Nothing. |
 | f1 | Creative mode, kill, respawn: within 200 blocks of the spawn and no new landing line. | Creative players get the vanilla respawn. | Adventure and spectator. |
 | g1 | After a distant respawn: `save`, then the advancement file of the world has `bmh:journey/exile` with `done` true. If there is no file, `advancement revoke @s only bmh:journey/exile` says "Revoked". | The award command from `server_tick` works. | The toast, the other 19 advancements. |
+| b4 | After b0, b0s and b1 (alone in the world): the log has no `WARN` line of the mod at all. | Sounds with nobody near and an award already held are not logged as failures (review semantics-5, first-run defect 3). | That a sound plays for a second player (hand check respawn 8). |
+| c3 | Distant respawn, `/kill` at about tick 40, rule off, vanilla respawn, `damage @s 6` at tick 80: the health drops. | A death inside the 200 ticks ends the immunity (review parity-3). With the old shield, 80 ticks would be left. | The same after a distant respawn (the shield starts again then). |
+| h1 | Gives the nine items of `ids.rs`, opens the inventory, keeps `h-items-inventory.png` under `--out`, then `clear @s`. The file exists and is not empty. | The screenshot is on disk. | The look: a person or a reviewer opens the file. |
+| i1 | `/spawnpoint` 3 blocks from the player, stone in it and above it, death: the landing is about 23333 blocks from the world spawn and the log has `reads minecraft:stone: Missing`. | A forced point with no room counts as a missing respawn block, as vanilla's resolution says, so the centre is the world spawn (review parity-1). | A bed slept in, a Nether anchor (hand checks below). |
+| i2 | After i1: the chat has "You have no home bed or charged respawn anchor, or it was obstructed". | The player is told, as vanilla's `NO_RESPAWN_BLOCK_AVAILABLE` does. | That the point is forgotten (it is not: GAPS.md 3.3 C2). |
+| j1 | `/spawnpoint`, `/kill`, `horizon-ctl quit` while dead, a second launch on the same world: the death screen, then a new `Landing spot ready` line. | A player dead when the game closes gets a search when the world opens (review semantics-1). Horizon kills such a player once more at login. | A relog on a dedicated server (no server in these tests). |
+| j2 | After j1, `horizon-ctl respawn`: about 23333 blocks from the point. | The exile happens after the restart. | The distance of a death with Eternal Items across a restart. |
 
 ## SKIPs the test has
 
@@ -98,7 +105,10 @@ A person does these in a window (`test-slice.sh --window --keep` leaves a world,
 | Area, number | What to do by hand |
 |---|---|
 | respawn 3, 4 | Die many times near an ocean. No landing in water, on leaves or on a beach of an ocean. The log shows released candidates. |
-| respawn 5 | Sleep in a bed, die: the exile is round the bed. Break the bed, die: round the world spawn. `/spawnpoint` somewhere, die. Watch for `No distant respawn` in the log. |
+| respawn 5 | Sleep in a bed, die: the log has `Respawn point ... reads minecraft:<color>_bed[...]: Bed, centre <the bed>` and the exile is round the bed. Break the bed, die: `reads minecraft:air: Missing, centre <world spawn>`, the exile is round the world spawn and the chat says "You have no home bed or charged respawn anchor, or it was obstructed". Put stone round the bed so no spot is free, die: the mod still says `Bed` (no stand-up search, GAPS.md 3.3 C2). Watch for `No distant respawn` in the log. |
+| respawn 5b | Sleep in a bed, walk 300 blocks away (the bed's chunk unloads), die: the log line `Respawn point ... reads` comes a tick or more later, then the search; break the bed first and the line says `Missing`. |
+| respawn 5c | Dedicated server only (single player never hands a Nether point to the hook, lan_actions.rs:3929-3940): charge a respawn anchor in the Nether twice, use it, die in survival. `reads minecraft:respawn_anchor[charges=2]: Anchor`, the exile is in the Nether round the anchor at 23333 / 8 blocks, the anchor then shows 1 charge and the player hears the deplete sound. Use it until 0 charges, die: `Missing`, exile in the Overworld round the world spawn, chat line "no home bed". In single player the same anchor gives `No distant respawn` (Horizon respawns at the world spawn). |
+| respawn 5d | `/setworldspawn` or `/spawnpoint <you>` while you are dead: the log says `changed after the death, using default respawn position` and the respawn is vanilla. |
 | respawn 6 | Open `players/data/<uuid>.dat` of the world: it has the `respawn` compound. |
 | respawn 7 | Make a hardcore world and die at once: no journey. |
 | respawn 8 | The advancement screen shows "Not the end". A second player near the landing hears the bell. |
@@ -228,3 +238,12 @@ The details, the screenshots and the defects are in `docs/horizon/log/first-run.
 
 The open questions of the first run (reply of `click-button respawn`, `damage`, `advancement revoke`, `save`) are answered:
 `damage` and `advancement revoke` exist, `click-button respawn` works, whether `save` writes an advancement file is open (the advancement data was not loaded).
+
+## What was run on 2026-11-17, respawn fix round 1
+
+`sh horizon/tools/test-slice.sh --keep --out ~/Library/Caches/bmh-horizon/scratch/respawn-fix1-shots` (with the build),
+3 min 23 s, offscreen, no audio. `pgrep -fl horizon-client` printed nothing after it. Result: 24 passed, 0 failed,
+0 skipped (a1, a2, a3, a4, b0, b0s, b1, b2, b3, b4, c1, c2, c3, d3, e1, e2, e3, f1, g1, h1, i1, i2, j1, j2). Details in
+`docs/horizon/log/respawn.md`, "Fix round 1". New: b4 checks every WARN line of the mod, c3, h, i, j; the launch is the
+function `launch_game` (j launches a second time; without `--wait` the reply has no pid, so the script finds the game
+by its `--game-dir`).

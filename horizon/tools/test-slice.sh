@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i j), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -14,7 +14,8 @@
 #   --bin-dir    the folder with horizon-client and horizon-ctl
 #   --out DIR    where the screenshots go (default: the scratch folder, printed at the end)
 # Scenarios: a mods row, rules and rules file; b distant respawn; c immunity; d cinematic
-#   screenshots; e rule off; f creative; g advancement.
+#   screenshots; e rule off; f creative; g advancement; h the nine items (one screenshot);
+#   i a respawn point that does not work; j dead when the game closes (it quits and relaunches).
 # Environment: BMH_HORIZON_CACHE (default ~/Library/Caches/bmh-horizon).
 # Exit codes: 0 all checks passed (SKIPs allowed), 1 a check failed, 77 no prepared files,
 #   64 a bad option, 3 the game did not start.
@@ -49,7 +50,7 @@ while [ "$#" -gt 0 ]; do
                      bindir="$2"; shift 2 ;;
         --out)       [ "$#" -ge 2 ] || { echo "test-slice.sh: --out needs a folder." >&2; exit 64; }
                      outdir="$2"; shift 2 ;;
-        -h|--help)   sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help)   sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "test-slice.sh: unknown option '$1'." >&2; exit 64 ;;
     esac
 done
@@ -273,15 +274,24 @@ echo "test-slice.sh: scratch   $scratch"
 mkdir -p "$GAMEDIR"
 extra=""
 [ "$window" -eq 1 ] || extra="--offscreen"
-reply="$(HORIZON_HOME="$HOMEDIR" HORIZON_NO_AUDIO=1 HORIZON_TELEMETRY_URL=off HORIZON_NO_DISCORD=1 \
-    HORIZON_LAUNCHER_NO_SELF_UPDATE=1 \
-    "$CTL" --socket "$SOCK" --timeout 900 launch --game "$GAME" --world "$WORLD" --seed "$SEED" --wait \
-    --resources "$resources" --game-dir "$GAMEDIR" --home "$HOMEDIR" --dev-mod "$content" $extra 2>&1)"
-launch_status=$?
-# The launch reply is the whole state of the game. Print only what a person needs.
-echo "test-slice.sh: launch reply: $(jget "$reply" '{"ok": d.get("launch", {}).get("ok"), "pid": d.get("launch", {}).get("pid"), "screen": d.get("screen"), "dimension": d.get("dimension"), "player": d.get("player")}')"
-# The pid is in the "launch" object of the reply (horizon-ctl 2026-11-17 first run), not at the top.
-GAMEPID="$(jget "$reply" 'd.get("launch", {}).get("pid") or d.get("pid", "")')"
+# launch_game [--wait]: starts the game on the scratch world (made at the first launch, opened again
+# after). Sets reply, launch_status and GAMEPID.
+launch_game() {
+    reply="$(HORIZON_HOME="$HOMEDIR" HORIZON_NO_AUDIO=1 HORIZON_TELEMETRY_URL=off HORIZON_NO_DISCORD=1 \
+        HORIZON_LAUNCHER_NO_SELF_UPDATE=1 \
+        "$CTL" --socket "$SOCK" --timeout 900 launch --game "$GAME" --world "$WORLD" --seed "$SEED" "$@" \
+        --resources "$resources" --game-dir "$GAMEDIR" --home "$HOMEDIR" --dev-mod "$content" $extra 2>&1)"
+    launch_status=$?
+    # The launch reply is the whole state of the game. Print only what a person needs.
+    echo "test-slice.sh: launch reply: $(jget "$reply" '{"ok": d.get("launch", {}).get("ok"), "pid": d.get("launch", {}).get("pid"), "screen": d.get("screen"), "dimension": d.get("dimension"), "player": d.get("player")}')"
+    # The pid is in the "launch" object of the reply (horizon-ctl 2026-11-17 first run), not at the top.
+    GAMEPID="$(jget "$reply" 'd.get("launch", {}).get("pid") or d.get("pid", "")')"
+    # Without --wait the reply has no pid (scenario j, 2026-11-17): find the game by its folder.
+    if [ -z "$GAMEPID" ] || [ "$GAMEPID" = None ]; then
+        GAMEPID="$(pgrep -f -- "--game-dir $GAMEDIR" 2>/dev/null | head -n 1 || true)"
+    fi
+}
+launch_game --wait
 if [ "$launch_status" -ne 0 ]; then
     echo "test-slice.sh: the game did not start or the world did not load (status $launch_status)." >&2
     echo "test-slice.sh: log tail:" >&2
@@ -299,6 +309,9 @@ if [ -z "$spawn_x" ] || [ -z "$spawn_z" ]; then
     exit 3
 fi
 expected="$(expected_distance 0 2)"
+# The world spawn, for the scenarios that measure from it after a /spawnpoint moved spawn_x.
+world_x="$spawn_x"
+world_z="$spawn_z"
 echo "test-slice.sh: world spawn (the start position of the player): x=$spawn_x z=$spawn_z"
 echo "test-slice.sh: expected distant respawn distance (Normal, no Eternal Item): $expected blocks"
 
@@ -432,11 +445,14 @@ if wanted b; then
         else
             fail b2 "log: new-pos lines +$(( $(count_log 'new respawn pos and bed') - before_new )), 'No distant respawn' lines +$(( $(count_log 'No distant respawn') - before_none ))"
         fi
-        warns="$(( $(count_log 'Sound command failed') + $(count_log 'not awarded to') ))"
+        # Alone in the world, after normal distant respawns (b0, b0s, b1): the sounds have nobody to
+        # reach and the second award is already held. Neither is a failure, so the mod logs no
+        # warning at all (first run, 2026-11-17: "Sound command failed", "not awarded to").
+        warns="$(count_log 'WARN.*BalancedMcHardcoreMain')"
         if [ "$warns" -eq 0 ]; then
-            pass b4 "the arrival sounds and the advancement award ran with no warning"
+            pass b4 "no warning line of the mod after $(count_log 'new respawn pos and bed') distant respawn(s) alone in the world"
         else
-            fail b4 "$warns warning line(s) in the log: $(grep -m1 'Sound command failed' "$(logfile)" | sed 's/^[^]]*\]: //'); $(grep -m1 'not awarded to' "$(logfile)" | sed 's/^[^]]*\]: //')"
+            fail b4 "$warns warning line(s) of the mod in the log: $(grep -m1 'WARN.*BalancedMcHardcoreMain' "$(logfile)" | sed 's/^[^]]*\]: //')"
         fi
         st="$(state)"
         health="$(jget "$st" 'd["player"]["health"]')"
@@ -495,6 +511,32 @@ if wanted c; then
                 pass c2 "after the immunity: health $h2 then $h3 (damage works again)"
             else
                 fail c2 "damage after 200 ticks changed nothing: health $h2 then $h3"
+            fi
+            # c3: a death inside the immunity ends it (Java keeps the count on the player that dies).
+            # Distant respawn, /kill at about tick 40 (it bypasses the immunity), rule off, vanilla
+            # respawn (60 ticks of vanilla immunity), damage at tick 80: it must hurt. With the shield
+            # kept, 160 - 80 ticks would be left and the damage would do nothing.
+            if death_and_respawn ctl 1; then
+                DISTANT_DONE=$((DISTANT_DONE + 1))
+                ctl command "bmh rule random_death_spawn_point false" >/dev/null
+                if death_and_respawn ctl 0; then
+                    ctl wait 40 >/dev/null
+                    h4="$(health_of)"
+                    ctl command "damage @s 6" >/dev/null
+                    ctl wait 5 >/dev/null
+                    h5="$(health_of)"
+                    ok3="$(python3 -c 'import sys; print(float(sys.argv[2]) < float(sys.argv[1]))' "${h4:-0}" "${h5:-0}" 2>/dev/null)"
+                    if [ "$ok3" = True ]; then
+                        pass c3 "a death inside the immunity ends it: after a vanilla respawn, tick 80, health $h4 then $h5"
+                    else
+                        fail c3 "the immunity outlived the death: after a vanilla respawn, tick 80, health $h4 then $h5"
+                    fi
+                else
+                    fail c3 "no vanilla respawn after the death inside the immunity: $DR_NOTE"
+                fi
+                ctl command "bmh rule random_death_spawn_point true" >/dev/null
+            else
+                fail c3 "no distant respawn for the death inside the immunity: $DR_NOTE"
             fi
         fi
     else
@@ -654,6 +696,128 @@ print(d.get("bmh:journey/exile", {}).get("done"))' "$adv_file")"
             fail g1 "the player does not have bmh:journey/exile: $(printf '%s' "$rv" | head -c 300)"
         else
             skip g1 "no advancement file in the world and the revoke reply was not readable: $(printf '%s' "$rv" | head -c 200)"
+        fi
+    fi
+fi
+
+# ---- h. The nine items -------------------------------------------------------------------------
+# Not about respawn: an earlier run's screenshots of the items were lost, so this keeps one.
+if wanted h; then
+    echo "--- h. the nine items of the mod in the inventory, one screenshot"
+    ctl command "gamemode survival" >/dev/null
+    for id in bmh:eternal_sword bmh:eternal_axe bmh:eternal_pickaxe bmh:eternal_bundle bmh:navigator_amulet \
+        bmh:totem_of_eternity bmh:sleeping_totem bmh:dormant_totem bmh:echo_heart; do
+        ctl give "$id" 1 >/dev/null
+    done
+    ctl wait 10 >/dev/null
+    ctl open-inventory >/dev/null
+    ctl wait 10 >/dev/null
+    f="$SHOTS/h-items-inventory.png"
+    ctl screenshot "$f" >/dev/null
+    ctl close >/dev/null
+    if [ -s "$f" ]; then
+        pass h1 "inventory screenshot written, $(wc -c < "$f" | tr -d ' ') bytes: $f"
+    else
+        fail h1 "no inventory screenshot, or an empty one: $f"
+    fi
+    # Six of them are Eternal Items: they would change the distance of the next deaths.
+    ctl command "clear @s" >/dev/null
+fi
+
+# ---- i. A respawn point that does not work -----------------------------------------------------
+# Java takes vanilla's resolution first: a forced point with no room for a player is a missing
+# respawn block, so the exile is round the world spawn, and the player is told
+# (block.minecraft.spawn.not_valid). The control tool can block a forced point; a real bed slept in
+# and a Nether anchor are hand checks (TESTING.md).
+if wanted i; then
+    echo "--- i. a /spawnpoint blocked by stone at death: the exile centre is the world spawn"
+    ctl command "gamemode survival" >/dev/null
+    st="$(state)"
+    px="$(jget "$st" 'd["player"]["block_pos"][0]')"
+    py="$(jget "$st" 'd["player"]["block_pos"][1]')"
+    pz="$(jget "$st" 'd["player"]["block_pos"][2]')"
+    qx=$((px + 3))
+    reply="$(ctl command "spawnpoint @s $qx $py $pz")"
+    echo "test-slice.sh: spawnpoint at $qx $py $pz: $(printf '%s' "$reply" | head -c 200)"
+    ctl command "setblock $qx $py $pz minecraft:stone" >/dev/null
+    ctl command "setblock $qx $((py + 1)) $pz minecraft:stone" >/dev/null
+    POINT_SET=0
+    before_missing="$(count_log 'reads minecraft:stone: Missing')"
+    if death_and_respawn ctl 1; then
+        DISTANT_DONE=$((DISTANT_DONE + 1))
+        pos="$(position_of)"
+        res="$(dist_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$world_x" "$world_z" "$expected" 64)"
+        missing="$(( $(count_log 'reads minecraft:stone: Missing') - before_missing ))"
+        if [ "${res##* }" = ok ] && [ "$missing" -gt 0 ]; then
+            pass i1 "blocked point: distant respawn ${res%% *} blocks from the world spawn ($world_x, $world_z), expected $expected; log: the point reads stone, Missing"
+        else
+            fail i1 "blocked point: ${res%% *} blocks from the world spawn ($world_x, $world_z), expected $expected; 'Missing' lines +$missing; $(grep 'Respawn point' "$(logfile)" | tail -n 1 | sed 's/^[^]]*\]: //')"
+        fi
+        msgs="$(ctl messages 20)"
+        if printf '%s' "$msgs" | grep -qi 'no home bed\|spawn.not_valid'; then
+            pass i2 "the player is told: $(printf '%s' "$msgs" | grep -oi 'you have no home bed[^"]*' | head -n 1)"
+        else
+            fail i2 "no 'no home bed' line in the chat: $(printf '%s' "$msgs" | head -c 300)"
+        fi
+    else
+        fail i1 "no respawn happened: $DR_NOTE"
+    fi
+fi
+
+# ---- j. Dead when the game closes ---------------------------------------------------------------
+# Java keeps the death's distance and searches at the respawn. Here the dead player comes back with
+# no search: the mod must start one. This quits the game and launches it again on the same world,
+# so it runs last.
+if wanted j; then
+    echo "--- j. dead when the game closes, the world opens again: the exile still happens"
+    POINT_SET=0
+    ensure_point
+    ctl command "gamemode survival" >/dev/null
+    seq="$(jget "$(ctl events)" 'd["last"]')"; [ -n "$seq" ] || seq=0
+    ctl command "kill @s" >/dev/null
+    if ! ctl wait-for event death --since "$seq" --timeout 30 >/dev/null; then
+        fail j1 "no death event within 30 s"
+    else
+        sleep 2
+        # The second launch may start a new log or add to this one: count from here.
+        b_land="$(count_log 'Landing spot ready')"
+        b_new="$(count_log 'new respawn pos and bed')"
+        ctl quit >/dev/null
+        n=0
+        while [ -n "$GAMEPID" ] && kill -0 "$GAMEPID" 2>/dev/null && [ "$n" -lt 60 ]; do sleep 1; n=$((n + 1)); done
+        if [ -n "$GAMEPID" ] && kill -0 "$GAMEPID" 2>/dev/null; then
+            fail j1 "the game did not quit within 60 s (pid $GAMEPID)"
+        else
+            echo "test-slice.sh: the game quit with the player dead; launching it again on the same world"
+            launch_game
+            if [ "$(count_log 'Landing spot ready')" -lt "$b_land" ]; then
+                b_land=0; b_new=0
+            fi
+            if [ "$launch_status" -ne 0 ]; then
+                fail j1 "the second launch failed (status $launch_status): $(printf '%s' "$reply" | tail -n 1 | head -c 300)"
+            elif ! ctl wait-for screen dead --timeout 300 >/dev/null; then
+                fail j1 "the reopened world shows no death screen: screen $(jget "$(state)" 'd.get("screen")')"
+            elif ! wait_log 'Landing spot ready' "$b_land" 150; then
+                fail j1 "the reopened world: the player is dead, but no new 'Landing spot ready' line within 150 s"
+            else
+                # Horizon kills a player who logs in dead once more ("joined the game", then "died"):
+                # that death starts the search (first run of j, 2026-11-17).
+                pass j1 "the reopened world: death screen, then a new search: $(grep 'Landing spot ready' "$(logfile)" | tail -n 1 | sed 's/^[^]]*\]: //')"
+                seq="$(jget "$(ctl events)" 'd["last"]')"; [ -n "$seq" ] || seq=0
+                ctl respawn >/dev/null
+                if ctl wait-for event respawn --since "$seq" --timeout 90 >/dev/null; then
+                    ctl wait 40 >/dev/null
+                    pos="$(position_of)"
+                    res="$(dist_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$spawn_x" "$spawn_z" "$expected" 64)"
+                    if [ "${res##* }" = ok ] && [ "$(count_log 'new respawn pos and bed')" -gt "$b_new" ]; then
+                        pass j2 "exile after the restart: ${res%% *} blocks from the point, expected $expected"
+                    else
+                        fail j2 "after the restart: ${res%% *} blocks from the point, expected $expected; 'new respawn pos and bed' lines $(count_log 'new respawn pos and bed'), 'No distant respawn' lines $(count_log 'No distant respawn')"
+                    fi
+                else
+                    fail j2 "no respawn event within 90 s after the restart"
+                fi
+            fi
         fi
     fi
 fi

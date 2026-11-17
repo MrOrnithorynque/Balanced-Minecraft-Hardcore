@@ -14,9 +14,13 @@ pub const MAX_EASY_LIFE: i32 = 9;
 /// The most candidate points of one search (RespawnPositionHandler.java:41, `MAX_POSITION_ATTEMPTS`).
 pub const MAX_POSITION_ATTEMPTS: u32 = 32;
 
-/// A search that runs longer than this fails, in milliseconds of wall time
-/// (RespawnSearch.java:35, `TIMEOUT_MS`).
-pub const TIMEOUT_MS: u128 = 120_000;
+/// A search that runs longer than this fails, in milliseconds (RespawnSearch.java:35, `TIMEOUT_MS`).
+pub const TIMEOUT_MS: u32 = 120_000;
+
+/// The timeout in server ticks that ran (50 ms each). Java counts wall time, but its fallback is a
+/// search at the respawn. Here the fallback is the vanilla point, so a paused server must not use up
+/// the time (review semantics-7).
+pub const TIMEOUT_TICKS: u32 = TIMEOUT_MS / 50;
 
 /// The landing chunk stays held this many server ticks after the search found it
 /// (RespawnSearch.java:37, `new TicketType(6000L, ...)`).
@@ -66,6 +70,18 @@ pub const BYPASSES_INVULNERABILITY: [&str; 2] = ["minecraft:out_of_world", "mine
 pub const OVERWORLD: &str = "minecraft:overworld";
 /// The Nether.
 pub const NETHER: &str = "minecraft:the_nether";
+
+/// A `/playsound` of volume 1 or less reaches the players within 16 blocks of its position
+/// (vanilla `PlaySoundCommand`: `Math.max(volume, 1) * 16`, squared, compared with `distanceToSqr`).
+pub const SOUND_RANGE: f64 = 16.0;
+
+/// The sound of an anchor that loses a charge at a respawn (vanilla `PlayerList.respawn`:
+/// `SoundEvents.RESPAWN_ANCHOR_DEPLETE`, `SoundSource.BLOCKS`, volume 1, pitch 1, to that player only).
+pub const ANCHOR_DEPLETE_SOUND: &str = "minecraft:block.respawn_anchor.deplete";
+
+/// The chat line of a respawn point whose block is gone or does not work (vanilla
+/// `ClientboundGameEventPacket.NO_RESPAWN_BLOCK_AVAILABLE`, shown by the client as this key).
+pub const NOT_VALID_KEY: &str = "block.minecraft.spawn.not_valid";
 
 /// The id of a difficulty (vanilla `Difficulty.getId`): peaceful 0, easy 1, normal 2, hard 3.
 /// None for another name.
@@ -349,9 +365,15 @@ impl Search {
         self.attempts
     }
 
-    /// The chunk the search holds now, if any.
+    /// The chunk of the current candidate, if any.
     pub fn held_chunk(&self) -> Option<[i32; 2]> {
         self.candidate.map(|(x, z)| chunk_of(x, z))
+    }
+
+    /// The chunk of the landing. Its ticket stays after the search ends (RespawnSearch.java:199-206),
+    /// so the owner of the search must let it go.
+    pub fn landing_chunk(&self) -> Option<[i32; 2]> {
+        self.result.map(|feet| chunk_of(feet[0], feet[2]))
     }
 
     /// True when the respawn uses the level and the centre of this search (RespawnSearch.java:170-173).
@@ -411,9 +433,168 @@ impl Search {
     }
 }
 
-/// True when a search that started `elapsed_ms` ago must fail (RespawnSearch.java:105).
-pub fn timed_out(elapsed_ms: u128) -> bool {
-    elapsed_ms > TIMEOUT_MS
+/// True when a search that started `ticks` server ticks ago must fail (RespawnSearch.java:105).
+pub fn timed_out(ticks: u32) -> bool {
+    ticks > TIMEOUT_TICKS
+}
+
+/// A respawn point as the player's data keeps it (vanilla `ServerPlayer.RespawnConfig`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RespawnPoint {
+    /// The level of the point.
+    pub dimension: String,
+    /// The bed head, the anchor or the block of a `/spawnpoint`.
+    pub pos: [i32; 3],
+    /// Set by `/spawnpoint`.
+    pub forced: bool,
+}
+
+/// What vanilla's resolution of the point gives at the respawn
+/// (`ServerPlayer.findRespawnAndUseSpawnBlock`, Horizon `find_respawn_and_use`, respawn_anchor.rs:477-509).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PointUse {
+    /// A respawn anchor that works: in the Nether, charged or forced. A charge goes when not forced.
+    Anchor,
+    /// A bed where beds set the spawn: the Overworld, not a straw bed.
+    Bed,
+    /// A forced point (`/spawnpoint`) on no bed and no anchor, with room for a player.
+    Forced,
+    /// Anything else: vanilla forgets the point and the exile centre is the world spawn
+    /// (RespawnPositionHandler.java:120-127, `missingRespawnBlock`).
+    Missing,
+}
+
+/// The block id of a block state string (`minecraft:respawn_anchor[charges=2]` gives
+/// `minecraft:respawn_anchor`).
+pub fn state_name(state: &str) -> &str {
+    state.split('[').next().unwrap_or(state)
+}
+
+/// One property of a block state string, None when the state does not have it.
+pub fn state_property<'a>(state: &'a str, key: &str) -> Option<&'a str> {
+    let inside = state.split_once('[')?.1.strip_suffix(']')?;
+    inside.split(',').find_map(|pair| {
+        let (k, v) = pair.split_once('=')?;
+        (k.trim() == key).then_some(v.trim())
+    })
+}
+
+/// Room to respawn in this block (vanilla `Block.isPossibleToRespawnInThis`: neither solid nor
+/// liquid). Horizon gives no `isSolid` for a block, so a block with a collision box counts as solid.
+pub fn respawn_space(block: &BlockInfo) -> bool {
+    const LIQUIDS: [&str; 3] = ["minecraft:water", "minecraft:lava", "minecraft:bubble_column"];
+    block.boxes.is_empty() && !LIQUIDS.contains(&block.name.as_str())
+}
+
+/// Vanilla's resolution of the point at the respawn, in its order (respawn_anchor.rs:483-500):
+/// the anchor first, then the bed, then a forced point. `state` is the block state at the point,
+/// `free_at` and `free_above` are `respawn_space` of that block and of the one over it. The stand-up
+/// search round a bed or an anchor is not done: an obstructed bed counts as one that works.
+pub fn point_use(point: &RespawnPoint, state: &str, free_at: bool, free_above: bool) -> PointUse {
+    let name = state_name(state);
+    let anchor = name == "minecraft:respawn_anchor";
+    let charges = state_property(state, "charges").and_then(|c| c.parse::<i32>().ok()).unwrap_or(0);
+    // `RespawnAnchorBlock.canSetSpawn`: only the Nether's dimension type lets an anchor work.
+    if anchor && (point.forced || charges > 0) && point.dimension == NETHER {
+        return PointUse::Anchor;
+    }
+    // `BedRule.canSetSpawn`: only the Overworld's beds set the spawn, straw beds never.
+    if name.ends_with("_bed") && name != "minecraft:straw_bed" && point.dimension == OVERWORLD {
+        return PointUse::Bed;
+    }
+    if point.forced && !anchor && free_at && free_above {
+        return PointUse::Forced;
+    }
+    PointUse::Missing
+}
+
+/// The charges an anchor keeps after a respawn uses it, None when it has none to give.
+pub fn anchor_after_use(charges: i32) -> Option<i32> {
+    (charges > 0).then(|| charges - 1)
+}
+
+/// How the point that the game hands to the respawn fits the search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fit {
+    /// The handed point is the player's point: the search's level and centre apply.
+    Point,
+    /// The search was round the world spawn and the game hands its own world spawn, this block.
+    /// The search's circle stays; the exile centre is this block, the game's world spawn.
+    WorldSpawn([i32; 3]),
+}
+
+/// Whether the respawn uses the search (RespawnPositionHandler.java:120-136). `point` is the player's
+/// point at death as the game keeps it (`dimension`, block), `centre_is_world_spawn` is true when the
+/// search went round the world spawn (no point, or a point that does not work). The game hands the
+/// player's point as it keeps it, also a point that does not work (lan_actions.rs:3929-3955). With no
+/// point, or in single player with a point outside the Overworld, it hands its world spawn
+/// (`level.world_spawn`), which a never-saved `level.dat` does not hold yet (save.rs:4402).
+pub fn respawn_fit(
+    point: Option<(&str, [i32; 3])>,
+    centre_is_world_spawn: bool,
+    handed_dimension: &str,
+    handed_block: [i32; 3],
+) -> Option<Fit> {
+    if point == Some((handed_dimension, handed_block)) {
+        return Some(Fit::Point);
+    }
+    let not_an_overworld_point = point.is_none_or(|(dimension, _)| dimension != OVERWORLD);
+    (centre_is_world_spawn && handed_dimension == OVERWORLD && not_an_overworld_point)
+        .then_some(Fit::WorldSpawn(handed_block))
+}
+
+/// True when another player is close enough to hear a `/playsound` at `block` (`SOUND_RANGE`).
+/// `others` are the feet positions of the other players in that level.
+pub fn someone_hears(block: [i32; 3], others: impl IntoIterator<Item = [f64; 3]>) -> bool {
+    let at = block.map(f64::from);
+    others.into_iter().any(|p| {
+        let d = [p[0] - at[0], p[1] - at[1], p[2] - at[2]];
+        d[0] * d[0] + d[1] * d[1] + d[2] * d[2] <= SOUND_RANGE * SOUND_RANGE
+    })
+}
+
+/// The Eternal Items among item ids, one per slot (RespawnPositionHandler.java:228-233).
+pub fn count_eternal<'a>(ids: impl IntoIterator<Item = &'a str>) -> i32 {
+    let count = ids.into_iter().filter(|id| crate::ids::is_eternal(id)).count();
+    i32::try_from(count).unwrap_or(i32::MAX)
+}
+
+/// The 200 ticks of damage immunity after a distant respawn, by network entity id
+/// (F_ServerPlayerJourneyMixin.java). Java keeps the count on the `ServerPlayer`, and a respawn makes a
+/// new one at 0: so a death clears the entry here (review parity-3).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Shields {
+    ticks: std::collections::BTreeMap<i32, i32>,
+}
+
+impl Shields {
+    /// No immunity for anyone.
+    pub const fn new() -> Shields {
+        Shields { ticks: std::collections::BTreeMap::new() }
+    }
+
+    /// Starts the immunity of a distant respawn (RespawnEffectHandler.java:59).
+    pub fn start(&mut self, entity: i32) {
+        self.ticks.insert(entity, JOURNEY_INVULNERABLE_TICKS);
+    }
+
+    /// One tick of the player (F_ServerPlayerJourneyMixin.java:34-40).
+    pub fn tick(&mut self, entity: i32) {
+        if let Some(ticks) = self.ticks.get_mut(&entity) {
+            *ticks = count_down(*ticks);
+        }
+        self.ticks.retain(|_, ticks| *ticks > 0);
+    }
+
+    /// The player died or left: the immunity ends.
+    pub fn clear(&mut self, entity: i32) {
+        self.ticks.remove(&entity);
+    }
+
+    /// True when the immunity stops this damage.
+    pub fn blocks(&self, entity: i32, damage_type: &str) -> bool {
+        blocks_damage(self.ticks.get(&entity).copied().unwrap_or(0), damage_type)
+    }
 }
 
 /// The decision inside the respawn (RespawnPositionHandler.java:94-160, `findRespawnPosition`), for
@@ -707,6 +888,7 @@ mod tests {
         border: Option<[f64; 4]>,
         shape: Option<LevelShape>,
         reads: u32,
+        biome_y: Vec<i32>,
     }
 
     impl Fake {
@@ -757,7 +939,8 @@ mod tests {
         fn loaded(&mut self, x: i32, z: i32) -> bool {
             self.loaded.contains(&chunk_of(x, z))
         }
-        fn biome(&mut self, x: i32, _y: i32, z: i32) -> Option<String> {
+        fn biome(&mut self, x: i32, y: i32, z: i32) -> Option<String> {
+            self.biome_y.push(y);
             self.biomes.get(&(x, z)).cloned()
         }
         fn shape(&mut self) -> LevelShape {
@@ -866,6 +1049,7 @@ mod tests {
         // The ticket of the landing stays.
         assert!(world.released.is_empty());
         assert_eq!(search.held_chunk(), None);
+        assert_eq!(search.landing_chunk(), Some(chunk_of(1100, 0)));
         assert!(search.matches(OVERWORLD, [100, 64, 0]));
         assert!(!search.matches(NETHER, [100, 64, 0]));
         assert!(!search.matches(OVERWORLD, [100, 65, 0]));
@@ -941,9 +1125,169 @@ mod tests {
     }
 
     #[test]
-    fn the_timeout_is_120_seconds() {
-        assert!(!timed_out(120_000));
-        assert!(timed_out(120_001));
+    fn the_timeout_is_120_seconds_of_server_ticks() {
+        // 120 000 ms / 50 ms a tick.
+        assert_eq!(TIMEOUT_TICKS, 2400);
+        assert!(!timed_out(0));
+        assert!(!timed_out(2400));
+        assert!(timed_out(2401));
+    }
+
+    #[test]
+    fn the_biome_test_reads_at_sea_level() {
+        // RespawnPositionHandler.java:206: `atY(serverLevel.getSeaLevel())`.
+        for (dimension, sea) in [(OVERWORLD, 63), (NETHER, 32), ("minecraft:the_end", 0)] {
+            let mut world = Fake::default();
+            world.randoms = vec![0.0];
+            world.shape = Some(LevelShape::of(dimension, if dimension == OVERWORLD { -64 } else { 0 }, 256));
+            world.loaded.insert(chunk_of(100, 0));
+            let mut search = Search::new(dimension, [0, 64, 0], 100);
+            search.advance(&mut world);
+            search.advance(&mut world);
+            assert_eq!(world.biome_y, vec![sea], "{dimension}");
+        }
+    }
+
+    #[test]
+    fn chunks_of_negative_columns_round_down() {
+        assert_eq!(chunk_of(-1, -17), [-1, -2]);
+        assert_eq!(chunk_of(-16, 15), [-1, 0]);
+        assert_eq!(chunk_of(-17, 16), [-2, 1]);
+        assert_eq!(chunk_of(0, -16), [0, -1]);
+    }
+
+    #[test]
+    fn a_fractional_border_keeps_min_inclusive_max_exclusive() {
+        let border = [-100.5, -100.5, 100.5, 100.5];
+        assert!(!inside_border(border, -101, 0));
+        assert!(inside_border(border, -100, 0));
+        assert!(inside_border(border, 100, 100));
+        assert!(!inside_border(border, 101, 0));
+        let tight = [10.25, 10.25, 10.75, 10.75];
+        assert!(!inside_border(tight, 10, 10), "10 is under the min 10.25");
+        assert!(!inside_border(tight, 11, 11), "11 is over the max 10.75");
+    }
+
+    #[test]
+    fn block_states_split_into_name_and_properties() {
+        let state = "minecraft:respawn_anchor[charges=2]";
+        assert_eq!(state_name(state), "minecraft:respawn_anchor");
+        assert_eq!(state_property(state, "charges"), Some("2"));
+        assert_eq!(state_property(state, "facing"), None);
+        assert_eq!(state_name("minecraft:air"), "minecraft:air");
+        assert_eq!(state_property("minecraft:air", "charges"), None);
+        let bed = "minecraft:red_bed[facing=east,occupied=false,part=head]";
+        assert_eq!(state_name(bed), "minecraft:red_bed");
+        assert_eq!(state_property(bed, "part"), Some("head"));
+        // A broken string gives no property and no panic.
+        assert_eq!(state_property("minecraft:x[charges=1", "charges"), None);
+    }
+
+    fn point(dimension: &str, forced: bool) -> RespawnPoint {
+        RespawnPoint { dimension: dimension.into(), pos: [5, 70, -3], forced }
+    }
+
+    #[test]
+    fn the_point_resolves_as_vanilla_does() {
+        let anchor = |c: i32| format!("minecraft:respawn_anchor[charges={c}]");
+        // A charged anchor in the Nether works; an empty one is gone unless forced.
+        assert_eq!(point_use(&point(NETHER, false), &anchor(1), false, false), PointUse::Anchor);
+        assert_eq!(point_use(&point(NETHER, false), &anchor(0), false, false), PointUse::Missing);
+        assert_eq!(point_use(&point(NETHER, true), &anchor(0), false, false), PointUse::Anchor);
+        // An anchor works only in the Nether, even forced and with room.
+        assert_eq!(point_use(&point(OVERWORLD, false), &anchor(4), true, true), PointUse::Missing);
+        assert_eq!(point_use(&point(OVERWORLD, true), &anchor(4), true, true), PointUse::Missing);
+        // A bed works in the Overworld only, and a straw bed never.
+        let bed = "minecraft:white_bed[facing=north,occupied=false,part=head]";
+        assert_eq!(point_use(&point(OVERWORLD, false), bed, false, false), PointUse::Bed);
+        assert_eq!(point_use(&point(NETHER, false), bed, false, false), PointUse::Missing);
+        assert_eq!(point_use(&point(OVERWORLD, false), "minecraft:straw_bed[part=head]", false, false), PointUse::Missing);
+        // A bed that is gone.
+        assert_eq!(point_use(&point(OVERWORLD, false), "minecraft:air", true, true), PointUse::Missing);
+        // A forced point holds while a player fits in it, in any level.
+        assert_eq!(point_use(&point(OVERWORLD, true), "minecraft:air", true, true), PointUse::Forced);
+        assert_eq!(point_use(&point(NETHER, true), "minecraft:air", true, true), PointUse::Forced);
+        assert_eq!(point_use(&point(OVERWORLD, true), "minecraft:stone", false, true), PointUse::Missing);
+        assert_eq!(point_use(&point(OVERWORLD, true), "minecraft:air", true, false), PointUse::Missing);
+        assert_eq!(point_use(&point(OVERWORLD, false), "minecraft:air", true, true), PointUse::Missing);
+    }
+
+    #[test]
+    fn respawn_space_is_neither_solid_nor_liquid() {
+        assert!(respawn_space(&air()));
+        assert!(respawn_space(&BlockInfo { name: "minecraft:oak_sign".into(), ..BlockInfo::default() }));
+        assert!(!respawn_space(&full("minecraft:stone")));
+        assert!(!respawn_space(&water()));
+        assert!(!respawn_space(&BlockInfo { name: "minecraft:lava".into(), ..BlockInfo::default() }));
+    }
+
+    #[test]
+    fn an_anchor_gives_one_charge_a_respawn() {
+        assert_eq!(anchor_after_use(4), Some(3));
+        assert_eq!(anchor_after_use(1), Some(0));
+        assert_eq!(anchor_after_use(0), None);
+    }
+
+    #[test]
+    fn the_handed_point_must_fit_the_search() {
+        let bed = Some((OVERWORLD, [5, 70, -3]));
+        // The game hands the bed the search was made for (working or not).
+        assert_eq!(respawn_fit(bed, false, OVERWORLD, [5, 70, -3]), Some(Fit::Point));
+        assert_eq!(respawn_fit(bed, true, OVERWORLD, [5, 70, -3]), Some(Fit::Point));
+        // Another point: no fit (Java searched again; Horizon cannot).
+        assert_eq!(respawn_fit(bed, false, OVERWORLD, [6, 70, -3]), None);
+        assert_eq!(respawn_fit(bed, true, OVERWORLD, [0, 126, 0]), None);
+        // No point: the game's own world spawn fits a world-spawn search, also when level.dat had
+        // another one (a world never saved, game-b0).
+        assert_eq!(respawn_fit(None, true, OVERWORLD, [0, 126, 0]), Some(Fit::WorldSpawn([0, 126, 0])));
+        assert_eq!(respawn_fit(None, true, NETHER, [0, 126, 0]), None);
+        // A Nether anchor that is gone: single player hands the Overworld world spawn.
+        let anchor = Some((NETHER, [10, 40, 10]));
+        assert_eq!(respawn_fit(anchor, true, OVERWORLD, [0, 126, 0]), Some(Fit::WorldSpawn([0, 126, 0])));
+        // A working Nether anchor in single player: the game hands the world spawn, no fit.
+        assert_eq!(respawn_fit(anchor, false, OVERWORLD, [0, 126, 0]), None);
+        // A dedicated server hands the anchor itself.
+        assert_eq!(respawn_fit(anchor, false, NETHER, [10, 40, 10]), Some(Fit::Point));
+    }
+
+    #[test]
+    fn a_sound_needs_a_player_within_16_blocks() {
+        let block = [100, 64, -20];
+        assert!(!someone_hears(block, []));
+        assert!(someone_hears(block, [[116.0, 64.0, -20.0]]), "16 blocks away hears");
+        assert!(!someone_hears(block, [[116.1, 64.0, -20.0]]));
+        assert!(someone_hears(block, [[500.0, 0.0, 0.0], [109.0, 73.0, -11.0]]), "15.6 blocks");
+        assert!(!someone_hears(block, [[110.0, 74.0, -10.0]]), "17.3 blocks");
+    }
+
+    #[test]
+    fn eternal_items_are_counted_by_id() {
+        assert_eq!(count_eternal([]), 0);
+        assert_eq!(
+            count_eternal(["bmh:eternal_sword", "minecraft:stone", "bmh:sleeping_totem", "bmh:dormant_totem"]),
+            2
+        );
+    }
+
+    #[test]
+    fn the_shield_lasts_200_ticks_and_a_death_ends_it() {
+        let mut shields = Shields::new();
+        assert!(!shields.blocks(7, "minecraft:fall"));
+        shields.start(7);
+        for _ in 0..199 {
+            shields.tick(7);
+        }
+        assert!(shields.blocks(7, "minecraft:fall"));
+        assert!(!shields.blocks(7, "minecraft:generic_kill"));
+        assert!(!shields.blocks(8, "minecraft:fall"), "another entity");
+        shields.tick(7);
+        assert!(!shields.blocks(7, "minecraft:fall"));
+        assert_eq!(shields, Shields::new(), "an ended entry goes");
+        // A death in the middle of the immunity ends it (review parity-3).
+        shields.start(7);
+        shields.tick(7);
+        shields.clear(7);
+        assert!(!shields.blocks(7, "minecraft:lava"));
     }
 
     #[test]
