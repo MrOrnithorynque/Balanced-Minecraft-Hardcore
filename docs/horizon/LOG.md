@@ -226,87 +226,59 @@ open. The three that matter most:
 at 2001fc3: `Finished fast profile [optimized] target(s) in 3m 13s`, a `horizon-client` of 82 MB and `horizon-ctl`.
 The binaries were not started: a world needs the prepared game files.
 
+## Step 4. The game runs (2026-11-17, coordinator)
+
+- The tools were made again in the cache `~/Library/Caches/bmh-horizon` (a restart of the Mac had erased the first
+  session's scratchpad). The game files are prepared in `resources/26.3`: the preparer needed Mojang's own
+  `26.3.json` saved in the Nightly's tree as `.local/minecraft/26.3/manifest.json` (the owner said "continue" on
+  2026-11-17 after the request for that download, as he had for the server jar on 2026-11-11).
+- First run of the mod in the game: `docs/horizon/log/first-run.md`. The content mod was refused (a content item
+  may not set `minecraft:lodestone_tracker`): fixed, `docs/horizon/log/content.md`.
+- Respawn fix round 1: thirteen of fourteen items fixed, one deferred as a listed difference
+  (`docs/horizon/review/respawn-*.json`, `docs/horizon/log/respawn.md`).
+- On the merged tree at f2e263e, run by the coordinator: 117 unit tests pass, the compile passes, and
+  `sh horizon/tools/test-slice.sh` gives 24 passed, 0 failed, 0 skipped in the real game.
+- `sh horizon/tools/play.sh` starts the built game in a window for a person.
+- The branch has its own `.claude/CLAUDE.md` and two skills (`horizon-build-test`, `horizon-port-area`).
+
 ## Resume here
 
-State on 2026-11-11, 20:25. Branch `horizon-26.3`, local only. The run stopped here on purpose, at 54 % of the
-5-hour usage window (the owner's line is 60 %). The tree is clean and every step above is committed.
+State on 2026-11-17, 20:05. Branch `horizon-26.3`, local only (never pushed: the owner did not ask).
 
-Done: the content mod, the skeleton (66 hooks), the areas respawn, settings and journey, the game binary with
-the mod inside (`check.sh build`), the game preparation script and the in-game test script (not run).
+Done: the content mod (loads in the game: nine items with textures, a recipe, the advancement tab, the sounds),
+the skeleton (66 hooks), the area respawn (verified in the game), the areas settings and journey (ported; the
+slice test passes with them; not reviewed yet), the test system, the harness of the branch.
+
 Not done, in this order:
 
-1. Fix the open findings of `docs/horizon/review/respawn-*.json` (one agent in a worktree; check each finding's
-   evidence first; both gates must pass).
-2. Review settings and journey the same way (two lenses each: parity with the Java mod, use of the host game),
-   then fix.
-3. Run the in-game test of the slice. It is written and has never run against a game:
-   `sh horizon/tools/prepare-game.sh --server-jar <path>` once (it says what is missing), then
-   `sh horizon/tools/test-slice.sh`. `docs/horizon/TESTING.md` lists its checks and its open questions for the
-   first real run (the flags after `launch --wait`, the JSON field names, the `damage` command). Expect to fix
-   the script on that first run. It needs prepared game files.
-4. Port the seven other areas: homecoming, eternal, totem, ritual, tools, amulet, sky. Amulet before sky and
-   homecoming (they read its points and its reading). The brief of an area agent is `docs/horizon/briefs/port.md`
-   (its absolute paths name the first session scratchpad: change them); its rules are the ones of ARCHITECTURE.md and of the first three area logs.
-5. Skills and a CLAUDE.md for this branch; remove the Java sources when the port is complete.
+1. Read `docs/horizon/log/game-checks-1.md` (the first look at settings and journey in the game; it may still be
+   in work or missing if the run stopped early). Fix the defects it lists: one fix agent per area, each in its own
+   worktree, one at a time with game rights.
+2. Review settings and journey with the two lenses (parity with the Java mod, use of the host game), save the
+   findings under `docs/horizon/review/`, then fix.
+3. Port the seven other areas with the skill `horizon-port-area`: amulet first (it also sets the default
+   `minecraft:lodestone_tracker` of the amulet from the native hook, so that the needle points north: see
+   `docs/horizon/log/content.md`), then homecoming and sky; eternal, totem, ritual and tools can run beside it.
+   For each: port, merge, add its scenario to `test-slice.sh`, review, fix.
+4. Then: bring `HOOKS.md` and `GAPS.md` up to date with what the game showed, remove the Java sources, and ask
+   the owner whether Horizon work gets lines in `CHANGELOG.md` and when to push the branch.
+5. Two edits to the owner's global skill `coordinate-sessions` are proposed and wait for his word (worktree per
+   agent for whole-crate languages and the base trap; measured usage ratios).
 
-Since that stop (2026-11-11 20:57 to 2026-11-12 02:10):
+The tools: `~/Library/Caches/bmh-horizon` holds `horizon-mods` (with `native/target`: the Nightly's tree, cargo's
+cache, the built game), `target-tools/debug/cargo-horizon-mod` (`BMH_HORIZON_MOD_BIN`), `resources/26.3`,
+`minecraft-server-26.3/server.jar`, `play/` (the owner's own play folder: tests never touch it), `scratch/` and
+the logs. An erased cache loses Mojang's version file inside the Nightly's tree: see the skill
+`horizon-build-test`.
 
-- The owner installed Minecraft 26.3. `prepare-game.sh` accepts the launcher folder (version json, client jar,
-  libraries, assets).
-- The 26.3 server jar is downloaded, with the owner's permission, to
-  `~/Library/Caches/bmh-horizon/minecraft-server-26.3/server.jar` (62,294,556 bytes, sha1
-  `33680f5f2ac32864d6d7cf5e56a705fdb3e05f4c`, the one `research-lock.json` pins).
-- `sh horizon/tools/prepare-game.sh --server-jar <that file>` compiles `horizon-prepare`, then fails:
-  `versions/26.3/26.3.json is not a 26.3 version file Horizon knows (sha1 9f67e10ed013deeaad20ac3c800652765d493408)`.
-  The rest of the message was not read. Probable cause, not checked: Mojang published the 26.3 version file again
-  after the Nightly of 2026-11-08, and that Nightly accepts older checksums only (the audit cites
-  `crates/horizon-prepare/src/artifacts.rs:722-745`). Next: read the whole message (run the script again), compare
-  the accepted list in the Nightly with the one on Horizon `main`, and look for the flag the preparer offers for
-  this case. Do not edit the launcher's file.
-- So step 3 above (the in-game run) is no longer blocked on the owner. It is blocked on that check.
-- The owner asked for a harness healing (`/harness:healing`): a report of skill fixes and of knowledge to keep,
-  then his go, then the edits, then the inquisitor. Not started. Candidates: a CLAUDE.md for this branch, a run
-  book of the toolchain and of the agent method, the skills of step 5.
-- At 02:10 the owner said: wait until 05:35 (the usage window resets), then continue.
-
-State on 2026-11-12, 05:40. The run is stopped by the owner's weekly guard: the week is at 53 % (all models) and
-53 % (Fable), past both of his numbers (40 % and 50 %). Other sessions used the budget during the night. Nothing
-was started after the wake-up at 05:35, apart from the read below. Do not start agents again without his word.
-
-The preparer's refusal is understood (read on 2026-11-12, no change made):
-
-- The whole message says: the launcher may have rewritten the version file, or Mojang published it again; either
-  prepare from the Horizon launcher, or save Mojang's own file
-  `https://piston-meta.mojang.com/v1/packages/11f1aefe473eefba0af62e3286c33b692807b2eb/26.3.json` as
-  `<Horizon tree>/.local/minecraft/26.3/manifest.json` and prepare again. The Horizon tree is
-  `$BMH_HORIZON_CACHE/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca`.
-- The checksum of the launcher's file (`9f67e10e...`) is in the accepted list of neither the Nightly nor Horizon
-  `main` (read at d9b9996, 2026-11-12). So a newer Horizon does not help: the fix is the file above.
-- That file is a download (about 45 KB, from Mojang). The owner gave his word for the server jar only: ask him
-  first. Then make `prepare-game.sh` do it by itself behind a flag, or at least print this fix when the preparer
-  refuses the file.
-
-`/Applications/Horizon.app` is still refused by Gatekeeper. Only the launcher needs it; the build from source does
-not.
-
-State on 2026-11-17. The week's usage is new (2 % and 3 %), and the owner said "continue". A restart of the Mac
-erased the first session's scratchpad, as expected.
-
-- The tools now live in the default cache `~/Library/Caches/bmh-horizon`, which a restart keeps: `horizon-mods`
-  (Horizon's registry clone with `native/target`: the Nightly's tree under `horizon/<commit>`, cargo's cache, the
-  built game under `cargo/fast`), `target-tools/debug/cargo-horizon-mod` (the content checker; set
-  `BMH_HORIZON_MOD_BIN` to it), `minecraft-server-26.3/server.jar`, and the logs. `sh horizon/tools/check.sh`
-  makes the first two again when they are missing; `cargo build --locked -p cargo-horizon-mod` in the Nightly's
-  tree, with `CARGO_TARGET_DIR=~/Library/Caches/bmh-horizon/target-tools`, makes the checker.
-- Trap: when the app starts the session again, this worktree is back on the session's own branch
-  (`claude/horizon-minecraft-mod-port-0812eb`, the Java `main`), with `horizon/` showing as untracked build
-  folders. Nothing is lost: run `git switch horizon-26.3`.
-- `docs/horizon/briefs/port.md` names the cache paths now.
+Trap: when the app starts the session again, this worktree is back on the session's own branch
+(`claude/horizon-minecraft-mod-port-0812eb`, the Java `main`), with `horizon/` as untracked build folders.
+Nothing is lost: run `git switch horizon-26.3`.
 
 Rules of the run that the owner gave: stop cleanly when the 5-hour usage window reaches 60 %; stop when the
-weekly usage passes 40 % (all models) and 50 % (Fable): on 2026-11-12 00:13 the week was at 38 % and 28 %, so
-ask the owner which of the two numbers stops the run before the next large fan-out; use Sonnet for bounded work and Opus for new structural
-code.
+week passes 40 % (all models) and 50 % (Fable), and ask him before going on (on 2026-11-12 both were passed and
+the run stopped until he said "continue" in the new week); use Sonnet for bounded work and Opus for new
+structural code and for the host-game review lens.
 
 ## To check in the game
 
