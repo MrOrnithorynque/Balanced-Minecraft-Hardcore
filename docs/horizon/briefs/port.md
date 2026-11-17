@@ -9,14 +9,13 @@ mod does, down to the numbers, the order of the conditions, the texts and the so
 
 You run in your own git worktree of the BMH repo. Call its root R:
 
-    R=$(git rev-parse --show-toplevel)
+    git rev-parse --show-toplevel            # this is R
+    git branch --show-current                # must start with "worktree-": a throwaway branch of your own
+    git merge-base --is-ancestor BASE HEAD   # exit 0: the base is right, skip the next line
+    git reset --hard BASE                    # only when the line above failed
 
-The app can cut a new worktree from the wrong commit. Your prompt gives BASE, the commit your work must start
-from. So your first commands are:
-
-    R=$(git rev-parse --show-toplevel)
-    git -C "$R" branch --show-current        # must start with "worktree-": a throwaway branch of your own
-    git -C "$R" merge-base --is-ancestor BASE HEAD || git -C "$R" reset --hard BASE
+Run each one as its own plain command, with the literal sha in place of BASE: the app refuses `git -C`, `$(...)`
+and compound lines in a worktree, as too complex to verify.
 
 Run the reset only when the branch name starts with `worktree-` and R is not the coordinator's tree (below). It is
 the one git command that changes history that you may run, once, before you have written anything.

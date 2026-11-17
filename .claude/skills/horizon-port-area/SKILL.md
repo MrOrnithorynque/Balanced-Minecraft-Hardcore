@@ -10,7 +10,7 @@ You are the coordinator. Area agents write the code in their own worktrees. You 
 ## Why the method is this one
 
 - The Rust crate compiles as a whole. In a shared tree a half-written file of one agent breaks the build of every other agent. So one area agent works in its own git worktree (the Agent tool, or a workflow agent, with isolation "worktree").
-- Trap: the app cuts that worktree from the commit the session started on, not from your HEAD. So you commit first, give the tip sha as BASE in the prompt, and the brief's first commands reset the agent's throwaway branch (its name starts with `worktree-`) to BASE.
+- Trap: the app cuts that worktree from `origin/<default branch>` (the app's default for a new worktree), not from your HEAD. So you commit first, give the tip sha as BASE in the prompt, and the brief's first commands reset the agent's throwaway branch (its name starts with `worktree-`) to BASE.
 - Reviews are not optional. The respawn area compiled and passed 31 unit tests, and two reviewers still found 12 findings, 4 of them major (`docs/horizon/review/respawn-*.json`). The skeleton's review found five holes in the contracts between areas (LOG.md step 2). Two load-bearing conclusions of the first audits were wrong until an independent verifier re-read the code.
 - A compile and unit tests are all the proof available until the game runs with the mod. Say so in every report. Never write that a feature "works".
 

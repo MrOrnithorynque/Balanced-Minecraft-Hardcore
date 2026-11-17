@@ -67,7 +67,7 @@ Ownership and form:
 ## Traps
 
 - Session branch. When the desktop app starts the session again, the coordinator's tree is back on the session's own `claude/...` branch (the Java `main`), and `horizon/` shows as untracked build folders. Nothing is lost: `git switch horizon-26.3`. Run `git branch --show-current` before you edit.
-- Worktree base. The app cuts an agent's worktree from the commit the session started on, not from your HEAD. Commit first, give the tip sha as BASE in the prompt, and make the agent reset its throwaway `worktree-*` branch to BASE. `docs/horizon/briefs/port.md` does this.
+- Worktree base. The app cuts an agent's worktree from `origin/<default branch>` (the app's default for a new worktree), not from your HEAD. Commit first, give the tip sha as BASE in the prompt, and make the agent reset its throwaway `worktree-*` branch to BASE. `docs/horizon/briefs/port.md` does this.
 - One crate compiles as a whole, so a half-written file of one agent breaks every other agent's build in a shared tree. One area, one worktree.
 - The cache. The tools live in `~/Library/Caches/bmh-horizon` (`BMH_HORIZON_CACHE` changes it). A restart of the Mac keeps it. A `/private/tmp` scratchpad does not survive a restart. Never commit or share the prepared game files in it.
 - `check.sh` holds a lock folder `check.lock` in the cache. A second run waits (up to 20 minutes, then exit 75). Do not run it while another run is in progress, and do not delete a lock whose process is alive.

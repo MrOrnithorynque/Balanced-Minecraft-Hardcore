@@ -267,8 +267,10 @@ Not done, in this order:
    For each: port, merge, add its scenario to `test-slice.sh`, review, fix.
 4. Then: bring `HOOKS.md` and `GAPS.md` up to date with what the game showed, remove the Java sources, and ask
    the owner whether Horizon work gets lines in `CHANGELOG.md` and when to push the branch.
-5. Two edits to the owner's global skill `coordinate-sessions` are proposed and wait for his word (worktree per
-   agent for whole-crate languages and the base trap; measured usage ratios).
+5. Done on 2026-11-17 with the owner's word: two bullets in his global skill `coordinate-sessions` (a worktree
+   per agent and its base trap; measured usage). An inspector blocked the first wording on two wrong claims (the
+   worktree base is `origin/<default branch>`, not the session's first commit; a coordinator call costs about 0.4
+   point, not 1 to 2). Both are corrected, with its other findings. The corrected text was not inspected again.
 
 The tools: `~/Library/Caches/bmh-horizon` holds `horizon-mods` (with `native/target`: the Nightly's tree, cargo's
 cache, the built game), `target-tools/debug/cargo-horizon-mod` (`BMH_HORIZON_MOD_BIN`), `resources/26.3`,
