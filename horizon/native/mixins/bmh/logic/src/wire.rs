@@ -435,9 +435,163 @@ impl AmuletRequest {
     }
 }
 
+// Messages between areas: amulet (server) and sky (client), GAPS.md V1 and V2.
+// The Java client read the reading from the amulet stack in a hand
+// (StarReadingRenderer.java:172-209). A Horizon client cannot read the main
+// hand stack outside the first-person hand pass (docs/horizon/log/amulet.md,
+// "Reading contract for the sky area"), so the server sends each new reading.
+
+/// Server to client: the amulet area (server) sends, the sky area (client)
+/// reads. Helpers `net_send_to_player` and `net_from_server`.
+pub const SKY_CHANNEL: &str = "bmh:sky";
+
+/// The most lines that a reading carries: the points of a list, then the
+/// world spawn. A longer reading is cut.
+pub const MAX_READING_LINES: usize = MAX_LIST_POINTS + 1;
+
+/// A signal of the sky, on `SKY_CHANNEL`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SkySignal {
+    /// Tag 1. A new star reading of the player's amulet. The server sends it
+    /// in the same use that writes the reading on the stack
+    /// (AmuletReading.java:210-245). The layout: `time` (i64), a bool and a
+    /// u32 for `spawn`, a u32 line count, then an f32 azimuth and a name for
+    /// each line. A name that `names` lacks is written as "", as the Java
+    /// client reads it (StarReadingRenderer.java:203).
+    Reading(crate::contract::AmuletReading),
+}
+
+impl SkySignal {
+    const READING: u8 = 1;
+
+    /// The bytes of this signal. A reading longer than `MAX_READING_LINES`
+    /// is cut, and a spawn index that a u32 cannot hold is left out.
+    pub fn encode(&self) -> Vec<u8> {
+        let mut w = Writer::new();
+        match self {
+            Self::Reading(reading) => {
+                w.u8(Self::READING).i64(reading.time);
+                let spawn = reading.spawn.and_then(|s| u32::try_from(s).ok());
+                w.bool(spawn.is_some());
+                if let Some(spawn) = spawn {
+                    w.u32(spawn);
+                }
+                let shown = &reading.azimuths[..reading.azimuths.len().min(MAX_READING_LINES)];
+                // `shown` holds at most MAX_READING_LINES entries, so the count fits in a u32.
+                w.u32(shown.len() as u32);
+                for (i, azimuth) in shown.iter().enumerate() {
+                    w.f32(*azimuth).str(reading.names.get(i).map_or("", String::as_str));
+                }
+            }
+        }
+        w.finish()
+    }
+
+    /// The signal in `bytes`, or None when the bytes are not valid. The two
+    /// lists of a decoded reading have the same length.
+    pub fn decode(bytes: &[u8]) -> Option<Self> {
+        let mut r = Reader::new(bytes);
+        let signal = match r.u8()? {
+            Self::READING => {
+                let time = r.i64()?;
+                let spawn = if r.bool()? { Some(usize::try_from(r.u32()?).ok()?) } else { None };
+                let count = usize::try_from(r.u32()?).ok()?;
+                if count > MAX_READING_LINES {
+                    return None;
+                }
+                let mut azimuths = Vec::with_capacity(count);
+                let mut names = Vec::with_capacity(count);
+                for _ in 0..count {
+                    azimuths.push(r.f32()?);
+                    names.push(r.str()?.to_owned());
+                }
+                Self::Reading(crate::contract::AmuletReading { azimuths, names, spawn, time })
+            }
+            _ => return None,
+        };
+        r.is_done().then_some(signal)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn every_sky_signal() -> Vec<SkySignal> {
+        use crate::contract::AmuletReading;
+        vec![
+            SkySignal::Reading(AmuletReading { azimuths: vec![], names: vec![], spawn: None, time: 0 }),
+            SkySignal::Reading(AmuletReading {
+                azimuths: vec![301.14682, 0.0, 359.99],
+                names: vec!["Camp".to_owned(), "Étoile".to_owned(), String::new()],
+                spawn: Some(2),
+                time: 18_042,
+            }),
+            SkySignal::Reading(AmuletReading {
+                azimuths: vec![90.0],
+                names: vec![String::new()],
+                spawn: Some(0),
+                time: i64::MIN,
+            }),
+        ]
+    }
+
+    #[test]
+    fn every_sky_signal_round_trips_and_refuses_cut_input() {
+        for signal in every_sky_signal() {
+            let bytes = signal.encode();
+            assert_eq!(SkySignal::decode(&bytes), Some(signal.clone()));
+            for cut in 0..bytes.len() {
+                assert_eq!(SkySignal::decode(&bytes[..cut]), None, "{signal:?} cut at {cut}");
+            }
+            let mut long = bytes.clone();
+            long.push(0);
+            assert_eq!(SkySignal::decode(&long), None);
+        }
+    }
+
+    #[test]
+    fn the_sky_tag_and_layout_are_fixed_and_bad_input_gives_none() {
+        use crate::contract::AmuletReading;
+        let one = SkySignal::Reading(AmuletReading {
+            azimuths: vec![90.0],
+            names: vec!["A".to_owned()],
+            spawn: None,
+            time: 1,
+        });
+        assert_eq!(
+            one.encode(),
+            [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0xb4, 0x42, 1, 0, 0, 0, b'A']
+        );
+        assert_eq!(SkySignal::decode(&[]), None);
+        assert_eq!(SkySignal::decode(&[2]), None);
+        // A reading that says it holds more lines than the cap is refused before any allocation.
+        let mut w = Writer::new();
+        w.u8(1).i64(0).bool(false).u32(u32::MAX);
+        assert_eq!(SkySignal::decode(w.bytes()), None);
+        assert_eq!(SKY_CHANNEL, crate::ids::channel("sky"));
+    }
+
+    #[test]
+    fn a_reading_is_cut_and_its_missing_names_are_empty() {
+        use crate::contract::AmuletReading;
+        let long = SkySignal::Reading(AmuletReading {
+            azimuths: vec![10.0; MAX_READING_LINES + 4],
+            names: vec!["p".to_owned()],
+            spawn: Some(MAX_READING_LINES + 3),
+            time: 5,
+        });
+        let Some(SkySignal::Reading(cut)) = SkySignal::decode(&long.encode()) else {
+            panic!("the cut reading must decode");
+        };
+        assert_eq!(cut.azimuths.len(), MAX_READING_LINES);
+        assert_eq!(cut.names.len(), MAX_READING_LINES);
+        assert_eq!(cut.names[0], "p");
+        assert!(cut.names[1..].iter().all(String::is_empty));
+        // The index stays as the server wrote it: the sky area tests it against the lines.
+        assert_eq!(cut.spawn, Some(MAX_READING_LINES + 3));
+        assert_eq!(cut.time, 5);
+    }
 
     fn every_amulet_signal() -> Vec<AmuletSignal> {
         vec![

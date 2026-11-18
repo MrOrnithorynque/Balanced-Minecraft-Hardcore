@@ -6,4 +6,5 @@ fn bmh_hook_net_from_server(game: &mut crate::game::Game<'_>, channel: &str, dat
     crate::game::bmh_journey::on_net_from_server(game, channel, data);
     crate::game::bmh_tools::on_net_from_server(game, channel, data);
     crate::game::bmh_amulet::on_net_from_server(game, channel, data);
+    crate::game::bmh_sky::on_net_from_server(game, channel, data);
 }

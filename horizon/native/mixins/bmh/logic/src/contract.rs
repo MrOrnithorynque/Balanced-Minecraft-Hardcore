@@ -19,9 +19,11 @@ pub struct Exile {
 }
 
 /// One named point of the Navigator's Amulet (Java `AmuletPoints.Point`,
-/// AmuletPoints.java:42). The amulet area gives the points of a player. The
-/// homecoming area copies them into a new record when the exile is in the
-/// Overworld (HomecomingHandler.java:104-108).
+/// AmuletPoints.java:42). The amulet area gives the points of a player with
+/// `bmh_amulet::points(game, player)`, on the server. The homecoming area
+/// calls it in `on_exile`, inside `player_respawned`, and copies the points
+/// into the new record when the exile is in the Overworld
+/// (HomecomingHandler.java:104-108).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AmuletPoint {
     /// The name that the player gave to the point.
@@ -32,10 +34,13 @@ pub struct AmuletPoint {
 
 /// One star reading of the Navigator's Amulet (Java `AmuletReading.record`,
 /// AmuletReading.java:210-245). The amulet area writes it on the stack (the
-/// compound `bmh_reading` of `minecraft:custom_data`, the Java layout), and
-/// `bmh_amulet::reading(stack)` reads it back. The sky area reads it on the
-/// client from the amulet in a hand and draws one star chain per azimuth
-/// (Java `StarReadingRenderer.startFreshReading`, StarReadingRenderer.java:172-209).
+/// compound `bmh_reading` of `minecraft:custom_data`, the Java layout), and in
+/// the same use sends it to the player's client in
+/// `wire::SkySignal::Reading` on `wire::SKY_CHANNEL`. The sky area reads it
+/// in `on_net_from_server` and draws one star chain per azimuth (Java
+/// `StarReadingRenderer.startFreshReading`, StarReadingRenderer.java:172-209).
+/// The client does not read the stack: no helper gives the window the main
+/// hand stack outside the first-person hand pass.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AmuletReading {
     /// Degrees clockwise from north, from the player to each place, in

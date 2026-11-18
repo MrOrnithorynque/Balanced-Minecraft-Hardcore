@@ -7,7 +7,7 @@
 // Where the data lives:
 // - The charges and the last reading are on the stack, in `minecraft:custom_data`, with the keys of the
 //   Java mod (AmuletReading.java:34-52). The stack is saved with the world and sent to the client, so the
-//   bar, the tooltip and the sky area read it there.
+//   bar and the tooltip read it there. The sky area gets each new reading in a mod message on `bmh:sky`.
 // - The points are an attachment on the player (`Holder::Player`), copied across death (GAPS.md A5).
 // - The cooldowns, the last change of each player, the world spawn and the queues of awards and sounds are
 //   in `SERVER`. The screen that the window shows is in `CLIENT`.
@@ -17,7 +17,7 @@
 
 use bmh_logic::amulet as logic;
 use bmh_logic::contract::{AmuletPoint, AmuletReading};
-use bmh_logic::wire::{AMULET_CHANNEL, AmuletRequest, AmuletSignal};
+use bmh_logic::wire::{AMULET_CHANNEL, AmuletRequest, AmuletSignal, SKY_CHANNEL, SkySignal};
 use horizon_client::items::ItemStack;
 use horizon_client::mod_api::{AttachmentCodec, AttachmentError, AttachmentType, Compound, Holder, Tag};
 use horizon_client::text::{self, Text};
@@ -547,38 +547,14 @@ fn drop_legacy_data(stack: &mut ItemStack) {
     }
 }
 
-// Contract (docs/horizon/HOOKS.md, "Contracts"): the last star reading on an amulet stack, as the sky
-// area reads it on the client (StarReadingRenderer.java:172-209). None for another item or an amulet
-// that never read.
-#[allow(dead_code)]
-pub(super) fn reading(stack: &ItemStack) -> Option<AmuletReading> {
-    if &*stack.item != logic::AMULET {
-        return None;
+// Contract (docs/horizon/HOOKS.md, "Contracts"): sends a new star reading to the player's client, for
+// the sky area (StarReadingRenderer.java:172-209). The client cannot read the main hand stack, so the
+// reading goes in a mod message (`SkySignal::Reading` on `bmh:sky`). A client without the mod gets nothing.
+fn send_reading(game: &mut crate::game::Game<'_>, player: u128, reading: &AmuletReading) {
+    let message = SkySignal::Reading(reading.clone());
+    if let Err(error) = game.native_net_send_to_player(player, SKY_CHANNEL, &message.encode()) {
+        log::warn!("[BalancedMcHardcoreMain] Star reading not sent to the sky: {error}");
     }
-    let tag = custom_field(stack, logic::READING_TAG)?;
-    let azimuths = match tag.get(logic::AZIMUTHS_TAG) {
-        Some(Tag::List(list)) => list
-            .iter()
-            .map(|t| match t {
-                Tag::Float(bits) => f32::from_bits(*bits),
-                other => number(other).map_or(0.0, |v| v as f32),
-            })
-            .collect(),
-        _ => Vec::new(),
-    };
-    let names = match tag.get(logic::NAMES_TAG) {
-        Some(Tag::List(list)) => list
-            .iter()
-            .map(|t| match t {
-                Tag::String(name) => name.to_string_lossy(),
-                _ => String::new(),
-            })
-            .collect(),
-        _ => Vec::new(),
-    };
-    let spawn = tag.get(logic::SPAWN_TAG).and_then(number).and_then(|s| usize::try_from(s).ok());
-    let time = tag.get(logic::TIME_TAG).and_then(number).unwrap_or(0);
-    Some(AmuletReading { azimuths, names, spawn, time })
 }
 
 /// The slot of the amulet that a use takes: the main hand first, then the off hand (the client never
@@ -786,7 +762,7 @@ pub(super) fn on_use_item(
             let points = load_points(game, me.uuid).unwrap_or_default();
             let read = logic::reading(me.position, &points, world_spawn(game), now);
             let after = logic::charges_after_reading(current, creative, day);
-            if let Some(stack) = game.native_carried_stack(slot) {
+            let written = if let Some(stack) = game.native_carried_stack(slot) {
                 if let Some(full) = refilled {
                     write_charges(stack, full);
                 }
@@ -794,6 +770,12 @@ pub(super) fn on_use_item(
                 if let Some(after) = after {
                     write_charges(stack, after);
                 }
+                true
+            } else {
+                false
+            };
+            if written {
+                send_reading(game, me.uuid, &read);
             }
             queue_award(me.uuid, &me.name, logic::STARGAZER);
             chime(game, me.uuid, &me.name, &me.dimension, me.position, logic::READING_PITCH);
