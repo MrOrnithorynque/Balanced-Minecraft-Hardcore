@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q m j), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q t u m j), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -21,7 +21,8 @@
 #   restart while dead, a change of world while dead, the copy rule, the item on the ground, the bundle, the wake-up
 #   reward; it quits and relaunches once); q the amulet (the star reading, the refusals, the charges, the naming
 #   screens, the points across a death and a restart, the server checks; it quits and relaunches once);
-#   j dead when the game closes (it quits and relaunches).
+#   t the totem (Undying order, the extra totem, the anvil, E6, the save on a lethal hit, /kill); u the homecoming
+#   (the record, the title, the awards, the rule); j dead when the game closes (it quits and relaunches).
 # Environment: BMH_HORIZON_CACHE (default ~/Library/Caches/bmh-horizon).
 # Exit codes: 0 all checks passed (SKIPs allowed), 1 a check failed, 77 no prepared files,
 #   64 a bad option, 3 the game did not start.
@@ -56,7 +57,7 @@ while [ "$#" -gt 0 ]; do
                      bindir="$2"; shift 2 ;;
         --out)       [ "$#" -ge 2 ] || { echo "test-slice.sh: --out needs a folder." >&2; exit 64; }
                      outdir="$2"; shift 2 ;;
-        -h|--help)   sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help)   sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "test-slice.sh: unknown option '$1'." >&2; exit 64 ;;
     esac
 done
@@ -1837,6 +1838,220 @@ if wanted q; then
     ctl command "clear @s" >/dev/null
     ctl command "time set 6000" >/dev/null
     ctl command "difficulty normal" >/dev/null
+fi
+
+# ---- t. The totem area: the save, the dead flag, the Totem of Undying order, the extra totem, the anvil, E6, /kill ----
+# Game checks 3 (2026-11-18). t1 to t5 prove or refute the fault of difference 12 of docs/horizon/log/totem.md (a
+# canceled living_death leaves the dead flag of the body set). Difficulty is peaceful in t, so that no mob interferes.
+# T_TYPE overrides the damage type of the lethal hit (default minecraft:generic).
+t_counts() { jget "$(ctl inventory)" 'd["counts"].get("'"$1"'", 0)'; }
+if wanted t; then
+    echo "--- t. totem: Undying order, extra totem, anvil, E6, the save on a lethal hit, the dead flag, /kill"
+    ensure_point
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl command "time set 6000" >/dev/null
+    # t6: a Totem of Undying in the hand saves first; the Totem of Eternity stays.
+    ctl command "give @s minecraft:totem_of_undying" >/dev/null
+    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl command "select 1" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    ctl wait 20 >/dev/null
+    T_EFF="$(ctl effects)"
+    echo "t-evidence t6: health $(health_of), counts $(jget "$(ctl inventory)" 'd["counts"]'), effects $(jget "$T_EFF" '[e["id"] for e in d["effects"]["active"]]')"
+    if [ "$(t_counts minecraft:totem_of_undying)" = 0 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] \
+        && printf '%s' "$T_EFF" | grep -q regeneration && ! printf '%s' "$T_EFF" | grep -q fire_resistance; then
+        pass t6 "the Totem of Undying saved first, the Totem of Eternity stayed, no Fire Resistance"
+    else
+        fail t6 "Undying order: counts $(jget "$(ctl inventory)" 'd["counts"]'), effects $(jget "$T_EFF" '[e["id"] for e in d["effects"]["active"]]'), health $(health_of)"
+    fi
+    # t7: a second Totem of Eternity drops at once.
+    ctl command "effect clear @s" >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl command "give @s bmh:totem_of_eternity 2" >/dev/null
+    ctl wait 30 >/dev/null
+    t_ent="$(ctl entities 8 item)"
+    if [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && printf '%s' "$t_ent" | grep -q totem_of_eternity; then
+        pass t7 "of two Totems of Eternity one stayed and one dropped on the ground"
+    else
+        fail t7 "the extra totem: counts $(jget "$(ctl inventory)" 'd["counts"]'), items near: $(printf '%s' "$t_ent" | head -c 300)"
+    fi
+    # t8: the anvil awakening (Hollow Totem + Echo Heart), then E6 (gold blocks on an Eternal tool).
+    ctl command "kill @e[type=item]" >/dev/null
+    ctl command "clear @s" >/dev/null
+    platform
+    ctl command "setblock $((PX + 2)) $PY $PZ minecraft:anvil" >/dev/null
+    ctl wait 20 >/dev/null
+    ctl command "kill @e[type=item]" >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl command "xp 45" >/dev/null
+    ctl command "give @s bmh:dormant_totem" >/dev/null
+    ctl command "give @s bmh:echo_heart" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl interact $((PX + 2)) "$PY" "$PZ" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl click-slot "$(inv_slot bmh:dormant_totem)" shift >/dev/null
+    ctl click-slot "$(inv_slot bmh:echo_heart)" shift >/dev/null
+    ctl wait 10 >/dev/null
+    T_MENU="$(ctl menu)"
+    echo "t-evidence t8: menu $(printf '%s' "$T_MENU" | head -c 900)"
+    if printf '%s' "$T_MENU" | grep -q 'bmh:totem_of_eternity'; then
+        pass t8 "the anvil shows a Totem of Eternity as result"
+    else
+        fail t8 "no Totem of Eternity result in the anvil menu"
+    fi
+    ctl close >/dev/null
+    # t9 (E6): damage 20000, repair_cost 40, two gold blocks: expect damage 3500, cost 15 levels, penalty 40.
+    ctl command "clear @s" >/dev/null
+    ctl command "give @s bmh:eternal_sword[repair_cost=40,damage=20000]" >/dev/null
+    ctl command "give @s minecraft:gold_block 2" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl interact $((PX + 2)) "$PY" "$PZ" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl click-slot "$(inv_slot bmh:eternal_sword)" shift >/dev/null
+    ctl click-slot "$(inv_slot minecraft:gold_block)" shift >/dev/null
+    ctl wait 10 >/dev/null
+    T_MENU="$(ctl menu)"
+    echo "t-evidence t9: menu $(printf '%s' "$T_MENU" | head -c 1400)"
+    if printf '%s' "$T_MENU" | grep -q '3500' && printf '%s' "$T_MENU" | grep -q '15'; then
+        pass t9 "E6: the anvil result has damage 3500 and cost 15"
+    else
+        fail t9 "E6: the anvil result does not show damage 3500 and cost 15 (see the t-evidence line)"
+    fi
+    ctl close >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl command "setblock $((PX + 2)) $PY $PZ minecraft:air" >/dev/null
+    # t1 to t5: the lethal hit with only a Totem of Eternity.
+    ctl command "effect clear @s" >/dev/null
+    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    t_before_effects="$(count_log 'The game refused the save effects')"
+    t_before_health="$(count_log 'The game refused the save health')"
+    t_before_saved="$(count_log 'saved .* and is now dormant')"
+    ctl command "damage @s 100 ${T_TYPE:-minecraft:generic}" >/dev/null
+    ctl wait 20 >/dev/null
+    T_STATE="$(state)"
+    T_EFF="$(ctl effects)"
+    T_INV="$(ctl inventory)"
+    T_H1="$(health_of)"
+    echo "t-evidence: health after the hit: $T_H1; screen: $(jget "$T_STATE" 'd.get("screen")')"
+    echo "t-evidence: effects: $(printf '%s' "$T_EFF" | head -c 600)"
+    echo "t-evidence: counts: $(jget "$T_INV" 'd["counts"]')"
+    echo "t-evidence: log lines: refused effects $(( $(count_log 'The game refused the save effects') - t_before_effects )), refused health $(( $(count_log 'The game refused the save health') - t_before_health )), saved $(( $(count_log 'saved .* and is now dormant') - t_before_saved ))"
+    if [ "$(jget "$T_STATE" 'd.get("screen")')" != dead ] && python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) > 0 else 1)' "${T_H1:-0}"; then
+        pass t1 "the player lives after a lethal hit with a Totem of Eternity: health $T_H1"
+    else
+        fail t1 "the player does not live: health $T_H1, screen $(jget "$T_STATE" 'd.get("screen")')"
+    fi
+    if [ "$(jget "$T_INV" 'd["counts"].get("bmh:sleeping_totem", 0)')" = 1 ] && [ "$(jget "$T_INV" 'd["counts"].get("bmh:totem_of_eternity", 0)')" = 0 ]; then
+        pass t2 "the totem became a Dormant Totem"
+    else
+        fail t2 "the totem did not become a Dormant Totem: $(jget "$T_INV" 'd["counts"]')"
+    fi
+    if [ "$(jget "$T_EFF" 'sorted(e["id"] for e in d["effects"]["active"] if e["id"] in ("regeneration","absorption","fire_resistance"))')" = "['absorption', 'fire_resistance', 'regeneration']" ]; then
+        pass t3 "Regeneration, Absorption and Fire Resistance are on the player"
+    else
+        fail t3 "the three save effects are not all on the player: $(jget "$T_EFF" '[(e["id"], e["amplifier"]) for e in d["effects"]["active"]]')"
+    fi
+    if [ "$(count_log 'saved .* and is now dormant')" -gt "$t_before_saved" ]; then
+        pass t4 "the log has the 'saved ... and is now dormant' line"
+    else
+        fail t4 "the log has no 'saved ... and is now dormant' line (refused effects: $(( $(count_log 'The game refused the save effects') - t_before_effects )), refused health: $(( $(count_log 'The game refused the save health') - t_before_health )))"
+    fi
+    ctl command "effect clear @s" >/dev/null
+    ctl wait 5 >/dev/null
+    t_h2="$(health_of)"
+    ctl command "damage @s 1 minecraft:generic" >/dev/null
+    ctl wait 10 >/dev/null
+    t_h3="$(health_of)"
+    echo "t-evidence: health before /damage @s 1: $t_h2, after: $t_h3"
+    if python3 -c 'import sys; a, b = float(sys.argv[1]), float(sys.argv[2]); sys.exit(0 if a > 0 and b < a else 1)' "${t_h2:-0}" "${t_h3:-0}"; then
+        pass t5 "a later /damage @s 1 lowers the health: $t_h2 then $t_h3"
+    else
+        fail t5 "no live player takes a later /damage @s 1: health $t_h2 then $t_h3"
+    fi
+    # t10: /kill kills a player with a Totem of Eternity; the totem is not spent.
+    if [ "$(jget "$(state)" 'd.get("screen")')" = dead ]; then ctl respawn >/dev/null; ctl wait 40 >/dev/null; fi
+    ctl command "clear @s" >/dev/null
+    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl command "kill @s" >/dev/null
+    ctl wait 20 >/dev/null
+    if [ "$(jget "$(state)" 'd.get("screen")')" = dead ]; then
+        pass t10 "/kill kills a player who carries a Totem of Eternity"
+    else
+        fail t10 "/kill did not kill: screen $(jget "$(state)" 'd.get("screen")'), health $(health_of)"
+    fi
+    ctl respawn >/dev/null
+    ctl wait 40 >/dev/null
+    ctl command "difficulty normal" >/dev/null
+fi
+
+# ---- u. The homecoming: the record, the title, the awards, the rule -------------------------------------
+# Game checks 3 (2026-11-18). After a distant respawn the player walks back (here: teleports) to the exile
+# center, which is the respawn point he left. Reads the log, the title of `messages` and the log's goal lines.
+if wanted u; then
+    echo "--- u. homecoming: the record, the title and subtitle, the awards, the rule display_text_on_respawn false"
+    ensure_point
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "bmh rule display_text_on_respawn true" >/dev/null
+    ctl command "advancement revoke @s everything" >/dev/null
+    ctl command "spawnpoint @s" >/dev/null
+    u_pos="$(position_of)"
+    u_x="$(echo "$u_pos" | cut -d ' ' -f 1)"; u_y="$(echo "$u_pos" | cut -d ' ' -f 2)"; u_z="$(echo "$u_pos" | cut -d ' ' -f 3)"
+    u_rec="$(count_log 'Homecoming record')"
+    if death_and_respawn ctl 1; then
+        if [ "$(count_log 'Homecoming record')" -gt "$u_rec" ]; then
+            pass u1 "a record was kept at the exile: $(grep 'Homecoming record' "$(logfile)" | tail -n 1 | sed 's/^[^]]*\]: //')"
+        else
+            fail u1 "no 'Homecoming record' line after the distant respawn"
+        fi
+        u_home="$(count_log 'is home after')"
+        ctl command "tp @s $u_x $u_y $u_z" >/dev/null
+        wait_log 'is home after' "$u_home" 10
+        ctl wait 10 >/dev/null
+        u_msg="$(ctl messages)"
+        u_adv="$(ctl command "advancement revoke @s only bmh:journey/home_at_last")"
+        echo "t-evidence u2: title $(jget "$u_msg" 'd.get("title")') subtitle $(jget "$u_msg" 'd.get("subtitle")'); advancement: $(jget "$u_adv" 'd["chat"]'); log: $(grep 'is home after' "$(logfile)" | tail -n 1 | sed 's/^[^]]*\]: //')"
+        if printf '%s' "$(jget "$u_msg" 'd.get("title")')" | grep -q 'Home' && printf '%s' "$(jget "$u_msg" 'd.get("subtitle")')" | grep -qi 'blocks'; then
+            pass u2 "title Home and a subtitle of blocks shown: $(jget "$u_msg" 'd.get("subtitle")')"
+        else
+            fail u2 "no Home title with a subtitle of blocks"
+        fi
+        if printf '%s' "$u_adv" | grep -qi 'revoked'; then
+            pass u3 "advancement Home at last awarded"
+        else
+            fail u3 "advancement Home at last not awarded: $(jget "$u_adv" 'd["chat"]')"
+        fi
+        # The rule off: a new exile, the walk back gives no title, the awards still come.
+        ctl command "bmh rule display_text_on_respawn false" >/dev/null
+        ctl command "advancement revoke @s everything" >/dev/null
+        ctl command "tp @s $u_x $u_y $u_z" >/dev/null
+        if death_and_respawn ctl 1; then
+            u_home="$(count_log 'is home after')"
+            ctl command "tp @s $u_x $u_y $u_z" >/dev/null
+            wait_log 'is home after' "$u_home" 10
+            ctl wait 10 >/dev/null
+            u_msg="$(ctl messages)"
+            u_adv="$(ctl command "advancement revoke @s only bmh:journey/home_at_last")"
+            echo "t-evidence u4: title $(jget "$u_msg" 'd.get("title")') subtitle $(jget "$u_msg" 'd.get("subtitle")'); advancement: $(jget "$u_adv" 'd["chat"]')"
+            if [ "$(count_log 'is home after')" -gt "$u_home" ] && [ -z "$(jget "$u_msg" 'd.get("title")')" -o "$(jget "$u_msg" 'd.get("title")')" = None ] && printf '%s' "$u_adv" | grep -qi 'revoked'; then
+                pass u4 "rule false: homecoming happened, no Home title, the advancement came"
+            else
+                fail u4 "rule false: see the t-evidence line"
+            fi
+        else
+            fail u4 "no second respawn: $DR_NOTE"
+        fi
+        ctl command "bmh rule display_text_on_respawn true" >/dev/null
+        ctl command "difficulty normal" >/dev/null
+    else
+        fail u1 "no respawn: $DR_NOTE"
+    fi
 fi
 
 # ---- m. Rules and config across a restart --------------------------------------------------------------

@@ -117,6 +117,13 @@ Facts the test uses, and where they come from:
 | q9 to q11 | Sneak and use on a bed and on a lodestone opens the mod screen; typing Camp and Enter saves ("Point saved: Camp"). | A3, A5, A6. | The look (kept screenshots `docs/horizon/log/amulet-shots/`). |
 | q12 to q14 | `/bmh point save` twice inside one second (the second is ignored); 20 blocks away ("Stand next to"); no amulet in hand. | The server checks of `AmuletPointCommand`. | The same through the screen's own message. |
 | q15, q16 | After a death and after a restart the next reading names the point Camp. | A5 persistence (attachment with `copy_on_death`). | A LAN guest, a Java world import. |
+| t6, t7 | A Totem of Undying in the hand saves first (Regeneration and Absorption, no Fire Resistance) and the Totem of Eternity stays; two Totems of Eternity given: one stays, one drops. | T5 (order of the totems), T11 (the extra totem). | The container checks (chest, hopper), a LAN guest. |
+| t8, t9 | Anvil: Hollow Totem and Echo Heart give a Totem of Eternity at 39 levels; an Eternal Sword (damage 20000, penalty 40) and two gold blocks give damage 3500 at 15 levels. | The anvil awakening and E6 (numbers read from `horizon-ctl menu`). | Typing a name in the anvil, the result's repair cost after a take. |
+| t1 to t5 | A lethal `/damage @s 100` with a Totem of Eternity: the player lives, the totem is a Dormant Totem, the three save effects, the log line `saved ... and is now dormant`, a later `/damage @s 1` lowers the health. | T2, T3: the save from death. Red on 2026-11-18: see `game-checks-3.md`. | The void (not saved by design), a mob death. |
+| t10 | `/kill` kills a player who carries a Totem of Eternity. | The totem does not save from `/kill`. | The void. |
+| u1 | After a distant respawn the log has `Homecoming record: 1 homes ...`. | C10 `on_exile`. | A Nether exile, amulet points as homes. |
+| u2, u3 | A teleport back to the exile center: the title `Home`, the subtitle `N blocks since you left`, the advancement `Home at last`. | C10 `arrive`, `show_title`, the award. | The bell, the second player, `The long way home` (30 000 blocks), the nights count. |
+| u4 | `display_text_on_respawn false`: the walk back gives no title and the advancement still comes. | The rule gates the text only. | The bell with the rule off. |
 
 ## SKIPs the test has
 
