@@ -313,7 +313,8 @@ pub fn block_of(pos: [f64; 3]) -> [i32; 3] {
 // ---------------------------------------------------------------------------------------------
 
 /// A cooldown of the amulet for one player: the game time it started and its length. Java keeps it per
-/// item (`ItemCooldowns`); Horizon has no setter, so the mod keeps its own timer (GAPS.md A4).
+/// item (`ItemCooldowns`); Horizon has no setter, so the mod keeps its own timer and draws the sweep
+/// itself (GAPS.md A4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cooldown {
     pub start: i64,
@@ -325,7 +326,33 @@ impl Cooldown {
     pub fn active(self, now: i64) -> bool {
         now >= self.start && now < self.start.saturating_add(self.ticks)
     }
+
+    /// What is left of the cooldown, from 1 down to 0 (`ItemCooldowns.getCooldownPercent`). `partial` is
+    /// the part of the current tick that has passed, from 0 to 1.
+    pub fn remaining(self, now: i64, partial: f32) -> f32 {
+        if !self.active(now) || self.ticks <= 0 {
+            return 0.0;
+        }
+        let end = self.start.saturating_add(self.ticks);
+        let left = (end - now) as f32 - partial.clamp(0.0, 1.0);
+        (left / self.ticks as f32).clamp(0.0, 1.0)
+    }
 }
+
+/// The white shade of a cooldown on an item icon, in GUI pixels (`GuiGraphicsExtractor.itemCooldown`):
+/// `(top, height)` from the icon's top. None when nothing is left to show.
+pub fn sweep_rows(remaining: f32) -> Option<(i32, i32)> {
+    if remaining.is_nan() || remaining <= 0.0 {
+        return None;
+    }
+    let remaining = remaining.min(1.0);
+    let top = (16.0 * (1.0 - remaining)).floor() as i32;
+    let height = (16.0 * remaining).ceil() as i32;
+    Some((top, height))
+}
+
+/// The colour of the sweep: white at half opacity (`Integer.MAX_VALUE` = 0x7FFFFFFF in vanilla).
+pub const SWEEP_COLOR: u32 = 0x7FFF_FFFF;
 
 /// What a sneaking use on a block does (NavigatorAmuletItem.java:60-88).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1355,6 +1382,22 @@ mod tests {
         assert!(c.active(139));
         assert!(!c.active(140));
         assert!(!Cooldown { start: i64::MAX, ticks: 40 }.active(0));
+    }
+
+    #[test]
+    fn the_sweep_shrinks_from_the_top_as_vanilla_draws_it() {
+        let c = Cooldown { start: 100, ticks: 40 };
+        assert_eq!(c.remaining(99, 0.0), 0.0);
+        assert_eq!(c.remaining(100, 0.0), 1.0);
+        assert_eq!(c.remaining(120, 0.0), 0.5);
+        assert_eq!(c.remaining(120, 0.5), 0.4875);
+        assert_eq!(c.remaining(140, 0.0), 0.0);
+        assert_eq!(sweep_rows(1.0), Some((0, 16)));
+        assert_eq!(sweep_rows(0.5), Some((8, 8)));
+        assert_eq!(sweep_rows(0.01), Some((15, 1)));
+        assert_eq!(sweep_rows(0.0), None);
+        assert_eq!(sweep_rows(f32::NAN), None);
+        assert_eq!(SWEEP_COLOR, i32::MAX as u32);
     }
 
     #[test]

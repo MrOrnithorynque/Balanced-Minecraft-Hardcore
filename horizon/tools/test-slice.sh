@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r s t u v w x y m j), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r s t u v w x y z m j), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -27,6 +27,7 @@
 #   (the record, the title, the awards, the rule); w the journey and the early respawn (immediate respawn, the arrival
 #   frame, a stale arm, a screen over the death screen, a press before the departure); x a LAN guest below operator
 #   level (/bmh rule refused, /bmh point save works); y a Java world's rules imported (it quits and relaunches);
+#   z the amulet's cooldown sweep on the hotbar icon (screenshots in docs/horizon/solutions);
 #   j dead when the game closes (it quits and relaunches).
 # Environment: BMH_HORIZON_CACHE (default ~/Library/Caches/bmh-horizon).
 # Exit codes: 0 all checks passed (SKIPs allowed), 1 a check failed, 77 no prepared files,
@@ -2790,6 +2791,95 @@ PYEOF
         ctl command "bmh rule random_death_spawn_point true" >/dev/null
         ctl command "bmh rule display_text_on_respawn true" >/dev/null
     fi
+fi
+
+# ---- z. The amulet's cooldown sweep on the hotbar icon (GAPS.md A4, docs/horizon/solutions/amulet-cooldown.md) ---------
+# A reading starts a 40 tick cooldown. The mod draws the white shade of the game's own cooldown on the amulet's icon.
+# Three screenshots: 4 ticks after the use (almost all of the icon shaded), 24 ticks (about two fifths), and 80 ticks
+# (the cooldown is over, the reference). The shade is the pixels that are brighter than the reference, inside the
+# hotbar; its width gives the GUI scale and its height the part that is left.
+if wanted z; then
+    echo "--- z. amulet: the cooldown sweep on the hotbar icon"
+    ensure_point
+    zshots="$repo/docs/horizon/solutions/amulet-cooldown-shots"
+    mkdir -p "$zshots"
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl give bmh:navigator_amulet 1 >/dev/null
+    ctl wait 10 >/dev/null
+    ctl select bmh:navigator_amulet >/dev/null
+    ctl look 0 -20 >/dev/null
+    open_sky
+    ctl command "weather clear" >/dev/null
+    ctl command "time set 18000" >/dev/null
+    ctl wait 60 >/dev/null
+    z_reads="$(count_log 'Star reading for')"
+    ctl use-item >/dev/null
+    ctl wait 4 >/dev/null
+    ctl screenshot "$zshots/z1-sweep-4-ticks.png" >/dev/null
+    ctl wait 20 >/dev/null
+    ctl screenshot "$zshots/z2-sweep-24-ticks.png" >/dev/null
+    ctl wait 60 >/dev/null
+    ctl screenshot "$zshots/z3-sweep-over.png" >/dev/null
+    z_out="$(python3 - "$zshots/z1-sweep-4-ticks.png" "$zshots/z2-sweep-24-ticks.png" "$zshots/z3-sweep-over.png" <<'PYEOF'
+import sys
+try:
+    from PIL import Image
+except Exception:
+    print("NOPIL")
+    raise SystemExit
+imgs = [Image.open(f).convert("RGB") for f in sys.argv[1:4]]
+ref = imgs[2]
+w, h = ref.size
+box = (int(w * 0.25), int(h * 0.88), int(w * 0.75), h)
+def shade(img):
+    # Pixels that are at least 60 brighter than the reference in each channel, in the hotbar strip.
+    a, r = img.load(), ref.load()
+    xs, ys = [], []
+    for y in range(box[1], box[3]):
+        for x in range(box[0], box[2]):
+            p, q = a[x, y], r[x, y]
+            if all(p[i] - q[i] >= 60 for i in range(3)):
+                xs.append(x)
+                ys.append(y)
+    if len(xs) < 20:
+        return 0, 0, len(xs)
+    return max(xs) - min(xs) + 1, max(ys) - min(ys) + 1, len(xs)
+rows = [shade(imgs[0]), shade(imgs[1]), shade(imgs[2])]
+scale = rows[0][0] / 16.0 if rows[0][0] else 0
+print(" ".join("%d,%d,%d" % r for r in rows), "scale=%.2f" % scale)
+PYEOF
+)"
+    echo "t-evidence z: shade width,height,pixels at 4 ticks, 24 ticks, over: $z_out"
+    if [ "$z_out" = NOPIL ]; then
+        skip z1 "PIL is missing: open the files in $zshots by hand"
+    else
+        z_ok="$(python3 - "$z_out" <<'PYEOF'
+import sys, re
+m = re.match(r"(\d+),(\d+),(\d+) (\d+),(\d+),(\d+) (\d+),(\d+),(\d+) scale=([0-9.]+)", sys.argv[1])
+if not m:
+    print("bad")
+    raise SystemExit
+v = [int(x) for x in m.groups()[:9]]
+scale = float(m.group(10))
+if scale <= 0:
+    print("bad")
+    raise SystemExit
+f1 = v[1] / (16 * scale)
+f2 = v[4] / (16 * scale)
+ok = f1 > 0.7 and 0.2 < f2 < 0.65 and f2 < f1 and v[6] == 0 and v[7] == 0
+print("ok %.2f %.2f" % (f1, f2) if ok else "bad %.2f %.2f" % (f1, f2))
+PYEOF
+)"
+        if [ "$(count_log 'Star reading for')" -gt "$z_reads" ] && case "$z_ok" in ok*) true ;; *) false ;; esac; then
+            pass z1 "the sweep: part left after 4 and 24 ticks '${z_ok#ok }', none after 80 (z1, z2, z3 in solutions/amulet-cooldown-shots)"
+        else
+            fail z1 "the sweep: readings +$(( $(count_log 'Star reading for') - z_reads )), shade '$z_out', verdict '$z_ok'"
+        fi
+    fi
+    ctl command "clear @s" >/dev/null
+    ctl command "time set 6000" >/dev/null
 fi
 
 # ---- m. Rules and config across a restart --------------------------------------------------------------

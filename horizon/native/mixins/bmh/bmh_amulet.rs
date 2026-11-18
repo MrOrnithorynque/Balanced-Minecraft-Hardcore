@@ -78,9 +78,12 @@ fn game_time(game: &crate::game::Game<'_>) -> Option<i64> {
     game.native_level_game_time(level)
 }
 
-/// Starts the amulet's cooldown for a player (`ItemCooldowns.addCooldown`).
-fn start_cooldown(player: u128, now: i64, ticks: i64) {
+/// Starts the amulet's cooldown for a player (`ItemCooldowns.addCooldown`). The server keeps the timer; the
+/// player's window gets the length and draws the sweep on the icon (GAPS.md A4).
+fn start_cooldown(game: &mut crate::game::Game<'_>, player: u128, now: i64, ticks: i64) {
     server().cooldowns.insert(player, logic::Cooldown { start: now, ticks });
+    let ticks = i32::try_from(ticks).unwrap_or(i32::MAX);
+    signal(game, player, &AmuletSignal::Cooldown { ticks });
 }
 
 /// A line over the player's hotbar (`sendOverlayMessage`).
@@ -748,7 +751,7 @@ pub(super) fn on_use_item(
         logic::Use::Ignore => {}
         logic::Use::List => {
             send_list(game, me.uuid);
-            start_cooldown(me.uuid, now, logic::POINT_COOLDOWN_TICKS);
+            start_cooldown(game, me.uuid, now, logic::POINT_COOLDOWN_TICKS);
             *claimed = true;
         }
         logic::Use::Hidden(key) => tell(game, me.uuid, &key, &[]),
@@ -781,7 +784,7 @@ pub(super) fn on_use_item(
             chime(game, me.uuid, &me.name, &me.dimension, me.position, logic::READING_PITCH);
             let [x, y, z] = logic::block_of(me.position).map(|v| v.to_string());
             tell(game, me.uuid, logic::KEY_READING, &[x, y, z]);
-            start_cooldown(me.uuid, now, logic::READING_COOLDOWN_TICKS);
+            start_cooldown(game, me.uuid, now, logic::READING_COOLDOWN_TICKS);
             *claimed = true;
             log::info!(
                 "[BalancedMcHardcoreMain] Star reading for {}: azimuths {:?}, {} charges left",
@@ -823,7 +826,7 @@ pub(super) fn on_use_item_on(
             let max = max_points(game);
             let bed = block.is_some_and(|b| b.bed);
             signal(game, me.uuid, &AmuletSignal::Open { pos, name, used, max, bed });
-            start_cooldown(me.uuid, now, logic::POINT_COOLDOWN_TICKS);
+            start_cooldown(game, me.uuid, now, logic::POINT_COOLDOWN_TICKS);
             server().took_click.insert(me.uuid, now);
             *claimed = true;
         }
@@ -932,9 +935,11 @@ struct Client {
     shown: Option<Shown>,
     outbox: Vec<AmuletRequest>,
     close: bool,
+    /// The cooldown the server told, in the window's own game time, for the sweep on the icon (A4).
+    cooldown: Option<logic::Cooldown>,
 }
 
-static CLIENT: Mutex<Client> = Mutex::new(Client { shown: None, outbox: Vec::new(), close: false });
+static CLIENT: Mutex<Client> = Mutex::new(Client { shown: None, outbox: Vec::new(), close: false, cooldown: None });
 
 fn client() -> MutexGuard<'static, Client> {
     lock(&CLIENT)
@@ -960,6 +965,13 @@ pub(super) fn on_net_from_server(game: &mut crate::game::Game<'_>, channel: &str
         log::debug!("[BalancedMcHardcoreMain] A bad amulet signal was dropped");
         return;
     };
+    if let AmuletSignal::Cooldown { ticks } = message {
+        // The sweep starts now, in the game time this window counts (a guest's differs from the server's).
+        if let Some(clock) = game.native_clock() {
+            client().cooldown = Some(logic::Cooldown { start: clock.game_time, ticks: i64::from(ticks) });
+        }
+        return;
+    }
     let open = screen_open(game);
     let shown = client().shown.clone();
     let naming_open = open && matches!(shown, Some(Shown::Naming(_)));
@@ -972,6 +984,7 @@ pub(super) fn on_net_from_server(game: &mut crate::game::Game<'_>, channel: &str
             let naming = Naming { pos, existing: name, used, max, bed, field, opened: std::time::Instant::now() };
             client().shown = Some(Shown::Naming(naming));
         }
+        AmuletSignal::Cooldown { .. } => {}
         AmuletSignal::List { max, points } => {
             if naming_open {
                 return;
@@ -1347,4 +1360,26 @@ pub(super) fn on_item_bar(
         return;
     }
     *bar = Some((logic::bar_width(logic::charges(stack_charges(stack))), logic::STARLIGHT_COLOR));
+}
+
+// A4: the white cooldown sweep on every icon of the amulet (the game draws it for items with a cooldown of its
+// own; this item has none, so the mod draws the same shade after the game's decorations). The timer is the
+// one the server told in `AmuletSignal::Cooldown`.
+pub(super) fn on_item_decorations(
+    game: &crate::game::Game<'_>,
+    stack: &horizon_client::items::ItemStack,
+    x: f32,
+    y: f32,
+    batch: &mut horizon_client::hud::HudBatch,
+) {
+    if &*stack.item != logic::AMULET || !game.native_window() {
+        return;
+    }
+    let (Some(clock), Some(cooldown)) = (game.native_clock(), client().cooldown) else {
+        return;
+    };
+    let Some((top, height)) = logic::sweep_rows(cooldown.remaining(clock.game_time, 0.0)) else {
+        return;
+    };
+    game.native_fill(batch, [x, y + top as f32, 16.0, height as f32], logic::SWEEP_COLOR);
 }

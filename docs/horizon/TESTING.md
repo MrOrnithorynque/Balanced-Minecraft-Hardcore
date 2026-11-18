@@ -124,7 +124,8 @@ Facts the test uses, and where they come from:
 | p19, p20 | A bed, night, health 16, sleep: Haste II and Resistance II are on; with `food_and_health_regen_on_wake_up` false none. | C13 (effects). | The food values, leaving the bed by hand. |
 | q1, q2 | Night, clear, open sky: the action bar, the log line, two charges left on the stack, the advancement `navigation/stargazer`. | A2 in the game: the sky rules and `native_level` work in `use_item`. | The sound, the sky drawing, the Nether. |
 | q3 to q6 | Rain, day, blindness, a roof: the four refusal messages. | A2 refusals in the Java order. | The dimension refusal, eyes in water. |
-| q7, q8 | Three readings, then "No starlight left tonight."; the next night refills to 3. | A4 charges. | The cooldown sweep. |
+| q7, q8 | Three readings, then "No starlight left tonight."; the next night refills to 3. | A4 charges. | The cooldown sweep (see z). |
+| z1 | A reading at night: three screenshots (4, 24 and 80 ticks after the use) in `docs/horizon/solutions/amulet-cooldown-shots/`; PIL measures the white shade in the hotbar: about 0.9 of the icon, about 0.4, none. SKIP when PIL is missing. | The cooldown sweep of A4 is drawn and shrinks. | A LAN guest, the 20 tick sweep, the look in a live window. |
 | q9 to q11 | Sneak and use on a bed and on a lodestone opens the mod screen; typing Camp and Enter saves ("Point saved: Camp"). | A3, A5, A6. | The look (kept screenshots `docs/horizon/log/amulet-shots/`). |
 | q12 to q14 | `/bmh point save` twice inside one second (the second is ignored); 20 blocks away ("Stand next to"); no amulet in hand. | The server checks of `AmuletPointCommand`. | The same through the screen's own message. |
 | q15, q16 | After a death and after a restart the next reading names the point Camp. | A5 persistence (attachment with `copy_on_death`). | A LAN guest, a Java world import. |

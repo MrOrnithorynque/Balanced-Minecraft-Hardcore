@@ -272,3 +272,9 @@ does not exist):
    (Java parity). HOOKS.md "The /bmh command root" says each usage keeps its level: the code (`command_tree`,
    `perform_native_command`) says the root's lowest level decides.
 2. The night formula (difference 4): a helper that exposes `Game::sky_darken` would give exact parity.
+
+## A4 sweep (2026-11-19)
+
+The cooldown sweep is drawn by the mod: `item_decorations` plus `AmuletSignal::Cooldown`. Routes, evidence and limits:
+`docs/horizon/solutions/amulet-cooldown.md`. Check: scenario z of `test-slice.sh`. This replaces the "no white sweep" line
+of difference 2 above.
