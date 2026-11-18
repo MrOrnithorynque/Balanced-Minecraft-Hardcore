@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q t u m j), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r s t u v m j), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -21,6 +21,8 @@
 #   restart while dead, a change of world while dead, the copy rule, the item on the ground, the bundle, the wake-up
 #   reward; it quits and relaunches once); q the amulet (the star reading, the refusals, the charges, the naming
 #   screens, the points across a death and a restart, the server checks; it quits and relaunches once);
+#   r the Eternal tools (worn pickaxe dig time, Efficiency V, the last point, the death wear); s the moon ritual
+#   (refused by day, looked away, a full ritual); v the sky (a star reading, its log lines, screenshots, the spyglass);
 #   t the totem (Undying order, the extra totem, the anvil, E6, the save on a lethal hit, /kill); u the homecoming
 #   (the record, the title, the awards, the rule); j dead when the game closes (it quits and relaunches).
 # Environment: BMH_HORIZON_CACHE (default ~/Library/Caches/bmh-horizon).
@@ -2003,6 +2005,9 @@ if wanted u; then
     ctl command "spawnpoint @s" >/dev/null
     u_pos="$(position_of)"
     u_x="$(echo "$u_pos" | cut -d ' ' -f 1)"; u_y="$(echo "$u_pos" | cut -d ' ' -f 2)"; u_z="$(echo "$u_pos" | cut -d ' ' -f 3)"
+    # The point moved to the player: the later scenarios measure from it (m2 read the old point and failed).
+    spawn_x="$u_x"
+    spawn_z="$u_z"
     u_rec="$(count_log 'Homecoming record')"
     if death_and_respawn ctl 1; then
         if [ "$(count_log 'Homecoming record')" -gt "$u_rec" ]; then
@@ -2052,6 +2057,334 @@ if wanted u; then
     else
         fail u1 "no respawn: $DR_NOTE"
     fi
+fi
+
+# ---- r. The Eternal tools: dig speed of a worn pickaxe (E4), the last point (E2), the death wear (C12) ----
+# Single player owner only. Peaceful, so nothing attacks the platform. A dig is timed by the "ticks" of
+# "horizon-ctl break". It does not prove the sweep, the echo or the axe (they need hostile mobs).
+r_dig() {
+    # r_dig ITEM_SPEC [ENCHANT_ID LEVEL]: stone in front of the player, break it, print "ticks block damage".
+    ctl command "clear @s" >/dev/null
+    ctl command "give @s $1" >/dev/null
+    ctl wait 5 >/dev/null
+    ctl select 1 >/dev/null
+    if [ -n "${2:-}" ]; then
+        r_en="$(ctl enchant "$2" "$3")"
+        echo "t-evidence r_enchant: $(printf '%s' "$r_en" | head -c 200); held: $(inv_comp "${1%%[*}")"
+    fi
+    ctl command "setblock $((PX + 1)) $PY $PZ minecraft:stone" >/dev/null
+    ctl wait 5 >/dev/null
+    r_rep="$(ctl break $((PX + 1)) "$PY" "$PZ")"
+    r_ticks="$(jget "$r_rep" 'd.get("ticks")')"
+    r_block="$(jget "$r_rep" 'd.get("block")')"
+    # Vanilla waits 5 ticks after a block breaks before the next dig starts: take them off every dig but the first.
+    if [ "${R_DIGS:-0}" -gt 0 ] && [ -n "$r_ticks" ]; then r_ticks=$((r_ticks - 5)); fi
+    R_DIGS=$(( ${R_DIGS:-0} + 1 ))
+    ctl wait 20 >/dev/null
+    r_late="$(ctl block $((PX + 1)) "$PY" "$PZ" | head -c 160)"
+    echo "t-evidence r_dig late: block 20 ticks later: $r_late"
+    r_block="$(jget "$r_late" 'd.get("block")')"
+    echo "t-evidence r_dig $1 ${2:-}: $(printf '%s' "$r_rep" | head -c 300)"
+}
+r_damage() { inv_comp "$1" | sed -n 's/.*damage[^0-9]*\([0-9][0-9]*\).*/\1/p' | head -n 1; }
+if wanted r; then
+    echo "--- r. Eternal tools: worn pickaxe dig time, Efficiency V, the last point, the death wear"
+    ensure_point
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl command "time set 6000" >/dev/null
+    platform
+    # Calibration of the dig clock: vanilla tools, Java 8 ticks for iron (speed 6) and 23 for wood (speed 2) on stone.
+    r_dig minecraft:iron_pickaxe
+    echo "t-evidence r0: iron pickaxe on stone $r_ticks ticks (Java 8)"
+    r_dig minecraft:wooden_pickaxe
+    echo "t-evidence r0: wooden pickaxe on stone $r_ticks ticks (Java 23)"
+    if [ "$r_ticks" = 23 ]; then
+        pass r0 "the dig clock matches Java: a wooden pickaxe takes 23 ticks on stone (5 ticks of vanilla delay taken off)"
+    else
+        fail r0 "the dig clock: a wooden pickaxe takes '$r_ticks' ticks on stone, Java gives 23"
+    fi
+    r_dig bmh:eternal_pickaxe
+    r_fresh="$r_ticks"; r_fresh_block="$r_block"
+    r_dig "bmh:eternal_pickaxe[damage=32999]"
+    r_worn="$r_ticks"; r_worn_block="$r_block"
+    r_worn_dmg="$(r_damage bmh:eternal_pickaxe)"
+    echo "t-evidence r1: fresh $r_fresh ticks, worn $r_worn ticks, worn damage after the dig $r_worn_dmg"
+    if [ -n "$r_fresh" ] && [ -n "$r_worn" ] && [ "$r_worn" -gt "$r_fresh" ] && [ "$r_worn_block" = "minecraft:air" ]; then
+        pass r1 "E4: a worn pickaxe digs stone slower than a fresh one ($r_worn ticks against $r_fresh), the block is gone"
+    else
+        fail r1 "E4: worn $r_worn ticks (block $r_worn_block), fresh $r_fresh ticks (block $r_fresh_block)"
+    fi
+    if [ -n "$r_worn" ] && [ "$r_worn" -ge 10 ] && [ "$r_worn" -le 16 ]; then
+        pass r2 "E4: the worn dig takes $r_worn ticks, Java gives 12 (speed 4, stone, ground)"
+    else
+        fail r2 "E4: the worn dig takes '$r_worn' ticks, Java gives 12"
+    fi
+    r_dig "bmh:eternal_pickaxe[damage=32999]" efficiency 5
+    r_eff="$r_ticks"
+    if [ -n "$r_eff" ] && [ "$r_eff" -ge 1 ] && [ "$r_eff" -le 5 ] && [ "$r_block" = "minecraft:air" ]; then
+        pass r3 "E4: worn with Efficiency V the dig takes $r_eff ticks (Java 2) and the block is still gone 20 ticks later"
+    else
+        fail r3 "E4: worn with Efficiency V the dig takes '$r_eff' ticks (Java 2), block 20 ticks later '$r_block'"
+    fi
+    # r4 (E2): from 32998, five blocks; the tool stays and its damage stays at or under 32999.
+    ctl command "clear @s" >/dev/null
+    ctl command "give @s bmh:eternal_pickaxe[damage=32998]" >/dev/null
+    ctl wait 5 >/dev/null
+    ctl select 1 >/dev/null
+    r_n=0
+    while [ "$r_n" -lt 5 ]; do
+        ctl command "setblock $((PX + 1)) $PY $PZ minecraft:stone" >/dev/null
+        ctl wait 3 >/dev/null
+        ctl break $((PX + 1)) "$PY" "$PZ" >/dev/null
+        r_n=$((r_n + 1))
+    done
+    r_after="$(r_damage bmh:eternal_pickaxe)"
+    echo "t-evidence r4: damage after five blocks '$r_after', count $(t_counts bmh:eternal_pickaxe)"
+    if [ "$(t_counts bmh:eternal_pickaxe)" = 1 ] && [ -n "$r_after" ] && [ "$r_after" -le 32999 ] && [ "$r_after" -ge 32998 ]; then
+        pass r4 "E2: five blocks with the pickaxe at 32998: it is still there, damage $r_after"
+    else
+        fail r4 "E2: after five blocks the pickaxe count is $(t_counts bmh:eternal_pickaxe), damage '$r_after'"
+    fi
+    # r5 to r7 (C12): the 7 percent wear at a death.
+    ctl command "clear @s" >/dev/null
+    ctl command "give @s bmh:eternal_sword" >/dev/null
+    ctl wait 5 >/dev/null
+    r_d0="$(r_damage bmh:eternal_sword)"; r_d0="${r_d0:-0}"
+    if death_and_respawn ctl 1; then
+        ctl wait 10 >/dev/null
+        r_d1="$(r_damage bmh:eternal_sword)"
+        echo "t-evidence r5: sword damage before $r_d0, after the death '$r_d1'"
+        if [ -n "$r_d1" ] && [ $((r_d1 - r_d0)) -eq 2310 ]; then
+            pass r5 "C12: a death in survival wears the sword by 2310 (7 percent of 33000)"
+        else
+            fail r5 "C12: sword damage $r_d0 then '$r_d1', expected +2310"
+        fi
+        ctl command "bmh rule damage_eternal_item_when_dead false" >/dev/null
+        if death_and_respawn ctl 1; then
+            ctl wait 10 >/dev/null
+            r_d2="$(r_damage bmh:eternal_sword)"
+            if [ "$r_d2" = "$r_d1" ]; then
+                pass r6 "C12: with the rule off a death does not wear the sword ($r_d2)"
+            else
+                fail r6 "C12: rule off, sword damage $r_d1 then '$r_d2'"
+            fi
+        else
+            fail r6 "no respawn: $DR_NOTE"
+        fi
+        ctl command "bmh rule damage_eternal_item_when_dead true" >/dev/null
+        ctl command "gamemode creative" >/dev/null
+        ctl command "kill @s" >/dev/null
+        ctl wait 40 >/dev/null
+        ctl respawn >/dev/null 2>&1 || true
+        ctl wait 40 >/dev/null
+        r_d3="$(r_damage bmh:eternal_sword)"
+        echo "t-evidence r7: after a /kill in creative: sword damage '$r_d3', screen $(jget "$(state)" 'd.get("screen")')"
+        if [ "$r_d3" = "$r_d1" ]; then
+            pass r7 "C12: a death in creative does not wear the sword ($r_d3)"
+        else
+            fail r7 "C12: creative death, sword damage $r_d1 then '$r_d3'"
+        fi
+        ctl command "gamemode survival" >/dev/null
+    else
+        fail r5 "no respawn: $DR_NOTE"
+    fi
+    ctl command "clear @s" >/dev/null
+    ctl command "difficulty normal" >/dev/null
+fi
+
+# ---- s. The moon ritual: refused by day, a fail when the aim leaves the moon, a full ritual at night -------
+# At time 17850 the moon is nearly straight up (angle 360 at 18000), so pitch -90 aims at it for the 300
+# ticks of the ritual. The ritual log lines come from bmh_ritual.rs. The sound, the hand pose and the
+# particles are never tested here (muted, no screenshot).
+if wanted s; then
+    echo "--- s. moon ritual: refused by day, looked away, a full ritual at night"
+    ensure_point
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "weather clear" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    platform
+    ctl command "clear @s" >/dev/null
+    ctl command "give @s bmh:sleeping_totem" >/dev/null
+    ctl wait 5 >/dev/null
+    ctl select 1 >/dev/null
+    # s1: by day the start is refused, no record.
+    ctl command "time set 6000" >/dev/null
+    ctl look 0 -90 >/dev/null
+    ctl wait 10 >/dev/null
+    s_started="$(count_log 'Moon ritual started')"
+    ctl mouse right down >/dev/null
+    ctl wait 30 >/dev/null
+    s_msg="$(ctl messages)"
+    ctl mouse right up >/dev/null
+    echo "t-evidence s1: messages $(printf '%s' "$s_msg" | head -c 400)"
+    if [ "$(count_log 'Moon ritual started')" = "$s_started" ] && [ "$(t_counts bmh:sleeping_totem)" = 1 ]; then
+        pass s1 "by day the ritual does not start and the Dormant Totem stays: $(jget "$s_msg" 'd.get("actionbar")')"
+    else
+        fail s1 "by day: started lines $s_started then $(count_log 'Moon ritual started'), totems $(t_counts bmh:sleeping_totem)"
+    fi
+    # s2: at night, aimed at the moon, then looked away: it fails.
+    ctl wait 30 >/dev/null
+    ctl command "time set 17850" >/dev/null
+    ctl command "xp set @s 0 levels" >/dev/null
+    ctl command "xp add @s 40 levels" >/dev/null
+    ctl look 0 -90 >/dev/null
+    ctl wait 10 >/dev/null
+    s_failed="$(count_log 'Moon ritual failed.*looked_away')"
+    s_started="$(count_log 'Moon ritual started')"
+    ctl mouse right down >/dev/null
+    ctl wait 60 >/dev/null
+    s_mid_started="$(count_log 'Moon ritual started')"
+    s_mid_level="$(jget "$(state)" '(d["player"]["xp"]["level"] if isinstance(d["player"].get("xp"), dict) else d["player"].get("xp"))')"
+    ctl look 0 0 >/dev/null
+    ctl wait 30 >/dev/null
+    s_msg="$(ctl messages)"
+    ctl mouse right up >/dev/null
+    echo "t-evidence s2: level at 60 ticks '$s_mid_level', messages $(printf '%s' "$s_msg" | head -c 300); log: $(grep 'Moon ritual' "$(logfile)" | tail -n 3 | cut -c1-200 | tr '\n' '|')"
+    if [ "$s_mid_started" -gt "$s_started" ] && [ "$(count_log 'Moon ritual failed.*looked_away')" -gt "$s_failed" ] && [ "$(t_counts bmh:sleeping_totem)" = 1 ]; then
+        pass s2 "night, aimed at the moon: the ritual starts (acting player answers), looking away fails it ('looked_away'), the levels drained meanwhile ($s_mid_level of 40), the Dormant Totem stays"
+    else
+        fail s2 "night: started lines $s_started then $s_mid_started, failed lines $s_failed then $(count_log 'Moon ritual failed'), totems $(t_counts bmh:sleeping_totem)"
+    fi
+    if [ "$(count_log 'started with no acting player')" = 0 ]; then
+        pass s3 "native_acting_player answered in the use start: no 'no acting player' line"
+    else
+        fail s3 "native_acting_player gave None: $(count_log 'started with no acting player') refusal lines"
+    fi
+    # s4: a full ritual: 30 levels taken, a Totem of Eternity in the hand, the advancement.
+    ctl wait 40 >/dev/null
+    ctl command "advancement revoke @s only bmh:eternity/moon_ritual" >/dev/null
+    ctl command "time set 17850" >/dev/null
+    ctl command "xp set @s 0 levels" >/dev/null
+    ctl command "xp add @s 40 levels" >/dev/null
+    ctl look 0 -90 >/dev/null
+    ctl wait 10 >/dev/null
+    s_done="$(count_log 'Moon ritual done')"
+    ctl mouse right down >/dev/null
+    ctl wait 340 >/dev/null
+    ctl mouse right up >/dev/null
+    ctl wait 10 >/dev/null
+    s_level="$(jget "$(state)" '(d["player"]["xp"]["level"] if isinstance(d["player"].get("xp"), dict) else d["player"].get("xp"))')"
+    s_adv="$(ctl command "advancement revoke @s only bmh:eternity/moon_ritual")"
+    echo "t-evidence s4 xp raw: $(jget "$(state)" 'd["player"].get("xp")')"
+    echo "t-evidence s4: level after '$s_level', counts $(jget "$(ctl inventory)" 'd["counts"]'), advancement: $(jget "$s_adv" 'd["chat"]'), log: $(grep 'Moon ritual' "$(logfile)" | tail -n 2 | cut -c1-200 | tr '\n' '|')"
+    if [ "$(count_log 'Moon ritual done')" -gt "$s_done" ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && [ "$(t_counts bmh:sleeping_totem)" = 0 ]; then
+        pass s4 "the full ritual: the Dormant Totem became a Totem of Eternity, log line 'Moon ritual done'"
+    else
+        fail s4 "the full ritual: done lines $s_done then $(count_log 'Moon ritual done'), counts $(jget "$(ctl inventory)" 'd["counts"]')"
+    fi
+    if [ "$s_level" = 10 ]; then
+        pass s5 "the ritual took 30 levels: 40 became 10"
+    else
+        fail s5 "the levels after the ritual: '$s_level', expected 10 (from 40)"
+    fi
+    if printf '%s' "$s_adv" | grep -qi 'revoked'; then
+        pass s6 "the advancement Moon-touched was held after the ritual"
+    else
+        fail s6 "the advancement eternity/moon_ritual was not held: $(printf '%s' "$s_adv" | head -c 200)"
+    fi
+    ctl command "clear @s" >/dev/null
+    ctl command "difficulty normal" >/dev/null
+fi
+
+# ---- v. The sky: a star reading draws (screenshots a person must look at), no "does not draw" line ---------
+# The log lines are the facts; the screenshots go to docs/horizon/log/sky-shots/ (scaled to 1280 px) and a
+# person must look at them: only a person can say that the chain is over the stars and that terrain hides it.
+if wanted v; then
+    echo "--- v. sky: a star reading, the log lines, screenshots, the spyglass name"
+    ensure_point
+    skyshots="$repo/docs/horizon/log/sky-shots"
+    mkdir -p "$skyshots"
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "weather clear" >/dev/null
+    ctl command "clear @s" >/dev/null
+    platform
+    open_sky
+    ctl command "time set 18000" >/dev/null
+    ctl give bmh:navigator_amulet 1 >/dev/null
+    ctl give minecraft:spyglass 1 >/dev/null
+    ctl wait 10 >/dev/null
+    ctl select bmh:navigator_amulet >/dev/null
+    ctl look 0 -20 >/dev/null
+    ctl wait 40 >/dev/null
+    v_point="$(ctl command "bmh point save $((PX + 2)) $PY $PZ Camp")"
+    echo "t-evidence v: point save: $(printf '%s' "$v_point" | head -c 200)"
+    # A stone slab 60 blocks up: from there trees and hills do not hide the low stars of the chain.
+    ctl command "fill $((PX - 1)) $((PY + 59)) $((PZ - 1)) $((PX + 1)) $((PY + 59)) $((PZ + 1)) minecraft:stone" >/dev/null
+    ctl command "tp @s $(center "$PX") $((PY + 60)) $(center "$PZ")" >/dev/null
+    ctl wait 70 >/dev/null
+    v_before="$(count_log 'Star reading toward')"
+    ctl use-item >/dev/null
+    ctl wait 20 >/dev/null
+    v_lines="$(grep 'Star reading toward' "$(logfile)" | tail -n "$(( $(count_log 'Star reading toward') - v_before ))" 2>/dev/null)"
+    echo "t-evidence v: reading lines: $(printf '%s' "$v_lines" | cut -c1-200 | tr '\n' '|')"
+    if [ "$(count_log 'Star reading toward')" -gt "$v_before" ]; then
+        pass v1 "the sky area started the reading: $(printf '%s' "$v_lines" | wc -l | tr -d ' ') 'Star reading toward' lines"
+    else
+        fail v1 "no 'Star reading toward' line after the amulet reading"
+    fi
+    if [ "$(count_log 'The star reading does not draw')" = 0 ]; then
+        pass v2 "no 'The star reading does not draw in this session' line (the pipeline built)"
+    else
+        fail v2 "the star reading does not draw: $(grep 'The star reading does not draw' "$(logfile)" | head -n 1 | cut -c1-300)"
+    fi
+    if [ "$(count_log 'Sky azimuth self-check')" = 1 ] && grep 'Sky azimuth self-check' "$(logfile)" | grep -q 'azimuth 0 aims at (0, -100), azimuth 90 at (100, 0); expected (0, -100) and (100, 0)'; then
+        pass v3 "the azimuth self-check line is in the log once, with the expected values"
+    else
+        fail v3 "the azimuth self-check line: $(grep 'Sky azimuth self-check' "$(logfile)" | head -n 2 | cut -c1-250)"
+    fi
+    # The camp line is the first non-spawn line; take the first line of the reading for the view.
+    v_first="$(printf '%s' "$v_lines" | head -n 1)"
+    v_az="$(printf '%s' "$v_first" | sed -n 's/.*Star reading toward \(-\{0,1\}[0-9.]*\):.*/\1/p')"
+    v_lastaz="$(printf '%s' "$v_first" | sed -n 's/.*last at azimuth \(-\{0,1\}[0-9.]*\),.*/\1/p')"
+    v_alt="$(printf '%s' "$v_first" | sed -n 's/.*altitude \(-\{0,1\}[0-9.]*\).*/\1/p')"
+    echo "t-evidence v: first line azimuth '$v_az', last star azimuth '$v_lastaz', altitude '$v_alt'"
+    if [ -n "$v_az" ] && [ -n "$v_alt" ]; then
+        v_yaw="$(python3 -c 'import sys; print((float(sys.argv[1]) + 180) % 360)' "$v_az")"
+        v_pitch="$(python3 -c 'import sys; print(-float(sys.argv[1]) / 2 - 10)' "$v_alt")"
+        ctl look "$v_yaw" "$v_pitch" >/dev/null
+        ctl wait 40 >/dev/null
+        ctl screenshot "$skyshots/v4-reading-toward-point.png" >/dev/null
+        # V2: through a spyglass, aim at the last star of the first line: its name shows under the centre. The 1.8 degrees
+        # of extra pitch were measured on a screenshot: the spyglass view put that star 190 px above the centre at the log's altitude.
+        ctl select minecraft:spyglass >/dev/null
+        ctl look "$(python3 -c 'import sys; print((float(sys.argv[1]) + 180) % 360)' "$v_lastaz")" "$(python3 -c 'import sys; print(-float(sys.argv[1]) - 1.8)' "$v_alt")" >/dev/null
+        ctl mouse right down >/dev/null
+        ctl wait 25 >/dev/null
+        ctl screenshot "$skyshots/v5-spyglass-on-last-star-early.png" >/dev/null
+        ctl wait 55 >/dev/null
+        ctl screenshot "$skyshots/v5-spyglass-on-last-star.png" >/dev/null
+        ctl mouse right up >/dev/null
+        ctl select bmh:navigator_amulet >/dev/null
+        [ -s "$skyshots/v5-spyglass-on-last-star.png" ] && sips -Z 1280 "$skyshots/v5-spyglass-on-last-star.png" >/dev/null 2>&1
+        ctl select bmh:navigator_amulet >/dev/null
+        ctl look "$v_yaw" "$v_pitch" >/dev/null
+        ctl wait 60 >/dev/null
+        ctl screenshot "$skyshots/v4-reading-toward-point-later.png" >/dev/null
+        ctl look 0 0 >/dev/null
+        ctl wait 20 >/dev/null
+        ctl screenshot "$skyshots/v4-looking-at-horizon.png" >/dev/null
+        for f in "$skyshots/v4-reading-toward-point.png" "$skyshots/v4-reading-toward-point-later.png" "$skyshots/v4-looking-at-horizon.png"; do
+            [ -s "$f" ] && sips -Z 1280 "$f" >/dev/null 2>&1
+        done
+        if [ -s "$skyshots/v4-reading-toward-point.png" ]; then
+            pass v4 "screenshots written to docs/horizon/log/sky-shots/ (a person must look at them)"
+        else
+            fail v4 "no screenshot"
+        fi
+        if [ -s "$skyshots/v5-spyglass-on-last-star.png" ]; then
+            pass v5 "spyglass screenshot written (a person must look for the name 'Camp' under the centre)"
+        else
+            fail v5 "no spyglass screenshot"
+        fi
+    else
+        fail v4 "no azimuth or altitude to aim the view at"
+    fi
+    ctl command "clear @s" >/dev/null
+    ctl command "difficulty normal" >/dev/null
 fi
 
 # ---- m. Rules and config across a restart --------------------------------------------------------------
