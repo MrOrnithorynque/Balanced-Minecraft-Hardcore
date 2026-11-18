@@ -12,7 +12,7 @@ You are the coordinator. Area agents write the code in their own worktrees. You 
 - The Rust crate compiles as a whole. In a shared tree a half-written file of one agent breaks the build of every other agent. So one area agent works in its own git worktree (the Agent tool, or a workflow agent, with isolation "worktree").
 - Trap: the app cuts that worktree from `origin/<default branch>` (the app's default for a new worktree), not from your HEAD. So you commit first, give the tip sha as BASE in the prompt, and the brief's first commands reset the agent's throwaway branch (its name starts with `worktree-`) to BASE.
 - Reviews are not optional. The respawn area compiled and passed 31 unit tests, and two reviewers still found 12 findings, 4 of them major (`docs/horizon/review/respawn-*.json`). The skeleton's review found five holes in the contracts between areas (LOG.md step 2). Two load-bearing conclusions of the first audits were wrong until an independent verifier re-read the code.
-- A compile and unit tests are all the proof available until the game runs with the mod. Say so in every report. Never write that a feature "works".
+- A compile and unit tests prove little. The game runs with the mod since 2026-11-17, so a report says that a feature "works" only with its in-game check (section "In the game").
 
 ## Procedure
 
@@ -60,7 +60,7 @@ Save the findings as JSON under `docs/horizon/review/<area>-parity.json` and `<a
 
 One fix agent per area, in its own worktree cut from a new BASE. Its prompt names the review files and says: check each finding's evidence first (open the file at the line and read the quote); change nothing for a finding whose evidence you cannot find or that the code refutes; report each finding as fixed, refuted or not fixed with the reason. Both gates must pass. Merge as in step 7. Set `status` in the JSON files and update LOG.md.
 
-State of the review at the time of writing (check LOG.md "Resume here", it is the live truth): the 12 findings of the respawn area are open. Settings and journey are not reviewed yet.
+State of the review at the time of writing (check LOG.md "Resume here", it is the live truth): the findings of the respawn area are closed (`status` in `docs/horizon/review/respawn-*.json`: fixed, one deferred). Settings and journey are not reviewed yet.
 
 ## The areas, the files and what each needs
 
@@ -71,7 +71,7 @@ The GAPS rows are my reading of ARCHITECTURE.md and GAPS.md (not stated in one p
 | Area | Module and logic file | GAPS rows | Java sources (`handlers/` etc. under `bmh/`) | Contracts it gives | Contracts it reads |
 |---|---|---|---|---|---|
 | respawn (done, verified in the game) | `bmh_respawn.rs`, `respawn.rs` | C1 to C9 | `RespawnPositionHandler`, `RespawnSearch`, `RespawnEffectHandler`, `JourneySignal`, `mixin/F_*` (server) | Journey signals (`wire::JourneySignal`), `Exile` | Eternal Items, rules and config, Held Respawn request |
-| settings (ported; defects open, not reviewed) | `bmh_settings.rs`, `settings.rs` | S1 to S4 | `utilities/BMHGameRules`, `BMHConfigLimits`, `neoforge/NeoForgeConfig`, `client/config/ConfigScreen`, `mixin/CreateWorldGameTabMixin`, `N_*` | `bmh_settings::rule`, `bmh_settings::config`, the `/bmh rule` subcommand | none |
+| settings (ported; fix round 1 merged on 2026-11-18; not reviewed) | `bmh_settings.rs`, `settings.rs` | S1 to S4 | `utilities/BMHGameRules`, `BMHConfigLimits`, `neoforge/NeoForgeConfig`, `client/config/ConfigScreen`, `mixin/CreateWorldGameTabMixin`, `N_*` | `bmh_settings::rule`, `bmh_settings::config`, the `/bmh rule` subcommand | none |
 | journey (ported; defects open, not reviewed) | `bmh_journey.rs`, `journey.rs` | C4 (client side), C15, C16, C17 | `client/journey/*`, `mixin/F_GuiTitleMixin`, `F_LocalPlayerRespawnMixin`, `F_MinecraftOverlayMixin` | Held Respawn request (`wire::RespawnRequest`) | Journey signals |
 | amulet | `bmh_amulet.rs`, `amulet.rs` (and `bmh_amulet_world.rs`) | A1 to A6 | `items/NavigatorAmuletItem`, `handlers/Amulet*`, `client/amulet/*` | `bmh_amulet::points(game, player) -> Vec<contract::AmuletPoint>`, the reading (no contract fixed yet), the `/bmh point` subcommand | Eternal Items, rules and config |
 | sky | `bmh_sky.rs`, `stars.rs` (and `bmh_sky_render.rs`) | V1, V2 | `client/sky/*`, `mixin/D_*`, `K_*` | none | the amulet's reading and points (no contract fixed yet) |

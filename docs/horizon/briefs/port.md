@@ -20,7 +20,10 @@ and compound lines in a worktree, as too complex to verify.
 Run the reset only when the branch name starts with `worktree-` and R is not the coordinator's tree (below). It is
 the one git command that changes history that you may run, once, before you have written anything.
 
-Guard, after that: `ls "$R/horizon/native/mixins/bmh/horizon-mixin.toml"` must succeed, and R must NOT be
+R is the path that the first command printed. The shell keeps no variable between two commands, so write that
+path itself wherever this brief shows `<R>`.
+
+Guard, after that: `ls <R>/horizon/native/mixins/bmh/horizon-mixin.toml` must succeed, and R must NOT be
 `/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore/.claude/worktrees/busy-visvesvaraya-4dfefc`
 (that is the coordinator's tree: if you are in it, stop and say so). Use R in every path of the repo. Never write
 outside R, except through the two build scripts below.
@@ -102,8 +105,8 @@ them. Do not edit other content files: report what the content mod lacks.
 
 ## Gates (both must pass before you report "done")
 
-    sh "$R/horizon/tools/test-logic.sh"
-    BMH_HORIZON_CACHE=/Users/louisobenicherousse/Library/Caches/bmh-horizon sh "$R/horizon/tools/check.sh"
+    sh <R>/horizon/tools/test-logic.sh
+    BMH_HORIZON_CACHE=/Users/louisobenicherousse/Library/Caches/bmh-horizon sh <R>/horizon/tools/check.sh
 
 The first runs the unit tests (seconds). The second compiles your worktree's bundle into Horizon; it waits for a
 lock that the other agents share, so a run can take a few minutes: run it in the foreground, with a timeout of ten

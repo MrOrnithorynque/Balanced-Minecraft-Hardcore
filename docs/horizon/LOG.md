@@ -243,41 +243,88 @@ The binaries were not started: a world needs the prepared game files.
 
 ## Resume here
 
-State on 2026-11-17, 21:25. Branch `horizon-26.3`, local only (never pushed: the owner did not ask).
+State on 2026-11-18, 03:10. Branch `horizon-26.3`, local only (never pushed: the owner did not ask).
 
 Done: the content mod (loads in the game: nine items with textures, a recipe, the advancement tab, the sounds),
 the skeleton (66 hooks), the area respawn (verified in the game), the areas settings and journey (ported; the
-slice test passes with them; not reviewed yet), the test system, the harness of the branch.
+slice test passes with them; settings had one fix round; not reviewed yet), the test system, the harness of the branch.
 
-Not done, in this order:
+The owner played the built game on 2026-11-17 and 2026-11-18 (`play.sh`). His server log shows the Java distance
+formula in the real game: 23 332 blocks with no Eternal Item, 35 555 blocks from his bed with two. He reported:
+F3 shows the coordinates (row C14 of GAPS.md, area eternal, not ported), the amulet does nothing (area amulet,
+not ported), and "many features are missing".
 
-0. Two things are in flight since 2026-11-17, 21:20:
-   - A separate session, "Fix the Create World button and settings defects" (Sonnet, its own worktree, a branch
-     named after `horizon-fix-settings`, cut from `horizon-26.3`), fixes the three settings defects below (k2, k5,
-     the config file). When it reports `DONE <branch> <sha>`: check its screenshots under
-     `docs/horizon/log/settings-fix-1-shots/`, run the two gates and `sh horizon/tools/test-slice.sh --only k,l,m`
-     on its commit, then bring it in (`git cherry-pick <sha>` on `horizon-26.3`).
-   - A second harness healing was applied with the owner's word ("All four"): the branch's `.claude/CLAUDE.md`, the
-     skills `horizon-build-test` and `horizon-port-area`, one line in the owner's global skill
-     `coordinate-sessions` and one in his global `CLAUDE.md`. No inspector has read these edits yet: run the
-     `inquisitor` agent on those five files.
-1. Fix the defects that the first look at settings and journey in the game found
-   (`docs/horizon/log/game-checks-1.md`, with screenshots and one command each). The three of settings are with the
-   session above. Left for the respawn and journey areas: with the game rule `immediate_respawn` a death gives no
-   exile and no journey (major, check n5); one frame of the arrival world shows before the black on the path
-   without the hold. One fix agent per area, each in its own worktree, one at a time with game rights.
-2. Review settings and journey with the two lenses (parity with the Java mod, use of the host game), save the
-   findings under `docs/horizon/review/`, then fix.
-3. Port the seven other areas with the skill `horizon-port-area`: amulet first (it also sets the default
-   `minecraft:lodestone_tracker` of the amulet from the native hook, so that the needle points north: see
-   `docs/horizon/log/content.md`), then homecoming and sky; eternal, totem, ritual and tools can run beside it.
-   For each: port, merge, add its scenario to `test-slice.sh`, review, fix.
-4. Then: bring `HOOKS.md` and `GAPS.md` up to date with what the game showed, remove the Java sources, and ask
-   the owner whether Horizon work gets lines in `CHANGELOG.md` and when to push the branch.
-5. Done on 2026-11-17 with the owner's word: two bullets in his global skill `coordinate-sessions` (a worktree
-   per agent and its base trap; measured usage). An inspector blocked the first wording on two wrong claims (the
-   worktree base is `origin/<default branch>`, not the session's first commit; a coordinator call costs about 0.4
-   point, not 1 to 2). Both are corrected, with its other findings. The corrected text was not inspected again.
+### The run of 06:00 on 2026-11-18 (the owner's order of 02:49)
+
+His order, in short: when the usage window is new, start again and finish all that is left; check that every
+feature works; use the right models (many Sonnet agents, Opus where it is needed); start at 06:00.
+
+Who has the run. One coordinator only. The lock is a folder:
+`mkdir ~/Library/Caches/bmh-horizon/run-2026-11-18.lock`. If `mkdir` fails, another session has the run: write
+one line and stop. The session "Mod port to Horizon Minecraft" (the coordinator since 2026-11-11) wakes at 06:00
+from a background wait and takes the lock. A scheduled task of the desktop app, `bmh-horizon-run-0600`, fires at
+06:06 as a spare: it starts a new session that takes the run only if the lock is free. The coordinator writes one
+line per step in `~/Library/Caches/bmh-horizon/logs/run-2026-11-18.md`.
+
+Before the first wave: `git branch --show-current` must print `horizon-26.3` and `git status --short` must be
+empty.
+
+Usage. Read the usage before each wave and after each agent that ran long. Stop cleanly at 60 % of the 5-hour
+window. Stop when the week passes 40 % (all models) or 50 % (Fable). Measured on this run: 21 to 28 points of the
+window per million sub-agent tokens. A wave of two areas with its reviews and game checks is planned at about 50
+points (an estimate, not measured). So the list below needs about four windows. The owner was asked on
+2026-11-18 whether the run may start again by itself at each new window. Until he answers, it stops at 60 % and
+waits for him.
+
+Waves, in this order. The procedure of each step is in the skill `horizon-port-area`.
+
+- Wave 1: amulet (Opus; rows A1 to A6; it also sets the default `minecraft:lodestone_tracker` of the amulet from
+  the native hook, see `docs/horizon/log/content.md`) and eternal (Sonnet; rows C11, C13, C14, E10 to E12; C14 is
+  the hidden coordinates of F3 that the owner asked about).
+- Wave 2: homecoming (Sonnet) and sky (Opus). Before it starts, fix the shape of what they read from the amulet
+  in `logic/src/contract.rs` and in HOOKS.md "Contracts".
+- Wave 3: totem (Sonnet), ritual (Sonnet), tools (Sonnet).
+- Wave 4: the open defects of respawn and journey (`docs/horizon/log/game-checks-1.md`: check n5, and the frame
+  of the arrival world before the black); the review of settings and journey with the two lenses, then the fix.
+- Then: one full `sh horizon/tools/test-slice.sh`, bring `HOOKS.md` and `GAPS.md` up to date with what the game
+  showed, and ask the owner three things: lines in `CHANGELOG.md`, when to push, when to remove the Java sources.
+
+One wave, six steps:
+
+1. Port. One agent per area, each in its own worktree, all at the same time. No game in this step: the two gates
+   only (`check.sh` has a lock, so the compiles queue by themselves).
+2. Review. Two lenses (parity on Sonnet, use of the host game on Opus) for amulet, eternal, sky, homecoming and
+   totem. One Sonnet reviewer with both lenses for ritual and tools, to save usage.
+3. Fix. One Sonnet agent per area, in the area's worktree.
+4. Merge. The coordinator brings each area into `horizon-26.3` and runs the two gates.
+5. Game. One Sonnet agent with game rights, in the coordinator's tree, after the merges: it builds the game, adds
+   the scenarios of the wave's areas to `test-slice.sh`, runs them, fixes what fails inside those areas, and
+   keeps its evidence on disk.
+6. Close. The coordinator opens the evidence, runs the full `test-slice.sh`, commits, updates this section and
+   reads the usage.
+
+### Done on 2026-11-18 before the run
+
+- The settings fix is in `horizon-26.3`: commit f1e4803 (the commit ba75fd3 of the session "Fix the Create World
+  button and settings defects", brought in with its own message; the owner said "Oui, fusionne") and commit
+  27fa133 (the coordinator's correction: a visit to Data Packs put the choice back to ON; checks k5e and k5f; see
+  `docs/horizon/log/settings.md`, "The coordinator's check of fix round 1").
+- On that tip, run by the coordinator: 122 unit tests pass, the compile passes, and the full
+  `sh horizon/tools/test-slice.sh --no-build` gives 51 passed, 1 failed, 0 skipped. The one failure is n5
+  (`immediate_respawn`: no exile and no journey), an open defect of the respawn area.
+- The inspector of the second healing was cut by a restart of the app. Its verdicts are in
+  `~/Library/Caches/bmh-horizon/logs/healing-2-inquisitor.md` (31 confirmed, 10 wrong or not provable). The wrong
+  ones are corrected in `.claude/CLAUDE.md`, the two skills, `docs/horizon/briefs/port.md` (its commands used
+  `$R`, which no command set) and the owner's global skill `coordinate-sessions`. Not known: what the inspector
+  would have said about the lines it did not reach.
+- The briefs of wave 1 are written: `docs/horizon/briefs/area-amulet.md`, `area-eternal.md` (the part of a port
+  agent's prompt that is about its area), `review.md` (a review agent, one lens or both) and `game.md` (the one
+  agent with game rights). A port agent's prompt is: read `briefs/port.md` and `briefs/area-<area>.md`, BASE.
+  Waves 2 and 3 need their own `area-<area>.md`: write them from the table of the skill `horizon-port-area`.
+
+### In flight
+
+Nothing on 2026-11-18, 03:10. The tree is clean and the next step is wave 1.
 
 The tools: `~/Library/Caches/bmh-horizon` holds `horizon-mods` (with `native/target`: the Nightly's tree, cargo's
 cache, the built game), `target-tools/debug/cargo-horizon-mod` (`BMH_HORIZON_MOD_BIN`), `resources/26.3`,
@@ -285,9 +332,16 @@ cache, the built game), `target-tools/debug/cargo-horizon-mod` (`BMH_HORIZON_MOD
 the logs. An erased cache loses Mojang's version file inside the Nightly's tree: see the skill
 `horizon-build-test`.
 
-Trap: when the app starts the session again, this worktree is back on the session's own branch
-(`claude/horizon-minecraft-mod-port-0812eb`, the Java `main`), with `horizon/` as untracked build folders.
-Nothing is lost: run `git switch horizon-26.3`.
+Traps of this run:
+
+- When the app starts the session again, this worktree is back on the session's own branch
+  (`claude/horizon-minecraft-mod-port-0812eb`, the Java `main`), with `horizon/` as untracked build folders.
+  Nothing is lost: run `git switch horizon-26.3`.
+- A restart of the app or a sleep of the Mac kills the background jobs and the sub-agents of the session (seen
+  three times on 2026-11-17 and 2026-11-18: a wait, a build, an inspector). An agent that runs long keeps its log
+  on disk from its first step. After a restart, read the logs before you start anything again.
+- Do not build the game while the owner plays: the build writes the binary that `play.sh` runs and takes every
+  core. Look for a `horizon-client` process first.
 
 Rules of the run that the owner gave: stop cleanly when the 5-hour usage window reaches 60 %; stop when the
 week passes 40 % (all models) and 50 % (Fable), and ask him before going on (on 2026-11-12 both were passed and
