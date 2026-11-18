@@ -4,4 +4,5 @@ fn bmh_hook_level_tick_post(game: &mut crate::game::Game<'_>, dimension: &str) {
         return;
     }
     crate::game::bmh_respawn::on_level_tick_post(game, dimension);
+    crate::game::bmh_amulet::on_level_tick_post(game, dimension);
 }

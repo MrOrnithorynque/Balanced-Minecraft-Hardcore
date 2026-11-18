@@ -286,9 +286,214 @@ impl RespawnRequest {
     }
 }
 
+// Messages of the amulet area, between its server side and its screens (GAPS.md A5, A6).
+// The Java mod sent title packets (AmuletPointSignal.java) and command packets (PointScreen.java):
+// decision D6 replaces both with these messages. A position is three i32 (x, y, z).
+
+/// Both directions of the amulet: the server opens the screens, the screens ask for changes.
+pub const AMULET_CHANNEL: &str = "bmh:amulet";
+
+/// The most points that a list carries. The cap of the config is 16; a player above the cap keeps
+/// their points, so the list leaves room. A longer list is cut.
+pub const MAX_LIST_POINTS: usize = 256;
+
+fn write_pos(w: &mut Writer, pos: [i32; 3]) {
+    w.i32(pos[0]).i32(pos[1]).i32(pos[2]);
+}
+
+fn read_pos(r: &mut Reader<'_>) -> Option<[i32; 3]> {
+    Some([r.i32()?, r.i32()?, r.i32()?])
+}
+
+/// Server to client, on `AMULET_CHANNEL`: open a screen (AmuletPointSignal.java).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AmuletSignal {
+    /// Tag 1. The naming screen of the block at `pos` (AmuletPointSignal.java:50-62). `name` is the
+    /// point's name, None for a new point. `used` is the player's point count, `max` the cap, `bed`
+    /// true for a bed and false for a lodestone.
+    Open {
+        pos: [i32; 3],
+        name: Option<String>,
+        used: i32,
+        max: i32,
+        bed: bool,
+    },
+    /// Tag 2. The list of the player's points (AmuletPointSignal.java:30-48): the cap, then the name
+    /// and position of each point.
+    List {
+        max: i32,
+        points: Vec<(String, [i32; 3])>,
+    },
+}
+
+impl AmuletSignal {
+    const OPEN: u8 = 1;
+    const LIST: u8 = 2;
+
+    /// The bytes of this signal. A list longer than `MAX_LIST_POINTS` is cut.
+    pub fn encode(&self) -> Vec<u8> {
+        let mut w = Writer::new();
+        match self {
+            Self::Open { pos, name, used, max, bed } => {
+                w.u8(Self::OPEN);
+                write_pos(&mut w, *pos);
+                w.bool(name.is_some());
+                if let Some(name) = name {
+                    w.str(name);
+                }
+                w.i32(*used).i32(*max).bool(*bed);
+            }
+            Self::List { max, points } => {
+                let shown = &points[..points.len().min(MAX_LIST_POINTS)];
+                // `shown` holds at most MAX_LIST_POINTS entries, so the count fits in a u32.
+                w.u8(Self::LIST).i32(*max).u32(shown.len() as u32);
+                for (name, pos) in shown {
+                    w.str(name);
+                    write_pos(&mut w, *pos);
+                }
+            }
+        }
+        w.finish()
+    }
+
+    /// The signal in `bytes`, or None when the bytes are not valid.
+    pub fn decode(bytes: &[u8]) -> Option<Self> {
+        let mut r = Reader::new(bytes);
+        let signal = match r.u8()? {
+            Self::OPEN => {
+                let pos = read_pos(&mut r)?;
+                let name = if r.bool()? { Some(r.str()?.to_owned()) } else { None };
+                Self::Open { pos, name, used: r.i32()?, max: r.i32()?, bed: r.bool()? }
+            }
+            Self::LIST => {
+                let max = r.i32()?;
+                let count = usize::try_from(r.u32()?).ok()?;
+                if count > MAX_LIST_POINTS {
+                    return None;
+                }
+                let mut points = Vec::with_capacity(count);
+                for _ in 0..count {
+                    let name = r.str()?.to_owned();
+                    points.push((name, read_pos(&mut r)?));
+                }
+                Self::List { max, points }
+            }
+            _ => return None,
+        };
+        r.is_done().then_some(signal)
+    }
+}
+
+/// Client to server, on `AMULET_CHANNEL`: a change that a screen asks for (PointScreen.java:96-111,
+/// PointListScreen.java:102-105). The server checks each one as the Java command did (decision D7).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AmuletRequest {
+    /// Tag 1. Save or rename the point on the block at `pos` (`/bmh point save`).
+    Save { pos: [i32; 3], name: String },
+    /// Tag 2. Remove the point on the block at `pos` (`/bmh point remove`).
+    Remove { pos: [i32; 3] },
+    /// Tag 3. Remove the point at `pos`, with no block needed (`/bmh point delete`).
+    Delete { pos: [i32; 3] },
+}
+
+impl AmuletRequest {
+    const SAVE: u8 = 1;
+    const REMOVE: u8 = 2;
+    const DELETE: u8 = 3;
+
+    /// The bytes of this request.
+    pub fn encode(&self) -> Vec<u8> {
+        let mut w = Writer::new();
+        match self {
+            Self::Save { pos, name } => {
+                w.u8(Self::SAVE);
+                write_pos(&mut w, *pos);
+                w.str(name);
+            }
+            Self::Remove { pos } => {
+                w.u8(Self::REMOVE);
+                write_pos(&mut w, *pos);
+            }
+            Self::Delete { pos } => {
+                w.u8(Self::DELETE);
+                write_pos(&mut w, *pos);
+            }
+        }
+        w.finish()
+    }
+
+    /// The request in `bytes`, or None when the bytes are not valid.
+    pub fn decode(bytes: &[u8]) -> Option<Self> {
+        let mut r = Reader::new(bytes);
+        let request = match r.u8()? {
+            Self::SAVE => Self::Save { pos: read_pos(&mut r)?, name: r.str()?.to_owned() },
+            Self::REMOVE => Self::Remove { pos: read_pos(&mut r)? },
+            Self::DELETE => Self::Delete { pos: read_pos(&mut r)? },
+            _ => return None,
+        };
+        r.is_done().then_some(request)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn every_amulet_signal() -> Vec<AmuletSignal> {
+        vec![
+            AmuletSignal::Open { pos: [1, -64, 30_000_000], name: None, used: 0, max: 5, bed: true },
+            AmuletSignal::Open { pos: [-7, 70, 2], name: Some("Home: étoile".to_owned()), used: 5, max: 5, bed: false },
+            AmuletSignal::List { max: 16, points: vec![] },
+            AmuletSignal::List { max: 1, points: vec![("A".to_owned(), [1, 2, 3]), (String::new(), [-4, 5, -6])] },
+        ]
+    }
+
+    fn every_amulet_request() -> Vec<AmuletRequest> {
+        vec![
+            AmuletRequest::Save { pos: [1, 2, 3], name: "  Home ".to_owned() },
+            AmuletRequest::Save { pos: [0, 0, 0], name: String::new() },
+            AmuletRequest::Remove { pos: [-1, -2, -3] },
+            AmuletRequest::Delete { pos: [i32::MIN, 0, i32::MAX] },
+        ]
+    }
+
+    #[test]
+    fn every_amulet_message_round_trips_and_refuses_cut_input() {
+        for signal in every_amulet_signal() {
+            let bytes = signal.encode();
+            assert_eq!(AmuletSignal::decode(&bytes), Some(signal.clone()));
+            for cut in 0..bytes.len() {
+                assert_eq!(AmuletSignal::decode(&bytes[..cut]), None, "{signal:?} cut at {cut}");
+            }
+            let mut long = bytes.clone();
+            long.push(0);
+            assert_eq!(AmuletSignal::decode(&long), None);
+        }
+        for request in every_amulet_request() {
+            let bytes = request.encode();
+            assert_eq!(AmuletRequest::decode(&bytes), Some(request.clone()));
+            for cut in 0..bytes.len() {
+                assert_eq!(AmuletRequest::decode(&bytes[..cut]), None, "{request:?} cut at {cut}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_amulet_tags_are_fixed_and_bad_input_gives_none() {
+        assert_eq!(AmuletRequest::Remove { pos: [1, 0, 0] }.encode(), [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(AmuletRequest::decode(&[]), None);
+        assert_eq!(AmuletRequest::decode(&[4]), None);
+        assert_eq!(AmuletSignal::decode(&[3]), None);
+        // A list that says it holds more points than the cap is refused before any allocation.
+        let mut w = Writer::new();
+        w.u8(2).i32(5).u32(u32::MAX);
+        assert_eq!(AmuletSignal::decode(w.bytes()), None);
+        // A list longer than the cap is cut when it is written.
+        let points = vec![("p".to_owned(), [0, 0, 0]); MAX_LIST_POINTS + 3];
+        let cut = AmuletSignal::decode(&AmuletSignal::List { max: 5, points }.encode());
+        assert!(matches!(cut, Some(AmuletSignal::List { points, .. }) if points.len() == MAX_LIST_POINTS));
+        assert_eq!(AMULET_CHANNEL, crate::ids::channel("amulet"));
+    }
 
     fn every_signal() -> Vec<JourneySignal> {
         vec![

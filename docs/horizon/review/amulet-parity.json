@@ -1,0 +1,45 @@
+{
+  "area": "amulet",
+  "lens": "parity",
+  "reviewed_commit": "worktree on 72f0fc8aded3e4ca92139e16f8024820c010995d",
+  "status": "round 1 done: the import is fixed, the night test is pinned by new tests, the command level goes to the integrator; gates run after the fix",
+  "verdict": "The amulet logic matches the Java source closely: order of the sky checks, refusal keys, charges, nightly refill, cooldown ticks, chime volume and pitch, name rules, cap, reach, one change per second, saved layout and the Home import all agree line by line. The faults left are the night test (a 1.21.1 formula where the host uses the 26.x timeline), a one-shot import of Java points that can mark itself done with no data, and a command level that is not in the GAPS.md row.",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/logic/src/amulet.rs:209",
+      "what": "The 'is it dark' gate of every reading uses the 1.21.1 formula (scale 11, cosine of the time of day, 5/16 rain factor). The host game (and the Java mod on 26.1, which asks level.isDarkOutside()) decide it from the 26.x timeline sky light level. The two can disagree at dusk and dawn, so the amulet can read while the bed refuses, or the other way round. The log lists this (difference 4) but GAPS.md A2 only says 'the mod computes from day_time, weather'; no test compares the two at the dusk and dawn ticks.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/logic/src/amulet.rs:209: ((1.0 - f * d * e) * 11.0) as i32",
+        "host": "crates/horizon-client-render/src/environment.rs:403: (15.0 - 15.0 * sky.sky_light_level).round() as i32  (and game.rs:15026 uses this value for the bed: self.sky_darken() >= 4)",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/AmuletReading.java:123: if (!level.isDarkOutside()) {"
+      },
+      "fix": "Ask for a host helper that returns Game::sky_darken, or sample the same timeline data. Until then, add a unit test that pins the first and last dark tick against the host value for clear weather, and keep the difference in GAPS.md A2.",
+      "round1": "fixed: night formula unchanged (listed difference); tests pin the dark window in clear weather and at rain 0.2; no host value on this machine to compare"
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_amulet.rs:226",
+      "what": "The import of the points of a Java world runs once and marks itself done even when no data was reachable. java_points returns an empty list both for 'no points' and for 'no player data' (native_player_compound is None inside a player's turn, and the file fallback can fail), and load_points then saves that empty list as the attachment. After that the attachment exists and the Java points are never read again. The first read happens in the owner's own use hook, where native_player_compound is None by design.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_amulet.rs:204-205: let Some(data) = data else {  return Vec::new();  and 226-231: Ok(None) => { let imported = java_points(game, player); ... save_points(game, player, imported.clone());",
+        "host": "crates/horizon-client/src/game/native_player_state.rs:127: None inside a player's turn (their",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/AmuletPoints.java:203-211: public static List<Point> read(ValueInput input) { ... input.read(LEGACY_HOME_TAG, POSITION_CODEC).ifPresent(pos -> points.add(new Point(LEGACY_HOME_NAME, pos)));"
+      },
+      "fix": "Make java_points return Option. Save the attachment only when the data was read (Some). When the data is unreachable, return the empty list for this call and try again on the next read. Also read the file path the Java mod used if it differs from players/data.",
+      "round1": "fixed"
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/logic/src/amulet.rs:675",
+      "what": "/bmh point is registered at operator level 2. In Java it has no requirement, so any player can type it. The area log lists this as difference 7 and as an open question, but the GAPS.md A5 row does not allow it (it only says Brigadier ~ coordinates are not guaranteed). A player without operator rights loses the typed command.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/logic/src/amulet.rs:675: pub const COMMAND_LEVEL: u8 = 2;",
+        "host": "",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/AmuletPointCommand.java:45: dispatcher.register(Commands.literal(\"bmh\").then(Commands.literal(\"point\")"
+      },
+      "fix": "Add the level difference to the GAPS.md A5 row, or lower the level once the settings area tests player.permission for /bmh rule (log, open question 1).",
+      "round1": "not fixed: level 2 stays by decision of the coordinator (root level is the lowest usage, native_server.rs:179-180 and :1488-1491); for the integrator: add the difference to GAPS.md A5"
+    }
+  ]
+}

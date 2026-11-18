@@ -30,6 +30,30 @@ pub struct AmuletPoint {
     pub pos: [i32; 3],
 }
 
+/// One star reading of the Navigator's Amulet (Java `AmuletReading.record`,
+/// AmuletReading.java:210-245). The amulet area writes it on the stack (the
+/// compound `bmh_reading` of `minecraft:custom_data`, the Java layout), and
+/// `bmh_amulet::reading(stack)` reads it back. The sky area reads it on the
+/// client from the amulet in a hand and draws one star chain per azimuth
+/// (Java `StarReadingRenderer.startFreshReading`, StarReadingRenderer.java:172-209).
+#[derive(Debug, Clone, PartialEq)]
+pub struct AmuletReading {
+    /// Degrees clockwise from north, from the player to each place, in
+    /// [0, 360): 0 is north (-Z), 90 east (+X). One per point, in the order of
+    /// the points, then the world spawn last.
+    pub azimuths: Vec<f32>,
+    /// The name of each place, in the same order. The world spawn has an
+    /// empty name. The spyglass shows a name that is not empty.
+    pub names: Vec<String>,
+    /// The index of the world spawn in both lists: its line is the lighter
+    /// one. None for a reading with no spawn line (Java 1.7.0 and older, or a
+    /// server that did not know the world spawn).
+    pub spawn: Option<usize>,
+    /// The game time of the reading (`Level.getGameTime`). A client that sees
+    /// a reading more than 40 ticks old shows nothing (StarReadingRenderer.java:58).
+    pub time: i64,
+}
+
 /// One of the six world rules of BMH (Java `BMHGameRules`,
 /// BMHGameRules.java:27-37). On Horizon they are world settings of the mod,
 /// not game rules (decision D5). The settings area keeps the values. Every

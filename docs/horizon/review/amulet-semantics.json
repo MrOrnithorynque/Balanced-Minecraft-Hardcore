@@ -1,0 +1,41 @@
+{
+  "area": "amulet",
+  "lens": "semantics",
+  "reviewed_commit": "worktree on 72f0fc8",
+  "status": "round 1 done: both findings fixed (import moved to level_tick_post, reading routes corrected in the log and HOOKS.md); gates run after the fix",
+  "verdict": "The load-bearing claims hold when read against the host source: the /bmh root level, the needle default, the use hooks with a player swapped in, the attachment with copy on death, the checks of a client request, the frame and level_tick_post calls. Two minor faults remain: the import of Java points inside a player's turn reads a file on disk instead of the record Horizon loaded and then marks the import done, and the reading contract names a client route whose input (the window's own entity id) no helper gives.",
+  "claims": {
+    "1_command_level": "holds: crates/horizon-client/src/game/native_server.rs:179-180 (root level is the lowest of the usages) and :1488-1491 (only the root level is checked). /bmh rule alone is safe today (both usages at level 2). Level 2 for /bmh point breaks nothing the screens need: they use bmh:amulet messages (bmh_amulet.rs:590-612).",
+    "2_needle_A1": "holds: horizon-world/src/item_defaults.rs:77 and :98 (hook on every item of items.json; mod_content.rs:1576 writes the content items there), horizon-assets/src/item_model.rs:1084-1097 (defaults plus patch) and :1546-1548 (compass reads lodestone_tracker with no item test). An old stack has no patch for the component, so it gets the default.",
+    "3_use_A2_A3": "holds: game.rs:7199-7209 (use_item_on, then use_item only when not claimed and not a UseItemOn), native_hooks.rs:7961 and :8002 (server side, every player), native_server.rs:661-700 (acting player), native_host_bridge.rs:118-120 (sneak of the acting guest), remote.rs:9257 (off hand asks interaction_key). The guard is keyed by uuid and by the amulet, so it cannot take another item's or another player's click.",
+    "4_points_A5": "holds, with finding 1: mod_api_host.rs:135-142 (acting player or guest map), lan_actions.rs:3909-3913 (copy on death at respawn), attachments.rs:364 (an empty list is kept, so no second import).",
+    "5_requests_A6": "holds: wire.rs:426-435 (strict decode, extra bytes refused), logic amulet.rs:622-636 (amulet, Overworld, alive, not spectator, reach, block, rate), bmh_amulet.rs:366 (server cleans the name), native_hooks.rs:8357-8360 (net_from_client: no player swapped in, server side), native_server.rs:732-735 and levels.rs:559-560 (run_command works at level_tick_post).",
+    "6_reading_contract": "holds for the data, with finding 2: horizon-items/src/item_data.rs:378-382 and horizon-protocol/src/item/hash.rs:566 (custom_data is a synced component). The route the log gives the sky area needs the window's own entity id, and no helper was found that gives it."
+  },
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_amulet.rs:200",
+      "what": "The first read of a player's points is nearly always inside that player's turn (use, use on a block, command, respawn). There `native_player_compound` gives None, so the import reads `players/data/<player uuid>.dat` from disk, not the record Horizon loaded. For a single-player owner Horizon loads the file that level.dat names (`<singleplayer_uuid>.dat`), so with another uuid or a missing own file the import finds nothing, saves the empty list and never runs again: the Java points are lost for good.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_amulet.rs:200 `let data = game.native_player_compound(player).or_else(|| {`, :202 `horizon_client::save::read_dat(&horizon_client::lan::playerdata::path(&dir, player))`, :231 `save_points(game, player, imported.clone());`",
+        "host": "crates/horizon-client/src/game/native_player_state.rs:133 `Place::Acting => None,`; crates/horizon-client/src/lan/playerdata.rs:85 `if let Some(level) = saved.filter(|l| l.singleplayer_file) {`; crates/horizon-client/src/save.rs:4332 `/// The player's file alone, `players/data/<singleplayer_uuid>.dat``",
+        "java": ""
+      },
+      "fix": "Do not mark the import done from a player's turn. When `native_player_compound` gives None, return the disk points (or nothing) without `save_points`, and do the import that saves only where no player is swapped in (for example in `level_tick_post` for online players with no attachment), where `native_player_compound` gives the record Horizon loaded.",
+      "round1": "fixed"
+    },
+    {
+      "severity": "minor",
+      "file": "docs/horizon/log/amulet.md:117",
+      "what": "The reading contract tells the sky area to read the hands with `native_living_hand_item` on the window's own entity. On a client that needs the window's own entity id, and no helper gives it: `native_player()` has no id and `own_entity_id` is private. The data reaches the client (custom_data is synced); only the named route is not proven.",
+      "evidence": {
+        "ours": "docs/horizon/log/amulet.md:117 `reading wins. The sky area gets the hand stacks of the window's player itself (for example`",
+        "host": "crates/horizon-client/src/game/perspective.rs:1180 `fn own_entity_id(&self) -> i32 {` (private); docs/native-mods.md:3747 `the window: the window's own player (its id is the login's, once the server's first teleport made the player), other`",
+        "java": ""
+      },
+      "fix": "Name a route that exists: the server sends the player's entity id (`NativeServerPlayer.entity_id`) in an amulet message, or the sky area reads the hands where the client hands them over (`native_render_hand` gives each hand's stack in first person, `native_carried_stack` reads the window's own slots in a `&mut Game` hook). Say which one in the HOOKS.md contract row.",
+      "round1": "fixed"
+    }
+  ]
+}

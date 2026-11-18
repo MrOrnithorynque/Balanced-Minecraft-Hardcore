@@ -4,4 +4,5 @@ fn bmh_hook_frame(game: &mut crate::game::Game<'_>) {
         return;
     }
     crate::game::bmh_journey::on_frame(game);
+    crate::game::bmh_amulet::on_frame(game);
 }
