@@ -337,14 +337,64 @@ None of the five areas had run in the game when it was merged. One Sonnet game a
 - Full run at a2ec127: 115 passed, 6 failed, 0 skipped. The six reds are t1 to t5 (the totem save) and n5
   (`immediate_respawn`, known since wave 1).
 
+## Step 12. Review of settings and journey (522a84f, 9e847b8)
+
+Four reviewers read the tree at cd2e53f. Settings parity (Sonnet): 0 major, 2 minor. Settings semantics (Opus): 2 major,
+1 minor. Journey parity (Sonnet): 1 major, 2 minor. Journey semantics (Opus): 2 major, 4 minor. Files:
+`docs/horizon/review/{settings,journey}-{parity,semantics}.json`.
+
+- Settings semantics: the Java rules are read too late on a dedicated server (the save runs first), and `/bmh rule`
+  takes its level from the command root, so it also blocked `/bmh point`.
+- Journey semantics diagnosed two open defects. Check n5: the client respawns before `Departure` reaches it, the server
+  cannot hold `ClientCommand`, and the search had not ended, so the player got the vanilla point. The arrival frame: the
+  black started only at `Arrival`.
+
+## Step 13. Fix round 1 of settings and journey, with n5 (22d804d, e3320a2)
+
+Both fixes started from BASE 9e847b8, each in its own worktree, and were merged one after the other.
+
+- Settings (Sonnet), merged as 22d804d. The Java rules are read at the Overworld level load, before the dedicated
+  server's save (new hook `level_load`). `/bmh rule` refuses a player below level 2 by itself (`run_rule_command` in
+  `bmh_settings.rs`, rule `may_run_rule`, tested at 0, 1, 2 and 4), so `/bmh point` is back at level 0, as in Java. The
+  console and RCON can run `/bmh rule` (new hook `perform_console_command`). Not fixed: Re-Create (the host gives no
+  flag, so a re-created world starts with every rule ON). The one-time import of Java rules stays, as a listed difference.
+- Journey with respawn n5 (Opus), merged as e3320a2. An early respawn keeps the search, the server moves the player at its
+  end and then runs the arrival steps once. A `Departure` that comes while the world shows starts a black journey. The
+  arm belongs to one death. A screen over the death screen keeps the hold. A press in the first second is ignored. Not
+  fixed: "any Other screen counts as the loading screen" (the host has no kind for it; journey difference 15).
+- Gates after both merges: 353 unit tests pass, `check.sh` ok.
+
+## Step 14. Game checks of wave 4 (a03e0ab)
+
+One Sonnet game agent (game rights) added the scenarios w (journey and early respawn), x (a LAN guest below operator
+level) and y (Java rules import) to `test-slice.sh`. Log: `docs/horizon/log/game-checks-5.md`.
+
+- n5 passes. The arrival world no longer shows before the black. One frame of the level-loading screen still shows
+  (w2 sheet, frame 3 at 0.4 s; the coordinator read the sheet, and the agent's log said black before it was corrected).
+- Pass: a stale arm, a screen over the death screen, an early press. A LAN guest gets the refusal for `/bmh rule` and can
+  save a point. The rules of a Java world are imported (single player).
+- New defect w1d (major): with `immediate_respawn` and an old exile record, the early respawn at the old home fired a
+  homecoming for a death.
+
+## Step 15. The w1d fix (2fcfaa1)
+
+One Sonnet agent with game rights. The homecoming tick skips a player while an early respawn waits for its landing
+(`bmh_respawn::early_pending`, rule `may_check` in `logic/src/homecoming.rs`, with a unit test). 354 unit tests pass,
+`check.sh` ok, `--only w` gives 9 of 9 in three runs, `--only u,n` gives 9 of 9. Full run: 129 passed, 6 failed. The
+reds are t1 to t5 (they wait for the owner) and w1c (timing: 2 black frames at a capture cadence of 0.18 s under a full
+load; it passes alone, and it was not weakened). The coordinator opened `w1d-fixed-sheet.png`: no Home title.
+
+Also seen, not investigated: the ritual checks s2, s4, s5 and s6 failed once in one full run and passed alone and in
+the next full run.
+
 ## Resume here
 
-State on 2026-11-18, 18:16. Branch `horizon-26.3`, local only (never pushed: the owner did not ask). HEAD a2ec127.
+State on 2026-11-18, about 22:40. Branch `horizon-26.3`, local only (never pushed: the owner did not ask). HEAD: see
+git log.
 
-Done: all ten areas are ported, reviewed and fixed (respawn, settings, journey, eternal, amulet, homecoming,
-ritual, totem, tools, sky; settings and journey are not reviewed yet, see b). Checked in the game: respawn, eternal,
-amulet, homecoming, ritual, tools and sky as listed in steps 5 and 11, and the totem except its save. The full
-`test-slice.sh` gives 115 passed, 6 failed (t1 to t5 and n5). 345 unit tests pass.
+Done: all ten areas are ported, reviewed and fixed (respawn, settings, journey, eternal, amulet, homecoming, ritual,
+totem, tools, sky). Checked in the game: every area as listed in steps 5, 11, 14 and 15, and the totem except its
+save. The full `test-slice.sh` gives 129 passed, 6 failed (t1 to t5 and the timing flake w1c). 354 unit tests pass.
 
 Open, in order:
 
@@ -352,8 +402,10 @@ a. The Totem of Eternity save (t1 to t5). `living_death` is never called for the
    `creatures.rs:1569` for mobs, `guest_die` for LAN guests), and for a LAN guest a cancel may leave the body's dead
    flag set (not tested). This needs a Horizon change. The owner has to decide: inject into `guest_die` (breaks
    D8), ask Horizon for a fix or a hook, or accept the difference.
-b. Wave 4, as the old plan says: the open defects of respawn and journey (n5, and the arrival frame before the
-   black) and the review of settings and journey with the two lenses, then the fix.
+b. New after wave 4. The flakes: w1c (capture cadence under a full load; the game agent already lowered its own new threshold from 5 to 3 black frames before the first commit, and a full run then saw 2) and the ritual checks s2, s4, s5, s6 (failed
+   once in one full run). One frame of the level-loading screen still shows before the black. Re-Create gives every
+   rule ON. No tool runs a dedicated server, so the Java rules import on a dedicated server and the console `/bmh rule`
+   are not checked in a game. The first-frame signal on a slow link is not tested.
 c. Open in the game: the spyglass name (not seen in v5), E4 for a LAN guest or a dedicated-server client, echo,
    smash and glow with mobs, the bell and every sound (all runs are muted), a LAN guest for every area.
 d. GAPS.md lines that the fix agents proposed and nobody wrote yet (do not edit GAPS.md before the owner agrees):
@@ -361,13 +413,15 @@ d. GAPS.md lines that the fix agents proposed and nobody wrote yet (do not edit 
    tools E7 and E8 (PvP: no echo, no smash and no halved hit against a player) and the other differences of
    `tools.md`; sky V1 (frame generation: the reading blinks at the display rate) and a line for all areas
    (splitscreen is not supported); totem T13 (a hopper does not pick up a dropped totem: it needs a ground pickup
-   helper).
+   helper). GAPS.md A5 is now stale: `/bmh point` is at level 0 since step 13. Wave 4 left new differences to propose:
+   journey difference 15 (any Other screen counts as the loading screen), settings Re-Create (a re-created world
+   starts with every rule ON) and the one-time import of Java rules.
 e. Integrator cleanups: the `bmh:tools` message lives in `tools.rs`, not in `wire.rs` (D6); totem and ritual each
    copy a private helper of another area (`drop_stack` of eternal, `sky` of amulet); `horizon-ctl xp N` shows a level
    that `native_acting_player().xp_level` does not read, while `xp add @s N levels` does (seen by the ritual check).
 f. Three questions for the owner: lines in `CHANGELOG.md`, when to push, when to remove the Java sources.
 
-Usage of this session: 5-hour about 50 %, week 38 %. The owner raised the weekly stop to 70 % for this run ("go to
+Usage at the close of wave 4: 5-hour 11 %, week 40 %, Fable 47 %. The owner raised the weekly stop to 70 % for this run ("go to
 70"). The 5-hour stop stays at 60 %.
 
 ### The next run
@@ -389,11 +443,8 @@ window. Stop when the week passes 70 % (the owner raised it from 40 % for this r
 
 Waves left, in this order. The procedure of each step is in the skill `horizon-port-area`.
 
-- Wave 4: the open defects of respawn and journey (`docs/horizon/log/game-checks-1.md`: check n5, and the frame of
-  the arrival world before the black); the review of settings and journey with the two lenses, then the fix.
-- The totem save needs the owner's decision first (open item a).
-- Then: bring `HOOKS.md` and `GAPS.md` up to date with what the game showed (open items d and e), run one full
-  `sh horizon/tools/test-slice.sh`, and ask the owner the three questions of item f.
+- Next, in this order: the owner's decision on the totem save (open item a); then `HOOKS.md` and `GAPS.md` up to date
+  (items d and e); then one full `sh horizon/tools/test-slice.sh`; then the questions of item f.
 
 One wave, six steps:
 
@@ -464,8 +515,12 @@ Traps of the runs:
   on disk from its first step. After a restart, read the logs before you start anything again.
 - Do not build the game while the owner plays: the build writes the binary that `play.sh` runs and takes every
   core. Look for a `horizon-client` process first.
-- A full `test-slice.sh --no-build` with 121 checks takes about 10 minutes and ends with exit 1 while `n5` and t1 to t5 are red.
+- A full `test-slice.sh --no-build` with 135 checks takes about 10 minutes and ends with exit 1 while t1 to t5 are red.
   Run it in the background.
+- A full `test-slice.sh` run overwrites the tracked PNGs under `docs/horizon/log/sky-shots`. Restore them with
+  `git checkout -- docs/horizon/log/sky-shots`.
+- The capture cadence slows under a full run (0.18 s against 0.12 s alone), so a check that counts frames can fail
+  there and pass alone (w1c).
 - An agent's summary can differ from its own list (the fix agent of eternal wrote "three fixed, one fixed in
   part, two not fixed" for six findings whose `round1` fields say three fixed and three not fixed). Count from
   the list or from the `round1` fields.

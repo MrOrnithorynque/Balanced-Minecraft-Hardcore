@@ -23,7 +23,7 @@ Tip when I started: e3320a2 (clean tree), 2026-11-18 21:21 CET. No horizon-clien
    `Departure` comes after the death packets), then black, a night sky, the message "A new journey begins for you, <name>", a star chain, the pixel dissolve,
    the landing world with an advancement toast. In one run the "Home" title also showed over the dissolve: that is defect 1.
 2. Arrival frame. PASS w2, sheet `w2-sheet.png`: frame 0 and 1 the death screen, frame 2 (0.3 s) the death screen, frame 3 (0.4 s) the level-loading screen (panorama and the chunk map; no hand, no hotbar: not the arrival world; coordinator's reading of the sheet), frame 4 (1.0 s) black, then sky, message, dissolve, the landing world.
-   No frame of the arrival world before the black, no loading screen frame at all. Cadence 0.1 s (median).
+   No frame of the arrival world before the black, one frame of the level-loading screen (frame 3, 0.4 s; see the line above, as corrected by the coordinator). Cadence 0.1 s (median).
 3. Stale arm. PASS w3 (`w3-sheet.png`): after an immediate-respawn death, with `immediate_respawn` false and `random_death_spawn_point` false, the click
    respawns at once, 0.7 blocks from the point, no black frame, no `mod` screen.
 4. A screen over the death screen. The control tool opens one: "Title Screen" opens a confirmation (buttons "Title Screen" and "Respawn"). Closing it
