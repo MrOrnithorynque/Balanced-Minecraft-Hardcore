@@ -1,0 +1,75 @@
+{
+  "area": "journey",
+  "lens": "semantics",
+  "reviewed_commit": "cd2e53f",
+  "status": "open: not fixed yet",
+  "verdict": "The journey client reads the host correctly where the game checks went (the click path, the hold screen, the drawing over the death and loading screens). Its weak point is the respawn that skips the client hold: Horizon gives no server hook to hold `ClientCommand`, so `immediate_respawn` loses the exile (defect 1), the black starts late on a non-click respawn (defect 2), and the client arm can go stale and later hold a respawn for 150 s.",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/bmh_respawn.rs:522",
+      "what": "Defect 1 (script n5). With `immediate_respawn` true, the Horizon client sends the respawn request inside the handling of the death packet, before `Departure` can reach it, so the client hold never arms. The server handles `ClientCommand` at once, and Horizon has no hook that can hold it. The search started at the end of the death tick has not ended yet, so `player_respawn_position` drops it and keeps the vanilla point: no exile, no Arrival, no journey. Java holds the same request on the server until the search ends.",
+      "evidence": {
+        "ours": "bmh_respawn.rs:522-524 \"if !running.is_finished() {\" / \"release_all(game, &mut running);\" / \"log::warn!(\\\"[BalancedMcHardcoreMain] The landing search of {name} did not end, using default respawn position\\\");\"; bmh_respawn.rs:735 \"let deaths = std::mem::take(&mut server().deaths);\" (the search starts at ServerTickEnd); bmh_respawn.rs:240 \"game.native_net_send_to_player(player, JOURNEY_CHANNEL, &signal.encode())\" (Departure is queued); logic/src/journey.rs:1505-1507 \"if self.armed.is_none() {\" / \"// No journey for this death: the game keeps its own behaviour.\" / \"return false;\"",
+        "host": "HN crates/horizon-client/src/game/remote.rs:4833 \"if self.remote.as_ref().is_none_or(|r| r.show_death_screen) {\" and :4839-4840 \"} else {\" / \"self.respawn_player()?;\" (in C::PlayerCombatKill); screens.rs:691-696 \"pub(super) fn respawn_player(&mut self) -> Result<()> {\" ... \"self.remote_respawn();\"; native_net.rs:5-6 \"what a mod sends a player leaves at the tick's end, from whichever hook sent it\"; lan_actions.rs:2971 \"S::ClientCommand(c) if c.action == 0 => self.guest_respawn(host, conn),\" (no hook between lan_guest_packet at :2050 and this arm can cancel or delay it); lan_actions.rs:3960 \"self.native_player_respawn_position(uuid, &name, &mut dimension, &mut at, yaw, pitch);\"",
+        "java": "common/.../mixin/F_ServerGamePacketListenerMixin.java:27-34 \"@Inject(method = \\\"handleClientCommand\\\", at = @At(\\\"HEAD\\\"), cancellable = true)\" ... \"RespawnSearch.holdRespawn(this.player)) {\" / \"ci.cancel();\"; handlers/RespawnSearch.java:115-120 \"if (search.isFinished() && search.respawnWaiting) {\" ... \"serverPlayer.connection.handleClientCommand(\"; mixin/F_LocalPlayerRespawnMixin.java:13-14 \"The death screen button and an immediate respawn both call LocalPlayer.respawn.\"; client/journey/JourneyCinematic.java:68 \"// Minecraft calls respawn() again at each tick while a dead player has no death screen (immediate respawn).\" (so in Java a Departure that comes late still catches the immediate respawn; Horizon calls respawn_player once, inside the death packet)"
+      },
+      "fix": "The server cannot hold the request on Horizon, so finish the exile after the respawn. In on_player_respawn_position, when the search runs and is not stale, keep it in `searches` with a flag `respawned_early` (do not release its chunks), and let vanilla place the player. Start the 200 ticks of immunity at once. When `advance` ends a search with that flag, move the player with `native_teleport_player(uuid, dimension, landing, yaw, pitch)` from the server tick (no player swapped in), then run the body of on_player_respawned (exile record, effects, awards, Arrival). On the client, a `Departure` that comes while no death screen is up and no journey runs must start a journey in black at once (`Journey::new(now, false, ready, seed)`), so the spawn point stays hidden until the teleport and the Arrival. Update GAPS.md C4 and the journey log, difference 2: the claim that the immediate rule gives a journey in black is false today."
+    },
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/logic/src/journey.rs:1477",
+      "what": "A `Departure` whose death screen the client never sees leaves the client armed for good (`armed == Some(false)`). This happens after every death with `immediate_respawn` (defect 1: the respawn goes before `Departure` comes), and after a Respawn press made before `Departure` came. No `Arrival` clears it when the exile fell back to the vanilla point. The next death that sends no `Departure` (the distant rule turned off, a creative or spectator death) then shows the death screen with a stale arm: the Respawn press is held, the journey waits for a `Ready` that the server never sends (no search), and the player stays in black for 150 s before the respawn.",
+      "evidence": {
+        "ours": "logic/src/journey.rs:1429-1431 \"JourneySignal::Departure => {\" / \"self.armed = Some(false);\" / \"self.ready = false;\"; :1470-1471 \"if let Some(seen) = &mut self.armed {\" / \"*seen = true;\" (only the death screen); :1477-1478 \"if self.armed == Some(true) && self.journey.is_none() {\" / \"self.armed = None;\" (Some(false) is never cleared there); :1514 \"self.journey = Some(Journey::new(now, true, self.ready, seed));\"; :1033-1035 \"match self.respawned_at {\" / \"Some(at) => now - at > GIVE_UP,\" / \"None => now - self.start > SERVER_WAIT,\"; :48 \"pub const SERVER_WAIT: i64 = 150_000;\"; bmh_respawn.rs:315-317 \"if !logic::is_distant_respawn(rule, game_mode, hardcore) {\" / \"return;\" (no Departure); bmh_respawn.rs:886-888 \"let Some(finished) = server().searches.get(&player).map(Running::is_finished) else {\" / \"return;\" (a Held request with no search gets no answer)",
+        "host": "HN crates/horizon-client/src/game/remote.rs:4839-4840 \"} else {\" / \"self.respawn_player()?;\" (an immediate respawn never opens the death screen)",
+        "java": "client/journey/JourneyCinematic.java:39 \"case JourneySignal.DEPARTURE -> armedPlayer = new WeakReference<>(minecraft.player);\" and :73-74 \"if (player != armedPlayer.get()) {\" / \"return false;\": the Java arm names the dead LocalPlayer, so it dies with that player and cannot carry over to a later death."
+      },
+      "fix": "Disarm when the player is seen alive. In bmh_journey::on_frame, pass `alive` in the View (`native_player()` with health above 0, or the screen Playing with a player and no death screen for more than a frame), and in Client::frame set `armed = None` when `alive` and no journey runs, whatever the flag. Also, in Client::press, start the journey only when `armed` came from a Departure of this death: clear `armed` on world change (done) and on every alive frame."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/logic/src/journey.rs:1477",
+      "what": "Defect 2. On a respawn that skips the hold (`horizon-ctl respawn`, a gamepad click), the client starts the cinematic only when `Arrival` comes. The server sends the Respawn packet and the landing chunks at once inside guest_respawn, but `Arrival` is a mod message that leaves only at the flush of the server tick. So the client handles C::Respawn (screen Playing) and draws the new place in one frame or more before `Arrival` makes the first black picture. The frame that sees the death screen close already knows that a journey comes (armed and seen), but it only disarms.",
+      "evidence": {
+        "ours": "logic/src/journey.rs:1475-1478 \"// The death screen closed without the hold (a gamepad click): the next arrival starts the\" / \"// cinematic in black.\" / \"if self.armed == Some(true) && self.journey.is_none() {\" / \"self.armed = None;\"; logic/src/journey.rs:1447 \"let mut journey = Journey::new(now, false, true, seed);\" (only in the Arrival arm); bmh_respawn.rs:702-703 \"let arrival = JourneySignal::Arrival { name: text.then(|| name.to_owned()) };\" / \"send(game, player, &arrival);\" (in player_respawned)",
+        "host": "HN crates/horizon-client/src/game/control.rs:1199-1203 \"\\\"respawn\\\" => {\" ... \"self.remote_respawn();\" (no screen hook fires); remote.rs:2520 \"self.screen = Screen::Playing;\" (enter_remote_dimension, called by C::Respawn at remote.rs:3699); native_net.rs:5-6 \"what a mod sends a player leaves at the tick's end, from whichever hook sent it\"; native_net.rs:119-120 \"/// What the mods sent this tick leaves; the tick's allowances start over.\" / \"pub(super) fn flush_native_net(&mut self, host: &mut LanHost) {\"",
+        "java": ""
+      },
+      "fix": "In Client::frame, in the branch at journey.rs:1477, start the journey at once instead of disarming: `self.journey = Some(Journey::new(view.now, false, self.ready, seed))` (give `frame` a seed, as `signal` has). The `frame` hook runs after the frame's ticks and before its drawing (HOOKS.md row `frame`), so the first frame without the death screen is already black. The later `Arrival` then only gives the name (`journey.arrive(name)`). When no `Arrival` comes (the server kept the vanilla point), the ARRIVAL_WAIT rule already ends the black without a message; consider a shorter black-only path for that case."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/logic/src/journey.rs:1505",
+      "what": "A Respawn press made before `Departure` reaches the client is not held. `Departure` leaves at the server tick's flush after ServerTickEnd, at least one tick after the death screen packet, and Horizon's remote death screen has no 1 s delay. The model swallows presses in the first second only while armed. So a fast click or Enter in that gap respawns at once, the search has not ended, and the exile falls back to the vanilla point (the same WARN as defect 1). It also leaves the stale arm of the finding above.",
+      "evidence": {
+        "ours": "logic/src/journey.rs:1505-1507 \"if self.armed.is_none() {\" / \"// No journey for this death: the game keeps its own behaviour.\" / \"return false;\"; :1316 \"Some(_) if now - self.opened < DEATH_DELAY => Press::Swallow,\" (returned to press(), which ignores it when not armed); bmh_respawn.rs:735 \"let deaths = std::mem::take(&mut server().deaths);\" (Departure at ServerTickEnd)",
+        "host": "HN crates/horizon-client/src/game/screens.rs:699-702 \"if self\" / \".ui\" / \".died_at\" / \".is_some_and(|t| t.elapsed().as_millis() < 1000)\" (the only delay), and died_at is set only at game.rs:7849 \"self.ui.died_at = Some(Instant::now());\" (a saved death); remote.rs:4834-4838 opens Screen::Dead without it; native_net.rs:5-6 \"what a mod sends a player leaves at the tick's end, from whichever hook sent it\"",
+        "java": "handlers/JourneySignal.java:25 \"Called last on death, once no other mod can cancel it: the client then fades to black on the death screen before\" (the Java departure leaves before the death screen opens)"
+      },
+      "fix": "While the death screen is up and no Departure came yet, swallow a Respawn press for DEATH_DELAY from the first frame that sees the screen (vanilla's own delay, which Horizon skips on a remote death). If `Departure` comes in that time the press after it is held as usual. Or send Departure from player_died (respawn-semantics finding 3, deferred)."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_journey.rs:184",
+      "what": "A prompt or a pack reload over the death screen reads as `Other`, not `Death`, so Client::frame takes it as a closed death screen: it drops the death screen model (the open quit confirmation and its focus) and disarms the hold. When the prompt closes, a Respawn press is not held, or the model no longer knows that the confirmation is open, so its No click passes. Either way the respawn can go before the search ends and fall back to the vanilla point.",
+      "evidence": {
+        "ours": "bmh_journey.rs:163 \"let kind = state.as_ref().map_or(NativeScreenKind::Other, |s| s.screen);\" and :184 \"death_screen: kind == NativeScreenKind::Death,\"; logic/src/journey.rs:1473-1478 \"} else {\" / \"self.death = None;\" ... \"if self.armed == Some(true) && self.journey.is_none() {\" / \"self.armed = None;\"",
+        "host": "HN crates/horizon-client/src/game/native_client_services.rs:75-77 \"fn of(screen: Screen, covered: bool) -> Self {\" / \"match screen {\" / \"_ if covered => Self::Other,\"; :256-261 \"screen: NativeScreenKind::of(\" ... \"|| self.screen_over_playing()\" ... \"|| self.pack_reload.is_some(),\"; pointer_capture.rs:67-68 \"pub(super) fn screen_over_playing(&self) -> bool {\" / \"self.book.is_some() || self.sign_edit.is_some() || self.prompt_open()\"",
+        "java": ""
+      },
+      "fix": "Treat the death screen as closed only when the client has a living player or the respawn load started, not on any `Other`. For example keep `death` and `armed` while `kind == Other` and `native_player()` is dead (health 0). Add a test: Death, Other, Death keeps the arm and the confirmation."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_journey.rs:174",
+      "what": "Needs a game. The client notes a new world only in the `frame` hook, and the first frame of a world resets the whole client state. A signal that `net_from_server` heard in the ticks of that same first frame is wiped. A player who joins dead is killed once more by Horizon at the join, so a `Departure` that comes in the join frame (a slow link that brings the login and the first tick's messages together) is lost: the Respawn press is not held and the exile can fall back to the vanilla point.",
+      "evidence": {
+        "ours": "bmh_journey.rs:174-176 \"let same = c.world == world;\" / \"if !same {\" / \"c.world.clone_from(&world);\" with :183 \"in_world: world.is_some() && same,\"; logic/src/journey.rs:1458-1460 \"if !view.in_world {\" / \"let release = self.journey.is_some();\" / \"*self = Self::new();\"; bmh_journey.rs:90-92 (net_from_server changes the state before the frame); bmh_respawn.rs:742-743 \"// Review semantics-1: Horizon kills a player who logs in dead once more (log \\\"joined the game\\\"\" / \"// then \\\"died\\\").\"",
+        "host": "T docs/horizon/HOOKS.md:91, row `frame`: \"Once a frame, after the frame's ticks and before its drawing (`extras_frame`, game/extras.rs:64)\" (the signals of the ticks come first)",
+        "java": ""
+      },
+      "fix": "In on_net_from_server, read `native_client_state().world` and, when it differs from `c.world`, reset the client state and store the new world there, before the signal is applied. Then the frame sees the same world and keeps the signal."
+    }
+  ]
+}
