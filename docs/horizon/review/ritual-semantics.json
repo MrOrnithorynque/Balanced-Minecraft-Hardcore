@@ -1,0 +1,35 @@
+{
+  "area": "ritual",
+  "lens": "semantics",
+  "reviewed_commit": "worktree (BASE c75751ff8fceedd6c3e9b9f4a87546f6bbcd9122 plus uncommitted changes)",
+  "status": "fixed in fix round 1; gates pass; not checked in the game",
+  "verdict": "The hook order, the acting player, the cancel in the tick hook, the wake result and the state rules hold against the host source. One visible fault: the window start hook never refuses, so a refused start with the use button held shows the raised, trembling totem for as long as the button is held.",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/bmh_ritual.rs:409",
+      "what": "The window branch of the start hook never cancels, though the host says to answer the same on both sides. The host keeps a client use of a mod item until the button comes up, and the server never tells the client that it refused. So after any refused start (aim, day, rain, roof, or cooling) with the button held, the window shows the raised totem and the tremble (elapsed clamps at 300) for the whole hold, with no runes, no chime and no level drain. GAPS T7 and the log say 'for a moment'; it is unbounded. verify-2 row 7 asks the client to compute the same start test.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_ritual.rs:409-411: \"if game.native_window() {\\n        client().using = Some(ClientUse { hand, elapsed: 0, seen: Instant::now() });\\n        return;\"",
+        "host": "/Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca/crates/horizon-client/src/game/native_hooks.rs:8049: \"server's client for the uses it predicts. Answer the same on both,\"; /Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca/crates/horizon-client/src/game/remote.rs:9350: \"self.using = in_hand.then_some((slot, ticks + 1));\" (inside the held_until_released branch, remote.rs:9347-9351)",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/items/DormantTotemOfEternityItem.java:51: \"if (!(player instanceof ServerPlayer serverPlayer) || player.isUsingItem()) {\" (the client never starts a ritual of its own)"
+      },
+      "fix": "In the window branch, run the start test the window can compute (dimension, rain, day, aim from its own yaw, pitch and day time; the cooling state needs the content cooldown, see the next finding) and set canceled = true when it fails, so start_using_item returns false and no client use exists. If a sky input has no window helper, test the ones that have one and document the rest in GAPS T7.",
+      "status": "fixed",
+      "note": "Window start branch now runs logic::start_test (shared with the server) from native_camera and cancels on a refusal. Unit test added. Window cannot read blindness; camera yaw assumed to be head yaw (check in game)."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/content/data/bmh/horizon/item/sleeping_totem.json:1",
+      "what": "The content item has no minecraft:use_cooldown, though GAPS T7 and verify-2 row 4 name that component as the cooldown mechanism and the log lists it as 'Content the area needs'. Without it the window cannot see the 20 tick cooldown: its prediction runs every 4 ticks during the cooldown (see the major finding) and the icon shows no sweep. The host window skips a prediction for an item on cooldown.",
+      "evidence": {
+        "ours": "horizon/content/data/bmh/horizon/item/sleeping_totem.json:5-7: \"\\\"components\\\": {\\n    \\\"minecraft:damage_resistant\\\": { \\\"types\\\": \\\"#minecraft:is_fire\\\" }\" (no use_cooldown); docs/horizon/log/ritual.md:117: \"`\\\"minecraft:use_cooldown\\\": { \\\"seconds\\\": 1.0 }` (20 ticks, `FAIL_COOLDOWN_TICKS`).\"",
+        "host": "/Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca/crates/horizon-client/src/game/remote.rs:8993: \"if self.cooldowns.is_on_cooldown(&group) {\" (client prediction passes while the item cools)",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/MoonRitualHandler.java:177: \"player.getCooldowns().addCooldown(new ItemStack(ItemInit.DORMANT_TOTEM_OF_ETERNITY.get()), FAIL_COOLDOWN_TICKS);\""
+      },
+      "fix": "Add \"minecraft:use_cooldown\": { \"seconds\": 1.0 } to the item (a content file, owner: the coordinator), keep the mod timer as the authority.",
+      "status": "fixed",
+      "note": "use_cooldown { seconds: 1.0 } added to sleeping_totem.json (integrator change); content-check.sh passes. Mod timer stays the authority on the server."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "area": "ritual",
+  "lens": "parity",
+  "reviewed_commit": "worktree (BASE c75751ff8fceedd6c3e9b9f4a87546f6bbcd9122 plus uncommitted changes)",
+  "status": "recorded in fix round 1: three differences left for a GAPS.md change",
+  "verdict": "Every constant, formula, order of conditions, sound, text key and place of the Java ritual has an equal Rust counterpart; the moon angle follows the 26 timeline within 0.06 degrees. The remaining differences are small and all in the log, but three of them are not allowed by the GAPS T7 row.",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_ritual.rs:535",
+      "what": "Java counts the ITEM_USED statistic when the totem wakes. The port does not, and the host does not count a finished use of a mod item. The log lists it (difference 7) but the GAPS T7 row does not allow it.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_ritual.rs:535: \"*result = Some(ItemStack::new(logic::WOKEN_ITEM, 1));\" (no stat); docs/horizon/log/ritual.md:76: \"7. T7: Java counts `awardStat(ITEM_USED)` for the totem. The mod does not award it.\"",
+        "host": "/Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca/crates/horizon-client/src/game/item_use.rs:119-137: complete_using_item calls award_stat only inside finish_consuming (consumables); no native helper for a stat exists",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/MoonRitualHandler.java:192: \"player.awardStat(Stats.ITEM_USED.get(dormant));\""
+      },
+      "fix": "Add the stat to the GAPS T7 'Visible difference' column, or award it with a scoreboard or command route if one exists.",
+      "status": "not fixed",
+      "note": "No Nightly helper awards a stat (award_stat only in finish_consuming). Kept as difference 7; propose a GAPS.md T7 line."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_ritual.rs:517",
+      "what": "Java sets UseAnim BOW so other players and the third person view see both arms raised along the look during the ritual. The port sets no use animation. The log lists it (difference 9); the GAPS T7 row does not.",
+      "evidence": {
+        "ours": "docs/horizon/log/ritual.md:80: \"9. T7: `UseAnim.BOW` (both arms raised for other players and in third person) is not set\"; no use_animation hook in horizon/native/mixins/bmh/",
+        "host": "/Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca/crates/horizon-client/src/game/native_hooks.rs:8021: \"/// `Item.getUseAnimation` of `stack` in use, for the first person hand:\" (client first person hand only)",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/items/DormantTotemOfEternityItem.java:82: \"return ItemUseAnimation.BOW;\""
+      },
+      "fix": "Add the difference to the GAPS T7 row (tier X for the third person pose).",
+      "status": "not fixed",
+      "note": "use_animation hook is first person only; no host route for the third person BOW pose. Kept as difference 9; propose a GAPS.md T7 line (tier X)."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_ritual.rs:247",
+      "what": "The hit rule counts every hit that passes the host's first guards, also a hit that vanilla's invulnerable time refuses later, and fails the ritual on it. Java sets hurtTime only for a hit that lands. Allowed by nothing in GAPS T7 (the log has it as difference 3). Also the window of ticks is counted from the server tick of the hook, not from hurtTime's own count-down.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_ritual.rs:247-250: \"if kind != \\\"minecraft:player\\\" || canceled || amount.is_nan() || amount <= 0.0 {\\n        return;\\n    }\\n    let mut s = server();\"",
+        "host": "/Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca/crates/horizon-client/src/game/native_hooks.rs:9188: \"/// `LivingEntity.hurtServer`, past its guards (invulnerable, dead, fire\" and the pre hook doc (docs/native-mods.md:509): \"or within the cooldown and no stronger than the last hit\"",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/MoonRitualHandler.java:124: \"if (player.hurtTime > 0) {\""
+      },
+      "fix": "Document it in GAPS T7. The exact route is native_living_damage_pre, which the pinned native-hooks.json does not list yet.",
+      "status": "not fixed",
+      "note": "Exact route native_living_damage_pre is not in the pinned hook list; the hit rule stays as built. Kept as difference 3; propose a GAPS.md T7 line."
+    }
+  ]
+}
