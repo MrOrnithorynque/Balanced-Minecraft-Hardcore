@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r s t u v w x y m j), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r s t u v w x y z m j), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -23,7 +23,7 @@
 #   screens, the points across a death and a restart, the server checks; it quits and relaunches once);
 #   r the Eternal tools (worn pickaxe dig time, Efficiency V, the last point, the death wear); s the moon ritual
 #   (refused by day, looked away, a full ritual); v the sky (a star reading, its log lines, screenshots, the spyglass);
-#   t the totem (Undying order, the extra totem, the anvil, E6, the save on a lethal hit, /kill); u the homecoming
+#   z the totem containers (a chest menu, a hopper, a dropper, a chest minecart; T12 to T14); t the totem (Undying order, the extra totem, the anvil, E6, the save on a lethal hit, /kill); u the homecoming
 #   (the record, the title, the awards, the rule); w the journey and the early respawn (immediate respawn, the arrival
 #   frame, a stale arm, a screen over the death screen, a press before the departure); x a LAN guest below operator
 #   level (/bmh rule refused, /bmh point save works); y a Java world's rules imported (it quits and relaunches);
@@ -2790,6 +2790,147 @@ PYEOF
         ctl command "bmh rule random_death_spawn_point true" >/dev/null
         ctl command "bmh rule display_text_on_respawn true" >/dev/null
     fi
+fi
+
+# ---- z. One Totem of Eternity per container: menus, hoppers, a chest minecart, a dropper -----------------------
+# Gap workarounds T12, T13, T14 (docs/horizon/solutions/totem-containers.md). The slot ids of click-slot: 0 to 35
+# the inventory, 300 and up the container. The clicks are the Java mod's Slot.mayPlace cases: a refused click
+# changes nothing and the log tells "A click that would put a second Totem of Eternity".
+z_chest_totems() { jget "$(ctl container "$1" "$2" "$3")" 'sum(s.get("count", 1) for s in d.get("items", d.get("slots", [])) if "totem_of_eternity" in str(s.get("item", "")))'; }
+z_refusals() { count_log 'would put a second Totem of Eternity'; }
+if wanted z; then
+    echo "--- z. totem containers: a chest menu, a hopper on the ground, a chest minecart, a dropper"
+    ensure_point
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl command "time set 6000" >/dev/null
+    platform
+    CX=$((PX + 2)); CY=$PY; CZ=$PZ
+    ctl command "setblock $CX $CY $CZ minecraft:chest" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl container "$CX" "$CY" "$CZ" bmh:totem_of_eternity 1 >/dev/null
+    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    echo "z-evidence start: chest $(ctl container "$CX" "$CY" "$CZ" | head -c 400)"
+    # z1: a shift click of the player's totem into a chest that holds one is refused.
+    r0="$(z_refusals)"
+    ctl interact "$CX" "$CY" "$CZ" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
+    ctl wait 10 >/dev/null
+    echo "z-evidence z1: menu $(ctl menu | head -c 700)"
+    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && [ "$(z_refusals)" -gt "$r0" ]; then
+        pass z1 "a shift click of a second totem into a chest that holds one was refused: chest 1, player 1, log line"
+    else
+        fail z1 "shift click: chest $(z_chest_totems "$CX" "$CY" "$CZ"), player $(t_counts bmh:totem_of_eternity), refusals $(z_refusals) (was $r0)"
+    fi
+    # z2: pick the totem up on the cursor and click an empty chest slot: refused, the cursor keeps it.
+    r0="$(z_refusals)"
+    ctl click-slot "$(inv_slot bmh:totem_of_eternity)" >/dev/null
+    ctl wait 5 >/dev/null
+    ctl click-slot 305 >/dev/null
+    ctl wait 10 >/dev/null
+    z_menu="$(ctl menu)"
+    echo "z-evidence z2: menu $(printf '%s' "$z_menu" | head -c 700)"
+    ctl close >/dev/null
+    ctl wait 10 >/dev/null
+    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && [ "$(z_refusals)" -gt "$r0" ]; then
+        pass z2 "a pickup click on an empty chest slot with a second totem on the cursor was refused: chest 1, player 1"
+    else
+        fail z2 "pickup click: chest $(z_chest_totems "$CX" "$CY" "$CZ"), player $(t_counts bmh:totem_of_eternity), refusals $(z_refusals) (was $r0)"
+    fi
+    # z3: the control. An empty chest takes the totem by a shift click.
+    ctl command "setblock $CX $CY $CZ minecraft:air" >/dev/null
+    ctl command "setblock $CX $CY $CZ minecraft:chest" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl interact "$CX" "$CY" "$CZ" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
+    ctl wait 10 >/dev/null
+    ctl close >/dev/null
+    ctl wait 10 >/dev/null
+    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 0 ]; then
+        pass z3 "an empty chest takes the first totem by a shift click: chest 1, player 0"
+    else
+        fail z3 "control: chest $(z_chest_totems "$CX" "$CY" "$CZ"), player $(t_counts bmh:totem_of_eternity)"
+    fi
+    # z4: a hopper that holds a totem leaves a second one on the ground; an empty hopper takes it.
+    HX=$((PX + 3)); HY=$PY; HZ=$PZ
+    ctl command "setblock $CX $CY $CZ minecraft:air" >/dev/null
+    ctl command "setblock $HX $HY $HZ minecraft:hopper" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl container "$HX" "$HY" "$HZ" bmh:totem_of_eternity 1 >/dev/null
+    ctl command "summon minecraft:item $HX $((HY + 1)) $HZ {Item:{id:\"bmh:totem_of_eternity\",count:1}}" >/dev/null
+    ctl wait 60 >/dev/null
+    z_item="$(ctl entities 8 item)"
+    if [ "$(z_chest_totems "$HX" "$HY" "$HZ")" = 1 ] && printf '%s' "$z_item" | grep -q totem_of_eternity; then
+        pass z4 "a hopper that holds a totem left a second one on the ground"
+    else
+        fail z4 "hopper with a totem: hopper $(z_chest_totems "$HX" "$HY" "$HZ"), items near: $(printf '%s' "$z_item" | head -c 300)"
+    fi
+    ctl command "kill @e[type=item]" >/dev/null
+    ctl command "setblock $HX $HY $HZ minecraft:air" >/dev/null
+    ctl command "setblock $HX $HY $HZ minecraft:hopper" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl command "summon minecraft:item $HX $((HY + 1)) $HZ {Item:{id:\"bmh:totem_of_eternity\",count:1}}" >/dev/null
+    ctl wait 60 >/dev/null
+    z_item="$(ctl entities 8 item)"
+    if [ "$(z_chest_totems "$HX" "$HY" "$HZ")" = 1 ] && ! printf '%s' "$z_item" | grep -q totem_of_eternity; then
+        pass z5 "an empty hopper took the first totem from the ground"
+    else
+        fail z5 "empty hopper: hopper $(z_chest_totems "$HX" "$HY" "$HZ"), items near: $(printf '%s' "$z_item" | head -c 300)"
+    fi
+    # z6: a dropper pushes its totem into a chest that holds one; the scan gives the new one back.
+    ctl command "setblock $HX $HY $HZ minecraft:air" >/dev/null
+    ctl command "kill @e[type=item]" >/dev/null
+    ctl command "setblock $CX $CY $CZ minecraft:chest" >/dev/null
+    ctl command "setblock $HX $HY $HZ minecraft:dropper[facing=west]" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl container "$CX" "$CY" "$CZ" bmh:totem_of_eternity 1 >/dev/null
+    ctl container "$HX" "$HY" "$HZ" bmh:totem_of_eternity 1 >/dev/null
+    ctl wait 60 >/dev/null
+    ctl command "setblock $HX $((HY + 1)) $HZ minecraft:redstone_block" >/dev/null
+    ctl wait 80 >/dev/null
+    z_item="$(ctl entities 8 item)"
+    echo "z-evidence z6: chest $(z_chest_totems "$CX" "$CY" "$CZ"), dropper $(z_chest_totems "$HX" "$HY" "$HZ"), items $(printf '%s' "$z_item" | head -c 300)"
+    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && printf '%s' "$z_item" | grep -q totem_of_eternity; then
+        pass z6 "a dropper pushed a second totem into a chest and the scan put it back in the world: chest 1"
+    else
+        fail z6 "dropper: chest $(z_chest_totems "$CX" "$CY" "$CZ"), dropper $(z_chest_totems "$HX" "$HY" "$HZ"), items near: $(printf '%s' "$z_item" | head -c 300)"
+    fi
+    # z7: a chest minecart. The first totem goes in by a shift click, the second is refused.
+    ctl command "kill @e[type=item]" >/dev/null
+    ctl command "setblock $HX $((HY + 1)) $HZ minecraft:air" >/dev/null
+    ctl command "setblock $HX $HY $HZ minecraft:air" >/dev/null
+    ctl command "setblock $CX $CY $CZ minecraft:air" >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl command "summon minecraft:chest_minecart $CX $CY $CZ" >/dev/null
+    ctl wait 10 >/dev/null
+    z_cart="$(jget "$(ctl entities 8 chest_minecart)" '([e["id"] for e in d.get("entities", [])] or [""])[0]')"
+    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl interact-entity "$z_cart" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
+    ctl wait 10 >/dev/null
+    z7a="$(t_counts bmh:totem_of_eternity)"
+    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    r0="$(z_refusals)"
+    ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
+    ctl wait 10 >/dev/null
+    echo "z-evidence z7: cart $z_cart, menu $(ctl menu | head -c 600)"
+    z7b="$(t_counts bmh:totem_of_eternity)"
+    ctl close >/dev/null
+    if [ "$z7a" = 0 ] && [ "$z7b" = 1 ] && [ "$(z_refusals)" -gt "$r0" ]; then
+        pass z7 "a chest minecart took the first totem and refused the second (player 0, then 1, log line)"
+    else
+        fail z7 "chest minecart $z_cart: player after the first $z7a, after the second $z7b, refusals $(z_refusals) (was $r0)"
+    fi
+    ctl command "kill @e[type=chest_minecart]" >/dev/null
+    ctl command "kill @e[type=item]" >/dev/null
+    ctl command "clear @s" >/dev/null
 fi
 
 # ---- m. Rules and config across a restart --------------------------------------------------------------
