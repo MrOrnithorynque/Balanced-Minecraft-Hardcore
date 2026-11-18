@@ -79,6 +79,13 @@ pub fn is_check_tick(tick: u64) -> bool {
     tick.is_multiple_of(CHECK_INTERVAL)
 }
 
+/// True when the check may look at a player. A dead player is out of reach, as in Java (a dead `ServerPlayer`
+/// does not tick). A player with an early respawn pending stands at the vanilla point until the move to the
+/// landing, which may be the home of the old exile: that is no homecoming.
+pub fn may_check(health: f32, early_pending: bool) -> bool {
+    health > 0.0 && !early_pending
+}
+
 /// The nearest home within the radius, or None. Only x and z count. The first home wins a tie
 /// (HomecomingHandler.java:130-150).
 pub fn reached(record: &Record, x: f64, z: f64) -> Option<&Home> {
@@ -369,5 +376,14 @@ mod tests {
         assert!(someone_hears(at, [[16.5, 64.5, 0.5]]), "exactly 16 blocks");
         assert!(!someone_hears(at, [[16.6, 64.5, 0.5]]));
         assert!(someone_hears(at, [[500.0, 0.0, 0.0], [10.0, 70.0, 10.0]]));
+    }
+
+    #[test]
+    fn a_dead_player_or_an_early_respawn_pending_is_not_checked() {
+        assert!(may_check(20.0, false));
+        assert!(may_check(0.5, false));
+        assert!(!may_check(0.0, false), "dead");
+        assert!(!may_check(20.0, true), "early respawn, still at the vanilla point");
+        assert!(!may_check(0.0, true));
     }
 }

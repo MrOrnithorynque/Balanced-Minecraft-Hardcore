@@ -217,6 +217,11 @@ pub(super) fn on_server_tick(
         return;
     }
     for me in game.native_server_players() {
+        // A dead player, or one whose early respawn has not reached the landing, is no homecoming: the
+        // vanilla point may be the home of the old exile (w1d).
+        if !logic::may_check(me.health, crate::game::bmh_respawn::early_pending(me.uuid)) {
+            continue;
+        }
         // A player out of reach or with no exile costs one read.
         let Ok(Saved { record: Some(record), .. }) = stored(game, me.uuid) else {
             continue;

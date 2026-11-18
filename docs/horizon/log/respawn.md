@@ -271,3 +271,9 @@ Inputs: `docs/horizon/review/respawn-parity.json` (parity-1 to parity-5), `docs/
 1. `docs/horizon/GAPS.md`, section 3.3: two lines (C2 and C8), for the deferred differences above.
 2. Allowed by the prompt: `horizon/tools/test-slice.sh`, `docs/horizon/TESTING.md`, the two review files.
 No hook, manifest, `bmh.rs`, `wire.rs`, `contract.rs` or HOOKS.md change: the round uses hooks already wired.
+
+## Fix round 2 (w1d)
+
+1. New `pub(super) fn early_pending(player) -> bool` in `bmh_respawn.rs`: true while `searches[player].early` is set, that is
+   from the early respawn until `finish_early` takes it. Only `bmh_homecoming::on_server_tick` calls it (difference 3 of the early
+   respawn: the player stands at the vanilla point in that gap, and that is no homecoming). The search code is unchanged.

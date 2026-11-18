@@ -641,7 +641,13 @@ fn place(
     Some(Placed { feet, dimension: search.dimension.clone(), exile, effect })
 }
 
-/// C2, n5: the search of a player who respawned early has ended. Move the player to the landing with the
+//// True while a player has respawned early and the move to the landing has not happened. The player then
+/// stands at the vanilla point. The homecoming tick skips such a player (w1d).
+pub(super) fn early_pending(player: u128) -> bool {
+    server().searches.get(&player).is_some_and(|r| r.early.is_some())
+}
+
+// C2, n5: the search of a player who respawned early has ended. Move the player to the landing with the
 /// host's teleport (from `server_tick`: nobody is swapped in, so it is done at once in the player's level,
 /// or with the tick's level teleports for another level), then run the arrival once. Gives the exile for
 /// the homecoming area, or None when the player keeps the vanilla point.

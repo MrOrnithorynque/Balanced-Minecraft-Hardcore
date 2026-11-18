@@ -49,7 +49,7 @@ Tip when I started: e3320a2 (clean tree), 2026-11-18 21:21 CET. No horizon-clien
 
 | Area | Severity | What happens | Expected | Evidence | Command |
 |---|---|---|---|---|---|
-| homecoming (with respawn) | major | With `immediate_respawn` true and an exile record, the early respawn puts the player at the vanilla point, which is the old exile's home. The homecoming tick fires there: log "is home after 23333 blocks", the "Home" title and the bell, and the awards of the homecoming, for a death. The title then shows at the landing. | A death while in exile is no homecoming. Java moves the player to the new landing at once, so it never stands at the home. | w1d red, 1 line each run; `w1-sheet.png` frames 48 to 58 (title "Home / 23333 blocks since you left" over the dissolve in the run with the old record) | `sh horizon/tools/test-slice.sh --only w --no-build` |
+| homecoming (with respawn) | major | CLOSED by the "w1d fix" below (w1d green). | | | |
 | totem | major | t1 to t5 (known, waits for the owner) | | t1 to t5 red | `sh horizon/tools/test-slice.sh --only t --no-build` |
 
 The first defect is not fixable inside the allowed files: the homecoming tick is `bmh_homecoming::on_server_tick`; `bmh_respawn.rs` can only let the
@@ -68,3 +68,14 @@ None. Only `horizon/tools/test-slice.sh` (scenarios w, x, y, the cleanup of the 
 The sound (muted). A pack prompt, book or sign over the death screen. Level 2 or more for a non-owner. A dedicated server and its console `bmh rule`. The first-frame
 signal on a slow link (journey fix list, check 6). A re-created world (settings parity 1, not fixed by design). The look beyond the contact sheets (a person must look at the
 journey in a window).
+
+## w1d fix
+
+1. Cause: with `immediate_respawn` the early respawn leaves the player at the vanilla point (the old exile's home) until `finish_early`. `bmh_homecoming::on_server_tick` ran in that gap and fired the homecoming.
+2. Fix: `bmh_respawn.rs` `early_pending(player)` (new) and `logic/src/homecoming.rs` `may_check(health, early_pending)` (new, with a unit test); `bmh_homecoming.rs` `on_server_tick` skips a player for whom `may_check` is false (dead or early pending). The alternative (clear the record at the early respawn) was not needed and would lose the home if the player quits in the gap.
+3. Gates: `sh horizon/tools/test-logic.sh` 354 passed, 0 failed; `sh horizon/tools/check.sh` ok; `check.sh build` ok (no owner's game running).
+4. `--only w --no-build`: 9 passed, 0 failed (w1d PASS). `--only u,n --no-build`: 9 passed, 0 failed.
+5. Sheet: `game-checks-5-shots/w1d-fixed-sheet.png` (1280 px wide). Frames 0 to 5 (0.0 to 0.5 s) show the world at the vanilla point with the chat line "Game rule immediate_respawn is now set to true" and no centre title; frames 6 to 45 (0.7 to 4.8 s) show black, then the night sky with the star line and the small message line; frames 46 to 51 (4.9 to 5.4 s) show the pixel dissolve into the landing world; frames 48 to 58 (5.1 to 6.3 s) show no "Home" title, only the dissolve and then the landing world with the HUD; frames 52 to 105 (5.5 to 12.5 s) show the landing world (oak tree) with no title. The thumbnails are small: the title is large text, so it would show, but this is a look at thumbnails, not a full frame.
+6. In the log of this run, after the second landing, "is home after 23333 blocks (the center of the exile)" appears once, later, in scenario w3 (rule off, a plain respawn at the old home with the record still kept): that is a real homecoming at the home, as Java would give, and w1d reads only the w1 window.
+7. Defect w1d is closed. Left: t1 to t5 (owner).
+8. Full run `sh horizon/tools/test-slice.sh --no-build`: "129 passed, 6 failed, 0 skipped". Failed: t1 to t5 (owner) and w1c. w1c failed on timing, not on the fix: that series ran at a cadence of 0.18 s (the other runs 0.12 s), so 2 black frames were seen where the check wants 3 or more; no landing-world frame before the black, 42 mod frames. `--only w` alone gives 9 passed, 0 failed (twice, with w1c at 5 black frames). w1c stays a load-sensitive check; it was not weakened.

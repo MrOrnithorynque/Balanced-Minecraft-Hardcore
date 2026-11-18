@@ -116,3 +116,15 @@ Two minor findings, both with evidence found in the code.
    amulet, and the `player_logged_out` row of `docs/horizon/HOOKS.md` lists homecoming.
 
 No new unit test: both fixes sit in Game-bound code. The review files carry the outcomes.
+
+## Fix round 2 (w1d)
+
+1. The check no longer looks at a player who is dead or who has an early respawn pending. With `immediate_respawn` the player
+   stands at the vanilla point, which may be the home of the old exile, until `finish_early` moves them to the landing. Before,
+   the check fired there: "is home after N blocks", the Home title, the bell and the awards, for a death.
+   Fix: `bmh_homecoming.rs` `on_server_tick` calls `logic::may_check(me.health, bmh_respawn::early_pending(me.uuid))`.
+   `logic/src/homecoming.rs` `may_check` is the rule. Unit test `a_dead_player_or_an_early_respawn_pending_is_not_checked`.
+2. The other option (clear the old record at the early respawn) was not used: a player who quits in the gap would lose the home.
+   Kept record: `on_exile` replaces it at the landing, as in Java.
+3. Dead player: a held respawn gives no gap (the landing is the respawn position), and a dead player has health 0, so
+   `may_check` is false. Not tested in the game: the check had no dead-player case before either.
