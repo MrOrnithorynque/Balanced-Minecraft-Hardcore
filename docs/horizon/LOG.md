@@ -266,31 +266,109 @@ fix agent, then the merge. The counts of the fix round come from the field `roun
   (p1 to p4), and the amulet reads the stars, opens its screens and keeps its points (q1 to q16). The star lines
   in the sky belong to the sky area, which is not ported.
 
+## Waves 2 and 3: homecoming, ritual, totem, tools, sky (2026-11-18, the second coordinator)
+
+Same method as step 5: one port agent per area in its own worktree, reviewers, one fix agent, then the merge. Before
+the port of homecoming and sky, an Opus helper fixed the contract that both read (commit 9773ae7): the points of the
+amulet come from `bmh_amulet::points` inside `player_respawned`, and the sky reading travels as `wire::SkySignal` on
+the message `bmh:sky` (HOOKS.md, "Contracts"). The areas are listed in commit order. The unit test count is the one
+on the merged tree. The counts of the fix round come from the review files and the area logs.
+
+## Step 6. Homecoming (54a6f86)
+
+213 unit tests, compile passes. Review: parity 1 minor (no record kept when no game time can be read), semantics 0
+major and 1 minor (the bell queue is not cleaned at logout); the five load-bearing claims held in the Nightly's
+tree. Fix round 1: 2 of 2 fixed. Integrator change: `hook_player_logged_out.rs` and the HOOKS.md row. Log:
+`docs/horizon/log/homecoming.md`.
+
+## Step 7. Ritual (344a366)
+
+243 unit tests, compile passes. One Sonnet reviewer with both lenses: 1 major (the window start hook never cancels, so
+a refused start keeps the raised totem while the key is held), 4 minor (no `use_cooldown` in `sleeping_totem.json`, no
+`ITEM_USED` stat, no BOW pose, a hit rule wider than `hurtTime`). The six claims held. Fix round 1: the major is
+fixed and `use_cooldown` (1.0 s) is added to `sleeping_totem.json`, so 2 fixed; the 3 parity minors stay as
+differences (T7). Integrator change: one call in `hook_living_incoming_damage.rs` and the HOOKS.md row. T10 (the
+glint while it charges) is not built (tier X). Log: `docs/horizon/log/ritual.md`.
+
+## Step 8. Totem (dfe0b38)
+
+266 unit tests, compile passes. Review: parity 1 major (E6: a gold repair gives no result with a high prior work
+penalty) and 2 minor (`remove_totem` takes the main hand first; hoppers refuse every totem pickup); semantics 1 major
+(a `living_death` cancel leaves the body dead: from reading the Nightly only) and 2 minor (a pickup in the death tick;
+the ACTIVE flag is never cleared). Fix round 1 (Opus): E6, `remove_totem` and the ACTIVE flag fixed (3), the pickup in
+the death tick refuted (1), the hopper pickup not fixed (no helper; T13), and the dead-body fault confirmed in the
+Nightly and not fixable from the mod (it needs a Horizon change). No integrator file changed. Log:
+`docs/horizon/log/totem.md`.
+
+## Step 9. Tools (ca5a2a2)
+
+314 unit tests, compile passes. One Opus reviewer with both lenses: parity 1 major (the Efficiency order of E4) and 5
+minor; semantics 3 major (E4 client and server disagree; the E7 sweep empties other dimensions; the E4 worn flag
+comes from any drawn stack) and 1 minor. The first claim was partly refuted: the hook `break_speed` is needed, but the
+client guess was wrong. Fix round 1 (Opus): 9 of 10 fixed, PvP kept as a difference (the hooks hear mob hits only).
+Integrator changes: new `hook_break_speed.rs`, one `[[injection]]` in `horizon-mixin.toml`, `hook_player_died.rs` and
+the HOOKS.md rows. The `bmh:tools` message lives in `tools.rs`, not in `wire.rs` (open, Resume here). Log:
+`docs/horizon/log/tools.md`.
+
+## Step 10. Sky (6cd1e3e)
+
+345 unit tests, compile passes, the WGSL validated with naga 29, the Java `StarField`, `StarChain` and `StarTrace`
+pinned in tests. Review: parity 0 major and 2 minor (the spyglass stamp uses the server-fed game time; a world change
+also drops the pending reading); semantics 2 major (the pipeline is built outside a wgpu error scope, so a failure
+panics the game; the spyglass name draws over the pause menu) and 4 minor (frame generation blink, splitscreen
+statics, HDR alpha, an old device kept). Claims 1, 2, 3 and 6 held; 4 and 5 were partly refuted. Fix round 1 (Opus):
+6 of 8 fixed, 2 kept as differences (frame generation, splitscreen). Integrator change: one line in `hook_frame.rs`
+and the HOOKS.md frame row. Log: `docs/horizon/log/sky.md`.
+
+## Step 11. Game checks (8cda691, a2ec127)
+
+None of the five areas had run in the game when it was merged. One Sonnet game agent ran in two parts (logs
+`docs/horizon/log/game-checks-3.md` and `game-checks-4.md`); it added the scenarios t, u, r, s and v to
+`test-slice.sh`.
+
+- Homecoming (u1 to u4) pass. Totem t6 to t10 pass (the Totem of Undying first, the second totem dropped, the anvil
+  awakening, E6, `/kill`). Totem t1 to t5 fail: `living_death` is never called for the single-player owner, so the
+  save does not happen. The game log has no call, and the Nightly's only callers are `creatures.rs:1569` (mobs) and
+  `lan_actions.rs:4309` (`guest_die`, a LAN guest). The dead flag after a cancel for a LAN guest is not tested.
+- Tools r0 to r7 pass (the Java numbers for the dig time, the wear at death, the rule off and creative). Ritual s1 to
+  s6 pass. Sky v1 to v3 pass. The coordinator opened `sky-shots/v4-reading-toward-point.png`: a violet chain of stars
+  over the night sky. The spyglass name was not seen in two runs (v5).
+- `m2` went red after scenario u: a test fault (a stale spawn point), fixed in the script, no change to the mod.
+- Full run at a2ec127: 115 passed, 6 failed, 0 skipped. The six reds are t1 to t5 (the totem save) and n5
+  (`immediate_respawn`, known since wave 1).
+
 ## Resume here
 
-State on 2026-11-18, 08:37. Branch `horizon-26.3`, local only (never pushed: the owner did not ask).
+State on 2026-11-18, 18:16. Branch `horizon-26.3`, local only (never pushed: the owner did not ask). HEAD a2ec127.
 
-Done: the content mod, the skeleton (66 hooks), the area respawn (verified in the game), the areas settings and
-journey (ported; the slice test passes with them; settings had one fix round; not reviewed yet), the areas eternal
-and amulet (ported, reviewed, one fix round, checked in the game: step 5), the test system (88 checks in
-`test-slice.sh`), the harness of the branch.
+Done: all ten areas are ported, reviewed and fixed (respawn, settings, journey, eternal, amulet, homecoming,
+ritual, totem, tools, sky; settings and journey are not reviewed yet, see b). Checked in the game: respawn, eternal,
+amulet, homecoming, ritual, tools and sky as listed in steps 5 and 11, and the totem except its save. The full
+`test-slice.sh` gives 115 passed, 6 failed (t1 to t5 and n5). 345 unit tests pass.
 
-Left: homecoming, sky, totem, ritual, tools; the open defects of respawn and journey; the review of settings and
-journey.
+Open, in order:
 
-### Why the run of 06:00 on 2026-11-18 stopped
+a. The Totem of Eternity save (t1 to t5). `living_death` is never called for the single-player owner (callers:
+   `creatures.rs:1569` for mobs, `guest_die` for LAN guests), and for a LAN guest a cancel may leave the body's dead
+   flag set (not tested). This needs a Horizon change. The owner has to decide: inject into `guest_die` (breaks
+   D8), ask Horizon for a fix or a hook, or accept the difference.
+b. Wave 4, as the old plan says: the open defects of respawn and journey (n5, and the arrival frame before the
+   black) and the review of settings and journey with the two lenses, then the fix.
+c. Open in the game: the spyglass name (not seen in v5), E4 for a LAN guest or a dedicated-server client, echo,
+   smash and glow with mobs, the bell and every sound (all runs are muted), a LAN guest for every area.
+d. GAPS.md lines that the fix agents proposed and nobody wrote yet (do not edit GAPS.md before the owner agrees):
+   ritual T7 (three lines: the `ITEM_USED` stat, the third person BOW pose, the hit rule wider than `hurtTime`);
+   tools E7 and E8 (PvP: no echo, no smash and no halved hit against a player) and the other differences of
+   `tools.md`; sky V1 (frame generation: the reading blinks at the display rate) and a line for all areas
+   (splitscreen is not supported); totem T13 (a hopper does not pick up a dropped totem: it needs a ground pickup
+   helper).
+e. Integrator cleanups: the `bmh:tools` message lives in `tools.rs`, not in `wire.rs` (D6); totem and ritual each
+   copy a private helper of another area (`drop_stack` of eternal, `sky` of amulet); `horizon-ctl xp N` shows a level
+   that `native_acting_player().xp_level` does not read, while `xp add @s N levels` does (seen by the ritual check).
+f. Three questions for the owner: lines in `CHANGELOG.md`, when to push, when to remove the Java sources.
 
-Wave 1 is complete. The 5-hour usage window then read 75 %, above the line of 60 %, so the run stopped there.
-The week read 29 % (all models, line 40 %) and 43 % (Fable, line 50 %).
-
-Measured on this run: from 7 % to 34 % of the window for the port, the reviews, the fixes and the merges of two
-areas (eight agents, about 2.3 million sub-agent tokens, about 60 calls of the coordinator). Then from 34 % to
-75 % while the game agent ran (87 minutes, about 376 000 tokens). That agent alone does not explain 41 points.
-Not known: what used the rest. Another session of the owner's account is possible. So read the usage when a long
-agent ends, not only before it starts.
-
-The owner was asked on 2026-11-18 whether the run may start again by itself at each new window. He did not
-answer yet. Until he answers, the run waits for him.
+Usage of this session: 5-hour about 50 %, week 38 %. The owner raised the weekly stop to 70 % for this run ("go to
+70"). The 5-hour stop stays at 60 %.
 
 ### The next run
 
@@ -306,24 +384,16 @@ Before the first wave: `git branch --show-current` must print `horizon-26.3` and
 empty. Run the two gates.
 
 Usage. Read the usage before each wave and after each agent that ran long. Stop cleanly at 60 % of the 5-hour
-window. Stop when the week passes 40 % (all models) or 50 % (Fable): the Fable week is at 43 %, so there is
-little room before the owner must say "continue".
+window. Stop when the week passes 70 % (the owner raised it from 40 % for this run, 2026-11-18: "go to 70"). The Fable stop stays at
+50 %; the week of Fable was at 47 % on 2026-11-18.
 
-Waves, in this order. The procedure of each step is in the skill `horizon-port-area`.
+Waves left, in this order. The procedure of each step is in the skill `horizon-port-area`.
 
-- Wave 2: homecoming (Sonnet) and sky (Opus). Two integrator steps come first:
-  1. How the sky reads the reading. The type `contract::AmuletReading` exists and `bmh_amulet::reading(stack)`
-     reads it from a stack. On the window's game the off hand has a route and the main hand has one only while
-     the first-person hands are drawn (HOOKS.md, "Contracts", the row of the star reading). The proposal on the
-     table: the server sends the reading in a `bmh:amulet` message at the time of the use. Decide it, add the
-     message to `wire.rs` and the send to the amulet area, gate, commit.
-  2. Write `docs/horizon/briefs/area-homecoming.md` and `area-sky.md` from the table of the skill
-     `horizon-port-area`, in the form of `area-amulet.md`.
-- Wave 3: totem (Sonnet), ritual (Sonnet), tools (Sonnet). Write their `area-<area>.md` first.
-- Wave 4: the open defects of respawn and journey (`docs/horizon/log/game-checks-1.md`: check n5, and the frame
-  of the arrival world before the black); the review of settings and journey with the two lenses, then the fix.
-- Then: one full `sh horizon/tools/test-slice.sh`, bring `HOOKS.md` and `GAPS.md` up to date with what the game
-  showed, and ask the owner three things: lines in `CHANGELOG.md`, when to push, when to remove the Java sources.
+- Wave 4: the open defects of respawn and journey (`docs/horizon/log/game-checks-1.md`: check n5, and the frame of
+  the arrival world before the black); the review of settings and journey with the two lenses, then the fix.
+- The totem save needs the owner's decision first (open item a).
+- Then: bring `HOOKS.md` and `GAPS.md` up to date with what the game showed (open items d and e), run one full
+  `sh horizon/tools/test-slice.sh`, and ask the owner the three questions of item f.
 
 One wave, six steps:
 
@@ -344,6 +414,7 @@ The prompts of this run worked as written in `docs/horizon/briefs/` (`port.md` w
 files it may change, and what the coordinator expected for each finding.
 
 ### Open after wave 1
+
 
 Eternal (`docs/horizon/log/eternal.md`, "Differences from the Java mod" and "To check in the game"):
 
@@ -366,7 +437,7 @@ Amulet (`docs/horizon/log/amulet.md`):
 
 - `/bmh point` needs operator level 2 (GAPS.md A5 says why). To give Java's level 0, the settings area must first
   check the level of the player for `/bmh rule` by itself.
-- The main hand has no client route to the reading outside first person (wave 2, integrator step 1 above).
+- The main hand had no client route to the reading outside first person: solved by `wire::SkySignal` on `bmh:sky` (commit 9773ae7).
 - "Is it night" uses the 1.21.1 formula, not the value of the host game. Dusk and dawn can differ by some ticks.
 - Not tested in the game: the import of the points of a Java world (check 16 of the log says how to make such a
   world), the refusals in the Nether and with the eyes in water, two players.
@@ -374,17 +445,14 @@ Amulet (`docs/horizon/log/amulet.md`):
 
 Never tested on this branch: sound (all runs are muted), the Nether and the End, a dedicated server, a LAN guest.
 
-### In flight
-
-Nothing on 2026-11-18, 08:37. The tree is clean, the worktrees of wave 1 are removed, and the next step is the
-first integrator step of wave 2.
+### Traps and tools
 
 The tools: `~/Library/Caches/bmh-horizon` holds `horizon-mods` (with `native/target`: the Nightly's tree, cargo's
 cache, the built game), `target-tools/debug/cargo-horizon-mod` (`BMH_HORIZON_MOD_BIN`), `resources/26.3`,
 `minecraft-server-26.3/server.jar`, `play/` (the owner's own play folder: tests never touch it), `scratch/` and
 the logs. An erased cache loses Mojang's version file inside the Nightly's tree: see the skill
-`horizon-build-test`. The built game in the cache is the tree of commit c260f94 (the commit after it changes no
-file of the mod).
+`horizon-build-test`. The built game in the cache is the tree of commit 8cda691 (the commit after it changes only
+`test-slice.sh`).
 
 Traps of the runs:
 
@@ -396,7 +464,7 @@ Traps of the runs:
   on disk from its first step. After a restart, read the logs before you start anything again.
 - Do not build the game while the owner plays: the build writes the binary that `play.sh` runs and takes every
   core. Look for a `horizon-client` process first.
-- A full `test-slice.sh --no-build` with 88 checks takes about 9 minutes and ends with exit 1 while `n5` is red.
+- A full `test-slice.sh --no-build` with 121 checks takes about 10 minutes and ends with exit 1 while `n5` and t1 to t5 are red.
   Run it in the background.
 - An agent's summary can differ from its own list (the fix agent of eternal wrote "three fixed, one fixed in
   part, two not fixed" for six findings whose `round1` fields say three fixed and three not fixed). Count from
@@ -404,7 +472,7 @@ Traps of the runs:
 
 Rules of the run that the owner gave: stop cleanly when the 5-hour usage window reaches 60 %; stop when the
 week passes 40 % (all models) and 50 % (Fable), and ask him before going on (on 2026-11-12 both were passed and
-the run stopped until he said "continue" in the new week); use Sonnet for bounded work and Opus for new
+the run stopped until he said "continue" in the new week; on 2026-11-18 he raised the weekly stop to 70 % for this run); use Sonnet for bounded work and Opus for new
 structural code and for the host-game review lens.
 
 ## To check in the game
