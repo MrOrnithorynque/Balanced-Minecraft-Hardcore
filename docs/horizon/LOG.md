@@ -261,9 +261,12 @@ feature works; use the right models (many Sonnet agents, Opus where it is needed
 
 Who has the run. One coordinator only. The lock is a folder:
 `mkdir ~/Library/Caches/bmh-horizon/run-2026-11-18.lock`. If `mkdir` fails, another session has the run: write
-one line and stop. The session "Mod port to Horizon Minecraft" (the coordinator since 2026-11-11) wakes at 06:00
-from a background wait and takes the lock. A scheduled task of the desktop app, `bmh-horizon-run-0600`, fires at
-06:06 as a spare: it starts a new session that takes the run only if the lock is free. The coordinator writes one
+one line and stop. The scheduled task of the desktop app `bmh-horizon-run-0600` fires at
+06:06 and starts a new session: that session takes the lock and is the coordinator of the run. The session "Mod
+port to Horizon Minecraft" (the coordinator since 2026-11-11) does not take the run. Its context is above 300 000
+tokens, and on 2026-11-18 from 02:50 to 03:11 about 45 of its calls cost 29 points of the 5-hour window, with no
+sub-agent at work (earlier, with a small context, a call cost about 0.4 point). So a coordinator keeps its context
+small: agents do the reading, and the run goes to a new session when the context passes 200 000 tokens. The coordinator writes one
 line per step in `~/Library/Caches/bmh-horizon/logs/run-2026-11-18.md`.
 
 Before the first wave: `git branch --show-current` must print `horizon-26.3` and `git status --short` must be
