@@ -1,0 +1,61 @@
+{
+  "area": "tools",
+  "lens": "semantics",
+  "reviewed_commit": "worktree (BASE c75751ff8fceedd6c3e9b9f4a87546f6bbcd9122 plus uncommitted changes)",
+  "status": "fix round 1: 4 fixed",
+  "verdict": "The hooks fire where the log says (break_speed on both sides, v2 before the sweep, hurt_entity as the owner, living_fall, loot_drops, the message and world_primitives for the owner), and no lock is held across a call into the game. Three faults remain: the client dig speed of a worn tool differs from the server's, the sweep at the end of the server tick empties the mob list of other dimensions, and the client worn flag can come from the wrong stack.",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/logic/src/tools.rs:170",
+      "what": "E4: a client cannot read a block tag, so it guesses 'a block of the tool' from speed >= 8. But the speed it gets is already divided by 5 off the ground or under water (and lowered by Mining Fatigue). There the server scales the speed (it reads the tag) and the client does not, so the client digs 3.75 times faster and predicts the break early. The server then keeps the block until its own count ends, so the block shows again. This is true for every remote client, the single-player owner's window included.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/logic/src/tools.rs:170 \"let on_tool_block = mineable.unwrap_or(speed >= MINEABLE_GUESS);\" with horizon/native/mixins/bmh/bmh_tools.rs:777 \"let mineable = game.native_block_name_in_tag(&block, tag).ok();\"",
+        "host": "HN/crates/horizon-client/src/game/hand.rs:438-439 \"if self.player.as_ref().is_some_and(|p| !p.ground.on_ground) {\" / \"speed /= 5.0;\" then 442 \"self.native_break_speed(pos, state, speed, &mut speed);\"; HN/crates/horizon-client/src/game/native_world_read.rs:30 \"return Err(NativeBlockReadError::NotServer);\"; HN/crates/horizon-client/src/game/lan_actions.rs:5432-5433 \"digging since the START that named `pos` is at least 70 % done; otherwise it keeps digging\" / \"alone and breaks it when done\"",
+        "java": ""
+      },
+      "fix": "Take the same decision on both sides without the speed: ask Horizon for a client read of a block tag (the window's Items holds the tags, horizon-items items.rs:1101 block_in_tag, which the client's own mining_speed uses), or keep the two mineable tags as a block list in logic. Test a worn pickaxe in the game while jumping and under water.",
+      "outcome": "fixed",
+      "note": "The client no longer guesses. The server reads the tag in break_speed and sends each answer once per player, tool and block (ToolsSignal::Mineable on bmh:tools, sent at the end of the server tick); the client keeps them (logic::MineableAnswers). A client with no answer scales the speed too, so it digs at or below its server's speed and never earlier: the server breaks the block at STOP (70 percent rule). The single-player owner and a LAN host read the tag themselves. Unit test a_client_with_no_answer_never_digs_faster_than_its_server. Game check 11 of the log."
+    },
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/bmh_tools.rs:622",
+      "what": "E7: the sweep at ServerTickEnd drops every mob that native_entity cannot find. native_entity reads only the level in place, and at ServerTickEnd that level is not defined (in practice the last level ticked). With players in two dimensions (or a player in the End), every sweep empties the list of the other dimensions, and a mob that is already loaded never joins again. Echo Strike then finds no victim there.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_tools.rs:622 \"let gone: Vec<u32> = ids.into_iter().filter(|id| game.native_entity(*id).is_none()).collect();\"",
+        "host": "HN/crates/horizon-client/src/game/native_hooks.rs:2568 \"/// dimension: which level `self.world` holds here is not defined. A paused\"; HN/crates/horizon-client/src/game/native_entity_refs.rs:59-60 \"/// methods: None with no world open, or for no such entity in the level\" / \"/// in place or among the server's players.\"",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/EchoStrikeHandler.java:147 \"for (LivingEntity candidate : level.getEntitiesOfClass(LivingEntity.class, area,\""
+      },
+      "fix": "Remove the mobs with the entity_leave_level hook (native_hooks.rs:8734, add it to HOOKS.md), or prune in deliver(), where the level in place is the echo's dimension: drop the ids of that dimension that center_of cannot find. Do not prune at ServerTickEnd.",
+      "outcome": "fixed",
+      "note": "The mob list is swept per dimension in each player's tick (bmh_tools::sweep_mobs, every 100 ticks per dimension), where native_entity reads that player's level. The end of the server tick sweeps only the glows."
+    },
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/bmh_tools.rs:826",
+      "what": "E4: item_bar runs for every stack the game draws (hotbar, inventory, chest). The flag takes the worn state of the last drawn stack with the same item id as the held one, not of the held stack. With a worn and a fresh Eternal Pickaxe in view, the client can scale a fresh tool (it digs at stone speed) or not scale a worn one (the block shows again, as in the finding above). The flag also stays stale while the hotbar is not drawn.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_tools.rs:826-827 \"if game.native_held().is_some_and(|(item, _, _)| item.as_str() == &*stack.item) {\" / \"client().worn_in_hand = logic::is_worn_out(stack.damage).then_some(tool);\"",
+        "host": "HN/crates/horizon-client/src/game/native_hooks.rs:7938 \"/// Asked each frame a stack is drawn. Client-side. 60.\"; HN/crates/horizon-client/src/game.rs:8373 \"self.native_item_bar(stack, &mut bar);\" (in draw_item_decorations, for any stack)",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/items/EternalPickaxeItem.java:51 \"return EternalWear.isWornOut(stack) ? Math.min(speed, EternalWear.WORN_MINING_SPEED) : speed;\" (the stack that digs)"
+      },
+      "fix": "Let the server tell the window: in inventory_tick with selected = true, send a bmh:tools message to the player when the worn state of the held Eternal tool changes, and use that on the client. Or ask Horizon for a client read of the main-hand stack.",
+      "outcome": "fixed",
+      "note": "break_speed reads the main-hand stack itself with native_equipment(EquipmentSlot::MainHand) on both sides (the window's own on a client). item_bar sets no flag any more; worn_in_hand is removed."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_tools.rs:536",
+      "what": "E7 and E8: the echoes, the noted hit and the fall tracker are cleared only at log out. Java keeps the echo queue on the ServerPlayer object, which a respawn replaces. Here an echo queued just before a death lands at the first tick after the respawn, near the old target, and the fall tracker keeps the y of the death place, so a respawn lower down can count as a fall for one tick.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_tools.rs:536 \"pub(super) fn on_player_logged_out(game: &mut crate::game::Game<'_>, player: u128, name: &str) {\" (the only place that runs \"s.echoes.remove(&player);\", line 545); horizon/native/mixins/bmh/logic/src/tools.rs:255-257 \"} else if let Some(last) = self.last_y {\" / \"if input.y < last {\" / \"self.distance += last - input.y;\"",
+        "host": "",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/EchoStrikeQueue.java:7 \"* through {@code E_ServerPlayerMixin}, so the waiting echoes live and die with the player.\""
+      },
+      "fix": "Add the tools area to hook_player_died.rs (or player_respawned) and clear echoes, hits, main_hit and falls of that player there (and clear_softening). Consider a reset of Fall on any jump of y that is larger than a fall can make in one tick.",
+      "outcome": "fixed",
+      "note": "New bmh_tools::on_player_died clears the hit, main hit, echoes, attack resets, held item and fall (with its softening) of the player. Integrator change: hook_player_died.rs calls it after respawn, HOOKS.md row player_died says respawn, tools."
+    }
+  ]
+}

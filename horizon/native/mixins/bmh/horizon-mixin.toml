@@ -921,3 +921,14 @@ bindings = [
   { name = "camera", ty = "[f64; 3]", value = "camera" },
   { name = "primitives", ty = "&mut horizon_client::world_primitives::WorldPrimitives", value = "&mut *primitives" },
 ]
+
+[[injection]]
+id = "hook_break_speed"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_break_speed"
+helper = "hook_break_speed.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "pos", ty = "[i32; 3]", value = "pos" },
+  { name = "speed", ty = "&mut f32", value = "&mut *speed" },
+]

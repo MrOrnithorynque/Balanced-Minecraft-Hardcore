@@ -4,4 +4,5 @@ fn bmh_hook_player_died(game: &mut crate::game::Game<'_>, player: u128, cause: O
         return;
     }
     crate::game::bmh_respawn::on_player_died(game, player, cause);
+    crate::game::bmh_tools::on_player_died(game, player, cause);
 }

@@ -1,0 +1,87 @@
+{
+  "area": "tools",
+  "lens": "parity",
+  "reviewed_commit": "worktree (BASE c75751ff8fceedd6c3e9b9f4a87546f6bbcd9122 plus uncommitted changes)",
+  "status": "fix round 1: 5 fixed, 1 not fixed (PvP, documented as a difference)",
+  "verdict": "The constants, sounds, particles, tooltip lines and the order of the Java steps match, and the six load-bearing claims of the log hold except the client part of E4. The worn out dig speed is far from Java with Efficiency, and five smaller gaps are not listed or not allowed by GAPS.",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/logic/src/tools.rs:172",
+      "what": "E4: Java caps the tool speed at 4 before the Efficiency bonus is added. The port scales the total speed by 4/15 after the bonus. With Efficiency V a worn out pickaxe digs at about 10.9 in place of 30, a third of the Java speed. The log calls this 'a little lower', and the GAPS E4 route (a speed 4 rule) gives the Java value.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/logic/src/tools.rs:172 \"speed * (WORN_MINING_SPEED / TOOL_MINING_SPEED)\"",
+        "host": "HN/crates/horizon-client/src/game/enchant_effects.rs:42-43 \"if speed > 1.0 {\" / \"speed += self\" (mining_efficiency is added after the tool speed, before the hook)",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/items/EternalAxeItem.java:52 \"return EternalWear.isWornOut(stack) ? Math.min(speed, EternalWear.WORN_MINING_SPEED) : speed;\""
+      },
+      "fix": "Read the Efficiency level of the held stack (e = level * level + 1 when level > 0, else 0) and scale by (4 + e) / (15 + e) in place of 4/15. Haste, fatigue, water and air factors multiply after, so the result is the Java value. Correct the log text.",
+      "outcome": "fixed",
+      "note": "logic::worn_break_speed now scales by (4 + bonus) / (15 + bonus), bonus = Efficiency level squared plus 1 (efficiency.json), read from the main-hand stack with ItemStack::enchantment_level. Efficiency V worn: 41 becomes 30, the Java value; Haste, fatigue, water and air factors stay. Unit test efficiency_adds_to_the_capped_speed_as_in_java. Log text corrected (difference 2)."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_tools.rs:285",
+      "what": "E7: Horizon resets the attack strength when the main-hand item changes, but it does not call the reset hook for that. The estimate does not see it, so a first hit right after a switch to the Eternal Sword counts as full strength and echoes. Java reads a weak strength there and gives no echo. The log does not list it.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_tools.rs:290 \".strength_at(now, logic::SWORD_ATTACK_SPEED);\" (the resets come only from bmh_tools.rs:395 \"server().resets.entry(player).or_default().reset(now);\")",
+        "host": "HN/crates/horizon-client/src/game/lan_actions.rs:4216 \"// Player.tick: a different main-hand item resets the attack\" and 4227 \"play.attack_ticks = 0;\"",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/mixin/E_PlayerAttackMixin.java:66 \"bmh$attackStrength = self.getAttackStrengthScale(0.5F);\""
+      },
+      "fix": "Keep the main-hand item id per player (player_tick or inventory_tick with selected = true) and call Resets::reset(now) when it changes. Or list the gap in the log and GAPS E7.",
+      "outcome": "fixed",
+      "note": "bmh_tools::note_held_item (player_tick) keeps the main-hand item id per player and calls Resets::reset(now) when it changes; a player with no entry had an empty hand, as Java's lastItemInMainHand. The entry is cleared at death and log out."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/logic/src/tools.rs:253",
+      "what": "E8: the fall tracker resets only on the ground, in water, on a climbable block and while gliding. Vanilla and Horizon also reset the fall distance under Slow Falling, under Levitation and for a flying creative player. A player who drifts down 20 blocks with Slow Falling gets a smash of about 2.8 times, where Java gives none. Not in the log nor in GAPS E8.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/logic/src/tools.rs:253 \"if input.on_ground || input.in_water || input.climbing || input.gliding {\"",
+        "host": "HN/crates/horizon-client/src/motion.rs:2511 \"// LivingEntity.aiStep: Slow Falling and Levitation reset the fall\"; HN/crates/horizon-client/src/game/lan_actions.rs:4994 \"// Player.aiStep: a flying player that isn't riding starts every tick\" and 4998 \"w.player.fall_distance = 0.0;\"",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/AxeSmashHandler.java:41 \"double speed = Math.sqrt(2.0D * GRAVITY * player.fallDistance);\" (the vanilla fallDistance, with those resets)"
+      },
+      "fix": "Reset the tracked fall when me.flying is true and when the player has Slow Falling or Levitation (read the effects with a helper), or list these cases in the log and GAPS E8.",
+      "outcome": "fixed",
+      "note": "FallInput has flying (NativeServerPlayer.flying) and floating (native_effects: minecraft:slow_falling or minecraft:levitation); both reset the fall each tick. A passenger is still not excluded (difference 5 of the log). Unit test water_a_ladder_a_glide_a_flight_and_slow_falling_reset_the_fall."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_tools.rs:237",
+      "what": "E7 and E8: the v2 damage hook and hurt_enemy hear hits on mobs only. A hit on a player with the Eternal Sword gives no echo, and a falling hit on a player with the Eternal Axe gives no smash. Java does both for any living target. The log lists only E3 (the worn out halving) for PvP.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_tools.rs:237 \"pub(super) fn on_living_incoming_damage_v2(\" and bmh_tools.rs:298 \"pub(super) fn on_hurt_enemy(\"",
+        "host": "HN/crates/horizon-client/src/game/native_hooks.rs:9279 \"/// A player's weapon hit on a mob, before `Mob::damage_with` borrows the\"; native_hooks.rs:9092 \"/// hears. Another player as the target isn't told yet. Server-side, for\"",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/EchoStrikeHandler.java:65 \"if (attackStrength < MIN_ATTACK_STRENGTH || damage <= 0.0F || !(target instanceof LivingEntity)) {\" and common/src/main/java/github/mrornithorynque/bmh/mixin/E_PlayerAttackMixin.java:75 \"} else if (bmh$weapon instanceof EternalAxeItem) {\""
+      },
+      "fix": "List the PvP gap for E7 and E8 in the log and in GAPS, or route PvP hits through the player-hurt-by-player hook.",
+      "outcome": "not fixed",
+      "note": "No hook gives a melee hit on a player with the weapon and a landed-hit confirmation (v2 and hurt_enemy hear mobs only). Recorded as difference 1 of the log (E3, E7, E8 against players) with a proposed GAPS line for E3, E7 and E8."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_tools.rs:473",
+      "what": "E7: a mob in its death animation is not removed yet, so it stays a candidate, but native_hurt_entity refuses a dead mob. When it is the nearest, the echo is lost. Java skips a mob that is not alive and takes the next one. In a fight with a sweep this case is common. The log lists it, but GAPS E7 does not allow it, and the fix is small.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_tools.rs:473 \"let Some(victim) = logic::nearest_victim(origin, echo.target, &candidates) else {\" then 487 \"if !hurt {\"",
+        "host": "HN/crates/horizon-client/src/game/native_entity_refs.rs:44 \"Target::Mob(id) if !self.mobs.iter().any(|m| m.id == id && !m.removed) => None,\"; HN/crates/horizon-client/src/game/native_entities.rs:422 \"Target::Mob(mob) if self.mobs.iter().any(|m| m.id == mob && m.alive()) => {\"",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/EchoStrikeHandler.java:170 \"if (!entity.isAlive() || entity.isInvulnerable() || !entity.isAttackable()) {\""
+      },
+      "fix": "Sort the candidates by distance and call native_hurt_entity on each in turn until one returns true, or leave out the mobs whose health reads 0.",
+      "outcome": "fixed",
+      "note": "bmh_tools::is_alive leaves out a candidate that native_mob (living mobs of the level in place) does not give, except the ender dragon while the level holds it. A mob refused for invulnerability frames still loses the echo, as in Java."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/logic/src/tools.rs:593",
+      "what": "E9: the ore families and the bmh:echo_sense_ores list are written out in the code. Java reads the tags, so a data pack that adds a block to minecraft:iron_ores or to the BMH tag changes Echo Sense in Java and not here. Not listed in the log.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/logic/src/tools.rs:594 \"FAMILIES.iter().any(|family| family.contains(&block)) || SINGLE_ORES.contains(&block)\"",
+        "host": "HN/crates/horizon-client/src/game/native_world_read.rs:95 \"pub(super) fn native_block_name_in_tag(\" (the server can read a block tag)",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/EchoSenseHandler.java:108 \"if (!broken.is(ECHO_SENSE_ORES)) {\" and 174 \"if (broken.is(family)) {\""
+      },
+      "fix": "On the server, test the broken block and the family with native_block_name_in_tag (bmh:echo_sense_ores, then the eight vanilla family tags), and keep the written list only for the client check in world_primitives. Or list the gap.",
+      "outcome": "fixed",
+      "note": "The server reads bmh:echo_sense_ores and the eight family tags with native_block_name_in_tag (bmh_tools::in_tag; the written copy logic::listed_in_tag only when the tags cannot be read). logic::same_ore takes the tag reader. The client cannot read tags: a glow keeps the block name it came with and ends when the block at its position changes (difference 6 of the log)."
+    }
+  ]
+}
