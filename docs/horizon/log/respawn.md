@@ -74,11 +74,15 @@ harmless: a held landing chunk of a closed world (its release in the next world 
 2. The candidate angles come from a SplitMix64 source seeded from the clock, not from the level's random
    (`serverLevel.getRandom()`, RespawnPositionHandler.java:199). Same distribution (uniform in [0, 1)),
    different draws. Allowed by the brief.
-3. A search that did not end, or that does not fit the respawn, gives the vanilla point. Java searched again
-   at once with a blocking chunk load (RespawnPositionHandler.java:139-145). Horizon has no blocking load that
-   a hook may call (`/forceload` blocks up to 120 s, verify-1 row 1c). GAPS C4: a gamepad click,
-   `immediate_respawn` and a client without the mod skip the hold, then C2 falls back to the vanilla point.
-   Also no distant respawn when the server restarted between the death and the respawn (Java recomputed).
+3. A search that does not fit the respawn gives the vanilla point. Java searched again at once with a
+   blocking chunk load (RespawnPositionHandler.java:139-145). Horizon has no blocking load that a hook may call
+   (`/forceload` blocks up to 120 s, verify-1 row 1c). A respawn that comes before the search ended (GAPS C4:
+   `immediate_respawn`, a gamepad click, a client without the mod, a press the client did not hold) is not
+   held as in Java (F_ServerGamePacketListenerMixin): the player respawns at the vanilla point, alive and
+   with the 200 ticks of immunity, and moves to the landing with `native_teleport_player` when the search
+   ends (journey fix round 1, `finish_early`). The arrival steps run at that move. A quit or a server restart
+   in that gap leaves the player at the vanilla point with no exile. Also no distant respawn when the server
+   restarted between the death and the respawn (Java recomputed).
 4. The search starts at the end of the server tick of the death (ServerTickEnd), not inside the death event,
    because the Eternal count comes from `loot_drops`, which fires after `living_death` and `player_died`.
    Same tick. The `Departure` message leaves at the tick's end in both cases.

@@ -2,7 +2,7 @@
  "area": "journey",
  "lens": "parity",
  "reviewed_commit": "cd2e53f",
- "status": "open: not fixed yet",
+ "status": "fixed round 1: see round1 fields",
  "verdict": "The drawing, the random sky, the chain, every timing constant (600, 250, 1200, 700, 1500, 210, 1700, 400/1600/400, 400, 150, 1000, 500, 1000, 30000, 150000), the colours, the star counts, the text key and layout, and the sound ids, volumes and pitches match JourneyOverlay.java line for line, and the differences in the area log are accurate. The real gaps are in the held-respawn state: Java ties the arming to the player object, Horizon keeps a plain flag that can outlive a death, and the terrain test treats any screen as the loading screen.",
  "findings": [
   {
@@ -14,7 +14,8 @@
     "host": "",
     "java": "common/src/main/java/github/mrornithorynque/bmh/client/journey/JourneyCinematic.java:39 `case JourneySignal.DEPARTURE -> armedPlayer = new WeakReference<>(minecraft.player);` and :73 `if (player != armedPlayer.get()) {` then `return false;`"
    },
-   "fix": "Tie the flag to the death it was sent for. Clear `armed` and `ready` when the screen goes from Death to Playing without a journey (also when the death screen was never seen: clear on the first frame with a live player and no journey), and on every new Departure replace a running or stale state. Add a unit test: Departure, then frames with death_screen false and a live player, then a death screen with no Departure: death_click must return false."
+   "fix": "Tie the flag to the death it was sent for. Clear `armed` and `ready` when the screen goes from Death to Playing without a journey (also when the death screen was never seen: clear on the first frame with a live player and no journey), and on every new Departure replace a running or stale state. Add a unit test: Departure, then frames with death_screen false and a live player, then a death screen with no Departure: death_click must return false.",
+   "round1": "fixed: see journey-semantics finding 2. `armed` is set only over the death screen and ends at the first frame that shows the world (logic/src/journey.rs:1457, :1494-1505, :1547-1557). Test: the_arm_belongs_to_one_death."
   },
   {
    "severity": "minor",
@@ -25,7 +26,8 @@
     "host": "native_client_services.rs:68-70 (HN game/) `/// Any other: the pause menu, an inventory or container, a sign, book,` `/// dialog or prompt, the loading screen, the title's screens.`",
     "java": "common/src/main/java/github/mrornithorynque/bmh/client/journey/JourneyOverlay.java:354 `if (this.minecraft.screen instanceof LevelLoadingScreen) {`"
    },
-   "fix": "Ask for the loading state alone: use the game's level-load flag if a helper exists (`remote_screen_up` is true only while `level_load.is_active()` or the player is None), or ask Horizon for one. If none exists, add the limit to the Differences list in log/journey.md."
+   "fix": "Ask for the loading state alone: use the game's level-load flag if a helper exists (`remote_screen_up` is true only while `level_load.is_active()` or the player is None), or ask Horizon for one. If none exists, add the limit to the Differences list in log/journey.md.",
+   "round1": "not fixed: Horizon has no screen kind or mod helper for the level loading screen alone (NativeScreenKind, native_client_services.rs:60-71: Other covers the loading screen with every other screen; `remote_loading` and `remote_screen_up` are not mod helpers). Kept in log/journey.md, Differences 15."
   },
   {
    "severity": "minor",
@@ -36,7 +38,8 @@
     "host": "native_client_services.rs:256-261 (HN game/) `screen: NativeScreenKind::of(self.screen, self.title.is_some() || self.screen_over_playing() || self.remote_screen_up() || self.pack_reload.is_some()),` and pointer_capture.rs:72-77 `prompt_open` includes dialogs, link prompt, command prompt and server pack prompt",
     "java": "common/src/main/java/github/mrornithorynque/bmh/client/journey/JourneyCinematic.java:73 the arming is kept until the player object changes, whatever screens open over the death screen"
    },
-   "fix": "Disarm only when the player is alive again (a live player and no death screen for more than one frame), or when the world changes. Do not read a covering prompt as the end of the death screen."
+   "fix": "Disarm only when the player is alive again (a live player and no death screen for more than one frame), or when the world changes. Do not read a covering prompt as the end of the death screen.",
+   "round1": "fixed: a covered frame (`Other`, not the mod's hold screen) no longer disarms or drops the death screen model (logic/src/journey.rs:1547, bmh_journey.rs:206). Only a frame that shows the world ends the arm, and then it starts the journey in black. Test: a_screen_over_the_death_screen_keeps_the_arm_and_the_confirmation."
   }
  ]
 }

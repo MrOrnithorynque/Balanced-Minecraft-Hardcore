@@ -19,6 +19,9 @@
 // 6. `player_respawn_position` moves the respawn to the landing and keeps the exile.
 // 7. `player_respawned` awards, starts the immunity, queues the sounds, uses the anchor charge or tells
 //    that the point is gone, sends `Arrival` and gives the exile to the homecoming area.
+// An early respawn (the search has not ended: `immediate_respawn`, or a press the client did not hold)
+// keeps the vanilla point in step 6 and the search goes on. When it ends, `server_tick` moves the player
+// to the landing with the host's teleport and runs step 7 there (`finish_early`).
 
 use bmh_logic::contract::{Exile, Rule};
 use bmh_logic::respawn as logic;
@@ -60,6 +63,33 @@ struct Running {
     /// The point or the world spawn changed after the death: the search does not fit any more.
     stale: bool,
     ready_sent: bool,
+    /// The player respawned before the search ended (review journey-semantics major 1, script n5).
+    early: Option<Early>,
+}
+
+/// A respawn that came before its search ended: the `immediate_respawn` rule, or a Respawn press that
+/// the client did not hold. Horizon has no hook that can hold `ClientCommand` (GAPS.md C4), so the player
+/// respawns at the vanilla point, and `server_tick` moves them to the landing when the search ends.
+struct Early {
+    name: String,
+    /// The respawn point that the game handed to `player_respawn_position`: dimension and block.
+    handed: (String, [i32; 3]),
+}
+
+/// A distant respawn that the search allows: the landing, its level, the exile record and the point
+/// effect for the arrival.
+struct Placed {
+    feet: [i32; 3],
+    dimension: String,
+    exile: Exile,
+    effect: PointEffect,
+}
+
+/// What the arrival needs of the player who arrives: entity id, feet position and level.
+struct Arrived {
+    entity: i32,
+    position: [f64; 3],
+    dimension: String,
 }
 
 impl Running {
@@ -352,6 +382,7 @@ fn handle_death(
         point_use: None,
         stale: false,
         ready_sent: false,
+        early: None,
     };
     server().searches.insert(player, running);
     advance(game, player);
@@ -517,16 +548,43 @@ pub(super) fn on_player_respawn_position(
     let Some(mut running) = running else {
         return;
     };
-    // RespawnSearch.java:148-157, `take`: a search that did not end gives its chunks back. The landing
-    // chunk stays held for a while from now on (review semantics-6: not before the respawn).
+    let handed = (dimension.clone(), logic::block_of(*pos));
     if !running.is_finished() {
-        release_all(game, &mut running);
-        log::warn!("[BalancedMcHardcoreMain] The landing search of {name} did not end, using default respawn position");
+        if running.stale {
+            // RespawnSearch.java:148-157, `take`: a search that did not end gives its chunks back.
+            release_all(game, &mut running);
+            log::info!("[BalancedMcHardcoreMain] The respawn point of {name} changed after the death, using default respawn position");
+            // A client that waits for this exile in black must not wait for a search that is gone.
+            send(game, player, &JourneySignal::Ready);
+            return;
+        }
+        // Java holds the respawn request until the search ends (F_ServerGamePacketListenerMixin). Horizon
+        // cannot hold it: the vanilla point now, the landing when the search ends (`finish_early`).
+        log::info!("[BalancedMcHardcoreMain] The landing search of {name} did not end before the respawn: the player moves to the landing when it ends");
+        running.early = Some(Early { name: name.to_owned(), handed });
+        server().searches.insert(player, running);
         return;
     }
+    let Some(placed) = place(game, name, running, &handed) else {
+        return;
+    };
+    *pos = logic::bottom_center(placed.feet);
+    dimension.clone_from(&placed.dimension);
+    server().exiles.insert(player, (placed.exile, placed.effect));
+}
+
+/// The distant respawn that a finished search allows for the point that the game handed, or None for
+/// the vanilla point (RespawnPositionHandler.java:94-160). The landing chunk stays held for a while from
+/// now on (review semantics-6: not before the respawn).
+fn place(
+    game: &mut crate::game::Game<'_>,
+    name: &str,
+    running: Running,
+    handed: &(String, [i32; 3]),
+) -> Option<Placed> {
     let centre_is_world_spawn = running.centre_is_world_spawn();
     let Phase::Searching(search) = running.phase else {
-        return;
+        return None;
     };
     if let Some(chunk) = search.landing_chunk() {
         server().kept.push(Kept {
@@ -538,11 +596,10 @@ pub(super) fn on_player_respawn_position(
     }
     if running.stale {
         log::info!("[BalancedMcHardcoreMain] The respawn point of {name} changed after the death, using default respawn position");
-        return;
+        return None;
     }
     let rule = crate::game::bmh_settings::rule(game, Rule::RandomDeathSpawnPoint);
     // The game hands over the respawn point as it keeps it (lan_actions.rs:3929-3955).
-    let handed = (dimension.clone(), logic::block_of(*pos));
     let key = running.point.as_ref().map(|p| (p.dimension.as_str(), p.pos));
     let fit = logic::respawn_fit(key, centre_is_world_spawn, &handed.0, handed.1);
     let (level, centre) = match fit {
@@ -555,7 +612,7 @@ pub(super) fn on_player_respawn_position(
             search.dimension,
             search.center
         );
-        return;
+        return None;
     };
     // The exile centre: the point, or the world spawn as the game keeps it.
     let exile_centre = match fit {
@@ -568,8 +625,6 @@ pub(super) fn on_player_respawn_position(
         _ => search.center,
     };
     log::info!("[BalancedMcHardcoreMain] new respawn pos and bed : {feet:?}, {exile_centre:?}");
-    *pos = logic::bottom_center(feet);
-    dimension.clone_from(&search.dimension);
     let effect = match (&running.point, running.point_use) {
         (Some(p), Some(logic::PointUse::Anchor)) if !p.forced => PointEffect::UseCharge {
             dimension: p.dimension.clone(),
@@ -583,7 +638,34 @@ pub(super) fn on_player_respawn_position(
         center: exile_centre,
         distance: running.world_distance,
     };
-    server().exiles.insert(player, (exile, effect));
+    Some(Placed { feet, dimension: search.dimension.clone(), exile, effect })
+}
+
+/// C2, n5: the search of a player who respawned early has ended. Move the player to the landing with the
+/// host's teleport (from `server_tick`: nobody is swapped in, so it is done at once in the player's level,
+/// or with the tick's level teleports for another level), then run the arrival once. Gives the exile for
+/// the homecoming area, or None when the player keeps the vanilla point.
+fn finish_early(game: &mut crate::game::Game<'_>, player: u128) -> Option<Exile> {
+    let mut running = server().searches.remove(&player)?;
+    let Some(early) = running.early.take() else {
+        server().searches.insert(player, running);
+        return None;
+    };
+    let name = early.name;
+    let placed = place(game, &name, running, &early.handed)?;
+    let online = game.native_server_players();
+    let Some(me) = online.iter().find(|p| p.uuid == player && p.health > 0.0) else {
+        log::info!("[BalancedMcHardcoreMain] {name} is not on the server or not alive: no move to the landing");
+        return None;
+    };
+    let at = logic::bottom_center(placed.feet);
+    if !game.native_teleport_player(player, &placed.dimension, at, me.yaw, me.pitch) {
+        log::warn!("[BalancedMcHardcoreMain] {name} could not be moved to the landing {:?}", placed.feet);
+        return None;
+    }
+    log::info!("[BalancedMcHardcoreMain] {name} moved to the landing after an early respawn: {:?}", placed.feet);
+    let arrived = Arrived { entity: me.entity_id, position: at, dimension: placed.dimension.clone() };
+    arrive(game, player, &name, placed.exile, placed.effect, Some(arrived))
 }
 
 // The journey signal needs the Eternal count of `loot_drops`, which fires after this hook. So
@@ -658,13 +740,36 @@ pub(super) fn on_player_tick(game: &mut crate::game::Game<'_>) {
 // anchor charge or tell that the point is gone, send the arrival signal. C9, C10: give back the exile
 // of this respawn, once (Java `takeExile`). Give None when the respawn was not a distant one or the
 // world is hardcore. The hook helper hands the exile to `bmh_homecoming::on_exile`.
-// RespawnEffectHandler.java:27-65.
+// RespawnEffectHandler.java:27-65. An early respawn (no exile yet) gets the immunity now: the Java
+// player stays dead, so out of reach, until the search ends.
 pub(super) fn on_player_respawned(
     game: &mut crate::game::Game<'_>,
     player: u128,
     name: &str,
 ) -> Option<Exile> {
-    let (exile, effect) = server().exiles.remove(&player)?;
+    let me = game.native_acting_player();
+    let taken = server().exiles.remove(&player);
+    let Some((exile, effect)) = taken else {
+        let early = server().searches.get(&player).is_some_and(|r| r.early.is_some());
+        if early && let Some(me) = &me {
+            server().shields.start(me.entity_id);
+        }
+        return None;
+    };
+    let arrived = me.map(|me| Arrived { entity: me.entity_id, position: me.position, dimension: me.dimension });
+    arrive(game, player, name, exile, effect, arrived)
+}
+
+/// The arrival steps of a distant respawn (RespawnEffectHandler.java:27-65), at the respawn or, after
+/// an early respawn, at the move to the landing. Gives the exile back, or None in a hardcore world.
+fn arrive(
+    game: &mut crate::game::Game<'_>,
+    player: u128,
+    name: &str,
+    exile: Exile,
+    effect: PointEffect,
+    me: Option<Arrived>,
+) -> Option<Exile> {
     // RespawnEffectHandler.java:38: no journey in a hardcore world.
     if level_dat(game).0 {
         return None;
@@ -672,7 +777,6 @@ pub(super) fn on_player_respawned(
     let deaths = game
         .native_player_stat(player, "minecraft:custom", "minecraft:deaths")
         .unwrap_or(0);
-    let me = game.native_acting_player();
     let text = crate::game::bmh_settings::rule(game, Rule::DisplayTextOnRespawn);
     match effect {
         // Vanilla PlayerList.respawn: NO_RESPAWN_BLOCK_AVAILABLE, shown as this chat line.
@@ -690,7 +794,7 @@ pub(super) fn on_player_respawned(
         }
         if let Some(me) = &me {
             // RespawnEffectHandler.java:59.
-            s.shields.start(me.entity_id);
+            s.shields.start(me.entity);
             // RespawnEffectHandler.java:68-93: at the player's block, for the others nearby.
             let block = logic::block_of(me.position);
             for line in logic::sound_commands(name, block).into_iter().flatten() {
@@ -721,15 +825,16 @@ pub(super) fn on_player_logged_out(game: &mut crate::game::Game<'_>, player: u12
 }
 
 // C1, C3, C8: the deaths of the tick, the search timeouts, the landing tickets. C9: the journey advancements (`run_command` works only where no player is swapped
-// in).
+// in). C2 (n5): the move to the landing after an early respawn, whose search ended. Gives the exiles of
+// those moves; the hook helper hands each one to `bmh_homecoming::on_exile`.
 pub(super) fn on_server_tick(
     game: &mut crate::game::Game<'_>,
     context: &horizon_client::mod_api::NativeLifecycleContext,
     phase: horizon_client::mod_api::ServerTickPhase,
-) {
+) -> Vec<(u128, Exile)> {
     let _ = context;
     let horizon_client::mod_api::ServerTickPhase::ServerTickEnd { .. } = phase else {
-        return;
+        return Vec::new();
     };
     let online = game.native_server_players();
     let deaths = std::mem::take(&mut server().deaths);
@@ -764,6 +869,19 @@ pub(super) fn on_server_tick(
     for player in late {
         advance(game, player);
     }
+    // After the deaths of this tick: a new death of the same player has already dropped the old search.
+    let early: Vec<u128> = server()
+        .searches
+        .iter()
+        .filter(|(_, r)| r.early.is_some() && r.is_finished())
+        .map(|(player, _)| *player)
+        .collect();
+    let mut exiles = Vec::new();
+    for player in early {
+        if let Some(exile) = finish_early(game, player) {
+            exiles.push((player, exile));
+        }
+    }
     tick_kept(game);
     let awards = std::mem::take(&mut server().awards);
     for (player, name, path) in awards {
@@ -779,6 +897,7 @@ pub(super) fn on_server_tick(
             log::warn!("[BalancedMcHardcoreMain] Advancement {id} not awarded to {name}");
         }
     }
+    exiles
 }
 
 // C3: resolve the points and advance the searches of this level, now in place. C7: the arrival
@@ -911,7 +1030,9 @@ pub(super) fn on_player_spawn_point_set(
     if *cancel {
         return;
     }
-    if let Some(running) = server().searches.get_mut(&player) {
+    // After an early respawn the player is alive: the respawn itself can reset a point that does not
+    // work, and the fit with the handed point was already decided.
+    if let Some(running) = server().searches.get_mut(&player).filter(|r| r.early.is_none()) {
         running.stale = true;
     }
 }

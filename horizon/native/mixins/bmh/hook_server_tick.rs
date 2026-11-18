@@ -7,7 +7,11 @@ fn bmh_hook_server_tick(
     if !game.native_on(crate::game::bmh::ID) {
         return;
     }
-    crate::game::bmh_respawn::on_server_tick(game, context, phase);
+    // An early respawn ends here: its exile goes to the homecoming area, as in `player_respawned`.
+    let exiles = crate::game::bmh_respawn::on_server_tick(game, context, phase);
+    for (player, exile) in &exiles {
+        crate::game::bmh_homecoming::on_exile(game, *player, exile);
+    }
     crate::game::bmh_homecoming::on_server_tick(game, context, phase);
     crate::game::bmh_eternal::on_server_tick(game, context, phase);
     crate::game::bmh_totem::on_server_tick(game, context, phase);

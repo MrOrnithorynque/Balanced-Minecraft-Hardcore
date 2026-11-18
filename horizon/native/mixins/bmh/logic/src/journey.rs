@@ -855,12 +855,18 @@ pub struct View {
     pub in_world: bool,
     /// The death screen is open.
     pub death_screen: bool,
+    /// Another screen is up, which the game does not name: the respawn's loading screen, or a prompt,
+    /// book, sign or pack reload over the death screen (Horizon `NativeScreenKind::Other`). The client
+    /// cannot tell them apart, so such a frame changes nothing in the death screen state.
+    pub covered: bool,
     /// A loading screen covers the world (Java `LevelLoadingScreen`).
     pub loading: bool,
     /// The chunk of the player is loaded on the client.
     pub chunk: bool,
     /// The art grid of the window.
     pub grid: Grid,
+    /// Seeds the sky of a journey that this frame starts.
+    pub seed: i64,
 }
 
 /// What the game module must do after a frame.
@@ -915,12 +921,27 @@ pub struct Journey {
     /// The next star of the chain to chime, from Home (0) to the last one (SEGMENTS).
     next_chime: usize,
     music_cut: bool,
+    /// The journey started in black for an exile that the server finishes later (an early respawn):
+    /// the reveal waits for `Arrival`, or for ARRIVAL_WAIT after `Ready` when no arrival comes.
+    awaits_arrival: bool,
+    /// When this journey first saw `ready` and `arrived`.
+    ready_at: Option<i64>,
+    arrived_at: Option<i64>,
     /// The clock and the grid of the last update, which the picture uses.
     now: i64,
     grid: Grid,
 }
 
 impl Journey {
+    /// A journey that starts in black at `now` and waits for the server's `Arrival`: the respawn went
+    /// without the hold, and the server moves the player to the landing later or at once.
+    pub fn waiting(now: i64, ready: bool, seed: i64) -> Self {
+        Self {
+            awaits_arrival: true,
+            ..Self::new(now, false, ready, seed)
+        }
+    }
+
     /// A journey that starts at `now`. With `faded`, it fades from the death screen and the respawn
     /// waits for the black; without, it starts in black after the respawn (JourneyOverlay.java:126-177).
     pub fn new(now: i64, faded: bool, ready: bool, seed: i64) -> Self {
@@ -942,6 +963,9 @@ impl Journey {
             ambient_played: false,
             next_chime: 0,
             music_cut: false,
+            awaits_arrival: false,
+            ready_at: None,
+            arrived_at: None,
             now,
             grid: Grid::default(),
         }
@@ -961,12 +985,31 @@ impl Journey {
         self.ready = true;
     }
 
+    /// A new death and respawn came while this journey runs: it waits for the new arrival.
+    fn wait_again(&mut self) {
+        self.awaits_arrival = true;
+        self.ready = false;
+        self.ready_at = None;
+        self.arrived = false;
+        self.arrived_at = None;
+    }
+
     /// Moves the timeline on (JourneyOverlay.java:251-312). `done` in the answer says that the journey
     /// is over and draws nothing more.
     pub fn update(&mut self, view: &View) -> (Commands, bool) {
         let now = view.now;
         self.now = now;
         self.grid = view.grid;
+        if self.ready && self.ready_at.is_none() {
+            self.ready_at = Some(now);
+        }
+        if self.arrived && self.arrived_at.is_none() {
+            self.arrived_at = Some(now);
+            if self.awaits_arrival {
+                // The player moves to the landing now: the terrain test starts again there.
+                self.chunk_seen_at = None;
+            }
+        }
         let mut commands = Commands::default();
         // The respawn waits for the black and, on Horizon, for the server's Ready (GAPS.md C4).
         if !self.respawn_sent && now >= self.dark_start && self.ready {
@@ -1030,6 +1073,14 @@ impl Journey {
     /// The server may hold the respawn for a long time: the wait for the terrain counts from the
     /// respawn, not from the start (JourneyOverlay.java:315-318).
     fn gave_up(&self, now: i64) -> bool {
+        if self.awaits_arrival {
+            // The move to the landing is the respawn of an early exile: the search may take as long as a
+            // held respawn, and the terrain wait counts from the arrival (or from Ready when none comes).
+            return match self.arrived_at.or(self.ready_at) {
+                Some(at) => now - at > GIVE_UP,
+                None => now - self.start > SERVER_WAIT,
+            };
+        }
         match self.respawned_at {
             Some(at) => now - at > GIVE_UP,
             None => now - self.start > SERVER_WAIT,
@@ -1048,6 +1099,11 @@ impl Journey {
         }
         // The arrival signal comes right after the respawn. Without it, go on without a message.
         if !self.arrived && self.respawned_at.is_some_and(|at| now - at < ARRIVAL_WAIT) {
+            return false;
+        }
+        // An early exile: the server sends Arrival when it moves the player. Ready comes with it; Ready
+        // with no Arrival in ARRIVAL_WAIT means that the player keeps the vanilla point.
+        if self.awaits_arrival && !self.arrived && self.ready_at.is_none_or(|at| now - at < ARRIVAL_WAIT) {
             return false;
         }
         if self.message_start.is_some_and(|start| now < start + MESSAGE_IN + MESSAGE_HOLD + MESSAGE_OUT) {
@@ -1394,9 +1450,11 @@ impl DeathScreen {
 /// The client state of the journey (Java `JourneyCinematic` and the overlay it starts).
 #[derive(Debug, Clone)]
 pub struct Client {
-    /// The server sent `Departure`: the next Respawn click starts a journey. The flag says whether the
-    /// death screen was seen since.
-    armed: Option<bool>,
+    /// The server sent `Departure` while the death screen was up: the next Respawn press starts a
+    /// journey. The arm belongs to this death (Java: a WeakReference to the dead LocalPlayer,
+    /// JourneyCinematic.java:39 and :73): the press uses it, and the first frame that shows the world
+    /// again turns it into a journey in black. So it never reaches a later death.
+    armed: bool,
     /// The server sent `Ready` since the last `Departure`.
     ready: bool,
     journey: Option<Journey>,
@@ -1414,7 +1472,7 @@ impl Client {
     /// No journey, nothing armed.
     pub const fn new() -> Self {
         Self {
-            armed: None,
+            armed: false,
             ready: false,
             journey: None,
             death: None,
@@ -1422,13 +1480,34 @@ impl Client {
         }
     }
 
-    /// A journey signal of the server (JourneyCinematic.java:30-59). `seed` seeds the sky of a journey
-    /// that starts now.
-    pub fn signal(&mut self, now: i64, signal: JourneySignal, seed: i64) {
+    /// The world was left or changed: everything ends (JourneyOverlay.java:257-261). True when a
+    /// journey ran, so the module closes the hold screen.
+    pub fn leave_world(&mut self) -> bool {
+        let release = self.journey.is_some();
+        *self = Self::new();
+        release
+    }
+
+    /// A journey signal of the server (JourneyCinematic.java:30-59). `playing` is true when no screen
+    /// covers the world now (the game's screen kind is Playing or Chat). `seed` seeds the sky of a
+    /// journey that starts now.
+    pub fn signal(&mut self, now: i64, signal: JourneySignal, playing: bool, seed: i64) {
         match signal {
             JourneySignal::Departure => {
-                self.armed = Some(false);
                 self.ready = false;
+                if !playing {
+                    // The death screen, or a screen that may cover it (Other): the next press is held,
+                    // or the first frame of the world starts the journey in black.
+                    self.armed = true;
+                } else if let Some(journey) = &mut self.journey {
+                    // A death and its respawn while a journey runs: that journey waits for the new arrival.
+                    journey.wait_again();
+                } else {
+                    // The respawn went before Departure came (the immediate respawn rule, or a press
+                    // before it): no death screen to fade from. Black at once, so the vanilla point does
+                    // not show while the server finishes the exile (review journey-semantics major 1).
+                    self.journey = Some(Journey::waiting(now, false, seed));
+                }
             }
             JourneySignal::Ready => {
                 self.ready = true;
@@ -1437,7 +1516,7 @@ impl Client {
                 }
             }
             JourneySignal::Arrival { name } => {
-                self.armed = None;
+                self.armed = false;
                 self.ready = false;
                 match &mut self.journey {
                     Some(journey) => journey.arrive(name),
@@ -1456,10 +1535,8 @@ impl Client {
     /// One frame. Ends the journey when the world is left (JourneyOverlay.java:257-261).
     pub fn frame(&mut self, view: &View) -> Commands {
         if !view.in_world {
-            let release = self.journey.is_some();
-            *self = Self::new();
             return Commands {
-                release,
+                release: self.leave_world(),
                 ..Commands::default()
             };
         }
@@ -1467,16 +1544,16 @@ impl Client {
             if self.death.is_none() {
                 self.death = Some(DeathScreen::new(view.now));
             }
-            if let Some(seen) = &mut self.armed {
-                *seen = true;
-            }
-        } else {
+        } else if !view.covered {
+            // The world shows: the death screen is closed, and the player is alive again.
             self.death = None;
-            // The death screen closed without the hold (a gamepad click): the next arrival starts the
-            // cinematic in black.
-            if self.armed == Some(true) && self.journey.is_none() {
-                self.armed = None;
+            if self.armed && self.journey.is_none() {
+                // The death screen closed without the hold (a gamepad click, `horizon-ctl respawn`): the
+                // cinematic starts in black now, before this frame is drawn, so the arrival place never
+                // shows (review journey-semantics minor, the arrival frame).
+                self.journey = Some(Journey::waiting(view.now, self.ready, view.seed));
             }
+            self.armed = false;
         }
         let send_held = std::mem::take(&mut self.send_held);
         let mut commands = match &mut self.journey {
@@ -1502,15 +1579,18 @@ impl Client {
     /// A press that the death screen model says respawns starts the journey and is held
     /// (JourneyCinematic.java:62-87). Returns true when the press must be cancelled.
     fn press(&mut self, press: Press, now: i64, seed: i64) -> bool {
-        if self.armed.is_none() {
-            // No journey for this death: the game keeps its own behaviour.
-            return false;
+        if !self.armed {
+            // No Departure yet. The buttons stay inactive for DEATH_DELAY, as vanilla's death screen
+            // does and Horizon's remote one does not: `Departure` comes one server tick after the death
+            // packets, so a fast press is not lost for the hold (review journey-semantics minor). After
+            // that, no journey for this death: the game keeps its own behaviour.
+            return press == Press::Swallow;
         }
         match press {
             Press::Pass => false,
             Press::Swallow => true,
             Press::Respawn => {
-                self.armed = None;
+                self.armed = false;
                 self.journey = Some(Journey::new(now, true, self.ready, seed));
                 self.send_held = true;
                 true
@@ -1753,6 +1833,8 @@ mod tests {
             loading: false,
             chunk: true,
             grid: Grid { pixel: 1, width: 960, height: 540 },
+            covered: false,
+            seed: 1,
         }
     }
 
@@ -2059,15 +2141,25 @@ mod tests {
         }
     }
 
+    /// A frame where a screen that the game does not name covers the world (`NativeScreenKind::Other`).
+    fn covered_view(now: i64) -> View {
+        View {
+            death_screen: false,
+            covered: true,
+            ..view(now)
+        }
+    }
+
     #[test]
     fn the_client_holds_the_click_after_a_departure() {
         let mut client = Client::new();
         client.frame(&client_view(0, true));
         // Not armed: the click is the game's own.
         assert!(!client.death_click(1500, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
-        assert!(!client.death_click(500, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
-        client.signal(1600, JourneySignal::Departure, 1);
-        client.signal(1600, JourneySignal::Ready, 1);
+        // Not armed, but in the first second: the button is not active yet, as in vanilla.
+        assert!(client.death_click(500, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
+        client.signal(1600, JourneySignal::Departure, false, 1);
+        client.signal(1600, JourneySignal::Ready, false, 1);
         // The right button does nothing on the death screen.
         assert!(!client.death_click(2000, 1, RESPAWN, GUI, 150.0, 1));
         assert!(client.death_click(2000, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
@@ -2083,37 +2175,171 @@ mod tests {
     }
 
     #[test]
-    fn the_client_starts_in_black_when_the_respawn_went_without_it() {
+    fn a_press_before_the_departure_waits_for_the_delay() {
         let mut client = Client::new();
-        client.signal(0, JourneySignal::Departure, 1);
-        client.frame(&client_view(10, true));
-        // A gamepad click respawns without the mod: the death screen closes, the arming goes.
-        client.frame(&client_view(20, false));
-        assert!(!client.death_click(1500, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
-        client.signal(30, JourneySignal::Arrival { name: Some("Steve".to_owned()) }, 1);
+        client.frame(&client_view(0, true));
+        // A fast click and Space before Departure: cancelled, the button is not active yet.
+        assert!(client.death_click(300, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
+        assert!(client.death_key(300, "key.keyboard.tab", 0, 1));
+        assert!(!client.holds_input());
+        // Departure comes in that second: the next press is held.
+        client.signal(400, JourneySignal::Departure, false, 1);
+        assert!(client.death_click(1000, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
         assert!(client.holds_input());
-        let picture = client.picture();
-        assert!(picture.is_some_and(|p| p.fade.is_none()));
-        // A black start does not send the respawn again.
-        let commands = client.frame(&client_view(40, false));
-        assert!(!commands.send_respawn);
-        assert_eq!(client.music(40), MusicAction::Keep);
+        // A click on no button passes as before.
+        let mut quiet = Client::new();
+        quiet.frame(&client_view(0, true));
+        assert!(!quiet.death_click(300, LEFT_BUTTON, [1.0, 1.0], GUI, 150.0, 1));
     }
 
     #[test]
-    fn a_departure_before_the_death_screen_stays_armed() {
+    fn a_death_screen_closed_without_the_hold_starts_black_in_that_frame() {
         let mut client = Client::new();
-        client.signal(0, JourneySignal::Departure, 1);
-        // The death screen is not open yet: the arming stays.
-        client.frame(&client_view(5, false));
+        client.frame(&client_view(0, true));
+        client.signal(10, JourneySignal::Departure, false, 1);
+        client.frame(&client_view(20, true));
+        // `horizon-ctl respawn`: the respawn's loading screen first (Other), which changes nothing.
+        client.frame(&covered_view(30));
+        assert!(!client.holds_input());
+        // The first frame that shows the world: black before it is drawn, never the arrival place.
+        let commands = client.frame(&client_view(40, false));
+        assert!(client.holds_input());
+        assert!(!commands.send_respawn);
+        // The whole window is opaque black: the first fill of the sky.
+        let picture = client.picture();
+        assert!(picture.is_some_and(|p| p.fade.is_none() && p.sky.first().is_some_and(|f| f.argb == 0xFF00_0000)));
+        assert_eq!(client.music(40), MusicAction::Keep);
+        // The arrival gives the name to that journey.
+        client.signal(50, JourneySignal::Arrival { name: Some("Steve".to_owned()) }, true, 1);
+        assert!(client.holds_input());
+        assert!(!client.armed);
+    }
+
+    #[test]
+    fn a_screen_over_the_death_screen_keeps_the_arm_and_the_confirmation() {
+        let mut client = Client::new();
+        client.frame(&client_view(0, true));
+        client.signal(10, JourneySignal::Departure, false, 1);
+        // Title Screen opens the quit confirmation.
+        assert!(!client.death_click(2000, LEFT_BUTTON, TITLE, GUI, 150.0, 1));
+        // A prompt or a pack reload covers the death screen, then goes.
+        client.frame(&covered_view(2100));
+        client.frame(&covered_view(2200));
+        assert!(!client.holds_input());
+        client.frame(&client_view(2300, true));
+        // The confirmation is still known: its No respawns, and the press is held.
+        let [_, no] = confirm_buttons(GUI, 150.0);
+        assert!(client.death_click(3100, LEFT_BUTTON, no, GUI, 150.0, 1));
+        assert!(client.holds_input());
+    }
+
+    #[test]
+    fn a_departure_under_a_covering_screen_stays_armed() {
+        let mut client = Client::new();
+        // A book over the death screen when Departure comes: the game says Other.
+        client.signal(0, JourneySignal::Departure, false, 1);
+        client.frame(&covered_view(5));
         client.frame(&client_view(10, true));
         assert!(client.death_click(1100, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
     }
 
     #[test]
+    fn an_immediate_respawn_starts_black_and_waits_for_the_arrival() {
+        let mut client = Client::new();
+        // `immediate_respawn`: no death screen, Departure comes over the world.
+        client.signal(0, JourneySignal::Departure, true, 1);
+        assert!(client.holds_input());
+        assert!(client.picture().is_some_and(|p| p.fade.is_none()));
+        // The search takes 6 s: no reveal and no respawn request meanwhile.
+        for now in (16..6000).step_by(16) {
+            let commands = client.frame(&client_view(now, false));
+            assert!(!commands.send_respawn && !commands.release, "{now}");
+        }
+        // Ready and Arrival come together, when the server moves the player.
+        client.signal(6000, JourneySignal::Ready, false, 1);
+        client.signal(6000, JourneySignal::Arrival { name: Some("Steve".to_owned()) }, false, 1);
+        let mut release = None;
+        let mut now = 6016;
+        while now < 20_000 && client.holds_input() {
+            if client.frame(&client_view(now, false)).release && release.is_none() {
+                release = Some(now);
+            }
+            now += 16;
+        }
+        // The message runs from the arrival (2400 ms), then the dissolve.
+        let message_end = 6016 + MESSAGE_IN + MESSAGE_HOLD + MESSAGE_OUT;
+        assert!(release.is_some_and(|t| (message_end..message_end + 32).contains(&t)), "{release:?}");
+        assert!(!client.holds_input());
+    }
+
+    #[test]
+    fn a_waiting_journey_ends_without_an_arrival() {
+        // Ready with no Arrival: the server kept the vanilla point. The reveal comes ARRIVAL_WAIT later.
+        let mut journey = Journey::waiting(0, false, 1);
+        let world = |now: i64| View { death_screen: false, ..view(now) };
+        let (first, _) = run(&mut journey, 0, 8000, world);
+        assert!(first.iter().all(|(_, c)| !c.release));
+        journey.set_ready();
+        let (rest, end) = run(&mut journey, 8001, 20_000, world);
+        let release = rest.iter().find(|(_, c)| c.release).map(|(t, _)| *t);
+        assert!(release.is_some_and(|t| (8001 + ARRIVAL_WAIT..8001 + ARRIVAL_WAIT + 16).contains(&t)), "{release:?}");
+        assert!(end.is_some());
+        // Nothing comes: the journey gives up after SERVER_WAIT, as a held respawn does.
+        let mut lost = Journey::waiting(0, false, 1);
+        let (all, end) = run(&mut lost, 0, 160_000, world);
+        let release = all.iter().find(|(_, c)| c.release).map(|(t, _)| *t);
+        assert!(release.is_some_and(|t| t > SERVER_WAIT && t <= SERVER_WAIT + 16), "{release:?}");
+        assert!(end.is_some());
+        assert!(all.iter().all(|(_, c)| !c.send_respawn));
+    }
+
+    #[test]
+    fn the_arrival_of_a_waiting_journey_starts_the_terrain_test_again() {
+        let mut journey = Journey::waiting(0, false, 1);
+        let world = |now: i64| View { death_screen: false, ..view(now) };
+        // The chunk of the vanilla point is there long before the arrival.
+        let (first, _) = run(&mut journey, 0, 5000, world);
+        assert!(first.iter().all(|(_, c)| !c.release));
+        // Ready and Arrival come together when the server moves the player.
+        journey.set_ready();
+        journey.arrive(None);
+        // At the landing, the chunk comes 2 s after the arrival.
+        let landing = |now: i64| View { death_screen: false, chunk: now >= 7000, ..view(now) };
+        let (all, _) = run(&mut journey, 5008, 20_000, landing);
+        let release = all.iter().find(|(_, c)| c.release).map(|(t, _)| *t);
+        // Frames every 16 ms from 5008: the chunk is first seen at 7008.
+        assert!(release.is_some_and(|t| (7008 + TERRAIN_GRACE..7008 + TERRAIN_GRACE + 16).contains(&t)), "{release:?}");
+    }
+
+    #[test]
+    fn the_arm_belongs_to_one_death() {
+        let mut client = Client::new();
+        // Death 1 with the immediate rule: Departure over the world, a journey in black, its arrival.
+        client.signal(0, JourneySignal::Departure, true, 1);
+        client.signal(2000, JourneySignal::Ready, true, 1);
+        client.signal(2000, JourneySignal::Arrival { name: None }, true, 1);
+        let mut now = 16;
+        while client.holds_input() && now < 30_000 {
+            client.frame(&client_view(now, false));
+            now += 16;
+        }
+        assert!(!client.holds_input());
+        // Death 2 with no Departure (the rule off, a creative death): the press is the game's own.
+        client.frame(&client_view(40_000, true));
+        assert!(!client.death_click(41_500, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
+        assert!(!client.holds_input());
+        // An arm whose death screen closed without the hold becomes that journey, not a later hold.
+        let mut client = Client::new();
+        client.frame(&client_view(0, true));
+        client.signal(10, JourneySignal::Departure, false, 1);
+        client.frame(&client_view(20, false));
+        assert!(!client.armed);
+    }
+
+    #[test]
     fn leaving_the_world_ends_everything() {
         let mut client = Client::new();
-        client.signal(0, JourneySignal::Arrival { name: None }, 1);
+        client.signal(0, JourneySignal::Arrival { name: None }, true, 1);
         assert!(client.holds_input());
         let commands = client.frame(&View {
             in_world: false,
@@ -2123,25 +2349,31 @@ mod tests {
         assert!(!client.holds_input());
         assert!(client.picture().is_none());
         // A Ready of the old world does not leak into the next death.
-        client.signal(20, JourneySignal::Ready, 1);
+        client.signal(20, JourneySignal::Ready, false, 1);
         client.frame(&View {
             in_world: false,
             ..client_view(30, false)
         });
-        client.signal(40, JourneySignal::Departure, 1);
+        client.signal(40, JourneySignal::Departure, false, 1);
         assert!(!client.ready);
+        // The module resets for a new world before a signal of its first frame: the signal stays.
+        assert!(!client.leave_world());
+        client.signal(50, JourneySignal::Departure, false, 1);
+        client.frame(&client_view(60, true));
+        assert!(client.death_click(1100, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
+        assert!(client.leave_world());
     }
 
     #[test]
     fn a_departure_resets_ready_and_ready_reaches_a_running_journey() {
         let mut client = Client::new();
-        client.signal(0, JourneySignal::Ready, 1);
-        client.signal(0, JourneySignal::Departure, 1);
+        client.signal(0, JourneySignal::Ready, false, 1);
+        client.signal(0, JourneySignal::Departure, false, 1);
         assert!(!client.ready);
         client.frame(&client_view(0, true));
         assert!(client.death_click(1500, LEFT_BUTTON, RESPAWN, GUI, 150.0, 1));
         assert!(!client.frame(&client_view(2200, true)).send_respawn);
-        client.signal(2300, JourneySignal::Ready, 1);
+        client.signal(2300, JourneySignal::Ready, false, 1);
         assert!(client.frame(&client_view(2316, true)).send_respawn);
     }
 }

@@ -5,7 +5,9 @@
 // the journey agent. Log: docs/horizon/log/journey.md.
 //
 // The flow of one journey, on the client (the window's `Game` only):
-// 1. `net_from_server` hears `Departure` on `bmh:journey`: the next Respawn click is held.
+// 1. `net_from_server` hears `Departure` on `bmh:journey`: the next Respawn click is held. When the
+//    world already shows (the immediate respawn rule, or a press before `Departure`), the cinematic
+//    starts in black at once and waits for `Arrival`, which the server sends when it moves the player.
 // 2. `screen_mouse_button_pressed_pre` and `screen_key_pressed_pre` on the death screen: a press that
 //    would respawn is cancelled and starts the journey (the fade to black).
 // 3. `frame` (once a frame, with `&mut Game`) moves the timeline on: it sends `RespawnRequest::Held`, then
@@ -14,8 +16,9 @@
 // 4. `gui_render_post` draws the picture of the last frame over the whole GUI, the death screen and the
 //    respawn loading screen included.
 // 5. `music` fades the game music during the fade and stops it at the black.
-// 6. `Arrival` gives the name for the message. With no journey running (a gamepad click, the
-//    immediate respawn rule), it starts the cinematic in black.
+// 6. `Arrival` gives the name for the message. With no journey running, it starts the cinematic in
+//    black. A death screen that closes without the hold (a gamepad click, `horizon-ctl respawn`) while
+//    armed starts it in black in the first `frame` that shows the world, before that frame is drawn.
 
 use bmh_logic::journey as logic;
 use bmh_logic::wire::{JOURNEY_CHANNEL, JourneySignal, RESPAWN_CHANNEL, RespawnRequest};
@@ -87,9 +90,25 @@ pub(super) fn on_net_from_server(game: &mut crate::game::Game<'_>, channel: &str
         log::warn!("[BalancedMcHardcoreMain] A journey signal that is not valid was ignored");
         return;
     };
-    let mut c = client();
-    let (now, seed) = (now(&mut c), seed(&mut c));
-    c.journey.signal(now, signal, seed);
+    let state = game.native_client_state();
+    let world = state.as_ref().and_then(|s| s.world.clone());
+    let kind = state.as_ref().map_or(NativeScreenKind::Other, |s| s.screen);
+    let playing = matches!(kind, NativeScreenKind::Playing | NativeScreenKind::Chat);
+    let release = {
+        let mut c = client();
+        // A signal in the first frame of a new world: the reset of the new world comes first, here,
+        // so that the frame does not wipe the signal (review journey-semantics minor).
+        let release = world.is_some() && c.world != world && c.journey.leave_world();
+        if world.is_some() {
+            c.world.clone_from(&world);
+        }
+        let (now, seed) = (now(&mut c), seed(&mut c));
+        c.journey.signal(now, signal, playing, seed);
+        release
+    };
+    if release {
+        game.native_mod_screen_close(crate::game::bmh::ID);
+    }
 }
 
 // C4: hold the Respawn click of the death screen until the screen is black and the landing is ready.
@@ -178,13 +197,17 @@ pub(super) fn on_frame(game: &mut crate::game::Game<'_>) {
         if position.is_some() {
             c.position = position;
         }
+        let seed = seed(&mut c);
         let view = logic::View {
             now,
             in_world: world.is_some() && same,
             death_screen: kind == NativeScreenKind::Death,
+            // The mod's own hold screen is over the world: it is no cover.
+            covered: kind == NativeScreenKind::Other && !hold_open,
             loading,
             chunk,
             grid,
+            seed,
         };
         (c.journey.frame(&view), c.position)
     };
