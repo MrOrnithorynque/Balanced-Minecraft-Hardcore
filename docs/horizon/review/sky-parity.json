@@ -1,0 +1,35 @@
+{
+  "area": "sky",
+  "lens": "parity",
+  "reviewed_commit": "worktree (BASE 9773ae7306e156eb7706d8b386a5cbc3fec6c2d4 plus uncommitted changes)",
+  "status": "fix round 1: both findings fixed (compile and unit tests only, no game run)",
+  "verdict": "The sky port matches the Java mod on the star field (seed 10842, 1500 tries), the chain search, every timing, fade and colour constant, the 40 tick start rule, the name fade (2000 ms, alpha 4, centre plus 16) and the 26.3 star tracks (checked against day.json). Only two minor differences are left that are not in the area log, and the seven listed differences are allowed by GAPS V1 and V2 or justified.",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore/.claude/worktrees/agent-a66be0e25bedd2ee7/horizon/native/mixins/bmh/logic/src/stars.rs:977",
+      "what": "The spyglass flag is the client game time compared with a stamp. Horizon's client game time is the server's last time packet, advanced each tick, so it can jump between two frames. After a jump back, or forward by 2 or more, the flag is false for a tick or more and the name disappears for a moment. Java uses the use state of the spyglass, not a time. The area log does not list this.",
+      "evidence": {
+        "ours": "/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore/.claude/worktrees/agent-a66be0e25bedd2ee7/horizon/native/mixins/bmh/logic/src/stars.rs:977: `stamp.is_some_and(|s| game_time >= s && game_time <= s.saturating_add(SCOPING_TICKS))` and /Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore/.claude/worktrees/agent-a66be0e25bedd2ee7/horizon/native/mixins/bmh/bmh_sky.rs:180: `client().scoping = Some(clock.game_time);`",
+        "host": "/Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca/crates/horizon-client/src/game/native_hooks.rs:11158: `/// (`ClientboundSetTimePacket`), advanced each tick between packets; none`",
+        "java": "/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore/.claude/worktrees/agent-a66be0e25bedd2ee7/common/src/main/java/github/mrornithorynque/bmh/client/sky/StarReadingRenderer.java:131: `// The animation runs on client ticks: the client's game time snaps back at each server time sync when the server lags`"
+      },
+      "fix": "Stamp the area's own clock (the monotonic milliseconds of `now()`) in the use tick, and test it against a window of about 100 ms. Or count the hook's calls with a counter that does not depend on the server clock.",
+      "note": "Fixed. The use tick stamps the area's monotonic clock (bmh_sky.rs `now`), and `stars::scoping` holds the stamp SCOPING_MILLIS (100 ms). The server-fed game time is no longer read for the spyglass. Test `the_spyglass_stamp_runs_out`.",
+      "status": "fixed"
+    },
+    {
+      "severity": "minor",
+      "file": "/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore/.claude/worktrees/agent-a66be0e25bedd2ee7/horizon/native/mixins/bmh/logic/src/stars.rs:800",
+      "what": "A change of world or dimension also drops the reading that waits to start. Java resets only `lastShownTime` and `shown`; the reading stays on the amulet stack and starts if it is newer and within 40 ticks. A reading that arrives just before the level key changes is lost here and starts in Java. The area log (differences 1 to 7) does not list it. The case is rare.",
+      "evidence": {
+        "ours": "/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore/.claude/worktrees/agent-a66be0e25bedd2ee7/horizon/native/mixins/bmh/logic/src/stars.rs:800: `*self = Self { level: self.level.take(), ..Self::default() };`",
+        "host": "",
+        "java": "/Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore/.claude/worktrees/agent-a66be0e25bedd2ee7/common/src/main/java/github/mrornithorynque/bmh/client/sky/StarReadingRenderer.java:128: `lastShownTime = Long.MIN_VALUE;` and /Users/louisobenicherousse/Projects/Balanced-Minecraft-Hardcore/.claude/worktrees/agent-a66be0e25bedd2ee7/common/src/main/java/github/mrornithorynque/bmh/client/sky/StarReadingRenderer.java:129: `shown = null;`"
+      },
+      "fix": "Keep `pending` when the level key changes (drop it only by the 40 tick rule), or list the difference in docs/horizon/log/sky.md.",
+      "note": "Fixed. `Sky::level` keeps `pending` on a change to another level and drops it only out of a world (Java has no player and no stack then). Test `another_level_keeps_the_waiting_reading`. Left: Java can start an already shown reading again in a new level while it is fresh (the stack still holds it); the port took it out of `pending` at its start. Listed in docs/horizon/log/sky.md, difference 10.",
+      "status": "fixed"
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "area": "sky",
+  "lens": "semantics",
+  "reviewed_commit": "worktree (BASE 9773ae7306e156eb7706d8b386a5cbc3fec6c2d4 plus uncommitted changes)",
+  "status": "fix round 1: 2 major and 2 minor fixed, 2 minor not fixable in the mod (listed as differences 8 and 9 for GAPS.md); compile and unit tests only, no game run",
+  "verdict": "The message path, the frame order, the depth test and the winding use the host correctly, and no data from a message can panic the frame. Two faults are major: the pipeline is built outside a wgpu error scope, so a shader or pipeline failure crashes the game, and the spyglass name draws over open screens and stays there while the client game time stands still (the pause menu in single player).",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/bmh_sky_render.rs:194",
+      "what": "build() makes the shader module and the pipeline outside any wgpu error scope. Horizon installs no uncaptured error handler and draws a normal frame with no error scope, so a validation or internal error of this pipeline (an OpenGL driver, a naga 30 difference: the shader was checked only with naga 29) panics the whole game the first time a reading shows.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_sky_render.rs:194 \"let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {\" and :52 \"@group(0) @binding(1) var depth: texture_depth_2d;\"",
+        "host": "crates/horizon-client-render/src/gfx/animate.rs:406 \"them it is uncaptured and panics (#3866).\"; crates/horizon-client-render/src/gfx.rs:7410 \"None => self.draw_frame(frame, None),\"; Horizon reads the world depth as a float texture, not texture_depth_2d: crates/horizon-client-render/src/gfx/pack_post.wgsl:29 \"out.depth = 1.0 - textureLoad(world_depth, at, 0).r;\"",
+        "java": ""
+      },
+      "fix": "In build(), push error scopes (Validation and Internal) before create_shader_module and pop them after create_render_pipeline, as animate.rs does. On an error, log one line and keep a 'broken' flag for that device so that on_world_drawn draws nothing. Consider binding the depth as texture_2d<f32> (UnfilterableFloat) and reading .r, as Horizon's own shaders do.",
+      "note": "Fixed. `build` and the per-frame bind group run inside a Validation and an Internal error scope (`Checks`, the pattern of gfx/animate.rs:408-422, popped with pollster). On an error the module logs one warn line, sets BROKEN and draws nothing for the rest of the session. The depth binds as texture_2d<f32> (Float, not filterable) and the shader reads `.r`, as gfx/world_post.rs:158-160 and pack_post.wgsl:14,29 do. naga 29.0.3 validates the WGSL and writes GLSL ES 3.10 for both entry points. naga 30 (Horizon's) is not run here.",
+      "status": "fixed"
+    },
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/bmh_sky.rs:127",
+      "what": "gui_render_post draws after the screens, and the area checks only F1. The scoping test compares a stamp with the client game time, which does not advance while the single player game is paused (or under /tick freeze). So a player who scopes at a named star and presses Esc sees the name over the pause menu for as long as the menu stays open. Java draws the name inside the spyglass overlay, under any screen.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_sky.rs:127 \"if gui_hidden || !game.native_window() {\" and :141 \"if !logic::scoping(c.scoping, clock.game_time) {\"; horizon/native/mixins/bmh/logic/src/stars.rs:977 \"stamp.is_some_and(|s| game_time >= s && game_time <= s.saturating_add(SCOPING_TICKS))\"",
+        "host": "crates/horizon-client/src/game/native_hooks.rs:2626-2627 \"/// After the complete normal GUI batch, including screens, prompts, toasts,\" / \"/// debug overlays, the pad cursor and IME. Fires even with F1 or a menu open;\"; crates/horizon-client/src/game.rs:18475 \"if self.title.is_none() && !self.pause {\" (the client tick, which advances world.game_time, is skipped while paused); Horizon's own spyglass draws in the HUD, under the screens: crates/horizon-client/src/game.rs:8517 \"self.draw_spyglass(&mut batch);\"",
+        "java": ""
+      },
+      "fix": "Draw the name only while no screen covers the world: return unless game.native_playing() (or native_client_state().screen says no screen). Also clear the stamp when the frame sees no use tick for a real time span, so that a frozen game time cannot keep it alive.",
+      "note": "Fixed. The name draws only when `native_client_state().screen` is Playing or Chat (the chat leaves the centre open; Horizon's minimap draws under it too). The spyglass stamp is on the area's monotonic clock with a 100 ms hold, and a paused game runs no use tick, so the stamp runs out under the pause menu and under F3+Esc.",
+      "status": "fixed"
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_sky_render.rs:95",
+      "what": "With Horizon's frame generation on, every made frame is generated from the world before world_drawn runs, and the made frame shows for half of each real frame's time. The star reading is in the real frames only, so the lines blink at the display rate.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_sky_render.rs:95 \"pub(crate) fn on_world_drawn(world: &mut WorldDrawn<'_>) {\"",
+        "host": "crates/horizon-client-render/src/gfx.rs:11011 \"fg_made = self.frame_gen.generate(\" runs before crates/horizon-client-render/src/gfx.rs:11042 \"let (depth, depth_size) = match &scaled {\" (the world_drawn call); crates/horizon-client-render/src/gfx/frame_gen.rs:356 \"// A real frame's time, smoothed: the made frame shows for half of it.\"",
+        "java": ""
+      },
+      "fix": "No fix in the mod: list it in the area log and GAPS.md V1, and check it in the game with frame generation on. Ask Horizon for a hook on the made frame if it shows.",
+      "note": "Not fixed: `frame_gen.generate` (gfx.rs:11011) runs before `native_world_drawn` (gfx.rs:11055), and no hook reaches the made frame. Listed as difference 8 in docs/horizon/log/sky.md, with a proposed GAPS.md V1 line and a game check.",
+      "status": "not fixed"
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_sky.rs:32",
+      "what": "Horizon splitscreen runs one window Game per player in one process. CLIENT (the reading, the level key, the spyglass stamp and fade), FRAME and GPU are one value for all of them. A reading heard by one player draws in every player's sky, and two players with different level keys reset the reading on every frame, so it never shows.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_sky.rs:20 \"/// The client state of the area. One value for the process (ARCHITECTURE.md, State): the window's thread only.\" and :75 \"(Some(world), Some(player)) => Some(Some(format!(\"{world:?}|{}\", player.dimension))),\"; horizon/native/mixins/bmh/bmh_sky_render.rs:29 \"static FRAME: Mutex<Option<SkyFrame>> = Mutex::new(None);\"",
+        "host": "crates/horizon-client/src/game/split.rs:15 \"//! Design: one process, one `Game` per player, one wgpu device. The players share the game's\"",
+        "java": ""
+      },
+      "fix": "Key the client state by the window Game (for example the window id of native_client_state, or the local player's id), or state in ARCHITECTURE.md and GAPS.md that splitscreen is not supported and draw nothing when the frame hook sees a second window Game.",
+      "note": "Not fixed: per-player state needs a key in every area (ARCHITECTURE.md State: one value for the process), and players in one window share its window_id. Listed as difference 9 in docs/horizon/log/sky.md, with a proposed GAPS.md line (splitscreen not supported).",
+      "status": "not fixed"
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_sky_render.rs:74",
+      "what": "On HDR output the frame's alpha is the HDR tier mark. Horizon's stars write 0.175 (the bright tier, lifted), but the reading keeps the sky's alpha. So on an HDR screen the chain lines stay at sky brightness while the stars at their ends are lifted, and the lines look dimmer than their stars. Java draws both as the same light.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_sky_render.rs:74 \"return vec4(frag.color.rgb * frag.color.a, 0.0);\" with :237-238 \"src_factor: wgpu::BlendFactor::Zero,\" / \"dst_factor: wgpu::BlendFactor::One,\"",
+        "host": "crates/horizon-client-render/src/gfx/stars.wgsl:19 \"return vec4(stars.color.rgb * b, 0.175);\"",
+        "java": ""
+      },
+      "fix": "Write the alpha 0.175 where a line pixel draws (alpha blend REPLACE), as fs_stars does, or check on an HDR screen and list the choice in the area log.",
+      "note": "Fixed. A line pixel writes the alpha 0.175 with the alpha blend REPLACE, as fs_stars does. A pixel that adds less than half an 8-bit step is discarded, so the faint ends of a line keep the sky's mark and an 8-bit frame does not change. Game check 12 compares an HDR screen.",
+      "status": "fixed"
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_sky_render.rs:255",
+      "what": "The GPU static keeps a clone of the device. After Horizon makes a new device (device lost, renderer rebuilt), the old device, its pipeline and its buffers stay alive until the next reading draws, which can be never in that session.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_sky_render.rs:255 \"device: device.clone(),\" and :104 \"if gpu.as_ref().is_none_or(|g| g.device != *world.device || g.format != world.color_format) {\"",
+        "host": "crates/horizon-client-render/src/gfx.rs:7410 \"None => self.draw_frame(frame, None),\" (no hook tells a mod that the device changed)",
+        "java": ""
+      },
+      "fix": "Drop the Gpu value in on_world_drawn when the device differs even if no frame waits (check before the FRAME take returns), or keep the device's id rather than a clone.",
+      "note": "Fixed. `on_world_drawn` drops the GPU value when the device differs, before it looks at the frame, so the old device goes at the next drawn world, reading or not.",
+      "status": "fixed"
+    }
+  ]
+}
