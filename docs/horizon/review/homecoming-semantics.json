@@ -1,0 +1,49 @@
+{
+  "area": "homecoming",
+  "lens": "semantics",
+  "reviewed_commit": "worktree (BASE 9773ae7306e156eb7706d8b386a5cbc3fec6c2d4 plus the uncommitted changes)",
+  "status": "fixed",
+  "verdict": "The five load-bearing claims hold in the Nightly tree: the attachment, the amulet points, the title, the sound, the copy across death and the End exit, and the Java import all reach the right player from the hooks where the area calls them. One minor fault is left: the queue of bells for the other players is not cleaned when a player logs out, unlike the respawn and amulet queues.",
+  "claims": [
+    {
+      "claim": "1. stored and keep on the player attachment work from server_tick with no player swapped in",
+      "verdict": "holds",
+      "evidence": "HN crates/horizon-client/src/game/mod_api_host.rs:135-142 \"if self.lan_acting_uuid == Some(uuid) {\" ... \".get_mut(&uuid)\": outside a turn the guest's own set in guest_attachments. HN crates/horizon-client/src/game/levels.rs:597 \"self.native_lifecycle_server_tick_end(paused);\" runs after the level loop, outside any as_guest. The swap back is symmetric: lan_actions.rs:502-505 and 991-994."
+    },
+    {
+      "claim": "2. bmh_amulet::points inside player_respawned sees the right player's points (guest included)",
+      "verdict": "holds",
+      "evidence": "HN crates/horizon-client/src/game/lan_actions.rs:4083 \"self.as_guest(host, conn, |g| g.native_player_respawned(respawned, &name));\": the respawned player is the acting uuid, so Holder::Player(uuid) gives player_attachments, which hold that player's set (lan_actions.rs:502-505). The copy across death ran before, at lan_actions.rs:3909-3913. The single-player owner is a guest (integrated.rs:810, 849)."
+    },
+    {
+      "claim": "3. native_title and native_play_sound_to reach the right player from where they are called",
+      "verdict": "holds",
+      "evidence": "native_title sends through native_send (HN native_hooks.rs:10188-10196), which finds the placed guest in self.lan (native_server.rs:351); self.lan is back after tick_lan (lan.rs:2830 \"self.lan = Some(host);\"). native_play_sound_to queues for a placed guest (native_player_fx.rs:47-58) and the queue leaves at the next tick_lan (lan.rs:2827 \"self.flush_native_player_fx(&mut host);\"), so the player hears the bell one tick later, not at the end of the same tick as log item 10 says."
+    },
+    {
+      "claim": "4. the attachment with copy_on_death survives death and the End exit",
+      "verdict": "holds",
+      "evidence": "Death: HN lan_actions.rs:3910 \"&& let Ok(copy) = attachments.copy_on_death()\" copies the encoding made at set (horizon-world attachments.rs:292-311 and 418-432). End exit: server_travel.rs:376 \"self.native_player_clone(uuid, &name, false);\" and the trip touch no attachment (no 'attachment' in server_travel.rs)."
+    },
+    {
+      "claim": "5. the Java record import at level_tick_post runs once per player",
+      "verdict": "holds",
+      "evidence": "level_tick_post fires after the level pass, outside a turn (HN levels.rs:560 \"self.native_level_tick_post(dim.id());\"). native_player_compound gives player_tag(guest) for a placed guest outside a turn (native_player_state.rs:131-136), with the kept keys (lan/playerdata.rs:435 \"level.player_extra = guest.saved.clone();\"). The saved flag stops the import after one successful keep; a failed keep is tried again, which is correct."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_homecoming.rs:294",
+      "what": "The bell lines for the other players are kept in the static SERVER, and nothing removes the lines of a player who logs out. The area has no on_player_logged_out and the hook helper does not call it. A line waits for level_tick_post of its dimension; when the arriving player was the only one there and leaves, that level stops ticking, so the line stays in the static (also into the next world of the same process) and can ring later at the old place for a player who comes near.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_homecoming.rs:294 \"server().sounds.push((me.uuid, me.dimension.clone(), at, line));\" and horizon/native/mixins/bmh/hook_player_logged_out.rs:10 \"crate::game::bmh_amulet::on_player_logged_out(game, player, name);\" (the last call, no homecoming call). Compare horizon/native/mixins/bmh/bmh_respawn.rs:719 \"s.sounds.retain(|(who, _, _, _)| *who != player);\". Rule: docs/horizon/ARCHITECTURE.md:110 \"static. Per-player maps in statics are keyed by the player's uuid (`u128`) and cleaned in `player_logged_out`.\"",
+        "host": "/Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods/native/target/horizon/fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca/crates/horizon-client/src/game/levels.rs:705 \"pub(super) fn levels_to_tick(&self) -> Vec<Dim> {\" (only levels with players or forced chunks tick, so their level_tick_post fires only then)",
+        "java": ""
+      },
+      "fix": "Add on_player_logged_out to bmh_homecoming.rs with `server().sounds.retain(|(who, _, _, _)| *who != player);`, and call it from hook_player_logged_out.rs (and its HOOKS.md row), as the respawn and amulet areas do.",
+      "status": "fixed",
+      "note": "Fixed. bmh_homecoming::on_player_logged_out removes the bell lines of the player from SERVER.sounds; hook_player_logged_out.rs calls it after the amulet; the HOOKS.md row player_logged_out lists homecoming. Evidence checked: the lines quoted exist and no homecoming cleanup existed. No unit test: the static holds a Vec filtered by one retain call."
+    }
+  ]
+}

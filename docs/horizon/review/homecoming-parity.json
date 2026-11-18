@@ -1,0 +1,22 @@
+{
+  "area": "homecoming",
+  "lens": "parity",
+  "reviewed_commit": "worktree (BASE 9773ae7306e156eb7706d8b386a5cbc3fec6c2d4 plus uncommitted changes)",
+  "status": "fixed",
+  "verdict": "The Rust port matches the Java mod on every constant, formula, key, order of steps and text: radius 24, tie rule, nights, three subtitle keys, title times 10/70/20, pitch 0.8, awards and their order, the rule gate on the text only. The five listed differences are allowed or justified; one unlisted difference is minor.",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_homecoming.rs:188",
+      "what": "When no game time can be read, on_exile keeps no record at all and the exile can never end. Java always saves the record. This difference is not in the log. It cannot happen while the Overworld level exists, so it is a hardening point only.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_homecoming.rs:188-191: `let Some(now) = game_time(game) else { log::warn!(\"[BalancedMcHardcoreMain] No game time: the exile of {player:032x} keeps no homecoming record\"); return; };`",
+        "host": "",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/HomecomingHandler.java:110-111: `((Holder) player).bmh$setHomecoming(new Record(level.dimension().identifier().toString(), level.getGameTime(), exile.distance(), homes));`"
+      },
+      "fix": "Add the case to the log's list of differences, or save the record with arrival 0 so the exile can still end.",
+      "status": "fixed",
+      "note": "Fixed. on_exile no longer returns when no game time can be read: it saves the record with arrival 0, so the exile can still end, as in Java. show_title reads no game time either in that case and shows no nights. Hardening only; no unit test because the logic crate does not change (the case needs a Game)."
+    }
+  ]
+}

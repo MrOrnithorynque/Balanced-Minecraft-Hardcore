@@ -8,4 +8,5 @@ fn bmh_hook_player_logged_out(game: &mut crate::game::Game<'_>, player: u128, na
     crate::game::bmh_ritual::on_player_logged_out(game, player, name);
     crate::game::bmh_tools::on_player_logged_out(game, player, name);
     crate::game::bmh_amulet::on_player_logged_out(game, player, name);
+    crate::game::bmh_homecoming::on_player_logged_out(game, player, name);
 }
