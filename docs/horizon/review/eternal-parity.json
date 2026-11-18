@@ -1,0 +1,57 @@
+{
+  "area": "eternal",
+  "lens": "parity",
+  "reviewed_commit": "worktree on 72f0fc8",
+  "status": "fix round 1: 1 fixed in part (E12 empty bundle), 3 not fixed (cactus and lightning for the integrator, E12 outside the inventory, E10 other creation paths)",
+  "verdict": "The formulas, constants, orders and sounds of C11, C13, C14, E10, E11 and E12 match the Java source, and I found no fault that loses an item or lets a client abuse the server. The faults left are small gaps of meaning: the content damage tag is narrower than the GAPS row says, an empty Eternal Bundle blocks the other hand, and bundles outside the player inventory are never checked.",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "horizon/content/data/bmh/horizon/item/eternal_bundle.json:6",
+      "what": "E10: Java ignores every damage to a dropped Eternal Item. The content gives only `#minecraft:is_fire`. The GAPS row says the content covers fire AND cactus, and lists only explosions as the remaining gap. So cactus (and lightning) are an unlisted gap in the row, and are only named in the area log (difference 5). The row and the shipped content disagree. A vanilla `damage_resistant` takes one tag, so the fix is a mod tag that nests is_fire, is_explosion, is_lightning and the cactus type; this would also remove the 'about 6500 blasts' gap.",
+      "evidence": {
+        "ours": "horizon/content/data/bmh/horizon/item/eternal_bundle.json:6: \"minecraft:damage_resistant\": { \"types\": \"#minecraft:is_fire\" }",
+        "host": "",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/mixin/G_ItemEntityMixin.java:29-30: if (((ItemEntity) (Object) this).getItem().getItem() instanceof IEternalItem) { cir.setReturnValue(false);   (GAPS.md:64 says: `damage_resistant` for fire and cactus)"
+      },
+      "fix": "Add a damage type tag (for example bmh:eternal_resistant) that holds #minecraft:is_fire, #minecraft:is_explosion, #minecraft:is_lightning and minecraft:cactus, point the six items at it, and correct GAPS E10. If Horizon cannot read a mod damage tag, write cactus and lightning in the GAPS row as gaps.",
+      "round1": "not fixed: the content file is not the area's; difference 5 extended, tag proposed in the log"
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_eternal.rs:512",
+      "what": "E12: `claimed` is set before the empty-bundle check, and the main hand is always chosen first. For an empty Eternal Bundle the Java `use` answers FAIL, which does not stop Minecraft from trying the off hand, and it does not swing. Here the click is claimed and the host swings the arm (`if claimed { self.swing_arm(); return Ok(true); }`). So an empty bundle in the main hand blocks a shield, bucket, ender pearl or a second bundle in the off hand. The log only says 'claimed and nothing happens'; it does not list the swing or the blocked off hand.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_eternal.rs:512-518: *claimed = true; ... let spilled = horizon_client::bundle::destroyed(held); if spilled.is_empty() { return; }",
+        "host": "crates/horizon-client/src/game.rs (pinned HN) around line 7210: if claimed { self.swing_arm(); return Ok(true); }",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/items/EternalBundleItem.java:155: return InteractionResult.FAIL;"
+      },
+      "fix": "Claim the click only when the chosen bundle is not empty. If the main-hand bundle is empty, look at the off-hand bundle, and do not set `claimed` when both are empty.",
+      "round1": "fixed: the hand with a loaded bundle is used; the host swings and ends the click either way (difference 9)"
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_eternal.rs:415",
+      "what": "E12: Java refuses an Eternal Item or an Ender Chest at the moment of insertion, in any menu (`canInsert` in both click overrides). The port moves a refused stack out only from `inventory_tick`, which runs for the carried slots of a player. A bundle that lies in a chest, an Ender Chest, a shulker box or on the cursor keeps a refused stack as long as it stays there, so an Eternal Item can sit inside a stored bundle and skip the one-of-each rule (E11) and the keep-after-death split of loose stacks. The GAPS row says only 'one tick'.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_eternal.rs:415: pub(super) fn on_inventory_tick(game: &mut crate::game::Game<'_>, slot: i32, selected: bool) {",
+        "host": "crates/horizon-client/src/game/native_hooks.rs:11540: /// `Inventory.tick` for the acting player: each carried stack goes through `native_inventory_tick`.",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/items/EternalBundleItem.java:81: } else if (canInsert(itemStack)) {"
+      },
+      "fix": "Say in GAPS E12 that the refusal holds only for a bundle in the player inventory, or add the check at a hook that sees a container click (inventory_move_item, container close) for the bundle's slot.",
+      "round1": "not fixed: no wired hook sees a container click (difference 10)"
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_eternal.rs:471",
+      "what": "E10: the health of 32767 is given only to an item that `spawn_item` creates (the `item_spawn` hook) or that this area summons. Java ignores damage for every Eternal Item entity at hit time. A dropped Eternal Item from a save made before the mod, or created by another path that does not call `spawn_item`, keeps the vanilla health of 5 and an explosion or a cactus destroys it in a few hits. The log does not list this.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_eternal.rs:471-487: pub(super) fn on_item_spawn(... nbt.insert(\"Health\".into(), Tag::Short(health)); game.native_entity_merge_nbt(handle, nbt);",
+        "host": "crates/horizon-client/src/game.rs:4375-4376 (pinned HN): if self.native_joins_flush(false, self.next_entity) { self.native_item_spawn(self.next_entity, &item, count, position);",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/mixin/G_ItemEntityMixin.java:26-27: @Inject(method = \"hurtServer\", at = @At(\"HEAD\"), cancellable = true)"
+      },
+      "fix": "Write the gap in the GAPS E10 row. If it matters, give the health again from `item_expire` (it fires at age 6000 for every Eternal Item on the ground) through the same `native_entity_merge_nbt` call.",
+      "round1": "not fixed: item_expire would merge NBT in the entity tick, unverified (difference 11)"
+    }
+  ]
+}

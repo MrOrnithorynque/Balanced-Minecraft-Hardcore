@@ -1,0 +1,41 @@
+{
+  "area": "eternal",
+  "lens": "semantics",
+  "reviewed_commit": "worktree on 72f0fc8",
+  "status": "fix round 1: 2 fixed",
+  "verdict": "The use of the host game holds for C13, C14, E10, E11 and E12: the hooks fire on the server side where the area expects, the helpers reach the player, and no lock is held across a call into the game. C11 has one major fault: the kept stacks in memory are process-wide and outlive the world, so with the new persistence a single-player owner can duplicate Eternal Items across two worlds.",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/bmh_eternal.rs:196",
+      "what": "The kept stacks in memory (SERVER.kept) are process-wide and are never cleared when the world changes. The single-player owner has the same uuid in every world (the offline uuid of the player name). A player who dies with Eternal Items in world A, quits to the title screen and opens world B gets the items of world A at the next respawn in world B (any death there). World A still holds them in the compound bmh_eternal_kept, so a return to world A gives them a second time: a duplication that the new persistence causes (Java moved them, it did not copy them).",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_eternal.rs:196 \"let in_memory = server().kept.remove(&player);\" and :198 \"let stacks = in_memory.unwrap_or(persisted);\". Only the debug state is reset for a new world: :240 \"if s.debug_epoch != Some(context.epoch) {\"",
+        "host": "HN/docs/native-mods.md:4739-4740 \"The process-wide mod list is installed once, like mixin module statics. One mod instance serves both\" / \"the window's game and the server-thread game.\"; HN/crates/horizon-client/src/game/integrated.rs:415 \"owner: offline_uuid(&player),\"; HN/crates/horizon-client/src/mod_api.rs:850 \"pub epoch: NativeWorldEpoch,\"",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/KeepItemAfterDeath.java:29 \"private static final Map<UUID, List<ItemStack>> itemsToKeep = new HashMap<>();\""
+      },
+      "fix": "Make the compound the truth: at the respawn, give the persisted list, and use SERVER.kept only for a player whose compound write failed. Or key SERVER.kept by the world epoch (clear it in on_server_tick when context.epoch changes, as hide_coordinates does for the debug state).",
+      "round1": "fixed"
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_eternal.rs:213",
+      "what": "A kept stack that give_stack returns and that drop_stack cannot summon goes back to memory only: the compound was already cleared at :151. A restart loses it, and the next death with an Eternal Item replaces the list (keep_after_death keeps only the new one), so it is lost there too. The log says it 'waits for the next respawn', but that respawn comes only after another death.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_eternal.rs:213 \"server().kept.insert(player, failed);\"; :151 \"game.native_set_player_persistent_data(player, data);\"; logic/src/eternal.rs:54 \"if new.is_empty() { waiting } else { new }\"",
+        "host": "HN/crates/horizon-client/src/game/native_server.rs:1104-1105 \"/// hand. What did not fit comes back (nothing is dropped): all of it for\" / \"/// a player who isn't here, is dead, or whose state is swapped out by\"",
+        "java": ""
+      },
+      "fix": "Write the failed stacks back to the compound (write_persisted) as well as to memory, and merge them with the new list at the next death (append, not replace). Or retry them at the next player tick of that player.",
+      "round1": "fixed"
+    }
+  ],
+  "claims": {
+    "C14": "holds: debug_keys.rs:603-606 reads ui.rules and remote.reduced_debug_info; debug_entries.rs:144 registers player_position with reduced false and :345 hides it; native_server.rs:733 lets native_run_command run when no player is acting and self.lan is Some, which holds at ServerTickEnd (levels.rs:597, after lan.rs puts the hub back); commands.rs:3375 finds the rule by its snake case name; lan.rs:2729-2730 copies the rule to the hub each tick; hub.rs:836-843 sends entity event 22 or 23 to every placed guest; remote.rs:4584-4587 sets it on the window's game.",
+    "C11": "partly refuted: the death path (game.rs:4294-4311, inside the dying guest's turn), the compound (native_player_state.rs:386-408 with lan_actions.rs:630 and :1021, playerdata.rs:435 store) and give_stack for the owner at the respawn (lan_actions.rs:4083 as_guest, native_server.rs:1117 acting branch) hold. The cross-world duplication (major) and the loss of failed stacks (minor) refute 'no path loses or duplicates'.",
+    "C13": "holds: lan_actions.rs:4662 calls native_player_bed_leave with the hub out and no guest swapped in, so native_place (native_player_state.rs:110-121) finds nothing; at ServerTickEnd native_player_food, native_set_player_status and native_add_effect reach a placed, live guest (native_player_turn); the queue is a set keyed by uuid and taken whole once a tick, so no double reward and no wrong player. EffectInstance keeps show_icon true (horizon-client-render effects.rs:29), as Java's showIcon true.",
+    "E10": "holds: game.rs:4704-4709 sets age = 6000 - min(extra_life, 32766); game.rs:4376 calls item_spawn from spawn_item, the one creation site (game.rs:4350); native_entity_data.rs:36-52 merges and reloads through entity_nbt.rs:2598-2629, which reads Item, Health (short), PickupDelay, Thrower, Owner and Motion back.",
+    "E11_E12": "holds: native_hooks.rs:11461-11474 cancels through v2 then v1; native_hooks.rs:11555-11565 empties a count of 0 after the hook; bundle refusal partitions bundle_contents and gives back or drops each refused stack, putting back what fails; on_use_item uses horizon-items bundle.rs:102-115 destroyed and puts back what does not drop."
+  },
+  "not_checked": "No game was run. test-logic.sh was not run (it may write to the cache). The window's prediction of the template bundle's use (one item at a time) against the server's claimed use was not traced. The save of a dead LAN guest's file (not the owner) was not traced."
+}
