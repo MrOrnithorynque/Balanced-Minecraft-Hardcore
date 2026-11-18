@@ -270,3 +270,24 @@ By hand at GUI 427, with the choice file read after each click: a click on the b
 3. A real mouse at GUI scale 2 and 4 (only 427 and 854 were seen).
 4. A dedicated server with a bad config: the first `config_loading` there writes the corrected file.
 
+
+### The coordinator's check of fix round 1 (2026-11-18)
+
+The coordinator read the fix against the game's source before the merge and found one hole.
+
+- The hole. `track_screen` took the id of the screen that fired the hook. Data Packs (More tab) opens a screen of
+  the game's own over the title: `Action::DataPacks` sets `Screen::Options` (`game.rs`, pinned Nightly), and
+  `fire_title_screen_render_post` says "Options draws and fires its own". So that screen fired the hooks with its
+  own id, `CREATE_OPEN` went to false, and the way back to Create New World counted as a new screen: the choice
+  went back to ON with no sign to the player.
+- Shown in the game first. New check `k5e` of `test-slice.sh`: OFF, More, Data Packs, Done, Game. Before the
+  change it failed: "the choice changed behind the Data Packs screen: 'false' before, 'true' after".
+- The change. `track_screen` reads the title's own state (`game.title`, `Mode::id()`), which still holds the
+  Create New World screen while the Data Packs screen is over it. One function of `bmh_settings.rs`, no change in
+  the logic crate.
+- Game Rules (More tab) is a list inside the title's own screen and never had the fault: new check `k5f`.
+- Experiments (More tab) was not driven. It is a list inside the title too (`self.experiments`, same shape as the
+  Game Rules list in `title.rs`), by reading only.
+- Not checked against Java: Re-Create of a world. Vanilla copies the old world's game rules into the new screen,
+  so the Java button most likely shows the old world's value there. Here the screen starts ON. The parity review
+  of this area must look at it.

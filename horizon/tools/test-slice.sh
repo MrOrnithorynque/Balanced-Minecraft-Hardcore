@@ -937,6 +937,62 @@ if wanted k; then
     else
         fail k5d "the Superflat editor and back: before '$c5f', after '$c5d' (expected OFF, OFF)"
     fi
+    # Data Packs opens a screen of the game's own over the Create New World screen, and that screen
+    # fires the screen hooks with its own id. It belongs to the same Create New World screen: the
+    # choice (OFF here) stays. "ui" lists no button of that screen, so the test clicks its Done button
+    # by place: the right one of two 150 wide buttons, 8 apart, 26 above the bottom edge (read from a
+    # screenshot at GUI 427 x 240). The count of tab widgets tells that the screen opened and closed.
+    tabs_now() { jget "$(ctl ui)" 'len([w for w in d["widgets"] if w["kind"]=="tab"])'; }
+    [ "$(choice_now)" = false ] || flip_button
+    c5g="$(choice_now)"
+    ctl click more >/dev/null
+    sleep 1
+    ctl click data-packs >/dev/null
+    sleep 2
+    dp_tabs="$(tabs_now)"
+    dxy="$(jget "$(ctl ui)" '" ".join(str(int(v)) for v in (d["gui_size"][0] / 2 + 79, d["gui_size"][1] - 16))')"
+    ctl screenshot "$SHOTS/k5e-data-packs-open.png" >/dev/null
+    ctl click-at "${dxy%% *}" "${dxy##* }" >/dev/null
+    sleep 2
+    dp_back="$(tabs_now)"
+    ctl click game >/dev/null
+    sleep 1
+    c5h="$(choice_now)"
+    ctl screenshot "$SHOTS/k5e-game-tab-after-data-packs.png" >/dev/null
+    if [ "$dp_tabs" != 0 ] || [ "$dp_back" != 3 ]; then
+        fail k5e "the Data Packs screen did not open and close as the test expects (tab widgets: $dp_tabs with it open, $dp_back after a click on Done at '$dxy'): the check proves nothing"
+    elif [ "$c5g" = false ] && [ "$c5h" = false ]; then
+        pass k5e "Data Packs and back: the choice stays OFF (Done clicked at '$dxy')"
+    else
+        fail k5e "the choice changed behind the Data Packs screen: '$c5g' before, '$c5h' after (expected false, false)"
+    fi
+    # Game Rules opens a list inside the title's own screen. The choice stays there too.
+    [ "$(choice_now)" = false ] || flip_button
+    c5j="$(choice_now)"
+    ctl click more >/dev/null
+    sleep 1
+    ctl click game-rules >/dev/null
+    sleep 2
+    gr_ids="$(jget "$(ctl ui)" '[w["id"] for w in d["widgets"]][:8]')"
+    ctl screenshot "$SHOTS/k5f-game-rules-open.png" >/dev/null
+    ctl click done >/dev/null
+    sleep 2
+    gr_back="$(tabs_now)"
+    if [ "$gr_back" != 3 ]; then
+        ctl key esc tap >/dev/null
+        sleep 2
+        gr_back="$(tabs_now)"
+    fi
+    ctl click game >/dev/null
+    sleep 1
+    c5k="$(choice_now)"
+    if [ "$gr_back" != 3 ]; then
+        fail k5f "the Game Rules list did not close as the test expects (tab widgets after Done and Escape: $gr_back; its widgets: $gr_ids): the check proves nothing"
+    elif [ "$c5j" = false ] && [ "$c5k" = false ]; then
+        pass k5f "Game Rules and back: the choice stays OFF"
+    else
+        fail k5f "the choice changed behind the Game Rules list: '$c5j' before, '$c5k' after (expected false, false)"
+    fi
     ctl click cancel >/dev/null
     sleep 1
     ctl click back >/dev/null

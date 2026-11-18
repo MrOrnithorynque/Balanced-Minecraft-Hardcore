@@ -46,8 +46,8 @@ static COMMON_CONFIG: Mutex<Config> = Mutex::new(Config::DEFAULT);
 /// The Create New World choice of the screen the window shows (or showed last).
 static CLIENT_CHOICE: Mutex<Option<bool>> = Mutex::new(None);
 
-/// True while the last screen a hook saw was one of the Create New World screens. A Create New World
-/// screen that follows any other screen is a new one, and its choice starts ON.
+/// True while the title held one of the Create New World screens at the last screen hook. A Create
+/// New World screen that the title shows after another state is a new one, and its choice starts ON.
 static CREATE_OPEN: Mutex<bool> = Mutex::new(false);
 
 /// The lock of a static. A panic in another hook leaves the value usable.
@@ -282,13 +282,19 @@ fn create_choice() -> bool {
     lock(&CLIENT_CHOICE).unwrap_or(true)
 }
 
-/// The hooks tell which screen is open. A Create New World screen that opens after another screen
-/// (the world list, the title, a world, anything) is a new screen: its choice starts ON, as the
-/// state of the Java button does (CreateWorldGameTabMixin.java:39 reads the rules of the screen).
-/// The file for the server is reset with it, so the world made from this screen reads this
-/// screen's choice. The flat and buffet editors belong to the same screen and keep the choice.
-fn track_screen(game: &crate::game::Game<'_>, id: &str) {
-    let in_create = logic::is_create_screen(id);
+/// Tells when a new Create New World screen opens. A Create New World screen that the title shows
+/// after another title screen (the world list, the main screen) or after a world is a new one: its
+/// choice starts ON, as the state of the Java button does (CreateWorldGameTabMixin.java:39 reads the
+/// rules of the screen). The file for the server is reset with it, so the world made from this
+/// screen reads this screen's choice. The flat and buffet editors belong to the same screen and keep
+/// the choice.
+///
+/// This reads the title's own state, not the id of the screen that fired the hook: Data Packs opens
+/// a screen of the game's own over the title (`Action::DataPacks` sets `Screen::Options`), and that
+/// screen fires the screen hooks with its own id while the title still holds the Create New World
+/// screen. With the hook's id, the way back from Data Packs put the choice back to ON (check k5e).
+fn track_screen(game: &crate::game::Game<'_>) {
+    let in_create = game.title.as_ref().is_some_and(|title| logic::is_create_screen(title.mode.id()));
     let was_open = std::mem::replace(&mut *lock(&CREATE_OPEN), in_create);
     if in_create && !was_open {
         *lock(&CLIENT_CHOICE) = Some(true);
@@ -329,7 +335,7 @@ pub(super) fn on_screen_mouse_button_pressed_pre(
     canceled: &mut bool,
 ) {
     let _ = modifiers;
-    track_screen(game, screen.id);
+    track_screen(game);
     if *canceled || button != 0 {
         return;
     }
@@ -352,7 +358,7 @@ pub(super) fn on_screen_render_post(
     screen: &horizon_client::mod_api::NativeScreenView<'_>,
 ) {
     use horizon_client::text::Text;
-    track_screen(game, screen.id);
+    track_screen(game);
     let Some(rect) = button_rect(game, screen) else {
         return;
     };
