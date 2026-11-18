@@ -1,0 +1,56 @@
+{
+  "area": "totem",
+  "lens": "semantics",
+  "reviewed_commit": "worktree (BASE c75751ff8fceedd6c3e9b9f4a87546f6bbcd9122 plus uncommitted changes)",
+  "status": "fix round 1 done: 1 major not fixed (Horizon fault, no hook before die() can decide the save), 1 minor fixed, 1 minor refuted",
+  "verdict": "The save flow has one major fault of meaning: a living_death cancel leaves the guest's body with its dead flag set, so the swap tick cannot give the effects or undo a save, and the player takes no damage until a new body. The book of saves, the anvil, the hopper cancels, the Totem of Undying edit and the extra totem drop use the host as its docs say, with two small gaps.",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/bmh_totem.rs:239",
+      "what": "The save does not give its effects, and a canceled death leaves the player in a dead body. The lethal hurt runs die(), which sets the dead flag of the guest's body; the living_death cancel sets only the hub health to 1. In the next player_tick, native_set_effects and native_set_player_status go through native_player_turn, which refuses a body that is dead_or_dying, so no Regeneration, Absorption or Fire Resistance comes, and hurt_server refuses every later hit until a new body (a respawn or a level change). The fallback 'health 0, the death comes back' at line 222 also does nothing, so a totem that left the inventory before the swap gives a free save. The code does not check the return values. Static reading of HN, not run in the game.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_totem.rs:239 \"game.native_set_effects(me.uuid, &effects);\"; :222 \"game.native_set_player_status(me.uuid, Some(0.0), None, None);\"; :185 \"*cancel = true;\"",
+        "host": "crates/horizon-world/src/living_hurt.rs:186 \"if w.dead_or_dying(s)? {\" and :193 \"w.die(s)?;\"; crates/horizon-client/src/health.rs:993 \"*self.dead = true;\"; crates/horizon-client/src/game/lan_actions.rs:4317 \"host.hub.guests[gi].health = 1.0;\" (all that a cancel changes); crates/horizon-client/src/health.rs:395 \"self.health() <= 0.0 || self.dead\"; crates/horizon-client/src/game/native_player_state.rs:144 \"if self.player.as_ref()?.health.dead_or_dying() {\"; crates/horizon-world/src/living_hurt.rs:123 \"if w.invulnerable(s)? || w.dead_or_dying(s)? {\"",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/TotemOfEternityHandler.java:43 \"player.setHealth(1.0F);\" and :45 \"player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 900, 1));\""
+      },
+      "fix": "Prove it first with item 1 of the log's list (look at the effect list and hit the player after the save). If it holds, ask the integrator for a Horizon change that clears the body's dead flag when a mod cancels living_death (the hook doc promises a living player at 1 health), or move the save to a point inside the hurt before die() runs. Check the bool of native_set_effects and native_set_player_status and log a failure, so that a refused save is visible.",
+      "outcome": "not fixed",
+      "note": "Evidence holds end to end in HN: living_hurt.rs:186-193 calls die(); health.rs:991-994 sets the body's dead flag (health.rs:505, &mut h.dead); only PlayerHealth::new (health.rs:372) clears it; the body persists in the hub (lan_actions.rs:1092); a cancel sets only the hub health (lan_actions.rs:4317) and enter_guest copies it with set_health, which keeps dead (lan_actions.rs:532); native_player_turn refuses a dead_or_dying acting body (native_player_state.rs:141-146); hurt_server refuses later hits (living_hurt.rs:123). No hook before die() can decide the save exactly: living_incoming_damage v1/v3 run before armour, absorption and the freezing factor (amount does not tell a lethal hit) and have no Game; v2 is only for a player's hit on a mob; living_damage_pre has the exact amount but no health, no Game and no cancel, so a save there needs a guessed health. Code kept; the swap now checks the bools of native_set_effects and native_set_player_status and logs a warning when refused. Horizon change needed: in guest_die (lan_actions.rs:4316-4318), when a mod cancels living_death, also clear the body's dead flag (motion.health.dead = false), as the hook doc promises; or a hook with a Game at the death protection point (living_hurt.rs:187) with the player swapped in. Log difference 12, 'To check in the game' item 12."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_totem.rs:332",
+      "what": "The book is filled at the end of the player tick, but the guest's item pickups run after that and before guest_die in the same tick. A Totem of Eternity picked up in the tick of a death does not save the player, though Java would save him (the totem is in the inventory when he dies).",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_totem.rs:332 \"server().book.note(me.uuid, me.entity_id, has_totem);\"",
+        "host": "crates/horizon-client/src/game/lan_actions.rs:4249 \"g.native_player_tick();\", :4258 \"self.guest_pickups(host, gi);\", :4262 \"self.guest_die(host, gi, conn);\"",
+        "java": ""
+      },
+      "fix": "Also set the note in on_item_picked_up when a Totem of Eternity is not refused (the player is swapped in there), or list the gap in the log's differences.",
+      "outcome": "refuted",
+      "note": "The lines exist (lan_actions.rs:4249, 4258, 4262), but the conclusion does not hold. Nothing between native_player_tick and guest_die hurts (map updates, progress, dig feedback, pickups, arrows, orbs), so a death at guest_die comes from a hit before the pickups: a totem picked up there arrives after the lethal hit. In Java the death is decided inside the hurt, and Player.aiStep touches item entities only with health above 0 (Horizon keeps that guard for arrows: creatures.rs:4210-4214, lan_actions.rs:5671). A note in item_picked_up would let such a totem save the player, which Java never does. No change."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_totem.rs:353",
+      "what": "ACTIVE becomes true at the first server tick with the mod on and never goes back to false. If the player turns the mod off in Options > Mods and opens another world in the same process, hoppers still refuse every Totem of Eternity, against the rule that a mod that is off does nothing.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_totem.rs:353 \"ACTIVE.store(true, Ordering::Relaxed);\" and :446 \"if ACTIVE.load(Ordering::Relaxed) && logic::is_totem(item) {\"",
+        "host": "crates/horizon-client/src/game/native_hooks.rs:10403 \"/// turned off does nothing (check this first in each hook) until the\"",
+        "java": ""
+      },
+      "fix": "Tie ACTIVE to the world: clear it when the epoch changes in on_server_tick and set it only from a gated hook of the current world, or keep the epoch with the flag.",
+      "outcome": "fixed",
+      "note": "Evidence holds (ACTIVE was set once and never cleared). ACTIVE is now ACTIVE_TICK: the start of a server tick that the gated server_tick hook opened (set at ServerTickStart, cleared at ServerTickEnd). Hoppers tick between the two phases (levels.rs:509-597). A world with the mod off never opens it; a mark older than 60 s does not count (the mod turned off in the middle of a tick). Not run in the game: log item 14."
+    }
+  ],
+  "claims": {
+    "1_book_of_saves": "HOLDS for the single-player owner and a LAN guest: player_tick (lan_actions.rs:4249) runs before guest_die (:4262) in the same guest turn, and both use the hub entity id (lan_actions.rs:645 and :4307). Gaps: a totem picked up between the two is not seen (minor finding); the server trip path (:4150) and the logout path (:4285) use an older note.",
+    "2_swap_and_effects": "REFUTED in part: see the major finding. The vanilla Totem of Undying in a hand still saves first: it fires inside the hurt (health.rs:977, living_hurt.rs:187) and is applied at the end of the turn (lan_actions.rs:753), so the health is never 0 when guest_die runs and living_death is not called. The drop-then-remove order of the extra totems cannot dupe; take_items may take an identical plain totem from another slot, with the same count.",
+    "3_death_protection_edit": "HOLDS: apply_totem reads death_effects from item_renderer.models.prototypes (game/totem.rs:111, :259-263), which item_render.rs:753 builds from item_defaults::shared, and item_defaults.rs:98 runs native_modify_default_components there. The apply_effects, effects and id keys match the horizon-items test (items.rs:2394-2399).",
+    "4_anvil": "HOLDS: anvil_update runs on the host for each guest menu (lan_stations.rs:200), its answer sets the menu cost and repair count and set_slot sends the result; the window runs the same hook (stations.rs:779). The server decides the cost and the material at the take.",
+    "5_hopper_cancels": "HOLDS: inventory_move_item is on the server hopper code and a cancel skips only that slot (machines.rs:985 and :1118, then continue); hopper_pickup_item fires only when native_authoritative (game.rs:1301) and a refusal skips only that item entity. Minor: ACTIVE never resets (finding).",
+    "6_extra_drop": "HOLDS: a dead guest does not tick (lan_actions.rs:4142 then continue), nor a guest on a server trip or one that logs out. Only a dying guest (health 0, not yet dead) ticks; the drop then moves an extra totem to the ground and loses nothing."
+  }
+}

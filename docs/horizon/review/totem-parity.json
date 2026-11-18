@@ -1,0 +1,60 @@
+{
+  "area": "totem",
+  "lens": "parity",
+  "reviewed_commit": "worktree (BASE c75751ff8fceedd6c3e9b9f4a87546f6bbcd9122 plus uncommitted changes)",
+  "status": "fix round 1 done: 1 major fixed, 1 minor fixed, 1 minor not fixed (needs a GAPS T13 decision)",
+  "verdict": "Costs (39, 15, material 1), effect ids, amplifiers and durations (Regeneration II 900, Absorption II 100, Fire Resistance I 800), health 1, item ids, tooltip keys, colors and order all match Java. One difference is not allowed by GAPS (E6, a repair that Java always allows can give no result), and two small differences in the one-per-player and hopper rules remain.",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "horizon/native/mixins/bmh/bmh_totem.rs:526",
+      "what": "A gold block repair of an Eternal tool gives no result when vanilla finds it too expensive (a high prior work penalty). Java puts the penalty aside so the repair is always possible. GAPS E6 lists no difference for this row ('None once wired'), so difference 10 of the log is not allowed. A tool that went through several anvil enchantings cannot be repaired.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_totem.rs:526 `let Some(result) = output.as_mut() else {` and :497-498 `Expensive\" because of a high penalty), there is none. Java put the penalty aside so that vanilla never found a repair too expensive: Horizon's anvil does not allow that (GAPS E6, log).`",
+        "host": "docs/native-mods.md (anvil_update): `output`, `xp_cost` and `material_cost` start as vanilla's; vanilla_output is none when vanilla refuses (cost 40 and above)",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/EternalWear.java:17 `so the anvil never refuses it as too expensive.` and mixin/B_AnvilMenuMixin.java:89 `EternalWear.setRepairPenalty(left, 0);`; docs/horizon/GAPS.md:60 `| E6 | ... | F | Pending hook `anvil_update`. | None once wired. |`"
+      },
+      "fix": "When the case is GoldRepair and output is None, build the result in the hook: copy left, remove the durability that Java's vanilla run would restore (vanilla: 25 percent of max damage per gold block, up to the damage), keep the rename from item_name, set repair_cost to the tool's penalty, set xp_cost 15 and a material_cost of the blocks used. Or ask the coordinator to accept the difference in GAPS E6.",
+      "outcome": "fixed",
+      "note": "Evidence holds (B_AnvilMenuMixin.java:89; the old hook returned when output was None). When vanilla gives no result and a cost of 40 or more (stations.rs:323 'Too Expensive'; the server menu keeps the cost in data[0], menu.rs:1171), on_anvil_update now builds the result of Java's run with the penalty put aside: the vanilla repair loop (logic::gold_repair, a quarter of 33000 a block, BMHModTierInit.java:21), the rename (logic::anvil_rename), no result when the gold blocks' own penalty keeps it too expensive (logic::gold_repair_refused), material cost = blocks used, then the tool's penalty and the cost 15 as before. 5 new unit tests. Not run in the game: log 'To check in the game' item 13."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_totem.rs:153",
+      "what": "remove_totem empties the extra slot with native_take_items, which takes from the main hand first and not from the given slot. If the held totem is the one that must stay (first in order) and a plain extra sits in another slot, the held totem vanishes and the extra stays. The count is right (one totem) but the player loses the totem in his hand. Java empties exactly the extra slot.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_totem.rs:153 `if plain && game.native_take_items(ids::TOTEM_OF_ETERNITY, 1) == 1 {`",
+        "host": "docs/native-mods.md:3453 `native_take_items(item, count)` (the main hand first, then as `Inventory.add` orders slots),",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/handlers/TotemOfEternityHandler.java:80 `inventory.setItem(i, ItemStack.EMPTY);`"
+      },
+      "fix": "Always empty the given slot through native_carried_stack (count 0, cleaned the next inventory tick), or take items only when the slot is the main hand. The log says the zero count is cleaned at the next tick, so it is safe for plain stacks too.",
+      "outcome": "fixed",
+      "note": "Evidence holds (native_server.rs:1059-1070: take_items takes the selected slot first). remove_totem now uses take_items only when the slot is the selected hotbar slot (NativeServerPlayer.selected_slot) and the stack is plain; any other slot gets a count of 0 (native_hooks.rs:10394-10398), so only the extra slot empties. Not run in the game: log item 11."
+    },
+    {
+      "severity": "minor",
+      "file": "horizon/native/mixins/bmh/bmh_totem.rs:446",
+      "what": "A hopper never picks up a Totem of Eternity from the ground, even into an empty hopper. Java's canPlaceItem accepts the first totem and refuses only the second. The log lists it (difference 8) but GAPS T13 does not allow a blanket refusal: it says to cancel the hook, with no change of rule. Hopper-based totem collection and any hopper fed by a drop is blocked.",
+      "evidence": {
+        "ours": "horizon/native/mixins/bmh/bmh_totem.rs:446 `if ACTIVE.load(Ordering::Relaxed) && logic::is_totem(item) {`",
+        "host": "",
+        "java": "common/src/main/java/github/mrornithorynque/bmh/mixin/I_ContainerTotemMixin.java:47 `return !TotemOfEternityHandler.holdsAnotherTotem(this, slot, stack);`"
+      },
+      "fix": "Ask the coordinator to accept the difference in GAPS T13 (the hook has no Game and no hopper reader), or read the hopper through a pending helper when one exists.",
+      "outcome": "not fixed",
+      "note": "Evidence holds (bmh_totem.rs on_hopper_pickup_item; game.rs:1299 calls the hook with the level and the position only). The hook has no Game and no helper reads the hopper, so the first totem cannot be told from the second. Needs a GAPS T13 decision by the coordinator, or a Horizon helper that reads a container from this hook. Log difference 8."
+    }
+  ],
+  "checked_without_finding": [
+    "SAVE_EFFECTS: regeneration amplifier 1 duration 900, absorption amplifier 1 duration 100, fire_resistance amplifier 0 duration 800 (TotemOfEternityHandler.java:45-47); native_set_effects clears first (removeAllEffects) and add_player_effect sets the absorption amount",
+    "SAVE_HEALTH 1.0, advancement eternity/saved, log line text, bypass list (out_of_world, generic_kill = vanilla tag)",
+    "AWAKEN_COST 39, AWAKEN_MATERIAL_COST 1, GOLD_REPAIR_COST 15, result penalty = tool penalty, Awaken only for Hollow Totem (bmh:dormant_totem) plus bmh:echo_heart",
+    "ids: totem_of_eternity, sleeping_totem (Dormant), dormant_totem (Hollow), echo_heart match ItemInit.java:63-97; content JSON has the same rarity, fire resistance, stack size 1 and glint only on the Totem of Eternity",
+    "tooltips: order, keys, GRAY 0xAAAAAA, GOLD 0xFFAA00, the number 30 in sleeping_totem (MoonRitualHandler.java:36); lang texts are the same as Java en_us",
+    "slot order for the first totem and for the extras equals Inventory container order (main 0-35, feet to head, off hand)",
+    "pickup refusal, spectator skip, drop with 40 tick delay and view throw follow Java; differences 1, 2, 4, 5, 6, 7, 9 of the log are allowed by GAPS rows T2, T3, T4, T5, T11, T12, T14",
+    "difference 3 (no used statistic, no ITEM_INTERACT_FINISH game event) is not in GAPS but has no helper: justified, no finding",
+    "difference 11 (lang keys in en_us only): Java's other nine lang files do not have these keys either: no difference"
+  ],
+  "not_checked": "Host semantics (side, swapped player, give_stack return meaning, container_slots coverage) belong to the semantics lens. No game or build was run."
+}
