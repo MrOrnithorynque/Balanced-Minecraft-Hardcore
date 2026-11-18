@@ -39,6 +39,11 @@ impl Store {
 /// The rules of the world that the server has open (server side only).
 static SERVER_RULES: Mutex<Store> = Mutex::new(Store::EMPTY);
 
+/// The Java rules read when the Overworld opened: the world folder and what the game rules file held
+/// (None when it held no BMH rule). A dedicated server saves the world before `WorldOpenReady`, and
+/// that save drops the keys of the Java mod, so the file is read earlier, at `level_load`.
+static PENDING_IMPORT: Mutex<Option<(PathBuf, Option<logic::Rules>)>> = Mutex::new(None);
+
 /// The config values. The game thread of the window, the integrated server and a dedicated server
 /// share one file, so they share this value too.
 static COMMON_CONFIG: Mutex<Config> = Mutex::new(Config::DEFAULT);
@@ -151,15 +156,32 @@ pub(super) fn on_register_commands(
     }
 }
 
-// S1: run `/bmh rule`. A line of another area (`bmh point ...`) is left alone.
+// S1: run `/bmh rule`. A line of another area (`bmh point ...`) is left alone. Horizon checks one
+// operator level for the whole `/bmh` root (the lowest of its usages, and `/bmh point` is level 0),
+// so this area checks the level of `/bmh rule` itself.
 pub(super) fn on_perform_command(
     game: &mut crate::game::Game<'_>,
     player: &horizon_client::mod_api::NativeServerPlayer,
     command: &str,
     ran: &mut bool,
 ) {
+    run_rule_command(game, Some(player.permission), command, ran);
+}
+
+// S1: `/bmh rule` typed on the console of a dedicated server or sent through RCON. The console is
+// level 4, so it needs no level check.
+pub(super) fn on_perform_console_command(game: &mut crate::game::Game<'_>, command: &str, ran: &mut bool) {
+    run_rule_command(game, None, command, ran);
+}
+
+/// `permission` is the operator level of the player, None for the console.
+fn run_rule_command(
+    game: &mut crate::game::Game<'_>,
+    permission: Option<u8>,
+    command: &str,
+    ran: &mut bool,
+) {
     use horizon_client::text::{self, Text};
-    let _ = player;
     if *ran {
         return;
     }
@@ -168,6 +190,11 @@ pub(super) fn on_perform_command(
         return;
     }
     *ran = true;
+    // The line that refuses a player below the level of `/gamerule`: vanilla's unknown command.
+    if permission.is_some_and(|level| !logic::may_run_rule(level)) {
+        game.native_feedback(Text::translate("command.unknown.command", &[]).with_color(text::RED));
+        return;
+    }
     match parsed {
         logic::RuleCommand::NotMine => {}
         logic::RuleCommand::List => {
@@ -204,7 +231,9 @@ pub(super) fn on_perform_command(
 }
 
 /// The rules of a Java world, read from its game rules saved data before Horizon's first save
-/// drops them (verify-5 G4). None when the file is missing or holds no BMH rule.
+/// drops them (verify-5 G4). None when the file is missing or holds no BMH rule. The single-player
+/// server saves after `WorldOpenReady`; a dedicated server saves before it, so `on_level_load`
+/// calls this.
 fn import_java_rules(dir: &Path) -> Option<logic::Rules> {
     use horizon_world::nbt::Tag;
     let file = dir.join("data").join("minecraft").join("game_rules.dat");
@@ -216,6 +245,24 @@ fn import_java_rules(dir: &Path) -> Option<logic::Rules> {
         Some(_) => Some(logic::Saved::Other),
         None => None,
     })
+}
+
+// S1: the Overworld opens. A world with no rules file reads the rules of the Java mod now, before
+// the dedicated server's first save drops them. The world folder is set when this fires
+// (game.rs:12453 sets `world_root`, :12621 fires `native_level_opened`; dedicated.rs:1253 saves later).
+pub(super) fn on_level_load(game: &mut crate::game::Game<'_>, dimension: &str) {
+    if dimension != bmh_logic::respawn::OVERWORLD {
+        return;
+    }
+    let Some(dir) = game.native_world_dir() else {
+        return;
+    };
+    if rules_path(&dir).exists() {
+        *lock(&PENDING_IMPORT) = None;
+        return;
+    }
+    let imported = import_java_rules(&dir);
+    *lock(&PENDING_IMPORT) = Some((dir, imported));
 }
 
 /// True when the world has not been played: its game time is 0. A world whose time the game cannot
@@ -242,6 +289,7 @@ pub(super) fn on_world_lifecycle(
         WorldPhase::WorldOpenReady => open_world(game),
         WorldPhase::WorldCloseFinal | WorldPhase::WorldCloseFailed => {
             *lock(&SERVER_RULES) = Store::EMPTY;
+            *lock(&PENDING_IMPORT) = None;
         }
         _ => {}
     }
@@ -258,7 +306,12 @@ fn open_world(game: &mut crate::game::Game<'_>) {
         let choice = game
             .native_setting(crate::game::bmh::ID, logic::CHOICE_SETTING)
             .and_then(|text| logic::parse_choice(&text));
-        (import_java_rules(&dir), is_new_world(game, &dir), choice)
+        let pending = lock(&PENDING_IMPORT).take();
+        let imported = match pending {
+            Some((pending_dir, imported)) if pending_dir == dir => imported,
+            _ => import_java_rules(&dir),
+        };
+        (imported, is_new_world(game, &dir), choice)
     } else {
         (None, false, None)
     };

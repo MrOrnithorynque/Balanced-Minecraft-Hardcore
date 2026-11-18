@@ -2,7 +2,7 @@
  "area": "settings",
  "lens": "parity",
  "reviewed_commit": "cd2e53f",
- "status": "open: not fixed yet",
+ "status": "fixed round 2: see round2 fields",
  "verdict": "The six rule names and defaults, the config keys, ranges and defaults, the NeoForge file layout, the import order of a Java world (id first, old name last) and the all-or-nothing toggle logic match the Java mod, and each difference I found in the config page and the button is already listed in log/settings.md. What is left is small: a Re-Create world starts ON where Java copies the old world's rules, and a Java world's rules are imported once only, so later changes made in the Java mod are ignored.",
  "findings": [
   {
@@ -14,7 +14,8 @@
     "host": "crates/horizon-client/src/title/create_world.rs:70-76 `pub(super) fn of_world(level: &crate::save::Level, commands: bool, dir: &std::path::Path)` and `let (pack_dir, data_packs) = crate::datapack::for_recreate(dir);` (Horizon has Re-Create and builds the screen from the old world's directory)",
     "java": "common/src/main/java/github/mrornithorynque/bmh/mixin/CreateWorldGameTabMixin.java:39 `CycleButton.onOffBuilder(isBalancedHardcoreEnabled(uiState.getGameRules()))`"
    },
-   "fix": "When the title opened the screen with `of_world` (Re-Create), start the choice from the old world's `<world>/bmh/rules.txt` (any rule on gives ON, as Java `anyMatch`), or add the case to Differences and GAPS S2. Check first that the Re-Create screen has the id `world_create`."
+   "fix": "When the title opened the screen with `of_world` (Re-Create), start the choice from the old world's `<world>/bmh/rules.txt` (any rule on gives ON, as Java `anyMatch`), or add the case to Differences and GAPS S2. Check first that the Re-Create screen has the id `world_create`.",
+   "round2": "not fixed: the host gives the screen no Re-Create flag (Mode::Create has none), options.pack_dir is a temp copy of datapacks and also set on a normal Create, and the old world folder is not known to a hook. Left as a difference."
   },
   {
    "severity": "minor",
@@ -25,7 +26,8 @@
     "host": "",
     "java": "common/src/main/java/github/mrornithorynque/bmh/mixin/N_SavedDataGameRulesMixin.java:28 `BMHGameRules.migrateLegacyNames(cir.getReturnValue());` (runs on every read of the saved data, and the game rules are the saved data)"
    },
-   "fix": "Add a line to Differences ('a world shared between the Java mod and Horizon: the first Horizon open decides'). If shared worlds matter, compare the modification time of `game_rules.dat` with `rules.txt` at each open."
+   "fix": "Add a line to Differences ('a world shared between the Java mod and Horizon: the first Horizon open decides'). If shared worlds matter, compare the modification time of `game_rules.dat` with `rules.txt` at each open.",
+   "round2": "fixed: no behaviour change; added as difference 0 in docs/horizon/log/settings.md (after the import, rules.txt is the store)."
   }
  ]
 }

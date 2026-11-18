@@ -2,7 +2,7 @@
  "area": "settings",
  "lens": "semantics",
  "reviewed_commit": "cd2e53f",
- "status": "open: not fixed yet",
+ "status": "fixed round 2: see round2 fields",
  "verdict": "Two major faults: the Java world import cannot work on a dedicated server (the server saves before WorldOpenReady), and /bmh rule does not check the player's level, which made HOOKS.md wrong and forced /bmh point to operators. The state rules hold: no lock is held across a game call, no unwrap on world, file or message data, and rules, config and choice live in files that survive a restart.",
  "findings": [
   {
@@ -14,7 +14,8 @@
     "host": "crates/horizon-client/src/game/dedicated.rs:1252-1253 \"// DedicatedServer.initServer ends with saveEverything(false, true, true).\" / \"self.save_game()?;\" then :1259 \"self.native_lifecycle_world_ready();\"; game.rs:15381-15383 \"self.save_level(wait)?;\" ... \"self.save_game_metadata()?;\" (writes the level through write_level_for_role); save.rs:4532-4533 \"if !saved_data_path(dir, \\\"game_rules\\\").exists() || !self.game_rules.is_empty() {\" / \"// Only rules vanilla knows: an unknown key makes it reject the file.\"",
     "java": "common/src/main/java/github/mrornithorynque/bmh/utilities/BMHGameRules.java:68-69 \"boolean value = data.getString(name.getKey()).map(Boolean::parseBoolean)\" / \".or(() -> data.getBoolean(name.getKey())).orElse(true);\" (the Java game reads the saved value whatever the server kind)"
    },
-   "fix": "Read game_rules.dat before the first save. `native_server_about_to_start` fires before load_world (dedicated.rs:1025), so the world folder may not be set there; `native_level_load` of minecraft:overworld fires while the world loads, before WorldOpenReady. Check that it comes before dedicated.rs:1253 and that `native_world_dir()` answers there, read the file then, keep the result in a SERVER_ static and let open_world use it. Add a dedicated server case to the game checks."
+   "fix": "Read game_rules.dat before the first save. `native_server_about_to_start` fires before load_world (dedicated.rs:1025), so the world folder may not be set there; `native_level_load` of minecraft:overworld fires while the world loads, before WorldOpenReady. Check that it comes before dedicated.rs:1253 and that `native_world_dir()` answers there, read the file then, keep the result in a SERVER_ static and let open_world use it. Add a dedicated server case to the game checks.",
+   "round2": "fixed: new hook level_load (hook_level_load.rs, horizon-mixin.toml) calls bmh_settings.rs on_level_load, which reads game_rules.dat into PENDING_IMPORT before dedicated.rs:1253 save_game(); open_world uses it (bmh_settings.rs open_world). world_root is set at game.rs:12453, level_load fires at :12621. Not run in a game."
   },
   {
    "severity": "major",
@@ -25,7 +26,8 @@
     "host": "crates/horizon-client/src/game/native_server.rs:179-180 \"let level = levels.entry(nodes[0].0.clone()).or_insert(4);\" / \"*level = (*level).min(command.level);\"; native_server.rs:1460-1461 \"let name = line.split(' ').next().unwrap_or_default();\" / \"host.native_commands.as_ref()?.get(name).copied()\"; native_server.rs:1490 \"None => level <= permission,\"",
     "java": ""
    },
-   "fix": "In on_perform_command, after the line is known to be `bmh rule`, refuse when `player.permission < logic::COMMAND_LEVEL` (answer vanilla's unknown or no-permission text and set ran). Correct HOOKS.md \"The /bmh command root\" and log step 3. Then the amulet area can put /bmh point back at level 0."
+   "fix": "In on_perform_command, after the line is known to be `bmh rule`, refuse when `player.permission < logic::COMMAND_LEVEL` (answer vanilla's unknown or no-permission text and set ran). Correct HOOKS.md \"The /bmh command root\" and log step 3. Then the amulet area can put /bmh point back at level 0.",
+   "round2": "fixed: bmh_settings.rs run_rule_command refuses a player below level 2 with vanilla's unknown command (logic::may_run_rule, logic/src/settings.rs, unit-tested); HOOKS.md corrected; /bmh point back to level 0 (logic/src/amulet.rs COMMAND_LEVEL)."
   },
   {
    "severity": "minor",
@@ -36,7 +38,8 @@
     "host": "crates/horizon-client/src/game/dedicated.rs:2043 \"if !self.perform_native_console_command(line.trim()) {\"; native_server.rs:1525 \"self.native_perform_console_command(line, &mut ran);\" and :1528 \"Text::translate(\\\"command.unknown.command\\\", &[])\"; native_hooks.rs:4592 \"A command a mod registered, typed on the dedicated server's console\"",
     "java": "common/src/main/java/github/mrornithorynque/bmh/utilities/BMHGameRules.java (the rules are vanilla game rules, so the console's /gamerule reaches them)"
    },
-   "fix": "Add a `perform_console_command` injection whose helper calls a settings function that runs the same `parse_rule_command` branch (no level check: the console is level 4, `native_feedback` answers on the console). List it in HOOKS.md."
+   "fix": "Add a `perform_console_command` injection whose helper calls a settings function that runs the same `parse_rule_command` branch (no level check: the console is level 4, `native_feedback` answers on the console). List it in HOOKS.md.",
+   "round2": "fixed: new hook perform_console_command (API 99, hook_perform_console_command.rs, toml, HOOKS.md row) calls bmh_settings.rs on_perform_console_command, same branch, no level check."
   }
  ]
 }

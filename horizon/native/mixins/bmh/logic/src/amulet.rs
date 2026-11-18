@@ -682,11 +682,11 @@ pub fn check_save(clean: &str, renamed: bool, used: usize, max: i32) -> Result<(
 // The command `/bmh point` (AmuletPointCommand.java:43-55)
 // ---------------------------------------------------------------------------------------------
 
-/// The operator level of `/bmh point`. Java lets every player run it. Horizon gives the whole `/bmh`
-/// root the lowest level of its usages (native_server.rs, `command_tree`) and checks only that level, so
-/// a level 0 usage would let every player run `/bmh rule` too. The screens use mod messages, not the
-/// command, so the command stays at the level of `/bmh rule` (docs/horizon/log/amulet.md, differences).
-pub const COMMAND_LEVEL: u8 = 2;
+/// The operator level of `/bmh point`: 0, as in Java (every player). Horizon gives the whole `/bmh`
+/// root the lowest level of its usages (native_server.rs, `command_tree`) and checks only that level.
+/// So `/bmh rule` refuses a player below its own level inside the settings area
+/// (`bmh_logic::settings::may_run_rule`).
+pub const COMMAND_LEVEL: u8 = 0;
 
 /// The usages of `/bmh point`, as the registration reads them.
 pub const COMMAND_USAGES: [&str; 3] = [

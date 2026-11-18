@@ -455,6 +455,27 @@ bindings = [
 ]
 
 [[injection]]
+id = "hook_level_load"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_level_load"
+helper = "hook_level_load.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "dimension", ty = "&str", value = "dimension" },
+]
+
+[[injection]]
+id = "hook_perform_console_command"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_perform_console_command"
+helper = "hook_perform_console_command.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "command", ty = "&str", value = "command" },
+  { name = "ran", ty = "&mut bool", value = "&mut *ran" },
+]
+
+[[injection]]
 id = "hook_world_lifecycle"
 kind = "HEAD"
 target = "horizon_client::game::native_hooks::Game<'_>::native_world_lifecycle"

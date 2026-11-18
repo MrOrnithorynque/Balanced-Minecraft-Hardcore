@@ -98,6 +98,8 @@ A module in another crate cannot call the game module (the dependency goes the o
 | `perform_command` | `horizon_client::game::native_hooks::Game<'_>::native_perform_command` (crates/horizon-client/src/game/native_hooks.rs:4323) | `&mut self, player: &NativeServerPlayer, command: &str, ran: &mut bool` | server | 8 | settings, amulet | Each area runs only its own subcommand and sets `ran`. No order. |
 | `settings` | `horizon_client::game::native_hooks::Game<'_>::native_settings` (crates/horizon-client/src/game/native_hooks.rs:3252) | `&mut self, mod_id: &str, buttons: &mut Vec<String>` | client | stamped, no API number in its doc comment | settings | One area. |
 | `settings_click` | `horizon_client::game::native_hooks::Game<'_>::native_settings_click` (crates/horizon-client/src/game/native_hooks.rs:3256) | `&mut self, mod_id: &str, button: usize` | client | stamped, no API number in its doc comment | settings | One area. |
+| `level_load` | `horizon_client::game::native_hooks::Game<'_>::native_level_load` (crates/horizon-client/src/game/native_hooks.rs:8390) | `&mut self, dimension: &str` | server | 134 | settings | One area. It fires inside `load_world` (game.rs:12621), after `world_root` is set (:12453) and before the dedicated server's first `save_game()` (dedicated.rs:1253). Settings reads the Java rules there. |
+| `perform_console_command` | `horizon_client::game::native_hooks::Game<'_>::native_perform_console_command` (crates/horizon-client/src/game/native_hooks.rs:4600) | `&mut self, command: &str, ran: &mut bool` | server | 99 | settings | One area. Console and RCON lines for `/bmh rule` (level 4, no check). The amulet needs a player and has no console line. |
 | `world_lifecycle` | `horizon_client::game::native_hooks::Game<'_>::native_world_lifecycle` (crates/horizon-client/src/game/native_hooks.rs:2403) | `&mut self, context: &NativeLifecycleContext, phase: WorldPhase, error_text: &str` | server | 3 | settings | One area. |
 | `player_bed_leave` | `horizon_client::game::native_hooks::Game<'_>::native_player_bed_leave` (crates/horizon-client/src/game/native_hooks.rs:4937) | `&mut self, player: u128, name: &str, pos: [i32; 3]` | server | 252 | eternal | One area. |
 | `inventory_tick` | `horizon_client::game::native_hooks::Game<'_>::native_inventory_tick` (crates/horizon-client/src/game/native_hooks.rs:9107) | `&mut self, slot: i32, selected: bool` | server | 39 | eternal, tools, amulet | Eternal can set the count to 0 first; the slot empties only at the end of the hook, so later areas must skip a stack with count 0. |
@@ -165,12 +167,18 @@ Neither area touches the file of the other. An area adds a subcommand like this:
 
 - In `on_register_commands`, push one `NativeCommand` for each usage, and start each usage with `bmh <sub>`
   (`bmh point save <pos:block_pos> <name:text>`). The server merges all usages that share the word `bmh` into
-  one tree, and each usage keeps its own operator level (`NativeCommand::new` for everyone, `op(usage, 2)` for
-  operators). Do not push a bare `bmh` usage.
+  one tree. The server gives the whole `bmh` root the LOWEST level of its usages and checks only that level
+  (native_server.rs:179-180, :1488-1491). A usage's own level does not hold. So a subcommand that needs a
+  level checks `player.permission` itself inside its `on_perform_command` branch. `/bmh point` is level 0
+  (`NativeCommand::op(usage, 0)`), so the root is level 0 and every player reaches the hook. Do not push a
+  bare `bmh` usage.
 - In `on_perform_command`, split the line into words. If the first two words are not `bmh <sub>`, return at once
   and leave `ran` alone. If they are, set `*ran = true` and answer with `native_feedback`.
 - Settings pushes `bmh rule`, `bmh rule <name:word>` and `bmh rule <name:word> <value:boolean>` at level 2 and
   runs them through `bmh_logic::settings::parse_rule_command`, which answers `NotMine` for any other line.
+  It refuses a player below level 2 with `bmh_logic::settings::may_run_rule` (`run_rule_command` in
+  `bmh_settings.rs`): the root check alone lets a level 0 player in. The console and RCON reach the same
+  function through `perform_console_command`, with no level check.
   Amulet needs nothing from settings.
 
 A message between the two sides of one area (the Echo Sense glow of tools, the amulet screens) also goes in

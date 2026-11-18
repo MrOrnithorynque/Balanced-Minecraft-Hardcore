@@ -187,6 +187,13 @@ pub fn initial_rules(
 /// The level an operator needs: the one of vanilla's `/gamerule` (`LEVEL_GAMEMASTERS`).
 pub const COMMAND_LEVEL: u8 = 2;
 
+/// True when a player of operator level `permission` may run `/bmh rule`. Horizon checks one level
+/// for the whole `/bmh` root: the lowest level of all its usages. `/bmh point` is level 0, as in Java,
+/// so every player reaches this area's hook and the area refuses by itself.
+pub fn may_run_rule(permission: u8) -> bool {
+    permission >= COMMAND_LEVEL
+}
+
 /// The usages of `/bmh rule`, as the registration of a command reads them. The amulet area adds
 /// its own `bmh point` usages: the server merges the usages that share the word `bmh`.
 pub const COMMAND_USAGES: [&str; 3] = [
@@ -507,6 +514,21 @@ pub fn parse_choice(text: &str) -> Option<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rule_command_needs_the_gamerule_level() {
+        assert!(!may_run_rule(0));
+        assert!(!may_run_rule(1));
+        assert!(may_run_rule(2));
+        assert!(may_run_rule(4));
+    }
+
+    #[test]
+    fn rule_command_asks_the_level_only_for_its_own_lines() {
+        // The hook refuses a level 0 player only after parse_rule_command knows the line.
+        assert_eq!(parse_rule_command("bmh point save 1 2 3 Home"), RuleCommand::NotMine);
+        assert_ne!(parse_rule_command("bmh rule"), RuleCommand::NotMine);
+    }
 
     #[test]
     fn rules_start_on_and_flip_together() {

@@ -32,7 +32,8 @@ Area: settings (GAPS.md rows S1 to S4). Files: `horizon/native/mixins/bmh/bmh_se
      labels follow the values. A label is a `String`, so the area resolves its lang keys with
      `Text::translate(key, args).plain()` (horizon-client-core/src/text.rs:239).
    - Commands: the usage strings of several areas that start with `bmh` merge into one tree, and each usage keeps
-     its own level (smp registers `eco stats` at level 0 and `eco give` at level 3, glue.rs). `perform_command`
+     its own level (WRONG, see fix round 2: the server gives the whole root the lowest level of its usages,
+   native_server.rs:179-180, and checks only that; smp registers `eco stats` at level 0 and `eco give` at level 3, glue.rs). `perform_command`
      gives the line without the slash; `native_feedback` answers the player.
    - The title's create screen is id `world_create` with the whole window as `rect` (native-mods.md API 326).
      `screen.mouse` is the pointer, so the click hook needs no position of its own.
@@ -110,6 +111,10 @@ Could not:
 
 ## Differences from the Java mod
 
+0. A world shared between the Java mod and Horizon: the first Horizon open decides. The rules of a Java world are
+   imported once, when `<world>/bmh/rules.txt` does not exist. After that the file is the store of the Horizon
+   world, because the Horizon save writes only the rules vanilla knows into `game_rules.dat`. A `/gamerule bmh:...`
+   run in the Java mod later is not read. (Fix round 2, parity 2.)
 1. The six rules are not game rules: no `/gamerule bmh:...`, no completion, no game rules screen. They live in
    `<world>/bmh/rules.txt` and `/bmh rule`. GAPS S1, decision D5.
 2. The Create World button is drawn by the mod in the Game tab, but it is not a widget of the tab. It is not synced
@@ -291,3 +296,25 @@ The coordinator read the fix against the game's source before the merge and foun
 - Not checked against Java: Re-Create of a world. Vanilla copies the old world's game rules into the new screen,
   so the Java button most likely shows the old world's value there. Here the screen starts ON. The parity review
   of this area must look at it.
+
+## Fix round 2
+
+1. Semantics major 1 (Java import on a dedicated server). Evidence found. `dedicated.rs:1252-1253` runs
+   `save_game()` before `native_lifecycle_world_ready()` (:1259), and `load_world` comes earlier (:1030).
+   Inside `load_world`, `world_root` is set at `game.rs:12453` and `native_level_opened` fires at :12621, so
+   `native_level_load("minecraft:overworld")` fires after the folder is known and before the save. Fix: new hook
+   `level_load` (API 134); `bmh_settings::on_level_load` reads `game_rules.dat` when `rules.txt` is missing and
+   keeps the result in `PENDING_IMPORT`; `open_world` takes it for the same folder, else reads as before (the
+   single-player path is the same code, so it works too). Not run in a game.
+2. Semantics major 2 (`/bmh rule` level). Evidence found: `native_server.rs:179-180`, `:1488-1491`. Fix:
+   `run_rule_command` in `bmh_settings.rs` answers "Unknown or incomplete command" (red) when
+   `!logic::may_run_rule(permission)` (`logic/src/settings.rs`, tested for 0, 1, 2, 4). HOOKS.md is corrected.
+   The amulet's `COMMAND_LEVEL` is now 0 (`logic/src/amulet.rs`), so the root is level 0 and every player
+   reaches the hook; the settings branch refuses below 2 by itself.
+3. Semantics minor 3 (console). A host hook exists (`native_perform_console_command`, API 99). New hook
+   `perform_console_command` calls `on_perform_console_command`, which runs the same function with no level.
+4. Parity minor 1 (Re-Create): not fixed. The host gives the screen no Re-Create flag: `Mode::Create` has no such
+   field, and `options.pack_dir` is a temp copy of the old world's `datapacks` (`for_recreate`, datapack.rs:382),
+   set on a normal Create too, and None when the old world has no data pack. The old world's folder is not known
+   to a hook. Left as a difference: a re-created world starts with the choice ON.
+5. Parity minor 2 (Java rules imported once): behaviour kept. Written as difference 0 above.

@@ -185,7 +185,8 @@ does not exist):
    Reason: no fluid height helper. GAPS.md A2 lets the sky rules be the mod's.
 6. A3, double use: the use of the same click is dropped when it comes in the same tick as the taken use on a
    block, or the tick after (GAPS.md A3: "drop a use_item in the same tick").
-7. A5, `/bmh point` is for operators of level 2; Java's is for every player. Reason: Horizon checks one level for
+7. (Replaced in settings fix round 2: `/bmh point` is level 0 again, as in Java, and `/bmh rule` refuses a player
+   below level 2 inside the settings area. The text below is the old state.) A5, `/bmh point` is for operators of level 2; Java's is for every player. Reason: Horizon checks one level for
    the whole `/bmh` root, the lowest of its usages, so a level 0 usage would open `/bmh rule` to everyone (step 3).
    The screens use mod messages and need no command. Text for GAPS.md row A5: "`/bmh point` needs operator level
    2, not level 0. Horizon gives the whole `/bmh` root the lowest level of its usages and checks only that level
@@ -235,8 +236,8 @@ does not exist):
 12. `advancement grant` from `level_tick_post` shows the toast (GAPS.md question 8).
 13. `native_net_send_to_player` from `use_item_on` reaches the owner's window (the screen opens), and
     `native_net_send_to_server` from `frame` reaches `net_from_client` (the save lands).
-14. `/bmh point save ~ ~ ~ Home` as an operator, standing on a bed: it saves the bed's point. A player under level 2
-    does not see `/bmh point` and cannot run `/bmh rule`.
+14. `/bmh point save ~ ~ ~ Home` as any player, standing on a bed: it saves the bed's point (level 0 since settings
+    fix round 2). A player under level 2 cannot run `/bmh rule`: he gets "Unknown or incomplete command".
 15. The tooltip shows the four lines after the name, the first in amethyst, the others grey; the item bar is
     amethyst and always shown.
 16. A Java world with BMH points: the points show in the list after the first open in Horizon. To make such a

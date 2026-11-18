@@ -632,8 +632,8 @@ pub(super) fn on_net_from_client(
     change(game, &who, wanted);
 }
 
-// A5: register `/bmh point` (AmuletPointCommand.java:43-55), at the level of `/bmh rule`: see
-// `bmh_logic::amulet::COMMAND_LEVEL`.
+// A5: register `/bmh point` (AmuletPointCommand.java:43-55), at level 0 as in Java. The settings area
+// refuses `/bmh rule` below level 2 by itself: see `bmh_logic::amulet::COMMAND_LEVEL`.
 pub(super) fn on_register_commands(
     game: &mut crate::game::Game<'_>,
     commands: &mut Vec<horizon_client::mod_api::NativeCommand>,
