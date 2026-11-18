@@ -400,8 +400,8 @@ Open, in order:
 
 a. The Totem of Eternity save (t1 to t5). `living_death` is never called for the single-player owner (callers:
    `creatures.rs:1569` for mobs, `guest_die` for LAN guests), and for a LAN guest a cancel may leave the body's dead
-   flag set (not tested). This needs a Horizon change. The owner has to decide: inject into `guest_die` (breaks
-   D8), ask Horizon for a fix or a hook, or accept the difference.
+   flag set (not tested). This needs a Horizon change. The owner decided on 2026-11-18: accept the difference for now (GAPS.md T2).
+   A Horizon hook for the owner's death would close it. t1 to t5 stay red until then.
 b. New after wave 4. The flakes: w1c (capture cadence under a full load; the game agent already lowered its own new threshold from 5 to 3 black frames before the first commit, and a full run then saw 2) and the ritual checks s2, s4, s5, s6 (failed
    once in one full run). One frame of the level-loading screen still shows before the black. Re-Create gives every
    rule ON. No tool runs a dedicated server, so the Java rules import on a dedicated server and the console `/bmh rule`
@@ -443,7 +443,7 @@ window. Stop when the week passes 70 % (the owner raised it from 40 % for this r
 
 Waves left, in this order. The procedure of each step is in the skill `horizon-port-area`.
 
-- Next, in this order: the owner's decision on the totem save (open item a); then `HOOKS.md` and `GAPS.md` up to date
+- Next, in this order (the totem save is an accepted gap since 2026-11-18, open item a): `HOOKS.md` and `GAPS.md` up to date
   (items d and e); then one full `sh horizon/tools/test-slice.sh`; then the questions of item f.
 
 One wave, six steps:
