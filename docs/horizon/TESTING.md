@@ -105,6 +105,18 @@ Facts the test uses, and where they come from:
 | m1 | A rule at false, `quit`, a second launch: the rule is still false. | Rules survive a restart. | |
 | m2 | A hand edited config (3000, 999999, 99) before the second launch: a death uses the defaults (23333 blocks). | Out of range values give the key's default. | |
 | m3 | After m2: the file holds 5000, 60000 and 5, still has its three `#Range` lines, and the log has exactly one line "The config file held a value outside its range". | The mod writes the corrected file back once, as NeoForge's config does. | A key that is missing from the file (the mod leaves it alone, as before). |
+| p1 to p4 | `gamerule reduced_debug_info` in survival (true), creative (false), survival again (true), `/bmh rule remove_coordinates_in_survival false` (false), the rule on again (true); no "did not run" line. | The C14 forcing runs and restores. F3 reads this rule (area log). | What F3 draws: kept screenshots `docs/horizon/log/eternal-shots/c14-f3-*.png` are hand evidence. |
+| p5 to p10 | Six Eternal Items, a Dormant Totem and an amulet, `/kill`: only the last two fall; `bmh_eternal_kept` is in a player file while dead and not after the respawn; the six are back once; the bundle keeps its stone; a second death gives no second copy. | C11 in the game, also `give_stack` from `player_respawned`. | A full inventory at the respawn, a Vanishing curse, `keep_inventory`. |
+| p11, p12 | A restart while dead; a change of world while dead (world B gets nothing, world A gives the six once). | Check 4 and check 15 of the eternal log. | Two players. |
+| p13 to p15 | A second Eternal Sword stays on the ground; its `Health` is 32767s; after `tick sprint 6000` it is still there and `Age` is negative. | E11 and E10. | Fire, lava, cactus, TNT, lightning (a hand check). |
+| p16 to p18 | An Ender Chest put in the bundle comes out; a right click with a loaded bundle drops its stacks; an empty bundle drops nothing. | E12 for a bundle in a player slot. | A sword in a bundle (the game's bundle does not take it by clicks), a bundle in a chest or on the cursor, the off hand. |
+| p19, p20 | A bed, night, health 16, sleep: Haste II and Resistance II are on; with `food_and_health_regen_on_wake_up` false none. | C13 (effects). | The food values, leaving the bed by hand. |
+| q1, q2 | Night, clear, open sky: the action bar, the log line, two charges left on the stack, the advancement `navigation/stargazer`. | A2 in the game: the sky rules and `native_level` work in `use_item`. | The sound, the sky drawing, the Nether. |
+| q3 to q6 | Rain, day, blindness, a roof: the four refusal messages. | A2 refusals in the Java order. | The dimension refusal, eyes in water. |
+| q7, q8 | Three readings, then "No starlight left tonight."; the next night refills to 3. | A4 charges. | The cooldown sweep. |
+| q9 to q11 | Sneak and use on a bed and on a lodestone opens the mod screen; typing Camp and Enter saves ("Point saved: Camp"). | A3, A5, A6. | The look (kept screenshots `docs/horizon/log/amulet-shots/`). |
+| q12 to q14 | `/bmh point save` twice inside one second (the second is ignored); 20 blocks away ("Stand next to"); no amulet in hand. | The server checks of `AmuletPointCommand`. | The same through the screen's own message. |
+| q15, q16 | After a death and after a restart the next reading names the point Camp. | A5 persistence (attachment with `copy_on_death`). | A LAN guest, a Java world import. |
 
 ## SKIPs the test has
 

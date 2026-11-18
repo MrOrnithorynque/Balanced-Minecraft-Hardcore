@@ -64,7 +64,7 @@ State of the review at the time of writing (check LOG.md "Resume here", it is th
 
 ## The areas, the files and what each needs
 
-The area names and files come from `ARCHITECTURE.md` ("Areas, and who owns which file"). Done: respawn, settings, journey (merged, see LOG.md step 3). Left: homecoming, eternal, totem, ritual, tools, amulet, sky.
+The area names and files come from `ARCHITECTURE.md` ("Areas, and who owns which file"). Done: respawn, settings, journey (merged, see LOG.md step 3), eternal and amulet (merged, reviewed, fixed and checked in the game, see LOG.md step 5). Left: homecoming, sky, totem, ritual, tools.
 
 The GAPS rows are my reading of ARCHITECTURE.md and GAPS.md (not stated in one place): confirm them against both files before you write a prompt. The audit file for a row is named in the Source column of GAPS.md section 2 (`v1` is `verify-1.md`, `a1` is `1-respawn-server.md`).
 

@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g h i k l n m j), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q m j), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -17,7 +17,11 @@
 #   screenshots; e rule off; f creative; g advancement; h the nine items (one screenshot);
 #   i a respawn point that does not work; k the Create New World button and two worlds; l the settings page
 #   and the config file; n the journey (message rule, held input, immediate respawn); m a rule and a config
-#   across a restart (it quits and relaunches); j dead when the game closes (it quits and relaunches).
+#   across a restart (it quits and relaunches); p the eternal area (reduced_debug_info, the six items after a death, a
+#   restart while dead, a change of world while dead, the copy rule, the item on the ground, the bundle, the wake-up
+#   reward; it quits and relaunches once); q the amulet (the star reading, the refusals, the charges, the naming
+#   screens, the points across a death and a restart, the server checks; it quits and relaunches once);
+#   j dead when the game closes (it quits and relaunches).
 # Environment: BMH_HORIZON_CACHE (default ~/Library/Caches/bmh-horizon).
 # Exit codes: 0 all checks passed (SKIPs allowed), 1 a check failed, 77 no prepared files,
 #   64 a bad option, 3 the game did not start.
@@ -1234,6 +1238,605 @@ if wanted n; then
         fail n5 "immediate_respawn true: ${res%% *} blocks from the point, expected $expected; new WARN lines $warns: $(grep 'WARN.*BalancedMcHardcoreMain' "$(logfile)" | tail -n 1 | sed 's/^[^]]*\]: //')"
     fi
     ctl wait 40 >/dev/null
+fi
+
+# ---- p. The eternal area: C14, C11, C13, E10, E11, E12 ---------------------------------------------------
+# Game checks 2 (2026-11-18). The hand run of the same flows is in docs/horizon/log/game-checks-2.md. The F3
+# screen is a hand check (kept screenshots in docs/horizon/log/eternal-shots/): here the check reads the rule
+# that the F3 screen reads (reduced_debug_info). Difficulty is peaceful inside p and q (a zombie killed the
+# player once) and goes back to normal at the end.
+
+# inv_count ID: how many of an item the player carries (0 when none).
+inv_count() {
+    jget "$(ctl inventory)" 'd["counts"].get("'"$1"'", 0)'
+}
+# inv_slot ID: the first slot (hotbar, then main) that holds an item. Empty when none.
+inv_slot() {
+    jget "$(ctl inventory)" '([s["slot"] for k in ("hotbar", "main") for s in d.get(k, []) if s.get("item") == "'"$1"'"] or [""])[0]'
+}
+# inv_comp ID: the components text of the first stack of an item.
+inv_comp() {
+    jget "$(ctl inventory)" '([s.get("components", "") for k in ("hotbar", "main") for s in d.get(k, []) if s.get("item") == "'"$1"'"] or [""])[0]'
+}
+# daytime: the time of day in ticks, from "time_of_day" in the "time" object of state ("time query daytime" does not exist on 26.3: it
+# wants a timeline).
+daytime() {
+    python3 -c 'import sys; v = sys.argv[1]; print(int(float(v)) % 24000 if v else "")' "$(jget "$(state)" 'd["time"]["time_of_day"]')"
+}
+# sleep_through: interact with the bed at X Y Z, then wait until the night is skipped (up to 300 ticks).
+sleep_through() {
+    ctl interact "$1" "$2" "$3" >/dev/null
+    k=0
+    while [ "$k" -lt 15 ]; do
+        ctl wait 20 >/dev/null
+        dtv="$(daytime)"
+        [ -n "$dtv" ] && [ "$dtv" -lt 5000 ] && break
+        k=$((k + 1))
+    done
+    ctl wait 20 >/dev/null
+}
+# six_once: "yes" when each of the six Eternal Items is carried exactly once.
+six_once() {
+    jget "$(ctl inventory)" '"yes" if all(d["counts"].get(i, 0) == 1 for i in ("bmh:eternal_sword", "bmh:eternal_axe", "bmh:eternal_pickaxe", "bmh:eternal_bundle", "bmh:totem_of_eternity", "bmh:sleeping_totem")) else str(d["counts"])'
+}
+# kept_key_on_disk: "True" when a player file of the scratch world holds the key of the kept stacks.
+kept_key_on_disk() {
+    python3 - "$GAMEDIR/saves/$WORLD" <<'EOF'
+import sys, os, gzip
+found = False
+for root, _, files in os.walk(sys.argv[1]):
+    for f in files:
+        if f.endswith(".dat") and "players" in root:
+            try:
+                if b"bmh_eternal_kept" in gzip.open(os.path.join(root, f)).read():
+                    found = True
+            except Exception:
+                pass
+print(found)
+EOF
+}
+# center N: the middle of block N on its axis (a negative block N is not N + 0.5 written as text).
+center() { python3 -c 'import sys; print(int(sys.argv[1]) + 0.5)' "$1"; }
+# open_sky: clear a column of air above the player, so the amulet sees the sky. Sets PX PY PZ (the block).
+open_sky() {
+    st="$(state)"
+    PX="$(jget "$st" 'd["player"]["block_pos"][0]')"
+    PY="$(jget "$st" 'd["player"]["block_pos"][1]')"
+    PZ="$(jget "$st" 'd["player"]["block_pos"][2]')"
+    ctl command "fill $((PX - 1)) $((PY + 1)) $((PZ - 1)) $((PX + 1)) $((PY + 40)) $((PZ + 1)) minecraft:air" >/dev/null
+    ctl wait 40 >/dev/null
+}
+# platform: a stone floor and an air box round the player, a bed two blocks east (foot at PX+2, head at PX+3),
+# the player on its block, looking at the bed. Sets PX PY PZ.
+platform() {
+    st="$(state)"
+    PX="$(jget "$st" 'd["player"]["block_pos"][0]')"
+    PY="$(jget "$st" 'd["player"]["block_pos"][1]')"
+    PZ="$(jget "$st" 'd["player"]["block_pos"][2]')"
+    ctl command "fill $((PX - 2)) $((PY - 1)) $((PZ - 2)) $((PX + 5)) $((PY - 1)) $((PZ + 2)) minecraft:stone" >/dev/null
+    ctl command "fill $((PX - 2)) $PY $((PZ - 2)) $((PX + 5)) $((PY + 4)) $((PZ + 2)) minecraft:air" >/dev/null
+    ctl command "setblock $((PX + 2)) $PY $PZ minecraft:white_bed[part=foot,facing=east]" >/dev/null
+    ctl command "setblock $((PX + 3)) $PY $PZ minecraft:white_bed[part=head,facing=east]" >/dev/null
+    ctl command "tp @s $(center "$PX") $PY $(center "$PZ")" >/dev/null
+    ctl wait 20 >/dev/null
+    ctl look -90 35 >/dev/null
+    ctl wait 5 >/dev/null
+}
+
+P_ENT=""
+P_DAT=""
+p_hook() {
+    P_ENT="$(ctl entities 12 item)"
+    ctl save >/dev/null
+    P_DAT="$(kept_key_on_disk)"
+}
+
+if wanted p; then
+    echo "--- p. eternal: reduced_debug_info, the six items after death, the copy rule, the item on the ground, the bundle, the wake-up reward"
+    ensure_point
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "time set 6000" >/dev/null
+    ctl command "clear @s" >/dev/null
+    # The world saves reduced_debug_info when the mod forces it on, and the mod forgets its value before when a world
+    # opens again (Java does the same, DisableDebugInfo.java:21-24). A world that earlier scenarios saved and opened
+    # again starts with the rule true, so p2 and p3 would read a value that is not the mod's. Set it by hand, in
+    # creative, as the player must.
+    ctl command "gamemode creative" >/dev/null
+    ctl wait 30 >/dev/null
+    ctl command "gamerule reduced_debug_info false" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "bmh rule remove_coordinates_in_survival true" >/dev/null
+    warn_before_p="$(count_log 'did not run')"
+    ctl wait 30 >/dev/null
+    # C14: the rule that F3 reads.
+    rdi() { jget "$(ctl command 'gamerule reduced_debug_info')" 'd["chat"][0].split()[-1]'; }
+    r1="$(rdi)"
+    ctl command "gamemode creative" >/dev/null
+    ctl wait 20 >/dev/null
+    r2="$(rdi)"
+    ctl command "gamemode survival" >/dev/null
+    ctl wait 20 >/dev/null
+    r3="$(rdi)"
+    ctl command "bmh rule remove_coordinates_in_survival false" >/dev/null
+    ctl wait 20 >/dev/null
+    r4="$(rdi)"
+    ctl command "bmh rule remove_coordinates_in_survival true" >/dev/null
+    ctl wait 20 >/dev/null
+    r5="$(rdi)"
+    if [ "$r1" = true ] && [ "$r3" = true ] && [ "$r5" = true ]; then
+        pass p1 "survival, rule on: reduced_debug_info is true (F3 hides the coordinates: kept screenshot eternal-shots/c14-f3-survival.png)"
+    else
+        fail p1 "survival with the BMH rule on: reduced_debug_info is '$r1', '$r3' after creative, '$r5' after the rule came back (expected true)"
+    fi
+    if [ "$r2" = false ]; then
+        pass p2 "creative: reduced_debug_info is false (F3 shows the coordinates: eternal-shots/c14-f3-creative.png)"
+    else
+        fail p2 "creative: reduced_debug_info is '$r2' (expected false)"
+    fi
+    if [ "$r4" = false ]; then
+        pass p3 "bmh rule remove_coordinates_in_survival false: reduced_debug_info is false (eternal-shots/c14-f3-ruleoff.png)"
+    else
+        fail p3 "the rule is off and reduced_debug_info is '$r4' (expected false)"
+    fi
+    if [ "$(count_log 'did not run')" -eq "$warn_before_p" ]; then
+        pass p4 "no 'did not run' warning of the C14 command"
+    else
+        fail p4 "the C14 command did not run: $(grep -m1 'did not run' "$(logfile)" | sed 's/^[^]]*\]: //')"
+    fi
+
+    # C11: six Eternal Items, a Dormant Totem and an amulet, then a death.
+    ctl command 'give @s bmh:eternal_bundle[bundle_contents=[{id:"minecraft:stone",count:1}]]' >/dev/null
+    for id in bmh:eternal_sword bmh:eternal_axe bmh:eternal_pickaxe bmh:totem_of_eternity bmh:sleeping_totem bmh:dormant_totem bmh:navigator_amulet; do
+        ctl give "$id" 1 >/dev/null
+    done
+    ctl wait 40 >/dev/null
+    p_six0="$(six_once)"
+    DR_HOOK=p_hook
+    if death_and_respawn ctl 1; then
+        DR_HOOK=""
+        if printf '%s' "$P_ENT" | grep -q 'bmh:navigator_amulet' && printf '%s' "$P_ENT" | grep -q 'bmh:dormant_totem' && ! printf '%s' "$P_ENT" | grep -Eq 'bmh:(eternal_|totem_of_eternity|sleeping_totem)'; then
+            pass p5 "at the death only the amulet and the Dormant Totem fall; no Eternal Item lies on the ground"
+        else
+            fail p5 "items on the ground at the death: $(printf '%s' "$P_ENT" | head -c 400)"
+        fi
+        if [ "$P_DAT" = True ]; then
+            pass p6 "while dead the player file holds bmh_eternal_kept"
+        else
+            fail p6 "while dead no player file holds bmh_eternal_kept ($P_DAT)"
+        fi
+        ctl save >/dev/null
+        if [ "$p_six0" = yes ] && [ "$(six_once)" = yes ] && [ "$(inv_count bmh:dormant_totem)" = 0 ] && [ "$(inv_count bmh:navigator_amulet)" = 0 ]; then
+            pass p7 "after the respawn the six Eternal Items are back, once each; the Dormant Totem and the amulet are not"
+        else
+            fail p7 "after the respawn: $(six_once) (before the death: $p_six0)"
+        fi
+        if printf '%s' "$(inv_comp bmh:eternal_bundle)" | grep -q 'minecraft:stone'; then
+            pass p8 "the bundle still holds its stone"
+        else
+            fail p8 "the bundle after the respawn: $(inv_comp bmh:eternal_bundle)"
+        fi
+        if [ "$(kept_key_on_disk)" = False ]; then
+            pass p9 "after the respawn no player file holds bmh_eternal_kept"
+        else
+            fail p9 "the key bmh_eternal_kept is still in a player file after the respawn"
+        fi
+        if death_and_respawn ctl 1 && [ "$(six_once)" = yes ]; then
+            pass p10 "a second death gives no second copy of any Eternal Item"
+        else
+            fail p10 "after a second death: $(six_once) $DR_NOTE"
+        fi
+    else
+        DR_HOOK=""
+        fail p5 "no respawn happened: $DR_NOTE"
+    fi
+
+    # C11, a restart while dead.
+    seq="$(jget "$(ctl events)" 'd["last"]')"; [ -n "$seq" ] || seq=0
+    ctl command "kill @s" >/dev/null
+    if ctl wait-for event death --since "$seq" --timeout 30 >/dev/null; then
+        sleep 2
+        b_land="$(count_log 'Landing spot ready')"
+        ctl quit >/dev/null
+        n=0
+        while [ -n "$GAMEPID" ] && kill -0 "$GAMEPID" 2>/dev/null && [ "$n" -lt 60 ]; do sleep 1; n=$((n + 1)); done
+        launch_game
+        if [ "$launch_status" -ne 0 ]; then
+            fail p11 "the second launch failed (status $launch_status)"
+        elif ! ctl wait-for screen dead --timeout 300 >/dev/null; then
+            fail p11 "the reopened world shows no death screen"
+        else
+            if [ "$(count_log 'Landing spot ready')" -lt "$b_land" ]; then b_land=0; fi
+            wait_log 'Landing spot ready' "$b_land" 150
+            seq="$(jget "$(ctl events)" 'd["last"]')"; [ -n "$seq" ] || seq=0
+            ctl respawn >/dev/null
+            ctl wait-for event respawn --since "$seq" --timeout 90 >/dev/null
+            ctl wait 40 >/dev/null
+            ctl save >/dev/null
+            if [ "$(six_once)" = yes ] && [ "$(kept_key_on_disk)" = False ]; then
+                pass p11 "dead when the game closed: after the restart the six come back once and the key is gone from the file"
+            else
+                fail p11 "after a restart while dead: $(six_once), key on disk: $(kept_key_on_disk)"
+            fi
+        fi
+    else
+        fail p11 "no death event within 30 s"
+    fi
+
+    # C11, a change of world while dead (check 15 of the area log).
+    ctl command "difficulty peaceful" >/dev/null
+    seq="$(jget "$(ctl events)" 'd["last"]')"; [ -n "$seq" ] || seq=0
+    ctl command "kill @s" >/dev/null
+    if ctl wait-for event death --since "$seq" --timeout 30 >/dev/null; then
+        sleep 3
+        # The first click on the Title Screen button did nothing in a hand run: click again until the title shows.
+        n=0
+        while [ "$(jget "$(state)" 'd.get("screen")')" != title ] && [ "$n" -lt 12 ]; do
+            ctl click title-screen >/dev/null 2>&1
+            sleep 5
+            n=$((n + 1))
+        done
+        ctl open bmhpb 5 >/dev/null
+        sleep 8
+        ctl wait-for screen playing --timeout 200 >/dev/null
+        ctl wait-for loaded --timeout 200 >/dev/null
+        sleep 3
+        ctl command "gamemode survival" >/dev/null
+        b_inv="$(jget "$(ctl inventory)" 'd["counts"]')"
+        b_land="$(count_log 'Landing spot ready')"
+        # World B was made by "open", so its rules follow the Create New World choice file (k leaves it OFF): no
+        # distant respawn is promised there, so do not wait for a landing line.
+        if death_and_respawn ctl 0; then
+            b_after="$(jget "$(ctl inventory)" 'd["counts"]')"
+            ctl wait-for screen playing --timeout 60 >/dev/null
+            ctl pause >/dev/null
+            ctl click save-and-quit-to-title >/dev/null
+            n=0
+            while [ "$(jget "$(state)" 'd.get("screen")')" != title ] && [ "$n" -lt 60 ]; do sleep 2; n=$((n + 1)); done
+            sleep 2
+            b_land="$(count_log 'Landing spot ready')"
+            ctl open "$WORLD" "$SEED" >/dev/null
+            if ctl wait-for screen dead --timeout 200 >/dev/null; then
+                wait_log 'Landing spot ready' "$b_land" 150
+                seq="$(jget "$(ctl events)" 'd["last"]')"; [ -n "$seq" ] || seq=0
+                ctl respawn >/dev/null
+                ctl wait-for event respawn --since "$seq" --timeout 90 >/dev/null
+                ctl wait 40 >/dev/null
+                ctl save >/dev/null
+                if [ "$b_inv" = "{}" ] && [ "$b_after" = "{}" ] && [ "$(six_once)" = yes ] && [ "$(kept_key_on_disk)" = False ]; then
+                    pass p12 "change of world while dead: world B gave nothing ($b_after); world A gave the six once and cleared the key"
+                else
+                    fail p12 "change of world while dead: world B before '$b_inv', after '$b_after'; world A: $(six_once), key on disk $(kept_key_on_disk)"
+                fi
+            else
+                fail p12 "world A did not show the death screen after it was opened again"
+            fi
+        else
+            fail p12 "no respawn in world B: $DR_NOTE"
+        fi
+    else
+        fail p12 "no death event in world A"
+    fi
+
+    # E11, E10: a second Eternal Sword. A failed step above may leave the player dead: respawn first.
+    if [ "$(jget "$(state)" 'd.get("screen")')" = dead ]; then ctl respawn >/dev/null; ctl wait 60 >/dev/null; fi
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command 'kill @e[type=item]' >/dev/null
+    ctl command "tag @e[type=item] remove x" >/dev/null
+    ctl give bmh:eternal_sword 1 >/dev/null
+    ctl wait 120 >/dev/null
+    ent="$(ctl entities 12 item)"
+    if [ "$(inv_count bmh:eternal_sword)" = 1 ] && printf '%s' "$ent" | grep -q 'bmh:eternal_sword'; then
+        pass p13 "E11: a second Eternal Sword lies on the ground and is not picked up (120 ticks)"
+    else
+        fail p13 "E11: sword count $(inv_count bmh:eternal_sword); items near: $(printf '%s' "$ent" | head -c 300)"
+    fi
+    data="$(ctl command 'data get entity @e[type=item,sort=nearest,limit=1]')"
+    if printf '%s' "$data" | grep -q 'Health: 32767s' && printf '%s' "$data" | grep -q 'bmh:eternal_sword'; then
+        pass p14 "E10: the dropped sword has Health 32767s"
+    else
+        fail p14 "E10: $(printf '%s' "$data" | head -c 400)"
+    fi
+    ctl command "tag @e[type=item,sort=nearest,limit=1] add x" >/dev/null
+    ctl command "tick sprint 6000" >/dev/null
+    n=0
+    age=""
+    while [ "$n" -lt 60 ]; do
+        sleep 2
+        n=$((n + 1))
+        data="$(ctl command 'data get entity @e[type=item,tag=x,limit=1]')"
+        age="$(printf '%s' "$data" | sed -n 's/.*Age: \(-\{0,1\}[0-9]*\)s.*/\1/p')"
+        [ -n "$age" ] && [ "$age" -lt 0 ] && break
+    done
+    if printf '%s' "$data" | grep -q 'bmh:eternal_sword' && [ -n "$age" ] && [ "$age" -lt 0 ]; then
+        pass p15 "E10: after tick sprint 6000 the sword is still there and its Age went back to $age"
+    else
+        fail p15 "E10 after 6000 ticks: $(printf '%s' "$data" | head -c 300)"
+    fi
+    ctl command 'kill @e[type=item]' >/dev/null
+
+    # E12: the bundle.
+    ctl command "time set 6000" >/dev/null
+    ctl give dirt 4 >/dev/null
+    ctl give ender_chest 1 >/dev/null
+    ctl wait 10 >/dev/null
+    bslot="$(inv_slot bmh:eternal_bundle)"
+    eslot="$(inv_slot minecraft:ender_chest)"
+    ctl open-inventory >/dev/null
+    ctl wait 5 >/dev/null
+    ctl click-slot "$bslot" >/dev/null
+    ctl click-slot "$eslot" >/dev/null
+    ctl click-slot "$bslot" >/dev/null
+    ctl wait 40 >/dev/null
+    ctl close >/dev/null
+    if [ "$(inv_count minecraft:ender_chest)" = 1 ] && ! printf '%s' "$(inv_comp bmh:eternal_bundle)" | grep -q 'ender_chest'; then
+        pass p16 "E12: an Ender Chest put into the bundle comes out again within 40 ticks"
+    else
+        fail p16 "E12: ender chests carried $(inv_count minecraft:ender_chest); the bundle holds $(inv_comp bmh:eternal_bundle)"
+    fi
+    ctl command 'kill @e[type=item]' >/dev/null
+    ctl select bmh:eternal_bundle >/dev/null
+    ctl use-item >/dev/null
+    ctl wait 15 >/dev/null
+    ent="$(ctl entities 8 item)"
+    if printf '%s' "$ent" | grep -q 'minecraft:stone' && ! printf '%s' "$(inv_comp bmh:eternal_bundle)" | grep -q 'stone'; then
+        pass p17 "E12: a right click with a loaded bundle drops its stacks on the ground and empties it"
+    else
+        fail p17 "E12: items near after the click: $(printf '%s' "$ent" | head -c 300); bundle: $(inv_comp bmh:eternal_bundle)"
+    fi
+    ctl command 'kill @e[type=item]' >/dev/null
+    ctl use-item >/dev/null
+    ctl wait 15 >/dev/null
+    if [ "$(jget "$(ctl entities 8 item)" 'len(d["entities"])')" = 0 ]; then
+        pass p18 "E12: a right click with the empty bundle drops nothing"
+    else
+        fail p18 "E12: the empty bundle dropped something: $(ctl entities 8 item | head -c 300)"
+    fi
+
+    # C13: the wake-up reward.
+    ctl command "clear @s minecraft:ender_chest" >/dev/null
+    ctl command "clear @s minecraft:dirt" >/dev/null
+    platform
+    ctl command "effect clear @s" >/dev/null
+    ctl command "time set 13000" >/dev/null
+    ctl command "damage @s 4" >/dev/null
+    ctl wait 5 >/dev/null
+    h0="$(health_of)"
+    sleep_through $((PX + 2)) "$PY" "$PZ"
+    eff="$(ctl effects)"
+    h1="$(health_of)"
+    if printf '%s' "$eff" | grep -q '"id":"haste"' && printf '%s' "$eff" | grep -q '"id":"resistance"' \
+        && [ "$(jget "$eff" '[e["amplifier"] for e in d["effects"]["active"] if e["id"] in ("haste","resistance")]')" = "[1, 1]" ] \
+        && [ "$(python3 -c 'import sys; print(float(sys.argv[2]) > float(sys.argv[1]))' "${h0:-0}" "${h1:-0}")" = True ]; then
+        pass p19 "C13: after the sleep health went $h0 to $h1 and Haste II and Resistance II are on"
+    else
+        fail p19 "C13: health $h0 then $h1; effects: $(printf '%s' "$eff" | head -c 300)"
+    fi
+    ctl command "bmh rule food_and_health_regen_on_wake_up false" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl command "time set 13000" >/dev/null
+    ctl command "tp @s $(center "$PX") $PY $(center "$PZ")" >/dev/null
+    ctl wait 20 >/dev/null
+    ctl look -90 35 >/dev/null
+    ctl wait 5 >/dev/null
+    sleep_through $((PX + 2)) "$PY" "$PZ"
+    eff="$(ctl effects)"
+    dt="$(daytime)"
+    slept="$(python3 -c 'import sys; print(int(sys.argv[1]) % 24000 < 5000)' "${dt:-13000}")"
+    if [ "$(jget "$eff" 'len(d["effects"]["active"])')" = 0 ] && [ "$slept" = True ]; then
+        pass p20 "C13: with food_and_health_regen_on_wake_up false the night was slept (day time $dt) and no effect is on"
+    else
+        fail p20 "C13 rule off: day time $dt, effects after the sleep: $(printf '%s' "$eff" | head -c 300)"
+    fi
+    ctl command "bmh rule food_and_health_regen_on_wake_up true" >/dev/null
+    ctl command "time set 6000" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl command "difficulty normal" >/dev/null
+    # Sleeping in the bed moved the respawn point there. The later scenarios (m, j) measure the exile from the point
+    # that ensure_point set, so put a point at the player again.
+    POINT_SET=0
+    ensure_point
+    ctl wait 20 >/dev/null
+fi
+
+# ---- q. The Navigator's Amulet: the reading, the refusals, the points -----------------------------------------
+# amulet_try LABEL: wait out the cooldown, use the amulet, print the action bar.
+amulet_try() {
+    ctl wait 50 >/dev/null
+    ctl use-item >/dev/null
+    ctl wait 4 >/dev/null
+    jget "$(ctl messages 1)" 'd["actionbar"]'
+}
+if wanted q; then
+    echo "--- q. amulet: star reading, refusals, charges, naming screen, points across death and restart, server checks"
+    ensure_point
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl give bmh:navigator_amulet 1 >/dev/null
+    ctl wait 10 >/dev/null
+    ctl select bmh:navigator_amulet >/dev/null
+    ctl look 0 -20 >/dev/null
+    open_sky
+    ctl command "weather clear" >/dev/null
+    ctl command "time set 18000" >/dev/null
+    ctl wait 40 >/dev/null
+    reads_before="$(count_log 'Star reading for')"
+    bar="$(amulet_try)"
+    comp="$(inv_comp bmh:navigator_amulet)"
+    if printf '%s' "$bar" | grep -Eq '^X -?[0-9]+ .+ Y -?[0-9]+ .+ Z -?[0-9]+$' && [ "$(count_log 'Star reading for')" -gt "$reads_before" ] \
+        && printf '%s' "$comp" | grep -q 'bmh_starlight:2' && printf '%s' "$comp" | grep -q 'bmh_reading'; then
+        pass q1 "night, clear, open sky: action bar '$bar', log line, charges 2 left, the reading on the stack"
+    else
+        fail q1 "the star reading: action bar '$bar', log lines +$(( $(count_log 'Star reading for') - reads_before )), stack $comp"
+    fi
+    rv="$(ctl command 'advancement revoke @s only bmh:navigation/stargazer')"
+    if printf '%s' "$rv" | grep -qi 'revoked'; then
+        pass q2 "the advancement navigation/stargazer was granted by the reading"
+    else
+        fail q2 "no advancement navigation/stargazer: $(printf '%s' "$rv" | head -c 200)"
+    fi
+    # The sky refusals, in the order of the Java code. The new amulet has charges, so each message is the refusal.
+    ctl command "weather rain" >/dev/null
+    ctl wait 60 >/dev/null
+    bar="$(amulet_try)"
+    case "$bar" in *clouds*) pass q3 "rain: '$bar'" ;; *) fail q3 "rain: action bar '$bar'" ;; esac
+    ctl command "weather clear" >/dev/null
+    ctl wait 160 >/dev/null
+    ctl command "time set 6000" >/dev/null
+    bar="$(amulet_try)"
+    case "$bar" in *"wait for night"*) pass q4 "day: '$bar'" ;; *) fail q4 "day: action bar '$bar'" ;; esac
+    ctl command "time set 18000" >/dev/null
+    ctl command "effect give @s blindness 60 0 true" >/dev/null
+    bar="$(amulet_try)"
+    ctl command "effect clear @s" >/dev/null
+    case "$bar" in *"open sky"*) pass q5 "blindness: '$bar'" ;; *) fail q5 "blindness: action bar '$bar'" ;; esac
+    ctl command "fill $((PX - 3)) $((PY + 4)) $((PZ - 3)) $((PX + 3)) $((PY + 4)) $((PZ + 3)) minecraft:stone" >/dev/null
+    ctl wait 60 >/dev/null
+    bar="$(amulet_try)"
+    ctl command "fill $((PX - 3)) $((PY + 4)) $((PZ - 3)) $((PX + 3)) $((PY + 4)) $((PZ + 3)) minecraft:air" >/dev/null
+    case "$bar" in *"open sky"*) pass q6 "under a roof: '$bar'" ;; *) fail q6 "under a roof: action bar '$bar'" ;; esac
+    ctl wait 60 >/dev/null
+    # Charges: one is left. Read it, then the next use says there is no starlight; the next night refills.
+    # The Java refill: a night index that differs from the stack's refills it. q4 and q5 changed the time of day
+    # (day, then night again), so the amulet is full here: three readings, then the message.
+    reads_q7=0
+    bar2=""
+    for try in 1 2 3 4 5; do
+        bar2="$(amulet_try)"
+        case "$bar2" in *"No starlight"*) break ;; esac
+        reads_q7=$((reads_q7 + 1))
+    done
+    case "$bar2" in
+        *"No starlight"*)
+            if [ "$reads_q7" -eq 3 ]; then
+                pass q7 "three readings work, then the amulet says: '$bar2'"
+            else
+                fail q7 "$reads_q7 readings before '$bar2' (expected 3, one for each charge)"
+            fi ;;
+        *) fail q7 "after $reads_q7 readings the amulet never said that the starlight is gone: '$bar2'" ;;
+    esac
+    ctl command "time set 42000" >/dev/null
+    ctl wait 40 >/dev/null
+    if printf '%s' "$(inv_comp bmh:navigator_amulet)" | grep -q 'bmh_starlight:3'; then
+        pass q8 "the charges are full again on the next night"
+    else
+        fail q8 "the charges after the next night: $(inv_comp bmh:navigator_amulet)"
+    fi
+    # The naming screens.
+    platform
+    ctl select bmh:navigator_amulet >/dev/null
+    ctl key shift down >/dev/null
+    ctl wait 5 >/dev/null
+    ctl use-item >/dev/null
+    ctl wait 15 >/dev/null
+    if [ "$(jget "$(state)" 'd.get("screen")')" = mod ]; then
+        pass q9 "sneak and use on a bed opens the mod screen (naming screen: kept screenshot amulet-shots/naming-screen-bed.png)"
+    else
+        fail q9 "sneak and use on a bed: screen '$(jget "$(state)" 'd.get("screen")')'"
+    fi
+    ctl type "Camp" >/dev/null
+    ctl wait 5 >/dev/null
+    ctl key enter tap >/dev/null
+    ctl wait 20 >/dev/null
+    bar="$(jget "$(ctl messages 1)" 'd["actionbar"]')"
+    case "$bar" in *"Point saved: Camp"*) pass q10 "Save: '$bar'" ;; *) fail q10 "Save: action bar '$bar', screen '$(jget "$(state)" 'd.get("screen")')'" ;; esac
+    ctl key shift up >/dev/null
+    ctl command "setblock $((PX + 2)) $PY $((PZ + 1)) minecraft:lodestone" >/dev/null
+    ctl wait 5 >/dev/null
+    for pitch in 8 4 12 16 20; do
+        ctl look -63 "$pitch" >/dev/null
+        ctl wait 3 >/dev/null
+        [ "$(jget "$(ctl looking-at)" 'd["block"]["block"] if d.get("block") else None')" = minecraft:lodestone ] && break
+    done
+    ctl key shift down >/dev/null
+    ctl wait 10 >/dev/null
+    ctl use-item >/dev/null
+    ctl wait 15 >/dev/null
+    lode_screen="$(jget "$(state)" 'd.get("screen")')"
+    ctl key esc tap >/dev/null
+    ctl key shift up >/dev/null
+    ctl wait 10 >/dev/null
+    if [ "$lode_screen" = mod ]; then
+        pass q11 "sneak and use on a lodestone opens the mod screen (amulet-shots/naming-screen-lodestone.png)"
+    else
+        fail q11 "sneak and use on a lodestone (looking at '$(jget "$(ctl looking-at)" 'd["block"]["block"] if d.get("block") else None')'): screen '$lode_screen'"
+    fi
+    # Server checks by typed command (the screens send the same request).
+    bar_a="$(jget "$(ctl messages 1)" 'd["actionbar"]')"
+    ctl command "bmh point save $((PX + 2)) $PY $PZ One" >/dev/null
+    ctl command "bmh point save $((PX + 2)) $PY $PZ Two" >/dev/null
+    ctl wait 3 >/dev/null
+    bar_b="$(jget "$(ctl messages 1)" 'd["actionbar"]')"
+    case "$bar_b" in
+        *"renamed: One"*) pass q12 "two changes inside one second: only the first took effect ('$bar_b')" ;;
+        *) fail q12 "two changes inside one second: action bar '$bar_b' (expected 'Point renamed: One')" ;;
+    esac
+    ctl wait 30 >/dev/null
+    ctl command "tp @s $(center $((PX + 20))) $((PY + 5)) $(center "$PZ")" >/dev/null
+    ctl wait 40 >/dev/null
+    ctl command "bmh point save $((PX + 2)) $PY $PZ Far" >/dev/null
+    ctl wait 3 >/dev/null
+    bar_c="$(jget "$(ctl messages 1)" 'd["actionbar"]')"
+    case "$bar_c" in *"Stand next to"*) pass q13 "20 blocks away: '$bar_c'" ;; *) fail q13 "20 blocks away: action bar '$bar_c'" ;; esac
+    ctl command "tp @s $(center "$PX") $PY $(center "$PZ")" >/dev/null
+    ctl wait 40 >/dev/null
+    ctl select 9 >/dev/null
+    ctl wait 30 >/dev/null
+    ctl command "bmh point save $((PX + 2)) $PY $PZ Hand" >/dev/null
+    ctl wait 3 >/dev/null
+    bar_d="$(jget "$(ctl messages 1)" 'd["actionbar"]')"
+    case "$bar_d" in *"Hold the Navigator"*) pass q14 "no amulet in hand: '$bar_d'" ;; *) fail q14 "no amulet in hand: action bar '$bar_d'" ;; esac
+    ctl select bmh:navigator_amulet >/dev/null
+    # The point survives a death (the amulet itself falls) and a restart: the next reading names it.
+    point_read() {
+        ctl command "clear @s bmh:navigator_amulet" >/dev/null
+        ctl give bmh:navigator_amulet 1 >/dev/null
+        ctl wait 10 >/dev/null
+        ctl select bmh:navigator_amulet >/dev/null
+        ctl look 0 -20 >/dev/null
+        open_sky
+        ctl command "time set 18000" >/dev/null
+        ctl wait 40 >/dev/null
+        amulet_try >/dev/null
+        inv_comp bmh:navigator_amulet
+    }
+    ctl command "gamemode survival" >/dev/null
+    if death_and_respawn ctl 1; then
+        ctl wait-for screen playing --timeout 60 >/dev/null
+        comp="$(point_read)"
+        if printf '%s' "$comp" | grep -q 'names:\["One"'; then
+            pass q15 "after a death the reading names the point (Camp, renamed One by q12): $comp"
+        else
+            fail q15 "after a death the reading does not name the point One: $comp"
+        fi
+    else
+        fail q15 "no respawn: $DR_NOTE"
+    fi
+    ctl save >/dev/null
+    ctl quit >/dev/null
+    n=0
+    while [ -n "$GAMEPID" ] && kill -0 "$GAMEPID" 2>/dev/null && [ "$n" -lt 60 ]; do sleep 1; n=$((n + 1)); done
+    launch_game --wait
+    if [ "$launch_status" -eq 0 ]; then
+        ctl command "difficulty peaceful" >/dev/null
+        ctl command "gamemode survival" >/dev/null
+        ctl wait-for screen playing --timeout 60 >/dev/null
+        comp="$(point_read)"
+        if printf '%s' "$comp" | grep -q 'names:\["One"'; then
+            pass q16 "after a restart the reading names the point (Camp, renamed One by q12): $comp"
+        else
+            fail q16 "after a restart the reading does not name the point One: $comp"
+        fi
+    else
+        fail q16 "the second launch failed (status $launch_status)"
+    fi
+    ctl command "clear @s" >/dev/null
+    ctl command "time set 6000" >/dev/null
+    ctl command "difficulty normal" >/dev/null
 fi
 
 # ---- m. Rules and config across a restart --------------------------------------------------------------

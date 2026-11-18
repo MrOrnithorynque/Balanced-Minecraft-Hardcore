@@ -241,52 +241,85 @@ The binaries were not started: a world needs the prepared game files.
 - `sh horizon/tools/play.sh` starts the built game in a window for a person.
 - The branch has its own `.claude/CLAUDE.md` and two skills (`horizon-build-test`, `horizon-port-area`).
 
+## Step 5. Wave 1: eternal and amulet (2026-11-18, the scheduled session)
+
+Each area: one port agent in its own worktree, two reviewers (parity on Sonnet, use of the host game on Opus), one
+fix agent, then the merge. The counts of the fix round come from the field `round1` of the review files.
+
+| Area | Commit | Review findings | Fix round 1 (`round1`) | Its log |
+|---|---|---|---|---|
+| eternal | 86d2dbd | 1 major, 5 minor | 3 fixed (one in part: the empty bundle), 3 not fixed (listed as differences; one is a content change for the integrator) | `docs/horizon/log/eternal.md` |
+| amulet | c260f94 | 0 major, 5 minor | 4 fixed, 1 not fixed (the command level, kept on purpose: GAPS.md A5) | `docs/horizon/log/amulet.md` |
+
+- The major finding of eternal: the kept Eternal Items waited in a list of the whole process, so a single-player
+  owner could get them in two worlds. Fixed: the saved player data is the source of truth.
+- On the merged tree: 191 unit tests pass and the compile passes.
+- In the game (`docs/horizon/log/game-checks-2.md`): the game agent wrote the scenarios `p` (eternal, 20 checks)
+  and `q` (amulet, 16 checks) in `test-slice.sh`. It changed no file of the mod. The coordinator then ran the full
+  script on that tree: 87 passed, 1 failed, 0 skipped (`~/Library/Caches/bmh-horizon/logs/coordinator-slice-2.log`).
+  The one failure is `n5`, as before.
+- The coordinator opened two of the ten screenshots: `eternal-shots/c14-f3-survival.png` (F3 in survival: no XYZ
+  line, and the chat line says that `reduced_debug_info` is true) and `amulet-shots/naming-screen-bed.png` (the
+  naming screen on a bed, "Point 1 of 5", the amulet in the hand). The other eight are on disk and were not opened
+  by the coordinator.
+- The two things that the owner reported have their checks in the game: F3 hides the coordinates in survival
+  (p1 to p4), and the amulet reads the stars, opens its screens and keeps its points (q1 to q16). The star lines
+  in the sky belong to the sky area, which is not ported.
+
 ## Resume here
 
-State on 2026-11-18, 03:10. Branch `horizon-26.3`, local only (never pushed: the owner did not ask).
+State on 2026-11-18, 08:37. Branch `horizon-26.3`, local only (never pushed: the owner did not ask).
 
-Done: the content mod (loads in the game: nine items with textures, a recipe, the advancement tab, the sounds),
-the skeleton (66 hooks), the area respawn (verified in the game), the areas settings and journey (ported; the
-slice test passes with them; settings had one fix round; not reviewed yet), the test system, the harness of the branch.
+Done: the content mod, the skeleton (66 hooks), the area respawn (verified in the game), the areas settings and
+journey (ported; the slice test passes with them; settings had one fix round; not reviewed yet), the areas eternal
+and amulet (ported, reviewed, one fix round, checked in the game: step 5), the test system (88 checks in
+`test-slice.sh`), the harness of the branch.
 
-The owner played the built game on 2026-11-17 and 2026-11-18 (`play.sh`). His server log shows the Java distance
-formula in the real game: 23 332 blocks with no Eternal Item, 35 555 blocks from his bed with two. He reported:
-F3 shows the coordinates (row C14 of GAPS.md, area eternal, not ported), the amulet does nothing (area amulet,
-not ported), and "many features are missing".
+Left: homecoming, sky, totem, ritual, tools; the open defects of respawn and journey; the review of settings and
+journey.
 
-### The run of 06:00 on 2026-11-18 (the owner's order of 02:49)
+### Why the run of 06:00 on 2026-11-18 stopped
 
-His order, in short: when the usage window is new, start again and finish all that is left; check that every
-feature works; use the right models (many Sonnet agents, Opus where it is needed); start at 06:00.
+Wave 1 is complete. The 5-hour usage window then read 75 %, above the line of 60 %, so the run stopped there.
+The week read 29 % (all models, line 40 %) and 43 % (Fable, line 50 %).
 
-Who has the run. One coordinator only. The lock is a folder:
-`mkdir ~/Library/Caches/bmh-horizon/run-2026-11-18.lock`. If `mkdir` fails, another session has the run: write
-one line and stop. The scheduled task of the desktop app `bmh-horizon-run-0600` fires at
-06:06 and starts a new session: that session takes the lock and is the coordinator of the run. The session "Mod
-port to Horizon Minecraft" (the coordinator since 2026-11-11) does not take the run. Its context is above 300 000
-tokens, and on 2026-11-18 from 02:50 to 03:11 about 45 of its calls cost 29 points of the 5-hour window, with no
-sub-agent at work (earlier, with a small context, a call cost about 0.4 point). So a coordinator keeps its context
-small: agents do the reading, and the run goes to a new session when the context passes 200 000 tokens. The coordinator writes one
-line per step in `~/Library/Caches/bmh-horizon/logs/run-2026-11-18.md`.
+Measured on this run: from 7 % to 34 % of the window for the port, the reviews, the fixes and the merges of two
+areas (eight agents, about 2.3 million sub-agent tokens, about 60 calls of the coordinator). Then from 34 % to
+75 % while the game agent ran (87 minutes, about 376 000 tokens). That agent alone does not explain 41 points.
+Not known: what used the rest. Another session of the owner's account is possible. So read the usage when a long
+agent ends, not only before it starts.
+
+The owner was asked on 2026-11-18 whether the run may start again by itself at each new window. He did not
+answer yet. Until he answers, the run waits for him.
+
+### The next run
+
+Who has the run. One coordinator only, and a new session: the coordinator of this run ended above 220 000 tokens
+of context. The lock is a folder with the date of the run: `mkdir ~/Library/Caches/bmh-horizon/run-<date>.lock`.
+If `mkdir` fails, another session has the run: write one line and stop. The lock of 2026-11-18 stays in the
+cache; its file `owner` says that the run stopped. The prompt of the scheduled task `bmh-horizon-run-0600` names
+the lock of 2026-11-18, so a later firing of that task stops at the lock: give it the new date first. The
+coordinator writes one line per step in `~/Library/Caches/bmh-horizon/logs/run-<date>.md` (this run:
+`run-2026-11-18.md`).
 
 Before the first wave: `git branch --show-current` must print `horizon-26.3` and `git status --short` must be
-empty.
+empty. Run the two gates.
 
 Usage. Read the usage before each wave and after each agent that ran long. Stop cleanly at 60 % of the 5-hour
-window. Stop when the week passes 40 % (all models) or 50 % (Fable). Measured on this run: 21 to 28 points of the
-window per million sub-agent tokens. A wave of two areas with its reviews and game checks is planned at about 50
-points (an estimate, not measured). So the list below needs about four windows. The owner was asked on
-2026-11-18 whether the run may start again by itself at each new window. Until he answers, it stops at 60 % and
-waits for him.
+window. Stop when the week passes 40 % (all models) or 50 % (Fable): the Fable week is at 43 %, so there is
+little room before the owner must say "continue".
 
 Waves, in this order. The procedure of each step is in the skill `horizon-port-area`.
 
-- Wave 1: amulet (Opus; rows A1 to A6; it also sets the default `minecraft:lodestone_tracker` of the amulet from
-  the native hook, see `docs/horizon/log/content.md`) and eternal (Sonnet; rows C11, C13, C14, E10 to E12; C14 is
-  the hidden coordinates of F3 that the owner asked about).
-- Wave 2: homecoming (Sonnet) and sky (Opus). Before it starts, fix the shape of what they read from the amulet
-  in `logic/src/contract.rs` and in HOOKS.md "Contracts".
-- Wave 3: totem (Sonnet), ritual (Sonnet), tools (Sonnet).
+- Wave 2: homecoming (Sonnet) and sky (Opus). Two integrator steps come first:
+  1. How the sky reads the reading. The type `contract::AmuletReading` exists and `bmh_amulet::reading(stack)`
+     reads it from a stack. On the window's game the off hand has a route and the main hand has one only while
+     the first-person hands are drawn (HOOKS.md, "Contracts", the row of the star reading). The proposal on the
+     table: the server sends the reading in a `bmh:amulet` message at the time of the use. Decide it, add the
+     message to `wire.rs` and the send to the amulet area, gate, commit.
+  2. Write `docs/horizon/briefs/area-homecoming.md` and `area-sky.md` from the table of the skill
+     `horizon-port-area`, in the form of `area-amulet.md`.
+- Wave 3: totem (Sonnet), ritual (Sonnet), tools (Sonnet). Write their `area-<area>.md` first.
 - Wave 4: the open defects of respawn and journey (`docs/horizon/log/game-checks-1.md`: check n5, and the frame
   of the arrival world before the black); the review of settings and journey with the two lenses, then the fix.
 - Then: one full `sh horizon/tools/test-slice.sh`, bring `HOOKS.md` and `GAPS.md` up to date with what the game
@@ -296,8 +329,8 @@ One wave, six steps:
 
 1. Port. One agent per area, each in its own worktree, all at the same time. No game in this step: the two gates
    only (`check.sh` has a lock, so the compiles queue by themselves).
-2. Review. Two lenses (parity on Sonnet, use of the host game on Opus) for amulet, eternal, sky, homecoming and
-   totem. One Sonnet reviewer with both lenses for ritual and tools, to save usage.
+2. Review. Two lenses (parity on Sonnet, use of the host game on Opus) for sky, homecoming and totem. One Sonnet
+   reviewer with both lenses for ritual and tools, to save usage. The reviewers read the port agent's worktree.
 3. Fix. One Sonnet agent per area, in the area's worktree.
 4. Merge. The coordinator brings each area into `horizon-26.3` and runs the two gates.
 5. Game. One Sonnet agent with game rights, in the coordinator's tree, after the merges: it builds the game, adds
@@ -306,36 +339,54 @@ One wave, six steps:
 6. Close. The coordinator opens the evidence, runs the full `test-slice.sh`, commits, updates this section and
    reads the usage.
 
-### Done on 2026-11-18 before the run
+The prompts of this run worked as written in `docs/horizon/briefs/` (`port.md` with `area-<area>.md`, `review.md`,
+`game.md`). A fix agent got: the worktree, the two review files, "check the evidence of each finding first", the
+files it may change, and what the coordinator expected for each finding.
 
-- The settings fix is in `horizon-26.3`: commit f1e4803 (the commit ba75fd3 of the session "Fix the Create World
-  button and settings defects", brought in with its own message; the owner said "Oui, fusionne") and commit
-  27fa133 (the coordinator's correction: a visit to Data Packs put the choice back to ON; checks k5e and k5f; see
-  `docs/horizon/log/settings.md`, "The coordinator's check of fix round 1").
-- On that tip, run by the coordinator: 122 unit tests pass, the compile passes, and the full
-  `sh horizon/tools/test-slice.sh --no-build` gives 51 passed, 1 failed, 0 skipped. The one failure is n5
-  (`immediate_respawn`: no exile and no journey), an open defect of the respawn area.
-- The inspector of the second healing was cut by a restart of the app. Its verdicts are in
-  `~/Library/Caches/bmh-horizon/logs/healing-2-inquisitor.md` (31 confirmed, 10 wrong or not provable). The wrong
-  ones are corrected in `.claude/CLAUDE.md`, the two skills, `docs/horizon/briefs/port.md` (its commands used
-  `$R`, which no command set) and the owner's global skill `coordinate-sessions`. Not known: what the inspector
-  would have said about the lines it did not reach.
-- The briefs of wave 1 are written: `docs/horizon/briefs/area-amulet.md`, `area-eternal.md` (the part of a port
-  agent's prompt that is about its area), `review.md` (a review agent, one lens or both) and `game.md` (the one
-  agent with game rights). A port agent's prompt is: read `briefs/port.md` and `briefs/area-<area>.md`, BASE.
-  Waves 2 and 3 need their own `area-<area>.md`: write them from the table of the skill `horizon-port-area`.
+### Open after wave 1
+
+Eternal (`docs/horizon/log/eternal.md`, "Differences from the Java mod" and "To check in the game"):
+
+- A dropped Eternal Item resists fire only. Cactus, lightning and explosions damage it. The fix is a content
+  change for the integrator: a damage type tag (fire, explosion, lightning, cactus) in `minecraft:damage_resistant`
+  of the six items. Not checked: whether Horizon reads a tag of a mod there. GAPS.md row E10 names cactus although
+  the content does not cover it.
+- A bundle in a chest or on the cursor can keep an Eternal Item or an Ender Chest: no wired hook sees a click in a
+  container.
+- A dropped Eternal Item that `spawn_item` did not make keeps the vanilla health.
+- An empty Eternal Bundle still stops the other hand (the hook cannot return the FAIL of Java).
+- A restart between the gives at respawn and the clear of the saved data would give the stacks twice. Not tested.
+- Not exercised in the game: an Eternal Item put into the bundle by clicks, a full inventory at the respawn,
+  `keep_inventory`, fire, lava, cactus, TNT and lightning on a dropped item.
+- Seen by the game agent, not investigated: after a world opens again, creative keeps `reduced_debug_info` true
+  until a person sets it false (the game agent says that Java does the same); an Eternal Item on the cursor at
+  death falls and does not come back; the first click on the Title Screen button of the death screen does nothing.
+
+Amulet (`docs/horizon/log/amulet.md`):
+
+- `/bmh point` needs operator level 2 (GAPS.md A5 says why). To give Java's level 0, the settings area must first
+  check the level of the player for `/bmh rule` by itself.
+- The main hand has no client route to the reading outside first person (wave 2, integrator step 1 above).
+- "Is it night" uses the 1.21.1 formula, not the value of the host game. Dusk and dawn can differ by some ticks.
+- Not tested in the game: the import of the points of a Java world (check 16 of the log says how to make such a
+  world), the refusals in the Nether and with the eyes in water, two players.
+- Seen once: a roof of one block read as open sky 50 ticks after the block was set (light lag).
+
+Never tested on this branch: sound (all runs are muted), the Nether and the End, a dedicated server, a LAN guest.
 
 ### In flight
 
-Nothing on 2026-11-18, 03:10. The tree is clean and the next step is wave 1.
+Nothing on 2026-11-18, 08:37. The tree is clean, the worktrees of wave 1 are removed, and the next step is the
+first integrator step of wave 2.
 
 The tools: `~/Library/Caches/bmh-horizon` holds `horizon-mods` (with `native/target`: the Nightly's tree, cargo's
 cache, the built game), `target-tools/debug/cargo-horizon-mod` (`BMH_HORIZON_MOD_BIN`), `resources/26.3`,
 `minecraft-server-26.3/server.jar`, `play/` (the owner's own play folder: tests never touch it), `scratch/` and
 the logs. An erased cache loses Mojang's version file inside the Nightly's tree: see the skill
-`horizon-build-test`.
+`horizon-build-test`. The built game in the cache is the tree of commit c260f94 (the commit after it changes no
+file of the mod).
 
-Traps of this run:
+Traps of the runs:
 
 - When the app starts the session again, this worktree is back on the session's own branch
   (`claude/horizon-minecraft-mod-port-0812eb`, the Java `main`), with `horizon/` as untracked build folders.
@@ -345,6 +396,11 @@ Traps of this run:
   on disk from its first step. After a restart, read the logs before you start anything again.
 - Do not build the game while the owner plays: the build writes the binary that `play.sh` runs and takes every
   core. Look for a `horizon-client` process first.
+- A full `test-slice.sh --no-build` with 88 checks takes about 9 minutes and ends with exit 1 while `n5` is red.
+  Run it in the background.
+- An agent's summary can differ from its own list (the fix agent of eternal wrote "three fixed, one fixed in
+  part, two not fixed" for six findings whose `round1` fields say three fixed and three not fixed). Count from
+  the list or from the `round1` fields.
 
 Rules of the run that the owner gave: stop cleanly when the 5-hour usage window reaches 60 %; stop when the
 week passes 40 % (all models) and 50 % (Fable), and ask him before going on (on 2026-11-12 both were passed and

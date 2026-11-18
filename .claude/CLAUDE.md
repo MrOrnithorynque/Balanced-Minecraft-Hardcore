@@ -37,7 +37,7 @@ Run from the repo root. Use `sh` or `bash`, with absolute paths in scripts you w
 | `sh horizon/tools/content-check.sh` | The content mod builds and `cargo horizon-mod check` accepts it. Needs `BMH_HORIZON_MOD_BIN`. | short |
 | `sh horizon/tools/check.sh build` | The game and `horizon-ctl` build with the bundle. It prints the folder of the binaries last. | 3 min 13 s once (LOG.md) |
 | `sh horizon/tools/prepare-game.sh --server-jar <jar>` | The game files are prepared in `~/Library/Caches/bmh-horizon/resources/26.3` (three steps: prepare, sounds, check). The files are prepared since 2026-11-17, by the first step and a sounds step run by hand. The script was not run again as a whole. | 39 s for prepare and check on 2026-11-17, with no sounds step |
-| `sh horizon/tools/test-slice.sh` | The in-game checks of the content, settings, respawn and journey, in the real game, offscreen. On 2026-11-18: 52 checks, of which `n5` fails on purpose, on an open defect of the respawn area (`docs/horizon/log/game-checks-1.md`). | about 5 minutes; `--only` runs some scenarios |
+| `sh horizon/tools/test-slice.sh` | The in-game checks of the content, settings, respawn, journey, eternal and amulet, in the real game, offscreen. On 2026-11-18, after wave 1: 88 checks, of which `n5` fails on purpose, on an open defect of the respawn area (`docs/horizon/log/game-checks-1.md`). | about 9 minutes; `--only` runs some scenarios |
 | `sh horizon/tools/play.sh` | Nothing: it starts the built game in a window for a person, with its own folders under `play/` in the cache. | seconds |
 
 The two gates of every change are `test-logic.sh` and `check.sh`. Load the skill `horizon-build-test` for options, exit codes and errors.
