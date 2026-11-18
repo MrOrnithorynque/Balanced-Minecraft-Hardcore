@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r s t u v m j), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r s t u v w x y m j), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -24,7 +24,10 @@
 #   r the Eternal tools (worn pickaxe dig time, Efficiency V, the last point, the death wear); s the moon ritual
 #   (refused by day, looked away, a full ritual); v the sky (a star reading, its log lines, screenshots, the spyglass);
 #   t the totem (Undying order, the extra totem, the anvil, E6, the save on a lethal hit, /kill); u the homecoming
-#   (the record, the title, the awards, the rule); j dead when the game closes (it quits and relaunches).
+#   (the record, the title, the awards, the rule); w the journey and the early respawn (immediate respawn, the arrival
+#   frame, a stale arm, a screen over the death screen, a press before the departure); x a LAN guest below operator
+#   level (/bmh rule refused, /bmh point save works); y a Java world's rules imported (it quits and relaunches);
+#   j dead when the game closes (it quits and relaunches).
 # Environment: BMH_HORIZON_CACHE (default ~/Library/Caches/bmh-horizon).
 # Exit codes: 0 all checks passed (SKIPs allowed), 1 a check failed, 77 no prepared files,
 #   64 a bad option, 3 the game did not start.
@@ -101,6 +104,7 @@ mkdir -p "$cache"
 scratch="$(mktemp -d "$cache/slice.XXXXXX")"
 sockdir="$(mktemp -d /tmp/bmh-ts.XXXXXX)"   # short: a Unix socket path has about 100 characters
 SOCK="$sockdir/c.sock"
+GSOCK="$sockdir/g.sock"
 HOMEDIR="$scratch/home"
 GAMEDIR="$scratch/game"
 WORLD="bmhslice"
@@ -138,11 +142,21 @@ cleanup() {
             kill -0 "$GAMEPID" 2>/dev/null && kill -KILL "$GAMEPID" 2>/dev/null || true
         fi
     fi
+    # The LAN guest game of scenario x, if one was started.
+    if [ -S "$GSOCK" ]; then
+        "$CTL" --socket "$GSOCK" --timeout 20 quit >/dev/null 2>&1 || true
+    fi
+    gpid="$(pgrep -f -- "--game-dir $scratch/ggame" 2>/dev/null | head -n 1 || true)"
+    if [ -n "$gpid" ]; then
+        n=0
+        while kill -0 "$gpid" 2>/dev/null && [ "$n" -lt 15 ]; do sleep 1; n=$((n + 1)); done
+        kill -KILL "$gpid" 2>/dev/null || true
+    fi
     rm -rf "$sockdir"
     if [ "$keep" -eq 1 ]; then
         echo "test-slice.sh: scratch folder kept: $scratch"
     else
-        rm -rf "$scratch/game" "$scratch/home"
+        rm -rf "$scratch/game" "$scratch/home" "$scratch/ggame" "$scratch/ghome"
         # The screenshots are the result: keep them when they are in the scratch folder.
         if [ -n "$(ls -A "$SHOTS" 2>/dev/null)" ]; then
             echo "test-slice.sh: screenshots kept in: $SHOTS"
@@ -2385,6 +2399,397 @@ if wanted v; then
     fi
     ctl command "clear @s" >/dev/null
     ctl command "difficulty normal" >/dev/null
+fi
+
+# ---- w. The journey after fix round 1: immediate respawn, the arrival frame, a stale arm, a screen over the death screen, a press before the departure ----
+# series_probe MODE DIR [BUTTON]: take a screenshot and the state about every 0.1 s and tell what the screens did. MODE:
+#   immediate  the capture starts, then "kill @s" (the game rule immediate_respawn is on, there is no death screen)
+#   arrival    "kill @s", wait for the death screen and the mod's "Landing spot ready" line, start the capture, then "respawn"
+#   click      the player is dead: start the capture, then click the button BUTTON of the death screen at once
+#              (or run the horizon-ctl command in PROBE_ACTION, for example "key esc tap")
+# Prints one JSON line: frames, cadence, black frames, the screens in order, the frames that show the arrival world before the first
+# black frame, the frames of a plain respawn at the point, the reply of the click. It also writes DIR/sheet.png, a contact sheet.
+series_probe() {
+    mkdir -p "$2"
+    CTL_BIN="$CTL" CTL_SOCK="$SOCK" PROBE_DIR="$2" PROBE_MODE="$1" PROBE_BUTTON="${3:-respawn}" PROBE_LOG="$(logfile)" \
+        PROBE_SECS="${PROBE_SECS:-8}" PROBE_PX="$spawn_x" PROBE_PZ="$spawn_z" python3 -W ignore - <<'PYEOF'
+import os, re, json, math, time, subprocess, threading
+ctl, sock, out, mode, button, log = [os.environ[k] for k in ("CTL_BIN", "CTL_SOCK", "PROBE_DIR", "PROBE_MODE", "PROBE_BUTTON", "PROBE_LOG")]
+secs, px, pz = float(os.environ["PROBE_SECS"]), float(os.environ["PROBE_PX"]), float(os.environ["PROBE_PZ"])
+from PIL import Image, ImageDraw
+def c(*a):
+    return subprocess.run([ctl, "--socket", sock, "--timeout", "60"] + list(a), capture_output=True, text=True).stdout
+def logtext():
+    try:
+        return open(log, errors="ignore").read()
+    except OSError:
+        return ""
+def landings():
+    return logtext().count("Landing spot ready")
+frames, stop, t0 = [], threading.Event(), [time.time()]
+def capture():
+    i = 0
+    while not stop.is_set():
+        s = time.time()
+        f = "%s/f%03d.png" % (out, i)
+        c("screenshot", f)
+        try:
+            st = json.loads(c("state") or "{}")
+        except ValueError:
+            st = {}
+        pl = st.get("player") or {}
+        luma = None
+        try:
+            luma = sum(Image.open(f).convert("L").resize((64, 36)).getdata()) / (64 * 36)
+        except Exception:
+            pass
+        frames.append({"i": i, "t": round(s - t0[0], 2), "screen": st.get("screen"), "pos": pl.get("position"), "health": pl.get("health"), "luma": luma, "file": f})
+        i += 1
+        time.sleep(max(0.0, 0.1 - (time.time() - s)))
+cap = threading.Thread(target=capture)
+mark, reply = 0.0, ""
+if mode == "immediate":
+    t0[0] = time.time(); cap.start(); time.sleep(0.5)
+    mark = time.time() - t0[0]; c("command", "kill @s")
+elif mode == "arrival":
+    n0 = landings()
+    c("command", "kill @s")
+    c("wait-for", "screen", "dead", "--timeout", "30")
+    t = time.time()
+    while landings() <= n0 and time.time() - t < 150:
+        time.sleep(0.5)
+    time.sleep(1.0)
+    t0[0] = time.time(); cap.start(); time.sleep(0.3)
+    mark = time.time() - t0[0]; reply = c("respawn")
+else:
+    t0[0] = time.time(); cap.start()
+    mark = time.time() - t0[0]
+    act = os.environ.get("PROBE_ACTION")
+    reply = c(*act.split()) if act else c("click-button", button)
+time.sleep(secs)
+stop.set(); cap.join()
+land = re.findall(r"Landing spot ready after \d+ ms: \[(-?\d+), (-?\d+), (-?\d+)\]", logtext())
+lx, lz = (float(land[-1][0]), float(land[-1][2])) if land else (None, None)
+def dist(p, x, z):
+    return math.hypot(p[0] - x, p[2] - z) if p and x is not None else None
+black = [f for f in frames if f["luma"] is not None and f["luma"] < 3]
+fb = black[0]["i"] if black else None
+arrival_before = [f["i"] for f in frames if f["luma"] is not None and f["luma"] >= 3 and f["screen"] in ("playing", None)
+                  and (fb is None or f["i"] < fb) and f["t"] >= mark and dist(f["pos"], lx, lz) is not None and dist(f["pos"], lx, lz) < 200]
+plain = [f["i"] for f in frames if f["t"] >= mark and (f["health"] or 0) > 0 and f["screen"] == "playing" and f["luma"] is not None and f["luma"] >= 3
+         and dist(f["pos"], px, pz) is not None and dist(f["pos"], px, pz) < 64]
+seq = []
+for f in frames:
+    if not seq or seq[-1] != f["screen"]:
+        seq.append(f["screen"])
+cadence = sorted(frames[k + 1]["t"] - frames[k]["t"] for k in range(len(frames) - 1))
+# The contact sheet: one thumbnail per frame, a label on each.
+cols, tw, th = 8, 160, 90
+rows = (len(frames) + cols - 1) // cols
+sheet = Image.new("RGB", (cols * tw, max(rows, 1) * th), (40, 40, 40))
+d = ImageDraw.Draw(sheet)
+for f in frames:
+    try:
+        im = Image.open(f["file"]).convert("RGB").resize((tw, th))
+    except Exception:
+        continue
+    x, y = (f["i"] % cols) * tw, (f["i"] // cols) * th
+    sheet.paste(im, (x, y))
+    d.rectangle([x, y, x + 100, y + 10], fill=(0, 0, 0))
+    d.text((x + 2, y), "%d %.1fs %s" % (f["i"], f["t"], f["screen"]), fill=(255, 255, 0))
+sheet = sheet.resize((1280, int(1280 * sheet.height / sheet.width)))
+sheet.save(out + "/sheet.png")
+for f in frames:
+    try:
+        os.remove(f["file"])
+    except OSError:
+        pass
+print(json.dumps({"frames": len(frames), "cadence": round(cadence[len(cadence) // 2], 2) if cadence else None, "black": len(black), "first_black": fb,
+                  "mark": round(mark, 2), "first_black_t": black[0]["t"] if black else None, "screens": seq, "arrival_before_black": arrival_before,
+                  "plain_respawn": plain, "reply": reply.strip()[:200], "mod_frames": sum(1 for f in frames if f["screen"] == "mod")}))
+PYEOF
+}
+
+if wanted w; then
+    echo "--- w. the journey after the fix: immediate respawn, the arrival frame, a stale arm, a screen over the death screen, a press before the departure"
+    ensure_point
+    ctl command "gamemode survival" >/dev/null
+    ctl command "bmh rule random_death_spawn_point true" >/dev/null
+    ctl command "bmh rule display_text_on_respawn true" >/dev/null
+    ctl command "gamerule immediate_respawn false" >/dev/null
+    # A first, plain exile: the player now carries an exile record (its home is the point). The early respawn of w1 puts the
+    # player at that point for a moment, so the homecoming must not fire there.
+    death_and_respawn ctl 1 >/dev/null
+    ctl wait 100 >/dev/null
+    sleep 4
+    # w1: immediate_respawn true. The early respawn, then the move to the landing, once each.
+    ctl command "gamerule immediate_respawn true" >/dev/null
+    home_before="$(count_log 'is home after')"
+    log_mark="$(wc -l < "$(logfile)")"
+    warn_before="$(count_log 'WARN.*BalancedMcHardcoreMain')"
+    rec_before="$(count_log 'Homecoming record:')"
+    out="$(PROBE_SECS=12 series_probe immediate "$SHOTS/w1")"
+    echo "test-slice.sh: w1 series: $out"
+    ctl command "gamerule immediate_respawn false" >/dev/null
+    new_log="$(tail -n +$((log_mark + 1)) "$(logfile)")"
+    early_n="$(printf '%s\n' "$new_log" | grep -c 'did not end before the respawn')"
+    moved_n="$(printf '%s\n' "$new_log" | grep -c 'moved to the landing after an early respawn')"
+    rec_n="$(( $(count_log 'Homecoming record:') - rec_before ))"
+    warns="$(( $(count_log 'WARN.*BalancedMcHardcoreMain') - warn_before ))"
+    early_line="$(printf '%s\n' "$new_log" | grep -n 'did not end before the respawn' | head -n 1 | cut -d: -f1)"
+    moved_line="$(printf '%s\n' "$new_log" | grep -n 'moved to the landing after an early respawn' | head -n 1 | cut -d: -f1)"
+    pos="$(position_of)"
+    res="$(dist_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$spawn_x" "$spawn_z" "$expected" 64)"
+    if [ "${res##* }" = ok ] && [ "$warns" -eq 0 ] && [ "$early_n" -eq 1 ] && [ "$moved_n" -eq 1 ] && [ "${early_line:-9999}" -lt "${moved_line:-0}" ] && [ "$rec_n" -eq 1 ]; then
+        pass w1 "immediate_respawn true: ${res%% *} blocks from the point, no new WARN, the early respawn line then the move to the landing (once each), one homecoming record"
+    else
+        fail w1 "immediate_respawn true: ${res%% *} blocks (expected $expected); WARN +$warns; early line x$early_n (line ${early_line:-none}), moved line x$moved_n (line ${moved_line:-none}); homecoming records +$rec_n"
+    fi
+    home_n="$(( $(count_log 'is home after') - home_before ))"
+    if [ "$home_n" -eq 0 ]; then
+        pass w1d "the early respawn at the old home is no homecoming: no 'is home after' line"
+    else
+        fail w1d "the early respawn put the player at the vanilla point, in the old exile's home, and the homecoming fired there: $home_n 'is home after' line(s) (title, bell and awards for a death)"
+    fi
+    # The advancement file: the journey/exile award is done. "Once" cannot be told apart in the file: the log has one record line.
+    ctl save >/dev/null
+    adv_file=""
+    for f in $(find "$GAMEDIR" -path '*advancements*' -name '*.json' 2>/dev/null); do
+        if grep -q 'bmh:journey/exile' "$f" 2>/dev/null; then adv_file="$f"; fi
+    done
+    adv_done="$([ -n "$adv_file" ] && python3 -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(d.get("bmh:journey/exile", {}).get("done"))' "$adv_file")"
+    if [ "$adv_done" = True ]; then
+        pass w1b "after the early respawn bmh:journey/exile is done in the advancement file"
+    else
+        fail w1b "bmh:journey/exile after the early respawn: file '${adv_file:-none}', done '$adv_done'"
+    fi
+    # The series: black from the departure, then the sky and the message at the landing. A person must look at the sheet.
+    sbl="$(jget "$out" 'd["black"]')"
+    smod="$(jget "$out" 'd["mod_frames"]')"
+    sab="$(jget "$out" 'len(d["arrival_before_black"])')"
+    if [ "${sbl:-0}" -ge 3 ] && [ "${smod:-0}" -ge 5 ] && [ "${sab:-1}" -eq 0 ]; then
+        pass w1c "immediate_respawn: $sbl black frames, $smod frames of the mod screen, no frame of the landing world before the black (first black at $(jget "$out" 'd["first_black_t"]') s, the kill at $(jget "$out" 'd["mark"]') s; sheet $SHOTS/w1/sheet.png; screens: $(jget "$out" 'd["screens"]'))"
+    else
+        fail w1c "immediate_respawn series: black frames ${sbl:-?} (expected 3 or more), mod frames ${smod:-?} (5 or more), landing-world frames before the black ${sab:-?} (0); screens $(jget "$out" 'd["screens"]')"
+    fi
+    ctl wait 60 >/dev/null
+
+    # w2: the arrival frame. Kill, wait for the landing line, "respawn", frames every 0.1 s.
+    out="$(PROBE_SECS=7 series_probe arrival "$SHOTS/w2")"
+    echo "test-slice.sh: w2 series: $out"
+    sbl="$(jget "$out" 'd["black"]')"
+    sab="$(jget "$out" 'len(d["arrival_before_black"])')"
+    if [ "${sbl:-0}" -ge 3 ] && [ "${sab:-1}" -eq 0 ]; then
+        pass w2 "arrival frame: $sbl black frames, no frame of the arrival world before the first black (screens: $(jget "$out" 'd["screens"]'), cadence $(jget "$out" 'd["cadence"]') s; sheet $SHOTS/w2/sheet.png)"
+    else
+        fail w2 "arrival frame: black frames ${sbl:-?} (3 or more), frames of the arrival world before the black: $(jget "$out" 'd["arrival_before_black"]'); screens $(jget "$out" 'd["screens"]')"
+    fi
+    ctl wait 60 >/dev/null
+
+    # w3: a stale arm. immediate_respawn true: die once. Then it is false and the rule is off: the click respawns at once.
+    ctl command "gamerule immediate_respawn true" >/dev/null
+    ctl command "kill @s" >/dev/null
+    ctl wait 100 >/dev/null
+    sleep 6
+    ctl command "gamerule immediate_respawn false" >/dev/null
+    ctl command "bmh rule random_death_spawn_point false" >/dev/null
+    ctl command "kill @s" >/dev/null
+    ctl wait-for screen dead --timeout 30 >/dev/null
+    sleep 2
+    out="$(PROBE_SECS=4 series_probe click "$SHOTS/w3" respawn)"
+    echo "test-slice.sh: w3 series: $out"
+    pos="$(position_of)"
+    res="$(near_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$spawn_x" "$spawn_z" 64)"
+    sbl="$(jget "$out" 'd["black"]')"
+    smod="$(jget "$out" 'd["mod_frames"]')"
+    if [ "${sbl:-1}" -eq 0 ] && [ "${smod:-1}" -eq 0 ] && [ "${res##* }" = ok ]; then
+        pass w3 "stale arm: rule off after an immediate respawn, the click respawned at once at the point (${res%% *} blocks from it), no black frame, no mod screen (sheet $SHOTS/w3/sheet.png)"
+    else
+        fail w3 "stale arm: black frames ${sbl:-?}, mod frames ${smod:-?} (both 0), ${res%% *} blocks from the point (64 at most); screens $(jget "$out" 'd["screens"]')"
+    fi
+    ctl command "bmh rule random_death_spawn_point true" >/dev/null
+    ctl wait 60 >/dev/null
+
+    # w4: a screen over the death screen. The only one the control tool opens is the quit confirmation of "Title Screen".
+    # Closing it (Escape or its Respawn button) is itself a request to respawn, so "close it, then click Respawn" cannot be
+    # split: the check is that the closing request is held (the fade starts) and no plain respawn happens. Two variants.
+    for variant in escape button; do
+        ctl command "kill @s" >/dev/null
+        ctl wait-for screen dead --timeout 30 >/dev/null
+        sleep 3
+        ctl click-button "Title Screen" >/dev/null
+        sleep 1
+        echo "test-slice.sh: w4 $variant: widgets over the death screen: $(jget "$(ctl ui)" '[w["label"] for w in d["widgets"]]')"
+        if [ "$variant" = escape ]; then act="key esc tap"; else act="click-button Respawn"; fi
+        out="$(PROBE_SECS=6 PROBE_ACTION="$act" series_probe click "$SHOTS/w4-$variant")"
+        echo "test-slice.sh: w4 $variant series: $out"
+        smod="$(jget "$out" 'd["mod_frames"]')"
+        sbl="$(jget "$out" 'd["black"]')"
+        sply="$(jget "$out" 'len(d["plain_respawn"])')"
+        if [ "${smod:-0}" -ge 1 ] && [ "${sply:-1}" -eq 0 ] && [ "${sbl:-0}" -ge 1 ]; then
+            pass w4-$variant "a screen over the death screen, closed with '$act': the request was held ($smod frames of the mod screen, $sbl black), no plain respawn at the point (sheet $SHOTS/w4-$variant/sheet.png)"
+        else
+            fail w4-$variant "a screen over the death screen, closed with '$act': mod frames ${smod:-?} (1 or more), black frames ${sbl:-?} (1 or more), plain respawn frames ${sply:-?} (0); screens $(jget "$out" 'd["screens"]')"
+        fi
+        ctl wait 100 >/dev/null
+        sleep 4
+    done
+
+    # w5: a press before the departure. Die and click Respawn at once.
+    land_before="$(count_log 'Landing spot ready')"
+    ctl command "kill @s" >/dev/null
+    ctl wait-for screen dead --timeout 30 >/dev/null
+    out="$(PROBE_SECS=3 series_probe click "$SHOTS/w5" respawn)"
+    echo "test-slice.sh: w5 series: $out"
+    sply="$(jget "$out" 'len(d["plain_respawn"])')"
+    smod="$(jget "$out" 'd["mod_frames"]')"
+    if [ "${sply:-1}" -eq 0 ]; then
+        pass w5 "a press right after the death: no plain respawn at the point; click reply '$(jget "$out" 'd["reply"]')', screens $(jget "$out" 'd["screens"]'), $smod mod frames (sheet $SHOTS/w5/sheet.png)"
+    else
+        fail w5 "a press right after the death: $sply frames of a plain respawn at the point; screens $(jget "$out" 'd["screens"]')"
+    fi
+    # Finish the death: if the click was ignored, press again once the landing is found.
+    if [ "$(jget "$(state)" 'd.get("screen")')" = dead ]; then
+        wait_log 'Landing spot ready' "$land_before" 150 >/dev/null
+        ctl click-button respawn >/dev/null
+    fi
+    ctl wait 100 >/dev/null
+    sleep 6
+fi
+
+# ---- x. A LAN guest below operator level 2: /bmh rule is unknown, /bmh point save works -------------------
+# The guest is a second game in its own folders that joins the first one over the loopback address. A LAN guest has
+# permission level 0 here, also when the world is open with "commands" (checked 2026-11-18: even "time set" is refused).
+# So a level of 2 or more is only tested through the owner (scenario a).
+if wanted x; then
+    echo "--- x. a LAN guest below operator level 2"
+    ensure_point
+    ctl command "gamemode survival" >/dev/null
+    ctl command "bmh rule random_death_spawn_point true" >/dev/null
+    rules_file="$GAMEDIR/saves/$WORLD/bmh/rules.txt"
+    ctl tp 3 127 3 >/dev/null 2>&1
+    ctl wait 40 >/dev/null
+    lan="$(ctl lan open)"
+    port="$(jget "$lan" 'd["port"]')"
+    mkdir -p "$scratch/ghome" "$scratch/ggame"
+    greply="$(HORIZON_HOME="$scratch/ghome" HORIZON_NO_AUDIO=1 HORIZON_TELEMETRY_URL=off HORIZON_NO_DISCORD=1 HORIZON_LAUNCHER_NO_SELF_UPDATE=1 \
+        "$CTL" --socket "$GSOCK" --timeout 300 launch --game "$GAME" --resources "$resources" --game-dir "$scratch/ggame" --home "$scratch/ghome" \
+        --dev-mod "$content" $extra 2>&1)"
+    gctl() { "$CTL" --socket "$GSOCK" --timeout 60 "$@" 2>&1; }
+    if [ -z "$port" ] || [ "$port" = None ] || [ ! -S "$GSOCK" ]; then
+        skip x1 "no LAN port or the guest game did not start: $(printf '%s' "$lan" | head -c 150) / $(printf '%s' "$greply" | head -c 150)"
+    else
+        gctl connect "localhost:$port" Guest >/dev/null
+        n=0
+        while [ "$n" -lt 40 ]; do
+            if ctl lan status | grep -q '"name":"Guest"'; then break; fi
+            sleep 1
+            n=$((n + 1))
+        done
+        if ! ctl lan status | grep -q '"name":"Guest"'; then
+            skip x1 "the guest did not join within 40 s (lan status: $(ctl lan status | head -c 200))"
+        else
+            sleep 4
+            rules_before="$(cat "$rules_file")"
+            bad_before="$(jget "$(gctl chat-log 50)" 'sum(1 for m in d["chat"] if "Unknown or incomplete command" in m)')"
+            gctl command "bmh rule" >/dev/null
+            gctl command "bmh rule random_death_spawn_point false" >/dev/null
+            sleep 2
+            bad_after="$(jget "$(gctl chat-log 50)" 'sum(1 for m in d["chat"] if "Unknown or incomplete command" in m)')"
+            styled="$(gctl messages 4)"
+            red="$(jget "$styled" 'sum(1 for m in d.get("styled", [])[:4] if m.get("translate") == "command.unknown.command" and m.get("color") == "red")')"
+            if [ "$(cat "$rules_file")" = "$rules_before" ] && [ "$(( ${bad_after:-0} - ${bad_before:-0} ))" -ge 2 ] && [ "${red:-0}" -ge 2 ]; then
+                pass x1 "a LAN guest (level 0) runs /bmh rule and /bmh rule <name> false: red unknown-command text twice ($red styled red), bmh/rules.txt unchanged"
+            else
+                fail x1 "a LAN guest's /bmh rule: unknown-command lines +$(( ${bad_after:-0} - ${bad_before:-0} )) (2 expected), red $red; rules.txt changed: $([ "$(cat "$rules_file")" = "$rules_before" ] && echo no || echo yes)"
+            fi
+            # x2: /bmh point save works for the guest on a bed. The owner gives the amulet and puts the bed; the guest saves.
+            gpos="$(gctl state)"
+            gx="$(jget "$gpos" 'int(d["player"]["block_pos"][0])')"
+            gy="$(jget "$gpos" 'int(d["player"]["block_pos"][1])')"
+            gz="$(jget "$gpos" 'int(d["player"]["block_pos"][2])')"
+            ctl command "give Guest bmh:navigator_amulet 1" >/dev/null
+            ctl command "setblock $((gx + 1)) $gy $gz minecraft:red_bed[facing=east,part=foot]" >/dev/null
+            ctl command "setblock $((gx + 2)) $gy $gz minecraft:red_bed[facing=east,part=head]" >/dev/null
+            sleep 1
+            gctl select bmh:navigator_amulet >/dev/null
+            gctl command "bmh point save $((gx + 1)) $gy $gz GuestCamp" >/dev/null
+            sleep 2
+            bar="$(jget "$(gctl messages 1)" 'd["actionbar"]')"
+            if [ "$bar" = "Point saved: GuestCamp" ]; then
+                pass x2 "a LAN guest (level 0) saves a point on a bed with /bmh point save: action bar '$bar'"
+            else
+                fail x2 "a LAN guest's /bmh point save on a bed at $((gx + 1)) $gy $gz: action bar '$bar'; chat $(jget "$(gctl messages 3)" 'd["chat"][:3]')"
+            fi
+            gctl disconnect >/dev/null
+        fi
+    fi
+    gctl quit >/dev/null 2>&1
+    ctl lan close >/dev/null
+    sleep 3
+fi
+
+# ---- y. A Java world's rules are imported: bmh:<rule> false in game_rules.dat, no bmh/rules.txt ---------------
+# The scratch world is closed, its game_rules.dat gets two BMH keys at false (a byte, a text: both forms the import reads),
+# its rules file is deleted, and the game opens it again. A dedicated server (the console and the load order) has no
+# runner in horizon/tools: not tested.
+if wanted y; then
+    echo "--- y. a Java world's rules, imported at the first open with the mod"
+    ensure_point
+    ctl command "gamemode survival" >/dev/null
+    ctl save >/dev/null
+    ctl quit >/dev/null
+    n=0
+    while [ -n "$GAMEPID" ] && kill -0 "$GAMEPID" 2>/dev/null && [ "$n" -lt 60 ]; do sleep 1; n=$((n + 1)); done
+    rules_file="$GAMEDIR/saves/$WORLD/bmh/rules.txt"
+    dat="$GAMEDIR/saves/$WORLD/data/minecraft/game_rules.dat"
+    cp "$dat" "$scratch/game_rules.dat.before" 2>/dev/null || true
+    rm -f "$rules_file"
+    python3 - "$dat" <<'PYEOF'
+import gzip, sys
+p = sys.argv[1]
+raw = gzip.open(p).read()
+# The root compound holds "data", a compound. Entries: type byte, name (u16 length + bytes), value.
+head = b"\x0a\x00\x04data"
+i = raw.index(head) + len(head)
+def entry_byte(name, v):
+    n = name.encode()
+    return b"\x01" + len(n).to_bytes(2, "big") + n + bytes([v])
+def entry_text(name, v):
+    n, t = name.encode(), v.encode()
+    return b"\x08" + len(n).to_bytes(2, "big") + n + len(t).to_bytes(2, "big") + t
+add = entry_byte("bmh:random_death_spawn_point", 0) + entry_text("bmh:display_text_on_respawn", "false")
+gzip.open(p, "wb").write(raw[:i] + add + raw[i:])
+PYEOF
+    launch_game --wait
+    if [ "$launch_status" -ne 0 ]; then
+        fail y1 "the launch after editing game_rules.dat failed (status $launch_status)"
+    else
+        rf="$(cat "$rules_file" 2>/dev/null)"
+        if printf '%s\n' "$rf" | grep -q '^random_death_spawn_point = false' && printf '%s\n' "$rf" | grep -q '^display_text_on_respawn = false' \
+            && [ "$(printf '%s\n' "$rf" | grep -c ' = true')" -eq 4 ]; then
+            pass y1 "a Java world with two BMH keys at false (a byte, a text) and no rules file: bmh/rules.txt has those two off and four on"
+        else
+            fail y1 "bmh/rules.txt after the import: $(printf '%s' "$rf" | grep ' = ' | tr '\n' ';')"
+        fi
+        reply="$(ctl command "bmh rule")"
+        if printf '%s' "$reply" | grep -q 'random_death_spawn_point is currently set to false' && printf '%s' "$reply" | grep -q 'display_text_on_respawn is currently set to false' \
+            && printf '%s' "$reply" | grep -q 'only_carry_one_eternal_item_type is currently set to true'; then
+            pass y2 "/bmh rule lists the two imported rules off and the others on"
+        else
+            fail y2 "/bmh rule after the import: $(printf '%s' "$reply" | head -c 400)"
+        fi
+        if [ "$(count_log 'World rules created: java world = true')" -ge 1 ]; then
+            pass y3 "the log tells it: World rules created: java world = true"
+        else
+            fail y3 "no log line 'World rules created: java world = true': $(grep 'World rules created' "$(logfile)" | tail -n 1)"
+        fi
+        ctl command "bmh rule random_death_spawn_point true" >/dev/null
+        ctl command "bmh rule display_text_on_respawn true" >/dev/null
+    fi
 fi
 
 # ---- m. Rules and config across a restart --------------------------------------------------------------
