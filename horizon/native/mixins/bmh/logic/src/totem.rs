@@ -194,6 +194,72 @@ pub fn container_extras(before: &[usize], now: &[usize]) -> Vec<usize> {
 }
 
 // ---------------------------------------------------------------------------------------------
+// T12, T14: the slot rule of the menus, before the click lands
+// ---------------------------------------------------------------------------------------------
+
+/// What one click of a container menu asks of the rule (`ClickType` ids: 0 pickup, 1 quick move,
+/// 2 swap). `slot` is the window slot: the container's slots first, then the player's 36.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Click {
+    pub slot: i32,
+    pub mode: i32,
+    /// The cursor holds a Totem of Eternity.
+    pub cursor: bool,
+    /// The clicked slot, when it is a player slot, holds one (a quick move takes it from there).
+    pub slot_stack: bool,
+    /// The hotbar slot of a number key (or the off hand) holds one (a swap puts it in the slot).
+    pub key_stack: bool,
+}
+
+/// True when `container` (true = the slot holds a totem) holds a totem in a slot other than `slot`.
+/// A swap inside one slot moves the same stack, so that slot does not count
+/// (TotemOfEternityHandler.java:90-106, `i != slot`).
+pub fn holds_another(container: &[bool], slot: usize) -> bool {
+    container.iter().enumerate().any(|(i, totem)| *totem && i != slot)
+}
+
+/// True when vanilla's click would put a second Totem of Eternity in the container, so that
+/// `Slot.mayPlace` of the Java mod (I_SlotTotemMixin.java:21-28) would refuse it. The hook cancels
+/// the click then: nothing moves, as when `mayPlace` is false.
+/// - Pickup (left or right button): the cursor totem goes into a container slot.
+/// - Quick move: a player slot with a totem goes to the container.
+/// - Swap (number key, off hand key): the hotbar totem goes into the container slot.
+/// Other modes (clone, throw, pick up all) place nothing.
+pub fn click_refused(container: &[bool], click: &Click) -> bool {
+    let Ok(slot) = usize::try_from(click.slot) else {
+        return false;
+    };
+    let inside = slot < container.len();
+    match click.mode {
+        0 => inside && click.cursor && holds_another(container, slot),
+        1 => !inside && click.slot_stack && container.iter().any(|totem| *totem),
+        2 => inside && click.key_stack && holds_another(container, slot),
+        _ => false,
+    }
+}
+
+/// True when a drag (quick craft) of a cursor totem would reach a container slot that refuses it.
+/// Vanilla skips a refused slot and fills the others; here the whole drag stops, which is the
+/// same result for a stack of one except for a drag over the container and the inventory together.
+pub fn drag_refused(container: &[bool], slots: &[i32], cursor: bool) -> bool {
+    cursor
+        && slots
+            .iter()
+            .any(|slot| usize::try_from(*slot).is_ok_and(|slot| slot < container.len() && holds_another(container, slot)))
+}
+
+/// How many totems the periodic scan takes out of a container (T13 droppers, T14 vehicles, any
+/// path that has no hook). `previous` is the count of the last scan, None when the container was
+/// not known then (a chunk that just loaded: a pair that was already there is left alone, as in
+/// Java). A container that grows past one loses the new ones.
+pub fn scan_ejects(previous: Option<usize>, now: usize) -> usize {
+    match previous {
+        Some(previous) if now >= 2 && now > previous => now - previous.max(1),
+        _ => 0,
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
 // T1: the tooltip lines
 // ---------------------------------------------------------------------------------------------
 
@@ -634,5 +700,50 @@ mod tests {
         assert_eq!(SAVE_SOUND, "minecraft:item.totem.use");
         assert_eq!((SAVE_SOUND_VOLUME, SAVE_SOUND_PITCH), (1.0, 1.0));
         assert!(SAVE_PARTICLES > 0);
+    }
+
+    #[test]
+    fn a_menu_click_that_places_a_second_totem_is_refused() {
+        // I_SlotTotemMixin.java:21-28: mayPlace is false when another totem is in the container.
+        let chest = [false, true, false, false];
+        let click = |slot, mode, cursor, slot_stack, key_stack| Click { slot, mode, cursor, slot_stack, key_stack };
+        // Pickup with a totem on the cursor, onto another slot: refused. Onto the totem's own slot: a swap.
+        assert!(click_refused(&chest, &click(0, 0, true, false, false)));
+        assert!(!click_refused(&chest, &click(1, 0, true, false, false)));
+        // No totem on the cursor: free. A player slot (4 and up) with the cursor totem: free.
+        assert!(!click_refused(&chest, &click(0, 0, false, false, false)));
+        assert!(!click_refused(&chest, &click(6, 0, true, false, false)));
+        // Quick move of a player totem into a chest that holds one: refused. From the chest: free.
+        assert!(click_refused(&chest, &click(5, 1, false, true, false)));
+        assert!(!click_refused(&chest, &click(1, 1, false, false, false)));
+        assert!(!click_refused(&[false; 4], &click(5, 1, false, true, false)));
+        // A number key: the hotbar totem into another slot is refused, into the totem's slot it is not.
+        assert!(click_refused(&chest, &click(2, 2, false, false, true)));
+        assert!(!click_refused(&chest, &click(1, 2, false, false, true)));
+        // Clone, throw, pick up all and the outside click place nothing.
+        for mode in [3, 4, 6] {
+            assert!(!click_refused(&chest, &click(0, mode, true, true, true)));
+        }
+        assert!(!click_refused(&chest, &click(-999, 0, true, true, true)));
+    }
+
+    #[test]
+    fn a_drag_of_a_totem_over_a_full_container_slot_is_refused() {
+        let chest = [true, false, false];
+        assert!(drag_refused(&chest, &[1, 2], true));
+        assert!(!drag_refused(&chest, &[0], true));
+        assert!(!drag_refused(&chest, &[1], false));
+        assert!(!drag_refused(&chest, &[3, 4], true));
+        assert!(!drag_refused(&[false; 3], &[0, 1], true));
+    }
+
+    #[test]
+    fn the_scan_takes_only_the_new_totems() {
+        assert_eq!(scan_ejects(Some(1), 2), 1);
+        assert_eq!(scan_ejects(Some(0), 2), 1);
+        assert_eq!(scan_ejects(Some(1), 1), 0);
+        assert_eq!(scan_ejects(Some(2), 2), 0);
+        assert_eq!(scan_ejects(Some(2), 3), 1);
+        assert_eq!(scan_ejects(None, 5), 0);
     }
 }

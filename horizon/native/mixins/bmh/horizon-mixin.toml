@@ -875,10 +875,42 @@ kind = "HEAD"
 target = "horizon_client::game::native_hooks::GameLevel<'_>::native_hopper_pickup_item"
 helper = "hook_hopper_pickup_item.rs"
 bindings = [
+  { name = "level", ty = "&crate::game::GameLevel<'_>", value = "&*self" },
   { name = "dimension", ty = "crate::game::LevelDimension", value = "dimension" },
   { name = "pos", ty = "horizon_core::position::BlockPos", value = "pos" },
   { name = "item", ty = "&str", value = "item" },
   { name = "count", ty = "u32", value = "count" },
+  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
+]
+
+[[injection]]
+id = "hook_inventory_click"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_inventory_click"
+helper = "hook_inventory_click.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "window", ty = "i32", value = "window" },
+  { name = "slot", ty = "i32", value = "slot" },
+  { name = "button", ty = "i32", value = "button" },
+  { name = "mode", ty = "i32", value = "mode" },
+  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
+]
+
+[[injection]]
+id = "hook_inventory_drag"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_inventory_drag"
+helper = "hook_inventory_drag.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "window", ty = "i32", value = "window" },
+  { name = "kind", ty = "i32", value = "kind" },
+  { name = "slots", ty = "&[i32]", value = "slots" },
   { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
 ]
 
