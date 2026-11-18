@@ -1,0 +1,42 @@
+{
+ "area": "journey",
+ "lens": "parity",
+ "reviewed_commit": "cd2e53f",
+ "status": "open: not fixed yet",
+ "verdict": "The drawing, the random sky, the chain, every timing constant (600, 250, 1200, 700, 1500, 210, 1700, 400/1600/400, 400, 150, 1000, 500, 1000, 30000, 150000), the colours, the star counts, the text key and layout, and the sound ids, volumes and pitches match JourneyOverlay.java line for line, and the differences in the area log are accurate. The real gaps are in the held-respawn state: Java ties the arming to the player object, Horizon keeps a plain flag that can outlive a death, and the terrain test treats any screen as the loading screen.",
+ "findings": [
+  {
+   "severity": "major",
+   "file": "horizon/native/mixins/bmh/logic/src/journey.rs:1430",
+   "what": "The armed flag has no owner. Java arms a journey for one LocalPlayer, so a new player (any respawn) drops it. Here Departure sets a plain flag that only a click, an Arrival, a gamepad close after the death screen was seen, or leaving the world clears. If a death sent Departure but the player respawned with no death screen and no Arrival (immediate_respawn true, which game-checks-1 check 9 shows sends Departure and a landing search that does not end), the flag stays. At the next death that sends no Departure (rule off, Creative, hardcore) the death screen sets it to Some(true) and a click on Respawn starts a journey with ready=false. The server has no search for that player, so it never answers Held with Ready, and the player sits in the fade, black and sky for up to 150 s before the dissolve (SERVER_WAIT) with every death screen input cancelled.",
+   "evidence": {
+    "ours": "horizon/native/mixins/bmh/logic/src/journey.rs:1430 `self.armed = Some(false);` (Departure); :1477 `if self.armed == Some(true) && self.journey.is_none() {` is the only reset without a click or Arrival and needs the death screen to have been seen; :1505 `if self.armed.is_none() {` then :1514 `self.journey = Some(Journey::new(now, true, self.ready, seed));`; server side horizon/native/mixins/bmh/bmh_respawn.rs:886 `let Some(finished) = server().searches.get(&player).map(Running::is_finished) else {` followed by a bare return, so no Ready for a player without a search.",
+    "host": "",
+    "java": "common/src/main/java/github/mrornithorynque/bmh/client/journey/JourneyCinematic.java:39 `case JourneySignal.DEPARTURE -> armedPlayer = new WeakReference<>(minecraft.player);` and :73 `if (player != armedPlayer.get()) {` then `return false;`"
+   },
+   "fix": "Tie the flag to the death it was sent for. Clear `armed` and `ready` when the screen goes from Death to Playing without a journey (also when the death screen was never seen: clear on the first frame with a live player and no journey), and on every new Departure replace a running or stale state. Add a unit test: Departure, then frames with death_screen false and a live player, then a death screen with no Departure: death_click must return false."
+  },
+  {
+   "severity": "minor",
+   "file": "horizon/native/mixins/bmh/bmh_journey.rs:168",
+   "what": "Java waits for the terrain only while the screen is a LevelLoadingScreen. Here every screen of kind Other counts as loading, unless it is the mod's hold screen. Other covers the pause menu, an inventory, a server dialog or prompt, a book or a sign. If one of them is up after the respawn load (opened in the gap before the hold screen takes the input, or sent by the server), terrain_ready stays false and the reveal waits until the 30 s give-up, with the sky still showing, where Java would reveal on time.",
+   "evidence": {
+    "ours": "horizon/native/mixins/bmh/bmh_journey.rs:168 `let loading = position.is_none() || (kind == NativeScreenKind::Other && !hold_open);`",
+    "host": "native_client_services.rs:68-70 (HN game/) `/// Any other: the pause menu, an inventory or container, a sign, book,` `/// dialog or prompt, the loading screen, the title's screens.`",
+    "java": "common/src/main/java/github/mrornithorynque/bmh/client/journey/JourneyOverlay.java:354 `if (this.minecraft.screen instanceof LevelLoadingScreen) {`"
+   },
+   "fix": "Ask for the loading state alone: use the game's level-load flag if a helper exists (`remote_screen_up` is true only while `level_load.is_active()` or the player is None), or ask Horizon for one. If none exists, add the limit to the Differences list in log/journey.md."
+  },
+  {
+   "severity": "minor",
+   "file": "horizon/native/mixins/bmh/logic/src/journey.rs:1477",
+   "what": "The death-screen test that disarms the hold is the same Other-versus-Death classification: any frame where the screen kind is not Death (a dialog, a prompt or the pack prompt drawn over the death screen counts as Other) while armed is Some(true) and no journey runs sets armed to None and drops the DeathScreen model. The next Respawn click is then a plain vanilla respawn with no fade, no black and no sky, and the server's Ready and Arrival start the cinematic in black after one frame of the arrival world (the defect already seen with horizon-ctl respawn).",
+   "evidence": {
+    "ours": "horizon/native/mixins/bmh/logic/src/journey.rs:1477-1479 `if self.armed == Some(true) && self.journey.is_none() { self.armed = None;`",
+    "host": "native_client_services.rs:256-261 (HN game/) `screen: NativeScreenKind::of(self.screen, self.title.is_some() || self.screen_over_playing() || self.remote_screen_up() || self.pack_reload.is_some()),` and pointer_capture.rs:72-77 `prompt_open` includes dialogs, link prompt, command prompt and server pack prompt",
+    "java": "common/src/main/java/github/mrornithorynque/bmh/client/journey/JourneyCinematic.java:73 the arming is kept until the player object changes, whatever screens open over the death screen"
+   },
+   "fix": "Disarm only when the player is alive again (a live player and no death screen for more than one frame), or when the world changes. Do not read a covering prompt as the end of the death screen."
+  }
+ ]
+}

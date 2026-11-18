@@ -1,0 +1,42 @@
+{
+ "area": "settings",
+ "lens": "semantics",
+ "reviewed_commit": "cd2e53f",
+ "status": "open: not fixed yet",
+ "verdict": "Two major faults: the Java world import cannot work on a dedicated server (the server saves before WorldOpenReady), and /bmh rule does not check the player's level, which made HOOKS.md wrong and forced /bmh point to operators. The state rules hold: no lock is held across a game call, no unwrap on world, file or message data, and rules, config and choice live in files that survive a restart.",
+ "findings": [
+  {
+   "severity": "major",
+   "file": "horizon/native/mixins/bmh/bmh_settings.rs:210",
+   "what": "On a dedicated server the import of a Java world's BMH rules always finds nothing. The dedicated open saves the world before it fires WorldOpenReady, and that save rewrites game_rules.dat with the vanilla keys only. The world is not new, so every rule comes back ON and the file bmh/rules.txt makes that permanent. A server owner who had set a rule to false in the Java mod gets it silently switched on.",
+   "evidence": {
+    "ours": "horizon/native/mixins/bmh/bmh_settings.rs:242 \"WorldPhase::WorldOpenReady => open_world(game),\" and :210 \"let file = dir.join(\"data\").join(\"minecraft\").join(\"game_rules.dat\");\"; docs/horizon/log/settings.md:91 \"Read the values before Horizon loads the world. If Horizon rewrote `game_rules.dat` before `WorldOpenReady`\" (listed as a possible risk only)",
+    "host": "crates/horizon-client/src/game/dedicated.rs:1252-1253 \"// DedicatedServer.initServer ends with saveEverything(false, true, true).\" / \"self.save_game()?;\" then :1259 \"self.native_lifecycle_world_ready();\"; game.rs:15381-15383 \"self.save_level(wait)?;\" ... \"self.save_game_metadata()?;\" (writes the level through write_level_for_role); save.rs:4532-4533 \"if !saved_data_path(dir, \\\"game_rules\\\").exists() || !self.game_rules.is_empty() {\" / \"// Only rules vanilla knows: an unknown key makes it reject the file.\"",
+    "java": "common/src/main/java/github/mrornithorynque/bmh/utilities/BMHGameRules.java:68-69 \"boolean value = data.getString(name.getKey()).map(Boolean::parseBoolean)\" / \".or(() -> data.getBoolean(name.getKey())).orElse(true);\" (the Java game reads the saved value whatever the server kind)"
+   },
+   "fix": "Read game_rules.dat before the first save. `native_server_about_to_start` fires before load_world (dedicated.rs:1025), so the world folder may not be set there; `native_level_load` of minecraft:overworld fires while the world loads, before WorldOpenReady. Check that it comes before dedicated.rs:1253 and that `native_world_dir()` answers there, read the file then, keep the result in a SERVER_ static and let open_world use it. Add a dedicated server case to the game checks."
+  },
+  {
+   "severity": "major",
+   "file": "horizon/native/mixins/bmh/bmh_settings.rs:162",
+   "what": "on_perform_command ignores the player's level. Horizon checks one level for the whole /bmh root, the lowest of all its usages, so /bmh rule is safe only while every other /bmh usage is level 2 or more. HOOKS.md tells the other areas the opposite (each usage keeps its own level). Because of this the amulet area had to put /bmh point at level 2, so a player who is not an operator cannot use the point command that Java gives to every player.",
+   "evidence": {
+    "ours": "horizon/native/mixins/bmh/bmh_settings.rs:162 \"let _ = player;\"; docs/horizon/HOOKS.md:167-168 \"The server merges all usages that share the word `bmh` into one tree, and each usage keeps its own operator level\"; docs/horizon/log/settings.md:34 \"each usage keeps its own level\"; docs/horizon/log/amulet.md:56-57 \"(the settings area does not test `player.permission`). Careful choice: `/bmh point` is registered at level 2\"",
+    "host": "crates/horizon-client/src/game/native_server.rs:179-180 \"let level = levels.entry(nodes[0].0.clone()).or_insert(4);\" / \"*level = (*level).min(command.level);\"; native_server.rs:1460-1461 \"let name = line.split(' ').next().unwrap_or_default();\" / \"host.native_commands.as_ref()?.get(name).copied()\"; native_server.rs:1490 \"None => level <= permission,\"",
+    "java": ""
+   },
+   "fix": "In on_perform_command, after the line is known to be `bmh rule`, refuse when `player.permission < logic::COMMAND_LEVEL` (answer vanilla's unknown or no-permission text and set ran). Correct HOOKS.md \"The /bmh command root\" and log step 3. Then the amulet area can put /bmh point back at level 0."
+  },
+  {
+   "severity": "minor",
+   "file": "horizon/native/mixins/bmh/hook_perform_command.rs:2",
+   "what": "On a dedicated server, `/bmh rule` typed on the console, through RCON or through horizon-server answers \"Unknown command\". Console lines go to `native_perform_console_command`, which BMH does not hook. Java's `/gamerule bmh:...` works from the console, so an admin with no operator in the game cannot change a world rule.",
+   "evidence": {
+    "ours": "horizon/native/mixins/bmh/hook_perform_command.rs:2 \"fn bmh_hook_perform_command(\" (the only command hook; horizon-mixin.toml has no perform_console_command injection)",
+    "host": "crates/horizon-client/src/game/dedicated.rs:2043 \"if !self.perform_native_console_command(line.trim()) {\"; native_server.rs:1525 \"self.native_perform_console_command(line, &mut ran);\" and :1528 \"Text::translate(\\\"command.unknown.command\\\", &[])\"; native_hooks.rs:4592 \"A command a mod registered, typed on the dedicated server's console\"",
+    "java": "common/src/main/java/github/mrornithorynque/bmh/utilities/BMHGameRules.java (the rules are vanilla game rules, so the console's /gamerule reaches them)"
+   },
+   "fix": "Add a `perform_console_command` injection whose helper calls a settings function that runs the same `parse_rule_command` branch (no level check: the console is level 4, `native_feedback` answers on the console). List it in HOOKS.md."
+  }
+ ]
+}
