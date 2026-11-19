@@ -870,12 +870,14 @@ impl Sky {
             let Some(last) = chain.last().and_then(|&l| stars.get(l)) else {
                 continue;
             };
-            logs.push(chain_log(azimuth, chain.len(), &to_world(last.x, last.y, last.z, time_of_day)));
+            let name = reading.names.get(i).cloned().unwrap_or_default();
+            let line = chain_log(azimuth, chain.len(), &to_world(last.x, last.y, last.z, time_of_day));
+            logs.push(if name.is_empty() { line } else { format!("{line} (point: {name})") });
             if reading.spawn == Some(i) {
                 spawn_chain = Some(chains.len());
             }
             chains.push(chain);
-            names.push(reading.names.get(i).cloned().unwrap_or_default());
+            names.push(name);
         }
         self.shown =
             (!chains.is_empty()).then_some(Shown { chains, names, spawn_chain, start_ms: view.now_ms });

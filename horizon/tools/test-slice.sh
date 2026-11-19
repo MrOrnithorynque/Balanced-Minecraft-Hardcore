@@ -2620,8 +2620,22 @@ if wanted v; then
     ctl select bmh:navigator_amulet >/dev/null
     ctl look 0 -20 >/dev/null
     ctl wait 40 >/dev/null
-    v_point="$(ctl command "bmh point save $((PX + 2)) $PY $PZ Camp")"
-    echo "t-evidence v: point save: $(printf '%s' "$v_point" | head -c 200)"
+    # A previous scenario can move the player while its distant respawn finishes.
+    # Place a fresh anchor beside the reader and verify the server accepted the name.
+    v_point=""
+    for v_try in 1 2 3; do
+        st="$(state)"
+        PX="$(jget "$st" 'd["player"]["block_pos"][0]')"
+        PY="$(jget "$st" 'd["player"]["block_pos"][1]')"
+        PZ="$(jget "$st" 'd["player"]["block_pos"][2]')"
+        ctl command "setblock $((PX + 2)) $PY $PZ minecraft:lodestone" >/dev/null
+        ctl command "bmh point save $((PX + 2)) $PY $PZ Camp" >/dev/null
+        ctl wait 4 >/dev/null
+        v_point="$(jget "$(ctl messages 2)" 'd.get("actionbar","")')"
+        case "$v_point" in "Point saved: Camp"|"Point renamed: Camp") break ;; esac
+        ctl wait 25 >/dev/null
+    done
+    echo "t-evidence v: Camp anchor: '$v_point' at $((PX + 2)) $PY $PZ"
     # A stone slab 60 blocks up: from there trees and hills do not hide the low stars of the chain.
     ctl command "fill $((PX - 1)) $((PY + 59)) $((PZ - 1)) $((PX + 1)) $((PY + 59)) $((PZ + 1)) minecraft:stone" >/dev/null
     ctl command "tp @s $(center "$PX") $((PY + 60)) $(center "$PZ")" >/dev/null
@@ -2631,10 +2645,11 @@ if wanted v; then
     ctl wait 20 >/dev/null
     v_lines="$(grep 'Star reading toward' "$(logfile)" | tail -n "$(( $(count_log 'Star reading toward') - v_before ))" 2>/dev/null)"
     echo "t-evidence v: reading lines: $(printf '%s' "$v_lines" | cut -c1-200 | tr '\n' '|')"
-    if [ "$(count_log 'Star reading toward')" -gt "$v_before" ]; then
-        pass v1 "the sky area started the reading: $(printf '%s' "$v_lines" | wc -l | tr -d ' ') 'Star reading toward' lines"
+    v_camp="$(printf '%s\n' "$v_lines" | grep -F '(point: Camp)' | tail -n 1)"
+    if [ -n "$v_camp" ]; then
+        pass v1 "the sky received Camp: $v_camp"
     else
-        fail v1 "no 'Star reading toward' line after the amulet reading"
+        fail v1 "Camp is absent from the sky reading (anchor reply '$v_point')"
     fi
     if [ "$(count_log 'The star reading does not draw')" = 0 ]; then
         pass v2 "no 'The star reading does not draw in this session' line (the pipeline built)"
@@ -2647,7 +2662,7 @@ if wanted v; then
         fail v3 "the azimuth self-check line: $(grep 'Sky azimuth self-check' "$(logfile)" | head -n 2 | cut -c1-250)"
     fi
     # The camp line is the first non-spawn line; take the first line of the reading for the view.
-    v_first="$(printf '%s' "$v_lines" | head -n 1)"
+    v_first="$v_camp"
     v_az="$(printf '%s' "$v_first" | sed -n 's/.*Star reading toward \(-\{0,1\}[0-9.]*\):.*/\1/p')"
     v_lastaz="$(printf '%s' "$v_first" | sed -n 's/.*last at azimuth \(-\{0,1\}[0-9.]*\),.*/\1/p')"
     v_alt="$(printf '%s' "$v_first" | sed -n 's/.*altitude \(-\{0,1\}[0-9.]*\).*/\1/p')"
@@ -2666,9 +2681,9 @@ if wanted v; then
         ctl screenshot "$skyshots/v5-spyglass-on-last-star-early.png" >/dev/null
         ctl wait 55 >/dev/null
         ctl screenshot "$skyshots/v5-spyglass-on-last-star.png" >/dev/null
+        v_gui="$(jget "$(ctl ui)" '" ".join(str(int(n)) for n in d["gui_size"])')"
         ctl mouse right up >/dev/null
         ctl select bmh:navigator_amulet >/dev/null
-        [ -s "$skyshots/v5-spyglass-on-last-star.png" ] && sips -Z 1280 "$skyshots/v5-spyglass-on-last-star.png" >/dev/null 2>&1
         ctl select bmh:navigator_amulet >/dev/null
         ctl look "$v_yaw" "$v_pitch" >/dev/null
         ctl wait 60 >/dev/null
@@ -2684,13 +2699,14 @@ if wanted v; then
         else
             fail v4 "no screenshot"
         fi
-        if [ -s "$skyshots/v5-spyglass-on-last-star.png" ]; then
-            pass v5 "spyglass screenshot written (a person must look for the name 'Camp' under the centre)"
+        if python3 "$here/spyglass-label.py" "$skyshots/v5-spyglass-on-last-star.png" "$resources" "$v_gui"; then
+            pass v5 "the late spyglass frame shows Camp below the crosshair"
         else
-            fail v5 "no spyglass screenshot"
+            fail v5 "the expected Camp glyphs are absent from the spyglass frame"
         fi
     else
         fail v4 "no azimuth or altitude to aim the view at"
+        fail v5 "no named star to aim the spyglass at"
     fi
     ctl command "clear @s" >/dev/null
     ctl command "gamerule advance_time true" >/dev/null

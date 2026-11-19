@@ -127,15 +127,15 @@ pub(super) fn on_gui_render_post(
     if gui_hidden || !game.native_window() || !game.camera_type.first_person() || !game.scoping() {
         return;
     }
-    let open = game.native_client_state().map(|state| state.screen);
-    if !matches!(open, Some(NativeScreenKind::Playing | NativeScreenKind::Chat)) {
-        return;
-    }
-    let (Some(camera), Some(clock)) = (game.native_camera(), game.native_clock())
-    else {
+    let (Some(state), Some(clock)) = (game.native_client_state(), game.native_clock()) else {
         return;
     };
-    let look = logic::look(camera.yaw, camera.pitch);
+    if !matches!(state.screen, NativeScreenKind::Playing | NativeScreenKind::Chat) {
+        return;
+    }
+    // Horizon supplies a camera snapshot only when a trait mod is present.
+    let (yaw, pitch) = game.native_camera().map_or((state.yaw, state.pitch), |camera| (camera.yaw, camera.pitch));
+    let look = logic::look(yaw, pitch);
     let shown = {
         let mut c = client();
         let now = now(&mut c);
