@@ -91,3 +91,10 @@ host taken out of `game.lan` (the call site at lan_actions.rs:2101 passes `host`
 2. Decide on the injection above. Without it T12 stays "cleanup within one tick".
 3. Update `GAPS.md` (T13 hopper: exact; T13 dropper: scan substitute; T12, T14: as above) and `HOOKS.md` after the owner
    reads this note.
+
+## Integration check
+
+1. The pin takes the LAN host out before it handles a container click. The packet hook receives the window and button only.
+   The cursor helper reads the missing host for vanilla menus. The inventory click handlers therefore cannot read the server cursor.
+2. The control command `entities` lists mobs, loose items and experience orbs. It omits vehicles (`game/agent.rs`, `entities_value`).
+   A vehicle check must aim at its known position and use the normal interaction.

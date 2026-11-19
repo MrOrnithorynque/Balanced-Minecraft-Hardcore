@@ -3038,13 +3038,16 @@ if wanted z; then
     ctl command "setblock $HX $HY $HZ minecraft:air" >/dev/null
     ctl command "setblock $CX $CY $CZ minecraft:air" >/dev/null
     ctl command "clear @s" >/dev/null
-    ctl command "summon minecraft:chest_minecart $CX $CY $CZ" >/dev/null
+    ctl command "setblock $CX $CY $CZ minecraft:rail" >/dev/null
+    ctl command "summon minecraft:chest_minecart $(center "$CX") $CY $(center "$CZ")" >/dev/null
     ctl wait 10 >/dev/null
-    z_cart="$(jget "$(ctl entities 8)" '([e["id"] for e in d.get("entities", []) if "chest_minecart" in e.get("type", "")] or [""])[0]')"
     ctl command "give @s bmh:totem_of_eternity" >/dev/null
     ctl wait 10 >/dev/null
-    ctl interact-entity "$z_cart" >/dev/null
+    # The entities command lists mobs, loose items and orbs. Aim at the middle of the cart.
+    ctl look-at "$(center "$CX")" "$(center "$CY")" "$(center "$CZ")" >/dev/null
+    ctl mouse right click >/dev/null
     ctl wait 10 >/dev/null
+    z_cart_menu="$(ctl menu)"
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
     z7a="$(t_counts bmh:totem_of_eternity)"
@@ -3053,13 +3056,32 @@ if wanted z; then
     r0="$(z_refusals)"
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
-    echo "z-evidence z7: cart $z_cart, menu $(ctl menu | head -c 600)"
+    echo "z-evidence z7: cart $(printf '%s' "$z_cart_menu" | head -c 180), menu $(ctl menu | head -c 600)"
     z7b="$(t_counts bmh:totem_of_eternity)"
     ctl close >/dev/null
     if [ "$z7a" = 0 ] && [ "$z7b" = 1 ] && [ "$(z_refusals)" -gt "$r0" ]; then
         pass z7 "a chest minecart took the first totem and refused the second (player 0, then 1, log line)"
     else
-        fail z7 "chest minecart $z_cart: player after the first $z7a, after the second $z7b, refusals $(z_refusals) (was $r0)"
+        fail z7 "chest minecart: player after the first $z7a, after the second $z7b, refusals $(z_refusals) (was $r0)"
+    fi
+    # A hopper feeding the cart keeps its second totem, then moves it after the cart is emptied.
+    ctl command "setblock $HX $HY $HZ minecraft:hopper[facing=west]" >/dev/null
+    ctl container "$HX" "$HY" "$HZ" bmh:totem_of_eternity 1 >/dev/null
+    ctl wait 40 >/dev/null
+    z8_held="$(z_chest_totems "$HX" "$HY" "$HZ")"
+    ctl command "clear @s" >/dev/null
+    ctl look-at "$(center "$CX")" "$(center "$CY")" "$(center "$CZ")" >/dev/null
+    ctl mouse right click >/dev/null
+    ctl wait 10 >/dev/null
+    ctl click-slot 300 shift >/dev/null
+    ctl wait 40 >/dev/null
+    z8_after="$(z_chest_totems "$HX" "$HY" "$HZ")"
+    z8_player="$(t_counts bmh:totem_of_eternity)"
+    ctl close >/dev/null
+    if [ "$z8_held" = 1 ] && [ "$z8_after" = 0 ] && [ "$z8_player" = 1 ]; then
+        pass z8 "the hopper kept its totem while the cart held one, then moved it when the player emptied the cart"
+    else
+        fail z8 "hopper before $z8_held and after $z8_after, player $z8_player"
     fi
     ctl command "kill @e[type=chest_minecart]" >/dev/null
     ctl command "kill @e[type=item]" >/dev/null
