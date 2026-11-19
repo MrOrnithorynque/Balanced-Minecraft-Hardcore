@@ -2957,10 +2957,14 @@ print(d.get("bmh:journey/exile", {}).get("done"))' "$adv_file")"
     ctl wait 60 >/dev/null
 
     # w3: a stale arm. immediate_respawn true: die once. Then it is false and the rule is off: the click respawns at once.
+    rec_before="$(count_log 'Homecoming record:')"
     ctl command "gamerule immediate_respawn true" >/dev/null
     ctl command "kill @s" >/dev/null
+    if ! wait_log 'Homecoming record:' "$rec_before" 150; then
+        fail w3-setup "the first exile did not finish before the rule change"
+    fi
     ctl wait 100 >/dev/null
-    sleep 6
+    ctl wait-for screen playing --timeout 30 >/dev/null || fail w3-setup "the first journey did not return to play"
     ctl command "gamerule immediate_respawn false" >/dev/null
     ctl command "bmh rule random_death_spawn_point false" >/dev/null
     ctl command "kill @s" >/dev/null
@@ -2972,10 +2976,11 @@ print(d.get("bmh:journey/exile", {}).get("done"))' "$adv_file")"
     res="$(near_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$spawn_x" "$spawn_z" 64)"
     sbl="$(jget "$out" 'd["black"]')"
     smod="$(jget "$out" 'd["mod_frames"]')"
-    if [ "${sbl:-1}" -eq 0 ] && [ "${smod:-1}" -eq 0 ] && [ "${res##* }" = ok ]; then
+    sply="$(jget "$out" 'len(d["plain_respawn"])')"
+    if [ "${sply:-0}" -gt 0 ] && [ "${sbl:-1}" -eq 0 ] && [ "${smod:-1}" -eq 0 ] && [ "${res##* }" = ok ]; then
         pass w3 "stale arm: rule off after an immediate respawn, the click respawned at once at the point (${res%% *} blocks from it), no black frame, no mod screen (sheet $SHOTS/w3/sheet.png)"
     else
-        fail w3 "stale arm: black frames ${sbl:-?}, mod frames ${smod:-?} (both 0), ${res%% *} blocks from the point (64 at most); screens $(jget "$out" 'd["screens"]')"
+        fail w3 "stale arm: live frames at the point ${sply:-?} (1 or more), black frames ${sbl:-?}, mod frames ${smod:-?} (both 0), ${res%% *} blocks from the point (64 at most); screens $(jget "$out" 'd["screens"]')"
     fi
     ctl command "bmh rule random_death_spawn_point true" >/dev/null
     ctl wait 60 >/dev/null
@@ -2984,12 +2989,30 @@ print(d.get("bmh:journey/exile", {}).get("done"))' "$adv_file")"
     # Closing it (Escape or its Respawn button) is itself a request to respawn, so "close it, then click Respawn" cannot be
     # split: the check is that the closing request is held (the fade starts) and no plain respawn happens. Two variants.
     for variant in escape button; do
+        rec_before="$(count_log 'Homecoming record:')"
+        seq="$(jget "$(ctl events)" 'd["last"]')"
         ctl command "kill @s" >/dev/null
-        ctl wait-for screen dead --timeout 30 >/dev/null
+        if ! ctl wait-for event death --since "${seq:-0}" --timeout 30 >/dev/null ||
+           ! ctl wait-for screen dead --timeout 30 >/dev/null; then
+            fail w4-$variant "the kill did not open a fresh death screen"
+            continue
+        fi
         sleep 3
         ctl click-button "Title Screen" >/dev/null
         sleep 1
-        echo "test-slice.sh: w4 $variant: widgets over the death screen: $(jget "$(ctl ui)" '[w["label"] for w in d["widgets"]]')"
+        # The normal death screen stacks its buttons. The quit confirmation puts them side by side.
+        confirm_until=$((SECONDS + 8))
+        while :; do
+            buttons="$(ctl ui)"
+            confirm="$(jget "$buttons" 'len({w["bounds"][0] for w in d["widgets"] if w.get("label") in ("Respawn", "Title Screen") and w["enabled"]}) == 2')"
+            [ "$confirm" = True ] && break
+            [ "$SECONDS" -ge "$confirm_until" ] && break
+            sleep 0.2
+        done
+        if [ "$confirm" != True ]; then
+            fail w4-$variant "the quit confirmation did not open with both buttons enabled: $buttons"
+            continue
+        fi
         if [ "$variant" = escape ]; then act="key esc tap"; else act="click-button Respawn"; fi
         out="$(PROBE_SECS=6 PROBE_ACTION="$act" series_probe click "$SHOTS/w4-$variant")"
         echo "test-slice.sh: w4 $variant series: $out"
@@ -3001,8 +3024,11 @@ print(d.get("bmh:journey/exile", {}).get("done"))' "$adv_file")"
         else
             fail w4-$variant "a screen over the death screen, closed with '$act': mod frames ${smod:-?} (1 or more), black frames ${sbl:-?} (1 or more), plain respawn frames ${sply:-?} (0); screens $(jget "$out" 'd["screens"]')"
         fi
+        if ! wait_log 'Homecoming record:' "$rec_before" 150; then
+            fail w4-$variant "the exile did not reach its landing before the next death"
+        fi
         ctl wait 100 >/dev/null
-        sleep 4
+        ctl wait-for screen playing --timeout 30 >/dev/null || fail w4-$variant "the journey did not return to play"
     done
 
     # w5: a press before the departure. Die and click Respawn at once.
