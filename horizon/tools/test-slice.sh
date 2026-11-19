@@ -2367,6 +2367,8 @@ if wanted abilities; then
     ctl command "gamemode survival" >/dev/null
     ctl command "difficulty normal" >/dev/null
     ctl command "effect clear @s" >/dev/null
+    # Protect the player while the test reads health from the target mobs.
+    ctl command "effect give @s minecraft:resistance infinite 4 true" >/dev/null
     ctl command "weather clear" >/dev/null
     ctl command "time set 18000" >/dev/null
     platform
@@ -2540,6 +2542,7 @@ PYEOF
         fail abilities6 "no distinct temporary cyan outline behind stone (active-only and expired-only pixels: $outline)"
     fi
     ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s minecraft:resistance" >/dev/null
 fi
 
 # ---- s. The moon ritual: refused by day, a fail when the aim leaves the moon, a full ritual at night -------
