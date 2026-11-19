@@ -611,8 +611,11 @@ fn menu_totems<'a>(
 // T12, T14: a click in a container menu that would put a second Totem of Eternity in the container
 // is canceled before it lands. This is the job of `Slot.mayPlace` in the Java mod
 // (I_SlotTotemMixin.java:21-28). The game answers a canceled click as one the server refused:
-// the slots and the cursor of the client go back to the server's. No player is swapped in; the
-// guest and his open menu are read from the game's list of players.
+// the slots and the cursor of the client go back to the server's.
+// GAME RESULT (2026-11-19): in the game this hook finds no menu. The game takes the LAN host out of
+// `game.lan` while it handles a click (`lan_inventory_click_hooks(&mut self, host, ...)`), so `game.lan`
+// is None here and the cursor, the inventory and the open menu cannot be read. The code is kept for
+// the injection proposal in docs/horizon/solutions/totem-containers.md; today it returns at once.
 pub(super) fn on_inventory_click(
     game: &crate::game::Game<'_>,
     player: u128,

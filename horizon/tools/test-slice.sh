@@ -2796,7 +2796,7 @@ fi
 # Gap workarounds T12, T13, T14 (docs/horizon/solutions/totem-containers.md). The slot ids of click-slot: 0 to 35
 # the inventory, 300 and up the container. The clicks are the Java mod's Slot.mayPlace cases: a refused click
 # changes nothing and the log tells "A click that would put a second Totem of Eternity".
-z_chest_totems() { jget "$(ctl container "$1" "$2" "$3")" 'sum(s.get("count", 1) for s in d.get("items", d.get("slots", [])) if "totem_of_eternity" in str(s.get("item", "")))'; }
+z_chest_totems() { jget "$(ctl container "$1" "$2" "$3")" 'sum(s.get("count", 1) for s in d.get("slots", []) if s and "totem_of_eternity" in str(s.get("item", "")))'; }
 z_refusals() { count_log 'would put a second Totem of Eternity'; }
 if wanted z; then
     echo "--- z. totem containers: a chest menu, a hopper on the ground, a chest minecart, a dropper"
@@ -2907,7 +2907,7 @@ if wanted z; then
     ctl command "clear @s" >/dev/null
     ctl command "summon minecraft:chest_minecart $CX $CY $CZ" >/dev/null
     ctl wait 10 >/dev/null
-    z_cart="$(jget "$(ctl entities 8 chest_minecart)" '([e["id"] for e in d.get("entities", [])] or [""])[0]')"
+    z_cart="$(jget "$(ctl entities 8)" '([e["id"] for e in d.get("entities", []) if "chest_minecart" in e.get("type", "")] or [""])[0]')"
     ctl command "give @s bmh:totem_of_eternity" >/dev/null
     ctl wait 10 >/dev/null
     ctl interact-entity "$z_cart" >/dev/null
