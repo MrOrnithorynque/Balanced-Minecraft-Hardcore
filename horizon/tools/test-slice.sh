@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r s t u v w x y z m j), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r s t u v w x y z cooldown rules o m j), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -23,10 +23,12 @@
 #   screens, the points across a death and a restart, the server checks; it quits and relaunches once);
 #   r the Eternal tools (worn pickaxe dig time, Efficiency V, the last point, the death wear); s the moon ritual
 #   (refused by day, looked away, a full ritual); v the sky (a star reading, its log lines, screenshots, the spyglass);
-#   z the totem containers (a chest menu, a hopper, a dropper, a chest minecart; T12 to T14); t the totem (Undying order, the extra totem, the anvil, E6, the save on a lethal hit, /kill); u the homecoming
+#   t the totem (Undying order, the extra totem, the anvil, E6, the save on a lethal hit, /kill); u the homecoming
 #   (the record, the title, the awards, the rule); w the journey and the early respawn (immediate respawn, the arrival
 #   frame, a stale arm, a screen over the death screen, a press before the departure); x a LAN guest below operator
 #   level (/bmh rule refused, /bmh point save works); y a Java world's rules imported (it quits and relaunches);
+#   z one Totem of Eternity per container, hopper and vehicle; cooldown the amulet icon;
+#   rules the /gamerule command and completion; o Hardcore and Re-Create on the world screen;
 #   j dead when the game closes (it quits and relaunches).
 # Environment: BMH_HORIZON_CACHE (default ~/Library/Caches/bmh-horizon).
 # Exit codes: 0 all checks passed (SKIPs allowed), 1 a check failed, 77 no prepared files,
@@ -62,7 +64,7 @@ while [ "$#" -gt 0 ]; do
                      bindir="$2"; shift 2 ;;
         --out)       [ "$#" -ge 2 ] || { echo "test-slice.sh: --out needs a folder." >&2; exit 64; }
                      outdir="$2"; shift 2 ;;
-        -h|--help)   sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help)   sed -n '2,/^# Environment:/{ /^# Environment:/d; p; }' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "test-slice.sh: unknown option '$1'." >&2; exit 64 ;;
     esac
 done
@@ -2404,12 +2406,12 @@ if wanted s; then
 fi
 
 # ---- v. The sky: a star reading draws (screenshots a person must look at), no "does not draw" line ---------
-# The log lines are the facts; the screenshots go to docs/horizon/log/sky-shots/ (scaled to 1280 px) and a
+# The log lines are the facts; the screenshots go to the run output (scaled to 1280 px) and a
 # person must look at them: only a person can say that the chain is over the stars and that terrain hides it.
 if wanted v; then
     echo "--- v. sky: a star reading, the log lines, screenshots, the spyglass name"
     ensure_point
-    skyshots="$repo/docs/horizon/log/sky-shots"
+    skyshots="$SHOTS/sky"
     mkdir -p "$skyshots"
     ctl command "difficulty peaceful" >/dev/null
     ctl command "gamemode survival" >/dev/null
@@ -2485,7 +2487,7 @@ if wanted v; then
             [ -s "$f" ] && sips -Z 1280 "$f" >/dev/null 2>&1
         done
         if [ -s "$skyshots/v4-reading-toward-point.png" ]; then
-            pass v4 "screenshots written to docs/horizon/log/sky-shots/ (a person must look at them)"
+            pass v4 "screenshots written to $skyshots (a person must look at them)"
         else
             fail v4 "no screenshot"
         fi
@@ -2824,6 +2826,20 @@ if wanted x; then
             else
                 fail x2 "a LAN guest's /bmh point save on a bed at $((gx + 1)) $gy $gz: action bar '$bar'; chat $(jget "$(gctl messages 3)" 'd["chat"][:3]')"
             fi
+            # x3: the Java command for a BMH rule. A level 0 guest types /gamerule bmh:... : the mod takes the
+            # line, runs it as the guest, and /bmh rule refuses it. The rules file stays as it was.
+            rules_before="$(cat "$rules_file")"
+            bad_before="$(jget "$(gctl chat-log 50)" 'sum(1 for m in d["chat"] if "Unknown or incomplete command" in m)')"
+            taken_before="$(count_log 'taken from a player')"
+            gctl chat "/gamerule bmh:random_death_spawn_point false" >/dev/null
+            sleep 3
+            bad_after="$(jget "$(gctl chat-log 50)" 'sum(1 for m in d["chat"] if "Unknown or incomplete command" in m)')"
+            if [ "$(cat "$rules_file")" = "$rules_before" ] && [ "$(( ${bad_after:-0} - ${bad_before:-0} ))" -ge 1 ] \
+                && [ "$(count_log 'taken from a player')" -gt "$taken_before" ]; then
+                pass x3 "a LAN guest (level 0) typing /gamerule bmh:random_death_spawn_point false is taken by the mod (log line) and refused (unknown-command line), rules.txt unchanged"
+            else
+                fail x3 "a LAN guest's /gamerule bmh:...: unknown-command lines +$(( ${bad_after:-0} - ${bad_before:-0} )) (1 expected); rules.txt changed: $([ "$(cat "$rules_file")" = "$rules_before" ] && echo no || echo yes); 'taken' log lines +$(( $(count_log 'taken from a player') - taken_before )); chat $(jget "$(gctl messages 4)" 'd["chat"][:4]')"
+            fi
             gctl disconnect >/dev/null
         fi
     fi
@@ -3031,6 +3047,280 @@ if wanted z; then
     ctl command "kill @e[type=chest_minecart]" >/dev/null
     ctl command "kill @e[type=item]" >/dev/null
     ctl command "clear @s" >/dev/null
+fi
+
+# ---- cooldown. The amulet's cooldown sweep on the hotbar icon (GAPS.md A4, docs/horizon/solutions/amulet-cooldown.md) ---------
+# A reading starts a 40 tick cooldown. The mod draws the white shade of the game's own cooldown on the amulet's icon.
+# Three screenshots: 4 ticks after the use (almost all of the icon shaded), 24 ticks (about two fifths), and 80 ticks
+# (the cooldown is over, the reference). The shade is the pixels that are brighter than the reference, inside the
+# hotbar; its width gives the GUI scale and its height the part that is left.
+if wanted cooldown; then
+    echo "--- cooldown. amulet: the cooldown sweep on the hotbar icon"
+    ensure_point
+    zshots="$SHOTS/amulet-cooldown"
+    mkdir -p "$zshots"
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl give bmh:navigator_amulet 1 >/dev/null
+    ctl wait 10 >/dev/null
+    ctl select bmh:navigator_amulet >/dev/null
+    ctl look 0 -20 >/dev/null
+    open_sky
+    ctl command "weather clear" >/dev/null
+    ctl command "time set 18000" >/dev/null
+    ctl wait 60 >/dev/null
+    z_reads="$(count_log 'Star reading for')"
+    ctl use-item >/dev/null
+    ctl wait 4 >/dev/null
+    ctl screenshot "$zshots/z1-sweep-4-ticks.png" >/dev/null
+    ctl wait 20 >/dev/null
+    ctl screenshot "$zshots/z2-sweep-24-ticks.png" >/dev/null
+    ctl wait 60 >/dev/null
+    ctl screenshot "$zshots/z3-sweep-over.png" >/dev/null
+    z_out="$(python3 - "$zshots/z1-sweep-4-ticks.png" "$zshots/z2-sweep-24-ticks.png" "$zshots/z3-sweep-over.png" <<'PYEOF'
+import sys
+try:
+    from PIL import Image
+except Exception:
+    print("NOPIL")
+    raise SystemExit
+imgs = [Image.open(f).convert("RGB") for f in sys.argv[1:4]]
+ref = imgs[2]
+w, h = ref.size
+box = (int(w * 0.25), int(h * 0.88), int(w * 0.75), h)
+def shade(img):
+    # Pixels that are at least 60 brighter than the reference in each channel, in the hotbar strip.
+    a, r = img.load(), ref.load()
+    xs, ys = [], []
+    for y in range(box[1], box[3]):
+        for x in range(box[0], box[2]):
+            p, q = a[x, y], r[x, y]
+            if all(p[i] - q[i] >= 60 for i in range(3)):
+                xs.append(x)
+                ys.append(y)
+    if len(xs) < 20:
+        return 0, 0, len(xs)
+    return max(xs) - min(xs) + 1, max(ys) - min(ys) + 1, len(xs)
+rows = [shade(imgs[0]), shade(imgs[1]), shade(imgs[2])]
+scale = rows[0][0] / 16.0 if rows[0][0] else 0
+print(" ".join("%d,%d,%d" % r for r in rows), "scale=%.2f" % scale)
+PYEOF
+)"
+    echo "t-evidence z: shade width,height,pixels at 4 ticks, 24 ticks, over: $z_out"
+    if [ "$z_out" = NOPIL ]; then
+        skip cooldown1 "PIL is missing: open the files in $zshots by hand"
+    else
+        z_ok="$(python3 - "$z_out" <<'PYEOF'
+import sys, re
+m = re.match(r"(\d+),(\d+),(\d+) (\d+),(\d+),(\d+) (\d+),(\d+),(\d+) scale=([0-9.]+)", sys.argv[1])
+if not m:
+    print("bad")
+    raise SystemExit
+v = [int(x) for x in m.groups()[:9]]
+scale = float(m.group(10))
+if scale <= 0:
+    print("bad")
+    raise SystemExit
+f1 = v[1] / (16 * scale)
+f2 = v[4] / (16 * scale)
+ok = f1 > 0.7 and 0.2 < f2 < 0.65 and f2 < f1 and v[6] == 0 and v[7] == 0
+print("ok %.2f %.2f" % (f1, f2) if ok else "bad %.2f %.2f" % (f1, f2))
+PYEOF
+)"
+        if [ "$(count_log 'Star reading for')" -gt "$z_reads" ] && case "$z_ok" in ok*) true ;; *) false ;; esac; then
+            pass cooldown1 "the sweep: part left after 4 and 24 ticks '${z_ok#ok }', none after 80 (z1, z2, z3 in $zshots)"
+        else
+            fail cooldown1 "the sweep: readings +$(( $(count_log 'Star reading for') - z_reads )), shade '$z_out', verdict '$z_ok'"
+        fi
+    fi
+    ctl command "clear @s" >/dev/null
+    ctl command "time set 6000" >/dev/null
+fi
+
+# ---- rules. /gamerule bmh:... (S1) ---------------------------------------------------------------------------------
+# The Java command for a BMH rule. Horizon's /gamerule knows vanilla rules only, so the mod hears every typed
+# command (player_command), stops the line and runs `bmh rule ...` as the player on the next server tick. The
+# owner types it in the chat box (horizon-ctl chat), as a person does.
+if wanted rules; then
+    echo "--- rules. /gamerule bmh:<rule> typed in the chat"
+    ensure_point
+    ctl command "gamemode survival" >/dev/null
+    # rules0: the scratch world has Allow Commands off, so the owner's chat commands run at level 0. The mod takes
+    # the line, runs it as the owner, and /bmh rule refuses it, as vanilla's /gamerule refuses a player below
+    # level 2. Nothing changes.
+    rules_file="$GAMEDIR/saves/$WORLD/bmh/rules.txt"
+    ctl command "bmh rule display_text_on_respawn true" >/dev/null
+    rules_before="$(cat "$rules_file")"
+    taken_before="$(count_log 'taken from a player')"
+    ctl chat "/gamerule bmh:display_text_on_respawn false" >/dev/null
+    sleep 2
+    if [ "$(cat "$rules_file")" = "$rules_before" ] && [ "$(count_log 'taken from a player')" -gt "$taken_before" ] \
+        && jget "$(ctl messages 3)" '" ".join(d["chat"][:3])' | grep -q 'Unknown or incomplete command'; then
+        pass rules0 "the owner of a world with Allow Commands off (level 0): /gamerule bmh:... is taken and refused, rules.txt unchanged"
+    else
+        fail rules0 "level 0 owner: rules.txt changed: $([ "$(cat "$rules_file")" = "$rules_before" ] && echo no || echo yes); taken lines +$(( $(count_log 'taken from a player') - taken_before )); chat $(jget "$(ctl messages 3)" 'd["chat"][:3]')"
+    fi
+    # The other checks need a world with Allow Commands on: make one the way a player does.
+    leave_world
+    open_create_screen
+    n=0
+    while ! jget "$(ctl ui)" '[w["label"] for w in d["widgets"] if w["id"]=="allow-commands"][0]' | grep -q ON && [ "$n" -lt 3 ]; do
+        ctl click allow-commands >/dev/null; sleep 1; n=$((n + 1))
+    done
+    make_world bmhcmd
+    rules_file="$GAMEDIR/saves/bmhcmd/bmh/rules.txt"
+    rule_now() { sed -n 's/^display_text_on_respawn = //p' "$rules_file" | head -n 1; }
+    warn_before="$(count_log 'ran nothing for the line')"
+    ctl chat "/gamerule bmh:display_text_on_respawn false" >/dev/null
+    sleep 2
+    set_text="$(jget "$(ctl messages 6)" '" | ".join(d["chat"][:6])')"
+    if [ "$(rule_now)" = false ] && printf '%s' "$set_text" | grep -q 'Game rule bmh:display_text_on_respawn is now set to false'; then
+        pass rules1 "/gamerule bmh:display_text_on_respawn false in the chat: rules.txt says false, answer: $(printf '%s' "$set_text" | head -c 160)"
+    else
+        fail rules1 "/gamerule bmh:display_text_on_respawn false: rules.txt '$(rule_now)', chat: $(printf '%s' "$set_text" | head -c 300)"
+    fi
+    ctl chat "/gamerule bmh:display_text_on_respawn" >/dev/null
+    sleep 2
+    q_text="$(jget "$(ctl messages 3)" '" | ".join(d["chat"][:3])')"
+    if printf '%s' "$q_text" | grep -q 'Game rule bmh:display_text_on_respawn is currently set to false'; then
+        pass rules2 "/gamerule bmh:display_text_on_respawn queries: $(printf '%s' "$q_text" | head -c 160)"
+    else
+        fail rules2 "the query of /gamerule bmh:display_text_on_respawn: $(printf '%s' "$q_text" | head -c 300)"
+    fi
+    ctl chat "/gamerule bmh:display_text_on_respawn true" >/dev/null
+    sleep 2
+    if [ "$(rule_now)" = true ]; then
+        pass rules3 "/gamerule bmh:display_text_on_respawn true puts it back (rules.txt true)"
+    else
+        fail rules3 "rules.txt after /gamerule bmh:display_text_on_respawn true: '$(rule_now)'"
+    fi
+    ctl chat "/gamerule keep_inventory true" >/dev/null
+    sleep 2
+    v_text="$(jget "$(ctl messages 3)" '" | ".join(d["chat"][:3])')"
+    ctl chat "/gamerule keep_inventory false" >/dev/null
+    sleep 1
+    if printf '%s' "$v_text" | grep -q 'keep_inventory is now set to true'; then
+        pass rules4 "a vanilla rule is left to vanilla: $(printf '%s' "$v_text" | head -c 160)"
+    else
+        fail rules4 "/gamerule keep_inventory true: $(printf '%s' "$v_text" | head -c 300)"
+    fi
+    ctl chat "/gamerule bmh:nonsense true" >/dev/null
+    sleep 2
+    u_text="$(jget "$(ctl messages 3)" '" | ".join(d["chat"][:3])')"
+    if printf '%s' "$u_text" | grep -q 'Unknown BMH rule: nonsense'; then
+        pass rules5 "an unknown bmh: rule is named: $(printf '%s' "$u_text" | head -c 160)"
+    else
+        fail rules5 "/gamerule bmh:nonsense true: $(printf '%s' "$u_text" | head -c 300)"
+    fi
+    if [ "$(count_log 'ran nothing for the line')" -eq "$warn_before" ]; then
+        pass rules6 "no 'ran nothing' warning in the log: every queued line ran"
+    else
+        fail rules6 "the log has 'ran nothing for the line' warnings: $(grep 'ran nothing for the line' "$(logfile)" | tail -n 2)"
+    fi
+    # rules8: the rule is kept in the world: set false, save, quit to the title, open the world again.
+    ctl chat "/gamerule bmh:only_carry_one_eternal_item_type false" >/dev/null
+    sleep 2
+    leave_world
+    ctl open bmhcmd >/dev/null
+    ctl wait-for loaded --timeout 200 >/dev/null
+    sleep 3
+    ctl chat "/gamerule bmh:only_carry_one_eternal_item_type" >/dev/null
+    sleep 2
+    k_text="$(jget "$(ctl messages 3)" '" | ".join(d["chat"][:3])')"
+    if printf '%s' "$k_text" | grep -q 'only_carry_one_eternal_item_type is currently set to false'; then
+        pass rules8 "the rule stays false in the world across a quit to the title: $(printf '%s' "$k_text" | head -c 160)"
+    else
+        fail rules8 "after the world opened again: $(printf '%s' "$k_text" | head -c 300)"
+    fi
+    # rules9: the chat box completes the rule name of /bmh rule (the kind word? asks the server, which answers
+    # through tab_complete_v2). A person types "/bmh rule rand" and presses Tab.
+    ctl key t tap >/dev/null
+    sleep 1
+    ctl type "/bmh rule rand" >/dev/null
+    sleep 2
+    ctl screenshot "$SHOTS/z9-completion.png" >/dev/null
+    suggestion_rows="$(jget "$(ctl ui)" 'len([w for w in d["widgets"] if w["kind"]=="row"])')"
+    ctl key tab tap >/dev/null
+    sleep 1
+    ctl screenshot "$SHOTS/z9-completion-applied.png" >/dev/null
+    if [ "${suggestion_rows:-0}" -ge 1 ]; then
+        pass rules9 "typing '/bmh rule rand' in the chat box shows $suggestion_rows suggestion row (screenshot z9-completion.png shows random_death_spawn_point)"
+    else
+        fail rules9 "typing '/bmh rule rand' shows no suggestion row: $(ctl ui | head -c 400)"
+    fi
+    # Escape closes the suggestions first, then the chat box: press it until the game is playing again.
+    n=0
+    while [ "$(jget "$(state)" 'd["screen"]')" != playing ] && [ "$n" -lt 4 ]; do
+        ctl key esc tap >/dev/null
+        sleep 1
+        n=$((n + 1))
+    done
+    leave_world
+    ctl open "$WORLD" >/dev/null
+    ctl wait-for loaded --timeout 200 >/dev/null
+    sleep 3
+    ctl command "gamemode survival" >/dev/null
+fi
+
+if wanted o; then
+    echo "--- o. the Balanced Hardcore button: greyed in Hardcore, Re-Create"
+    ctl command "gamemode survival" >/dev/null
+    leave_world
+    open_create_screen
+    gm_label() { jget "$(ctl ui)" '[w["label"] for w in d["widgets"] if w["id"]=="game-mode"][0]'; }
+    n=0
+    while ! gm_label | grep -q Hardcore && [ "$n" -lt 4 ]; do ctl click game-mode >/dev/null; sleep 1; n=$((n + 1)); done
+    flip_c0="$(choice_now)"
+    xy="$(button_xy)"
+    ctl screenshot "$SHOTS/o1-hardcore-greyed.png" >/dev/null
+    ctl click-at "${xy%% *}" "${xy##* }" >/dev/null
+    sleep 1
+    flip_c1="$(choice_now)"
+    if gm_label | grep -q Hardcore && [ -n "$flip_c0" ] && [ "$flip_c0" = "$flip_c1" ]; then
+        pass o1 "Game Mode: Hardcore: a click on the button ($xy) leaves the choice at '$flip_c0' (greyed, screenshot o1-hardcore-greyed.png)"
+    else
+        fail o1 "Hardcore: label '$(gm_label)', choice '$flip_c0' before and '$flip_c1' after a click at '$xy'"
+    fi
+    n=0
+    while gm_label | grep -q Hardcore && [ "$n" -lt 4 ]; do ctl click game-mode >/dev/null; sleep 1; n=$((n + 1)); done
+    ctl screenshot "$SHOTS/o2-survival-active.png" >/dev/null
+    flip_button
+    flip_c2="$(choice_now)"
+    if [ -n "$flip_c0" ] && [ "$flip_c2" != "$flip_c0" ]; then
+        pass o2 "back in $(gm_label): the button takes clicks again ('$flip_c0' to '$flip_c2')"
+    else
+        fail o2 "back in $(gm_label): choice '$flip_c0' then '$flip_c2' after a click"
+    fi
+    # Re-Create: a world made with the button OFF, then Re-Create from the world list.
+    flip_button
+    [ "$(choice_now)" = false ] || flip_button
+    make_world bmhrc
+    leave_world
+    ctl click singleplayer >/dev/null
+    sleep 2
+    recreate_choice_of() {
+        ctl click "$1" >/dev/null; sleep 1
+        ctl click re-create >/dev/null; sleep 2
+    }
+    recreate_choice_of bmhrc
+    rc_off="$(choice_now)"
+    ctl screenshot "$SHOTS/o3-recreate-of-off-world.png" >/dev/null
+    ctl click cancel >/dev/null; sleep 1
+    recreate_choice_of "$WORLD"
+    rc_on="$(choice_now)"
+    ctl screenshot "$SHOTS/o4-recreate-of-on-world.png" >/dev/null
+    if [ "$rc_off" = false ] && [ "$rc_on" = true ]; then
+        pass o3 "Re-Create of a world whose rules are all false shows OFF ('$rc_off'), of a world with rules on shows ON ('$rc_on')"
+    else
+        fail o3 "Re-Create: world with rules false gave '$rc_off' (false expected), world with rules on gave '$rc_on' (true expected)"
+    fi
+    ctl click cancel >/dev/null; sleep 1
+    ctl click back >/dev/null; sleep 1
+    ctl open "$WORLD" >/dev/null
+    ctl wait-for loaded --timeout 200 >/dev/null
+    sleep 3
+    ctl command "gamemode survival" >/dev/null
 fi
 
 # ---- m. Rules and config across a restart --------------------------------------------------------------
