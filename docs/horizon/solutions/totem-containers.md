@@ -1,8 +1,7 @@
 # One Totem of Eternity per container: workarounds for T12, T13, T14
 
-Branch `claude/gap-totem-containers-d99671`, cut from `horizon-26.3` at `5da909a`. Status: both gates pass (`test-logic.sh`: 357 tests; `check.sh`: `"check": "ok"`). Scenario `z` of `test-slice.sh` ran in
-the game on 2026-11-19 (01:25 to 01:35): **z3, z4, z5, z6 pass; z1, z2, z7 fail.** See "Game results" first: the
-click route of the table below does not work in the game, and the table is the design as written, not the verdict.
+The current implementation runs one check before a transfer and one after a menu click. See [Integration check](#integration-check).
+The sections below record the first experiment against Horizon revision `fdc87ae`. Its results explain why the integration changed the design.
 
 ## What was found in the Nightly tree (fdc87ae)
 
@@ -109,3 +108,6 @@ host taken out of `game.lan` (the call site at lan_actions.rs:2101 passes `host`
    A closed vehicle menu uses the cart or boat inventory. An ender chest uses the acting player's own ender slots.
 8. The chest and minecart checks now mark the second stack. They require that same stack back in the player's inventory.
    These checks test recovery after a click. A player can see the second stack before the next tick.
+9. The host compares open menus once per tick (`game/native_menus.rs`, `tick_player_menus`). A menu that opens and closes within one tick can escape recovery.
+   Two players who place totems in the same container in the same tick can compete for the returned stacks.
+   Exact refusal for those cases requires the server slot rule before a click changes the container.
