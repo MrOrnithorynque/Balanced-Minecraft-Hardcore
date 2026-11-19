@@ -463,9 +463,10 @@ pub enum HandSave {
 /// The answer for the two hands of a player that the game saves. `main` and `off` are the item ids
 /// of the hands (None when empty). `selected` is the selected hotbar slot (0 to 8). Only the Totem
 /// of Undying and the Totem of Eternity carry `death_protection` in this mod.
+/// Each argument names a hand stack with an effective death protection component.
 pub fn hand_save(main: Option<&str>, off: Option<&str>, selected: u8) -> HandSave {
     match (main, off) {
-        (Some(TOTEM_OF_UNDYING), _) => HandSave::Nothing,
+        (Some(item), _) if !is_totem(item) => HandSave::Nothing,
         (Some(m), Some(TOTEM_OF_UNDYING)) if is_totem(m) => HandSave::Swap,
         (Some(m), _) if is_totem(m) => HandSave::Eternity {
             carried: i32::from(selected),
@@ -523,7 +524,7 @@ mod tests {
     fn hand_save_spends_the_eternity_of_the_off_hand() {
         let off = HandSave::Eternity { carried: -106, inventory: 40 };
         assert_eq!(hand_save(None, Some(ids::TOTEM_OF_ETERNITY), 0), off);
-        assert_eq!(hand_save(Some("minecraft:stone_sword"), Some(ids::TOTEM_OF_ETERNITY), 0), off);
+        assert_eq!(hand_save(Some("other:protector"), Some(ids::TOTEM_OF_ETERNITY), 0), HandSave::Nothing);
     }
 
     #[test]

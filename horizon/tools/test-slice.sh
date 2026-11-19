@@ -2528,44 +2528,42 @@ def logtext():
         return ""
 def landings():
     return logtext().count("Landing spot ready")
-frames, stop, t0 = [], threading.Event(), [time.time()]
+frames, stop, t0 = [], threading.Event(), [time.monotonic()]
 def capture():
     i = 0
     while not stop.is_set():
-        s = time.time()
+        s = time.monotonic()
         f = "%s/f%03d.png" % (out, i)
         c("screenshot", f)
+        captured = (s + time.monotonic()) / 2 - t0[0]
         try:
             st = json.loads(c("state") or "{}")
         except ValueError:
             st = {}
         pl = st.get("player") or {}
-        luma = None
-        try:
-            luma = sum(Image.open(f).convert("L").resize((64, 36)).getdata()) / (64 * 36)
-        except Exception:
-            pass
-        frames.append({"i": i, "t": round(s - t0[0], 2), "screen": st.get("screen"), "pos": pl.get("position"), "health": pl.get("health"), "luma": luma, "file": f})
+        frames.append({"i": i, "t": captured, "screen": st.get("screen"), "pos": pl.get("position"), "health": pl.get("health"), "file": f})
         i += 1
-        time.sleep(max(0.0, 0.1 - (time.time() - s)))
+        # During the initial black screen, sample as fast as the game can write frames.
+        if mode != "immediate" or captured >= 2:
+            time.sleep(max(0.0, 0.1 - (time.monotonic() - s)))
 cap = threading.Thread(target=capture)
 mark, reply = 0.0, ""
 if mode == "immediate":
-    t0[0] = time.time(); cap.start(); time.sleep(0.5)
-    mark = time.time() - t0[0]; c("command", "kill @s")
+    t0[0] = time.monotonic(); cap.start(); time.sleep(0.5)
+    mark = time.monotonic() - t0[0]; c("command", "kill @s")
 elif mode == "arrival":
     n0 = landings()
     c("command", "kill @s")
     c("wait-for", "screen", "dead", "--timeout", "30")
-    t = time.time()
-    while landings() <= n0 and time.time() - t < 150:
+    t = time.monotonic()
+    while landings() <= n0 and time.monotonic() - t < 150:
         time.sleep(0.5)
     time.sleep(1.0)
-    t0[0] = time.time(); cap.start(); time.sleep(0.3)
-    mark = time.time() - t0[0]; reply = c("respawn")
+    t0[0] = time.monotonic(); cap.start(); time.sleep(0.3)
+    mark = time.monotonic() - t0[0]; reply = c("respawn")
 else:
-    t0[0] = time.time(); cap.start()
-    mark = time.time() - t0[0]
+    t0[0] = time.monotonic(); cap.start()
+    mark = time.monotonic() - t0[0]
     act = os.environ.get("PROBE_ACTION")
     reply = c(*act.split()) if act else c("click-button", button)
 time.sleep(secs)
@@ -2574,8 +2572,26 @@ land = re.findall(r"Landing spot ready after \d+ ms: \[(-?\d+), (-?\d+), (-?\d+)
 lx, lz = (float(land[-1][0]), float(land[-1][2])) if land else (None, None)
 def dist(p, x, z):
     return math.hypot(p[0] - x, p[2] - z) if p and x is not None else None
-black = [f for f in frames if f["luma"] is not None and f["luma"] < 3]
+# Measure brightness after capture so PNG decoding does not delay the next frame.
+for f in frames:
+    try:
+        with Image.open(f["file"]) as im:
+            thumbnail = im.convert("L").resize((64, 36))
+            f["luma"] = sum(thumbnail.getdata()) / (64 * 36)
+    except OSError:
+        f["luma"] = None
+black = [f for f in frames if f["luma"] is not None and f["luma"] < 3 and (mode != "immediate" or f["t"] >= mark)]
 fb = black[0]["i"] if black else None
+# Three samples at the original 100 ms cadence span 200 ms.
+# Count only the first unbroken sequence after the kill. A missing frame ends it.
+black_span_ms = 0
+if fb is not None:
+    first = previous = frames[fb]["t"]
+    for f in frames[fb + 1:]:
+        if f["luma"] is None or f["luma"] >= 3 or f["t"] - previous > 0.25:
+            break
+        previous = f["t"]
+    black_span_ms = int(1000 * (previous - first))
 arrival_before = [f["i"] for f in frames if f["luma"] is not None and f["luma"] >= 3 and f["screen"] in ("playing", None)
                   and (fb is None or f["i"] < fb) and f["t"] >= mark and dist(f["pos"], lx, lz) is not None and dist(f["pos"], lx, lz) < 200]
 plain = [f["i"] for f in frames if f["t"] >= mark and (f["health"] or 0) > 0 and f["screen"] == "playing" and f["luma"] is not None and f["luma"] >= 3
@@ -2606,7 +2622,7 @@ for f in frames:
         os.remove(f["file"])
     except OSError:
         pass
-print(json.dumps({"frames": len(frames), "cadence": round(cadence[len(cadence) // 2], 2) if cadence else None, "black": len(black), "first_black": fb,
+print(json.dumps({"frames": len(frames), "cadence": round(cadence[len(cadence) // 2], 2) if cadence else None, "black": len(black), "first_black": fb, "black_span_ms": black_span_ms,
                   "mark": round(mark, 2), "first_black_t": black[0]["t"] if black else None, "screens": seq, "arrival_before_black": arrival_before,
                   "plain_respawn": plain, "reply": reply.strip()[:200], "mod_frames": sum(1 for f in frames if f["screen"] == "mod")}))
 PYEOF
@@ -2670,12 +2686,13 @@ print(d.get("bmh:journey/exile", {}).get("done"))' "$adv_file")"
     fi
     # The series: black from the departure, then the sky and the message at the landing. A person must look at the sheet.
     sbl="$(jget "$out" 'd["black"]')"
+    span_ms="$(jget "$out" 'd["black_span_ms"]')"
     smod="$(jget "$out" 'd["mod_frames"]')"
     sab="$(jget "$out" 'len(d["arrival_before_black"])')"
-    if [ "${sbl:-0}" -ge 3 ] && [ "${smod:-0}" -ge 5 ] && [ "${sab:-1}" -eq 0 ]; then
-        pass w1c "immediate_respawn: $sbl black frames, $smod frames of the mod screen, no frame of the landing world before the black (first black at $(jget "$out" 'd["first_black_t"]') s, the kill at $(jget "$out" 'd["mark"]') s; sheet $SHOTS/w1/sheet.png; screens: $(jget "$out" 'd["screens"]'))"
+    if [ "${span_ms:-0}" -ge 200 ] && [ "${smod:-0}" -ge 5 ] && [ "${sab:-1}" -eq 0 ]; then
+        pass w1c "immediate_respawn: a black interval of $span_ms ms ($sbl black frames), $smod frames of the mod screen, no frame of the landing world before the black (first black at $(jget "$out" 'd["first_black_t"]') s, the kill at $(jget "$out" 'd["mark"]') s; sheet $SHOTS/w1/sheet.png; screens: $(jget "$out" 'd["screens"]'))"
     else
-        fail w1c "immediate_respawn series: black frames ${sbl:-?} (expected 3 or more), mod frames ${smod:-?} (5 or more), landing-world frames before the black ${sab:-?} (0); screens $(jget "$out" 'd["screens"]')"
+        fail w1c "immediate_respawn series: black interval ${span_ms:-?} ms (expected at least 200 ms, ${sbl:-?} black frames), mod frames ${smod:-?} (5 or more), landing-world frames before the black ${sab:-?} (0); screens $(jget "$out" 'd["screens"]')"
     fi
     ctl wait 60 >/dev/null
 

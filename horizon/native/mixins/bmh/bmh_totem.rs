@@ -321,11 +321,13 @@ fn complete_save(game: &mut crate::game::Game<'_>, me: &NativeServerPlayer) {
     );
 }
 
-/// The item id of a non-empty stack in `slot` of the acting player.
-fn carried_item(game: &mut crate::game::Game<'_>, slot: i32) -> Option<Arc<str>> {
-    game.native_carried_stack(slot)
-        .filter(|stack| stack.count > 0)
-        .map(|stack| stack.item.clone())
+/// Returns the item id only if this stack can protect the player.
+fn hand_protector<'a>(game: &crate::game::Game<'_>, stack: Option<&'a ItemStack>) -> Option<&'a str> {
+    let stack = stack.filter(|stack| stack.count > 0)?;
+    let view = horizon_client::item_render::stack_view(stack);
+    game.pack.item_renderer.models.components(&view)
+        .contains_key("minecraft:death_protection")
+        .then_some(stack.item.as_ref())
 }
 
 // T2, route A (docs/horizon/solutions/totem-save.md): Horizon's own hand check saves the player
@@ -340,9 +342,9 @@ pub(super) fn on_player_totem(game: &mut crate::game::Game<'_>, player: u128, na
         return;
     }
     let main_slot = i32::from(me.selected_slot);
-    let main = carried_item(game, main_slot);
-    let off = carried_item(game, logic::CARRIED_OFF_HAND);
-    let work = match logic::hand_save(main.as_deref(), off.as_deref(), me.selected_slot) {
+    let main = hand_protector(game, game.inventory.get(usize::from(me.selected_slot)).and_then(Option::as_ref));
+    let off = hand_protector(game, game.offhand.as_ref());
+    let work = match logic::hand_save(main, off, me.selected_slot) {
         logic::HandSave::Nothing => return,
         logic::HandSave::Swap => {
             let totem = game.native_carried_stack(main_slot).map(|stack| stack.clone());
