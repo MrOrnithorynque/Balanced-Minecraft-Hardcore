@@ -5,7 +5,7 @@
 //
 // Where the state lives:
 // - `SERVER`: what the server keeps between hooks, by the uuid of the player. Cleaned in
-//   `player_logged_out`; the hit, the echoes, the fall and the held item also at `player_died`. Nothing
+//   `player_logged_out`; the hit, the echoes and the fall also at `player_died`. Nothing
 //   survives a restart: an echo waits 5 ticks and a glow 5 seconds.
 // - `CLIENT`: the glows that the server told this window, and the server's mineable answers (E4).
 // - `bmh_tools_lib` (horizon-client-lib): the blocks of fall that the smashes took, for `living_fall`.
@@ -18,6 +18,7 @@ use horizon_client::items::ItemStack;
 use horizon_client::mod_api::{ParticleOptions, ParticleType};
 use horizon_client::text::Text;
 use horizon_world::player_inventory::EquipmentSlot;
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard};
@@ -63,6 +64,26 @@ enum Hit {
     Smash { victim: i32, multiplier: f32 },
 }
 
+#[derive(Clone, Copy)]
+enum Swing {
+    Worn,
+    Sword { strength: f32 },
+    Smash { multiplier: f32 },
+}
+
+#[derive(Clone, Copy)]
+struct Attack {
+    player: u128,
+    attacker: i32,
+    victim: i32,
+    swing: Swing,
+}
+
+// The server processes one attack packet at a time on its own thread.
+thread_local! {
+    static ATTACK: Cell<Option<Attack>> = const { Cell::new(None) };
+}
+
 /// The fall of a player, with the entity id the lib needs.
 struct Falling {
     entity: u32,
@@ -77,14 +98,10 @@ struct Reading {
 }
 
 struct Server {
-    /// The last two resets of the attack strength of each player.
-    resets: BTreeMap<u128, logic::Resets>,
     /// The fall of each player.
     falls: BTreeMap<u128, Falling>,
     /// The hit that the damage hook saw and `hurt_enemy` did not confirm yet.
     hits: BTreeMap<u128, Hit>,
-    /// The game time of the last main hit of each player: a second damage call in one tick is a sweep.
-    main_hit: BTreeMap<u128, i64>,
     /// The echoes that wait for each player.
     echoes: BTreeMap<u128, Vec<logic::PendingEcho>>,
     /// The hostile mobs that joined a level: entity id and dimension.
@@ -101,8 +118,6 @@ struct Server {
     swept: i64,
     /// The game time of the last sweep of the mobs, by dimension.
     mob_sweeps: BTreeMap<String, i64>,
-    /// The main-hand item of each player at its last tick (None: an empty hand).
-    held: BTreeMap<u128, Option<String>>,
     /// The mineable answers that each player was sent (E4): each one goes once.
     told: BTreeSet<(u128, logic::Tool, String)>,
     /// The mineable answers to send at the end of the tick.
@@ -110,10 +125,8 @@ struct Server {
 }
 
 static SERVER: Mutex<Server> = Mutex::new(Server {
-    resets: BTreeMap::new(),
     falls: BTreeMap::new(),
     hits: BTreeMap::new(),
-    main_hit: BTreeMap::new(),
     echoes: BTreeMap::new(),
     mobs: BTreeMap::new(),
     glows: logic::GlowBook::new(),
@@ -122,7 +135,6 @@ static SERVER: Mutex<Server> = Mutex::new(Server {
     awards: Vec::new(),
     swept: 0,
     mob_sweeps: BTreeMap::new(),
-    held: BTreeMap::new(),
     told: BTreeSet::new(),
     answers: Vec::new(),
 });
@@ -262,66 +274,63 @@ pub(super) fn on_inventory_tick(game: &mut crate::game::Game<'_>, slot: i32, sel
 // E3, E7, E8: the hit
 // ---------------------------------------------------------------------------------------------
 
-// E3: halve the hit of a worn out tool. E8: multiply the hit of an Axe Smash. E7: note a sword hit for the
-// echo that `hurt_enemy` confirms (E_PlayerAttackMixin.java:62-95).
-pub(super) fn on_living_incoming_damage_v2(
-    game: &mut crate::game::Game<'_>,
-    entity: i32,
-    kind: &str,
-    damage_type: &str,
-    causing: i32,
-    source_position: Option<[f64; 3]>,
-    victim_position: [f64; 3],
-    victim_view: [f64; 3],
-    weapon: Option<&ItemStack>,
-    amount: &mut f32,
-    canceled: &mut bool,
-) {
-    let _ = (kind, damage_type, source_position, victim_position, victim_view);
-    if *canceled || ECHOING.load(Ordering::Relaxed) {
+// Capture the main target and the strength before the server resets the attack cooldown.
+pub(super) fn on_attack_entity(game: &mut crate::game::Game<'_>, victim: i32, kind: &str, canceled: bool) {
+    ATTACK.set(None);
+    if canceled || !game.native_on(crate::game::bmh::ID) {
         return;
     }
-    let Some(weapon) = weapon else {
+    let Some(me) = game.native_acting_player() else {
+        return;
+    };
+    server().hits.remove(&me.uuid);
+    let Some(weapon) = game.native_equipment(EquipmentSlot::MainHand) else {
         return;
     };
     let Some(tool) = logic::tool_of(&weapon.item) else {
         return;
     };
-    let Some(me) = game.native_acting_player().filter(|me| me.entity_id == causing) else {
-        return;
-    };
-    let now = game_time(game).unwrap_or_default();
-    let mut s = server();
-    // Java scales the one hit on the main target. A sweep hits the others in the same tick, after it.
-    if s.main_hit.get(&me.uuid) == Some(&now) {
-        return;
-    }
-    s.main_hit.insert(me.uuid, now);
-    s.hits.remove(&me.uuid);
-    if logic::is_worn_out(weapon.damage) {
-        *amount *= logic::WORN_DAMAGE_FACTOR;
-        return;
-    }
-    match tool {
-        logic::Tool::Axe => {
-            let distance = s.falls.get(&me.uuid).map_or(0.0, |falling| falling.fall.distance());
-            let multiplier = logic::smash_multiplier(distance);
-            *amount *= multiplier;
-            if multiplier > 1.0 {
-                s.hits.insert(me.uuid, Hit::Smash { victim: entity, multiplier });
+    let swing = if logic::is_worn_out(weapon.damage) {
+        Swing::Worn
+    } else {
+        match tool {
+            logic::Tool::Sword if kind != PLAYER => Swing::Sword { strength: game.attack_strength_scale() },
+            logic::Tool::Axe if kind != PLAYER => {
+                let distance = server().falls.get(&me.uuid).map_or(0.0, |f| f.fall.distance());
+                let multiplier = logic::smash_multiplier(distance);
+                if multiplier <= 1.0 {
+                    return;
+                }
+                Swing::Smash { multiplier }
             }
+            _ => return,
         }
-        logic::Tool::Sword => {
-            let strength = s
-                .resets
-                .get(&me.uuid)
-                .copied()
-                .unwrap_or_default()
-                .strength_at(now, logic::SWORD_ATTACK_SPEED);
-            s.hits.insert(me.uuid, Hit::Sword { victim: entity, damage: *amount, strength });
-        }
-        logic::Tool::Pickaxe => {}
+    };
+    ATTACK.set(Some(Attack { player: me.uuid, attacker: me.entity_id, victim, swing }));
+}
+
+// The host calls this hook before armor for both mob hits and player hits.
+pub(super) fn on_living_incoming_damage(victim: i32, damage_type: &str, amount: &mut f32, canceled: bool) {
+    if canceled || damage_type != "minecraft:player_attack" || ECHOING.load(Ordering::Relaxed) {
+        return;
     }
+    let Some(attack) = ATTACK.get() else { return };
+    if victim != attack.victim || horizon_client::health::knockback_attacker() != attack.attacker {
+        return;
+    }
+    ATTACK.set(None);
+    let hit = match attack.swing {
+        Swing::Worn => {
+            *amount *= logic::WORN_DAMAGE_FACTOR;
+            return;
+        }
+        Swing::Sword { strength } => Hit::Sword { victim, damage: *amount, strength },
+        Swing::Smash { multiplier } => {
+            *amount *= multiplier;
+            Hit::Smash { victim, multiplier }
+        }
+    };
+    server().hits.insert(attack.player, hit);
 }
 
 // E7, E8: the hit landed. The sword queues its echo, the axe makes the impact felt (E_PlayerAttackMixin.java:85-95).
@@ -413,18 +422,6 @@ fn send_burst(game: &mut crate::game::Game<'_>, burst: &logic::Burst) {
     );
 }
 
-// E7: estimate the attack strength of the next hit. The punch packet resets it after the attack's own reset,
-// so the estimate keeps the last two resets of the player.
-pub(super) fn on_player_attack_cooldown_reset(
-    game: &mut crate::game::Game<'_>,
-    player: u128,
-    name: &str,
-) {
-    let _ = name;
-    let now = game_time(game).unwrap_or_default();
-    server().resets.entry(player).or_default().reset(now);
-}
-
 // E7: keep the list of mobs that an echo can hit.
 pub(super) fn on_entity_join_level(
     game: &mut crate::game::Game<'_>,
@@ -455,7 +452,6 @@ pub(super) fn on_entity_join_level(
 
 // E7: land the echoes that are due, at the head of the tick of their player (EchoStrikeHandler.java:91-113).
 // E8: follow the fall of the player (the fall distance is the mod's: no helper reads it).
-// E7: a new item in the main hand resets the attack strength (Player.tick, `resetAttackStrengthTicker`).
 // The mobs of the player's dimension that left are dropped here, where that level is in place.
 pub(super) fn on_player_tick(game: &mut crate::game::Game<'_>) {
     let Some(me) = game.native_acting_player() else {
@@ -463,27 +459,9 @@ pub(super) fn on_player_tick(game: &mut crate::game::Game<'_>) {
     };
     deliver_due_echoes(game, &me);
     track_fall(game, &me);
-    note_held_item(game, &me);
     sweep_mobs(game, &me.dimension);
 }
 
-// E7: Java compares the main-hand stack with the one of the last tick and resets the attack strength
-// when the item differs (`ItemStack.isSameItem`). A player with no entry had an empty hand, as Java's
-// `lastItemInMainHand` starts empty.
-fn note_held_item(game: &crate::game::Game<'_>, me: &horizon_client::mod_api::NativeServerPlayer) {
-    let held = game.native_held().map(|(item, _, _)| item);
-    let Some(now) = game_time(game) else {
-        return;
-    };
-    let mut s = server();
-    let before = s.held.insert(me.uuid, held.clone()).flatten();
-    if before != held {
-        s.resets.entry(me.uuid).or_default().reset(now);
-    }
-}
-
-// E7: every 100 ticks, drop the mobs of this dimension that are gone. `native_entity` reads the level in
-// place only, and in a player's tick that level is the player's dimension.
 fn sweep_mobs(game: &crate::game::Game<'_>, dimension: &str) {
     let Some(now) = game_time(game) else {
         return;
@@ -637,25 +615,20 @@ pub(super) fn on_player_logged_out(game: &mut crate::game::Game<'_>, player: u12
     s.answers.retain(|(who, _)| *who != player);
 }
 
-// State: Java keeps the echo queue, the attack strength, the last main-hand item and the fall on the
-// ServerPlayer object, which a respawn replaces (EchoStrikeQueue.java:7). A death ends them here.
+// A death clears the hits, the echo queue and the fall of the player.
 pub(super) fn on_player_died(game: &mut crate::game::Game<'_>, player: u128, cause: Option<&str>) {
     let _ = (game, cause);
     forget_body(player);
 }
 
-/// Removes what lives and dies with the player's body: the hits, the echoes, the attack strength, the
-/// main-hand item and the fall.
+/// Clear the combat state of this player.
 fn forget_body(player: u128) {
     let mut s = server();
-    s.resets.remove(&player);
     if let Some(falling) = s.falls.remove(&player) {
         horizon_client_lib::bmh_tools_lib::clear_softening(falling.entity);
     }
     s.hits.remove(&player);
-    s.main_hit.remove(&player);
     s.echoes.remove(&player);
-    s.held.remove(&player);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -672,6 +645,8 @@ pub(super) fn on_server_tick(
     let horizon_client::mod_api::ServerTickPhase::ServerTickEnd { .. } = phase else {
         return;
     };
+    ATTACK.set(None);
+    server().hits.clear();
     send_readings(game);
     send_answers(game);
     flush_awards(game);

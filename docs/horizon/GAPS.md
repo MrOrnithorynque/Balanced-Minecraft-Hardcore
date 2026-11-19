@@ -54,12 +54,12 @@ Tier rule of this file: a row's tier is the worst tier that the Java behaviour n
 | T15 | A use of the ritual item consumes the click (no off-hand double use) | N | `start_mod_use` consumes the click on both sides. | None. | v2 7 |
 | E1 | Eternal sword, axe, pickaxe: 33000 durability, damage, speed, enchantability, repair material | N | Content mod item JSON on netherite templates. | The 26.3 attribute modifier ids are UNVERIFIED. | v3 1a, 1b; NOTES |
 | E2 | Eternal tools never break (keep the last point) | N | `item_damaged` caps `amount`; damage read with `carried_stack` on the slot that `inventory_tick` marks `selected`. | None. | v3 3a |
-| E3 | Worn-out tool: half damage | N | `living_incoming_damage_v2` `amount *= 0.5`. | v2 scales hits on mobs only: PvP hits are not halved. | v3 3b |
+| E3 | Worn tools deal half damage | N | The attack hook records the weapon and primary target. The incoming damage hook halves that hit. | The damage hook runs after the armadillo-specific reduction. | v3 3b |
 | E4 | Worn-out tool: stone mining speed | N | The `break_speed` hook applies stone speed. The server sends its mineable tag answer on `bmh:tools`. | The first crack on a guest can precede the tag answer from the server. | v3 3c |
 | E5 | Tooltip lines (ability, worn out, heavy, death wear) and the 1-pixel bar | N | `tooltip` hook, `item_bar` hook. | None. | v3 3e |
 | E6 | Gold block repair at the anvil: flat 15 levels, prior work penalty kept | F | Pending hook `anvil_update`. | None once wired. | v2 3 |
-| E7 | Echo Strike (sword) | F | `hurt_enemy` or `living_incoming_damage_v2`, a queue on `server_tick`, a mob list from `entity_join_level`, pending `hurt_entity`; dust line and sound by `run_command`. | Echo Strike works on mobs. The mod estimates attack strength from cooldown resets and identifies enemies by type. | v3 4a |
-| E8 | Axe Smash | N | `living_incoming_damage_v2` multiplier, fall tracked from `player_tick` and `entity_on_ground`, `living_fall` halves the landing. | Axe Smash works on mobs. The mod estimates fall distance. | v3 4b |
+| E7 | Echo Strike | F | The attack hook reads the actual strength before the swing resets. A confirmed hit queues an echo. | Echo Strike triggers on mobs. The mod identifies enemies by type. | v3 4a |
+| E8 | Axe Smash | N | The incoming damage hook scales a primary axe hit from the fall distance recorded on player ticks. | Axe Smash triggers on mobs. The mod estimates fall distance. | v3 4b |
 | E9 | Echo Sense (pickaxe): ores glow through walls for 5 s | F | `destroy_block`, `level_block_state`, own ore list; positions sent to nearby players with `net_send_to_player`; client draws with pending `world_primitives` boxes `.through_walls()`. | A box outline, not the entity silhouette. Only players with the mod see it. | v3 4c |
 | E10 | Eternal Items on the ground never despawn and resist damage | N | The expiry hook extends the lifetime. The spawn hook raises the health of dropped Eternal Items. Content declares fire resistance. | Cactus and explosions still damage dropped items. A drop that bypasses the spawn hook can keep its original health. | v3 5 |
 | E11 | One Eternal Item per type: extras dropped, pickup refused | N | `inventory_tick` with `carried_stack`, `summon` of `minecraft:item`, `item_picked_up` cancel. | None. | v1 8c; v3 6b |
@@ -102,7 +102,7 @@ The original feasibility audit classified the 59 rows as N 36, M 0, F 11, X 7 an
 - T4. The game shows the held protector and plays the save effects.
 - T9, runes. Sent by the server through `/particle`, one tick late.
 - T13. The pinned `Game::add_item` guard covers dropper insertion.
-- E7, Echo Strike. Attack strength is estimated; damage needs `hurt_entity`.
+- E7. The mod reads attack strength from the host at the start of the attack. The echo damage uses the pending `hurt_entity` helper.
 - E9, Echo Sense. Box outlines through walls on clients with the mod, in place of glowing block displays.
 - A2, the spawn line. From `level.dat` until the X helper.
 - S4, config screen. Stepper buttons on the Mods page.
@@ -148,7 +148,6 @@ Tier is for the Nightly pin. API numbers come from the doc comments in `G/native
 | `player_respawned` | hook | N | 115 | C2, C8, C11 |
 | `server_tick` | hook | N | 4 | C3, C7, C9, C10, C14, T3, T9, E7 |
 | `living_incoming_damage` | hook | N | 50 | C6 |
-| `living_incoming_damage_v2` | hook | N | 384 | E3, E7, E8 |
 | `difficulty_changed` | hook | N | 159 | C1 |
 | `net_from_server`, `net_from_client` | hooks | N | 40 | C4, C8, A5, A6, E9 |
 | `screen_mouse_button_pressed_pre` | hook | N | 80, 326 | C4, A6, S2 |
@@ -166,7 +165,7 @@ Tier is for the Nightly pin. API numbers come from the doc comments in `G/native
 | `item_picked_up` | hook | N | 40 | T11, E11 |
 | `item_damaged` | hook | N | 162 | E2 |
 | `hurt_enemy` | hook | N | 39 | E7, E8 |
-| `player_attack_cooldown_reset` | hook | N | 250 | E7 |
+| `attack_entity` | hook | N | 22 | E3, E7, E8 |
 | `entity_join_level` | hook | N | 47 | E7 |
 | `destroy_block` | hook | N | 14 | E9 |
 | `living_fall` | hook | N | 357 | E8 |

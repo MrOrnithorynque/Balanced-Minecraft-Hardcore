@@ -238,22 +238,15 @@ bindings = [
 ]
 
 [[injection]]
-id = "hook_living_incoming_damage_v2"
+id = "hook_attack_entity"
 kind = "HEAD"
-target = "horizon_client::game::native_hooks::Game<'_>::native_living_incoming_damage_v2"
-helper = "hook_living_incoming_damage_v2.rs"
+target = "horizon_client::game::native_hooks::Game<'_>::native_attack_entity"
+helper = "hook_attack_entity.rs"
 bindings = [
   { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
   { name = "entity", ty = "i32", value = "entity" },
   { name = "kind", ty = "&str", value = "kind" },
-  { name = "damage_type", ty = "&str", value = "damage_type" },
-  { name = "causing", ty = "i32", value = "causing" },
-  { name = "source_position", ty = "Option<[f64; 3]>", value = "source_position" },
-  { name = "victim_position", ty = "[f64; 3]", value = "victim_position" },
-  { name = "victim_view", ty = "[f64; 3]", value = "victim_view" },
-  { name = "weapon", ty = "Option<&horizon_client::items::ItemStack>", value = "weapon" },
-  { name = "amount", ty = "&mut f32", value = "&mut *amount" },
-  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+  { name = "canceled", ty = "bool", value = "*canceled" },
 ]
 
 [[injection]]
@@ -585,17 +578,6 @@ bindings = [
   { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
   { name = "entity", ty = "u32", value = "entity" },
   { name = "kind", ty = "&str", value = "kind" },
-]
-
-[[injection]]
-id = "hook_player_attack_cooldown_reset"
-kind = "HEAD"
-target = "horizon_client::game::native_hooks::Game<'_>::native_player_attack_cooldown_reset"
-helper = "hook_player_attack_cooldown_reset.rs"
-bindings = [
-  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
-  { name = "player", ty = "u128", value = "player" },
-  { name = "name", ty = "&str", value = "name" },
 ]
 
 [[injection]]

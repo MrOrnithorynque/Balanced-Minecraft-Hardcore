@@ -19,6 +19,7 @@ fn bmh_hook_living_incoming_damage(
         amount,
         canceled,
     );
+    crate::game::bmh_tools::on_living_incoming_damage(entity, damage_type, amount, *canceled);
     // After the respawn area, which may cancel the hit: a canceled hit breaks no ritual.
     crate::game::bmh_ritual::on_living_incoming_damage(entity, kind, *amount, *canceled);
 }

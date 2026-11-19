@@ -2402,26 +2402,35 @@ PYEOF
     done
     # A three-block gap puts the second mob beyond the vanilla sword sweep and inside the echo radius.
     ability_tool 'bmh:eternal_sword[damage=32999]'
-    direct_id="$(ability_summon husk 0)"
+    direct_id="$(ability_summon ravager 0)"
     echo_id="$(ability_summon zombie 3)"
+    direct_before="$(ability_health ravager "$direct_id")"
     hp_before="$(ability_health zombie "$echo_id")"
     hit="$(ctl attack "$direct_id")"
     ctl wait 14 >/dev/null
+    worn_damage="$(jget "$hit" 'd["health_before"] - d["health"]')"
     hp_worn="$(ability_health zombie "$echo_id")"
-    if ability_hits "$hit" "$direct_id" && [ -n "$hp_before" ] && [ "$hp_worn" = "$hp_before" ] && [ "$(ability_awarded echo_strike)" = False ]; then
-        pass abilities1 "the worn sword hit its target and left the second zombie at $hp_before health"
+    if ability_hits "$hit" "$direct_id" && awk -v hp="$direct_before" 'BEGIN {exit !(hp+0 == 100)}' && [ -n "$hp_before" ] && [ "$hp_worn" = "$hp_before" ] && [ "$(ability_awarded echo_strike)" = False ]; then
+        pass abilities1 "the worn sword hit a fresh ravager for $worn_damage and left the second zombie at $hp_before health"
     else
         fail abilities1 "worn sword hit $hit, second zombie $echo_id health $hp_before to $hp_worn"
     fi
     ctl command "kill @e[tag=bmh_ability]" >/dev/null
     ctl wait 30 >/dev/null
     ability_tool bmh:eternal_sword
-    direct_id="$(ability_summon husk 0)"
+    direct_id="$(ability_summon ravager 0)"
     echo_id="$(ability_summon zombie 3)"
+    direct_before="$(ability_health ravager "$direct_id")"
     hp_before="$(ability_health zombie "$echo_id")"
     hit="$(ctl attack "$direct_id")"
     ctl wait 14 >/dev/null
+    fresh_damage="$(jget "$hit" 'd["health_before"] - d["health"]')"
     hp_echo="$(ability_health zombie "$echo_id")"
+    if ability_hits "$hit" "$direct_id" && awk -v hp="$direct_before" -v f="$fresh_damage" -v w="$worn_damage" 'BEGIN {exit !(hp+0 == 100 && w+0 > 0 && f > 2*w-0.05 && f < 2*w+0.05)}'; then
+        pass abilities7 "the worn and fresh swords dealt $worn_damage and $fresh_damage to full-health ravagers"
+    else
+        fail abilities7 "expected half of fresh damage, observed worn $worn_damage, fresh $fresh_damage, target $direct_before, hit $hit"
+    fi
     if ability_hits "$hit" "$direct_id" && awk -v a="$hp_before" -v b="$hp_echo" 'BEGIN {exit !(a!="" && b!="" && b+0 < a+0)}' && [ "$(ability_awarded echo_strike)" = True ]; then
         pass abilities2 "one sword swing also damaged the second zombie ($hp_before to $hp_echo) and awarded Echo Strike"
     else
