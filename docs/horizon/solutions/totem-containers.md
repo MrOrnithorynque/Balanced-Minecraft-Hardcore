@@ -103,3 +103,9 @@ host taken out of `game.lan` (the call site at lan_actions.rs:2101 passes `host`
 4. The T13 injection refuses a second totem at that transfer. The sender keeps the stack. The periodic scan and both hopper handlers are removed.
    Scenario z6 checks that the item stays in the dropper. A second pulse with an empty destination checks that the same dropper can transfer it.
 5. The pin's mixin planner accepts the transfer injection. The branch passes 356 logic tests and the shell syntax check.
+6. The click and drag hooks now record which player touched an open menu. On that player's tick, the mod returns the newly added stack.
+   The first totem keeps its slot. The returned stack retains its components. A failed return and drop restores the stack in its container.
+7. The vehicle menu exposes its real key when the host is back at the end of the server tick. Recovery uses the shared live vehicle slots.
+   A closed vehicle menu uses the cart or boat inventory. An ender chest uses the acting player's own ender slots.
+8. The chest and minecart checks now mark the second stack. They require that same stack back in the player's inventory.
+   These checks test recovery after a click. A player can see the second stack before the next tick.

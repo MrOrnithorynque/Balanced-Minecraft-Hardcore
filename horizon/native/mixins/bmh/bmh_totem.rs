@@ -27,11 +27,10 @@ use bmh_logic::eternal as eternal_logic;
 use bmh_logic::ids;
 use bmh_logic::totem as logic;
 use horizon_client::items::ItemStack;
-use horizon_client::lan::menu::Slots;
+use horizon_client::lan::menu::{Slots, VEHICLE_KEY_Y};
 use horizon_client::mod_api::{NativeEffect, NativeServerPlayer};
 use horizon_client::particles::{ParticleOptions, ParticleType};
 use horizon_client::text::Text;
-use horizon_core::geometry::Direction;
 use horizon_world::nbt::Tag;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -46,7 +45,8 @@ const PLAYER_KIND: &str = "minecraft:player";
 /// The container that a player has open: where it is, and which slots held a totem when he opened it.
 struct OpenMenu {
     dimension: String,
-    pos: [i32; 3],
+    slots: Slots,
+    clicked: bool,
     before: Vec<usize>,
 }
 
@@ -340,48 +340,124 @@ fn drop_extra_totems(game: &mut crate::game::Game<'_>, me: &NativeServerPlayer) 
     }
 }
 
-/// The slots of the container at `pos` that hold a Totem of Eternity, in slot order. None where no
-/// container is (another level, a chunk that is not loaded, a block without slots). A double
-/// chest answers with both halves. Read through the top side, which reaches every slot of a chest,
-/// a barrel, a shulker box and a hopper.
-fn container_totems(game: &crate::game::Game<'_>, dimension: &str, pos: [i32; 3]) -> Option<Vec<usize>> {
-    let slots = game.native_container_slots(dimension, pos, Direction::Up)?;
-    let mut found: Vec<usize> = slots
-        .iter()
-        .filter(|slot| {
-            slot.stack.as_ref().is_some_and(|stack| stack.count > 0 && logic::is_totem(&stack.item))
-        })
-        .map(|slot| slot.slot)
-        .collect();
-    found.sort_unstable();
-    Some(found)
+/// Visit the live slots in the same order as the open menu.
+fn visit_slots(
+    game: &mut crate::game::Game<'_>,
+    source: Slots,
+    mut visit: impl FnMut(usize, &mut Option<ItemStack>),
+) {
+    let mut index = 0;
+    let mut visit_part = |slots: &mut [Option<ItemStack>]| {
+        for slot in slots {
+            visit(index, slot);
+            index += 1;
+        }
+    };
+    match source {
+        Slots::Ender => visit_part(&mut game.ender_items),
+        Slots::Block(key) if key.1 == VEHICLE_KEY_Y => {
+            if let Some(entity) = game.world.block_entities.get_mut(&key) {
+                visit_part(entity.slots_mut());
+            } else if let Some(cart) = game.carts.iter_mut().find(|c| c.id as i32 == key.2) {
+                visit_part(&mut cart.items);
+            } else if let Some(boat) = game.boats.iter_mut().find(|b| b.id as i32 == key.2) {
+                visit_part(&mut boat.items);
+            }
+        }
+        Slots::Block(key) => {
+            if let Some(entity) = game.world.block_entities.get_mut(&key) {
+                visit_part(entity.slots_mut());
+            }
+        }
+        Slots::Double(first, second) => {
+            for key in [first, second] {
+                if let Some(entity) = game.world.block_entities.get_mut(&key) {
+                    visit_part(entity.slots_mut());
+                }
+            }
+        }
+        Slots::Native => {}
+    }
 }
 
-/// T12: takes the second Totem of Eternity out of the container that `uuid` has open, and gives it
-/// to him. The inventory rule of T11 then drops it if he already carries one. Runs in his turn
-/// (`player_tick`, `player_container_close`): the helpers reach him there.
+fn menu_totems(game: &mut crate::game::Game<'_>, source: Slots) -> Vec<usize> {
+    let mut found = Vec::new();
+    visit_slots(game, source, |index, slot| {
+        if slot.as_ref().is_some_and(|stack| stack.count > 0 && logic::is_totem(&stack.item)) {
+            found.push(index);
+        }
+    });
+    found
+}
+
+/// The menu event omits the vehicle's key. Read it from the open menu after the host returns.
+fn remember_vehicle_menus(game: &crate::game::Game<'_>) {
+    let Some(host) = game.lan.as_ref() else { return };
+    let mut state = server();
+    for guest in &host.hub.guests {
+        let Some(menu) = guest.menu.as_ref() else { continue };
+        if !matches!(menu.slots, Slots::Block(key) if key.1 == VEHICLE_KEY_Y) {
+            continue;
+        }
+        if state.open.get(&guest.uuid).is_some_and(|old| old.slots == menu.slots && old.dimension == guest.dimension) {
+            continue;
+        }
+        let before = menu.sent.iter().take(menu.size).enumerate().filter_map(|(slot, entry)| {
+            entry.as_ref().filter(|item| item.count > 0 && logic::is_totem(&item.item)).map(|_| slot)
+        }).collect();
+        state.open.insert(guest.uuid, OpenMenu { dimension: guest.dimension.clone(), slots: menu.slots, clicked: false, before });
+    }
+}
+
+/// Only the player who clicked can receive a returned stack from a shared chest.
+pub(super) fn note_menu_click(player: u128, window: i32) {
+    if window > 0 && let Some(menu) = server().open.get_mut(&player) {
+        menu.clicked = true;
+    }
+}
+
+/// Return each extra totem to the player who clicked. Preserve its stack data.
 fn scan_open_container(game: &mut crate::game::Game<'_>, uuid: u128) {
-    let open = server().open.get(&uuid).map(|menu| (menu.dimension.clone(), menu.pos, menu.before.clone()));
-    let Some((dimension, pos, before)) = open else {
-        return;
-    };
+    let menu = server().open.get_mut(&uuid).and_then(|menu| {
+        (menu.dimension == game.native_dimension() && std::mem::take(&mut menu.clicked))
+            .then(|| (menu.slots, menu.before.clone()))
+    });
+    let Some((source, before)) = menu else { return };
     if !game.native_acting_player().is_some_and(|me| me.uuid == uuid) {
         return;
     }
-    let Some(now) = container_totems(game, &dimension, pos) else {
-        return;
-    };
-    for slot in logic::container_extras(&before, &now) {
-        let Some(stack) = game.native_extract_item(&dimension, pos, Direction::Up, slot, 1) else {
-            continue;
-        };
-        let Some(left) = game.native_give_stack(uuid, stack) else {
-            continue;
-        };
-        if !crate::game::bmh_eternal::drop_stack(game, &left, false) {
-            log::warn!(
-                "[BalancedMcHardcoreMain] A second Totem of Eternity left a container and could not be given or dropped"
-            );
+    let mut now = menu_totems(game, source);
+    let extras = logic::container_extras(&before, &now);
+    if !extras.is_empty() {
+        let mut taken = Vec::new();
+        visit_slots(game, source, |index, slot| {
+            if extras.contains(&index) && let Some(stack) = slot.take() {
+                taken.push((index, stack));
+            }
+        });
+        for (index, stack) in taken {
+            if let Some(left) = game.native_give_stack(uuid, stack) && !crate::game::bmh_eternal::drop_stack(game, &left, false) {
+                let mut restore = Some(left);
+                visit_slots(game, source, |slot_index, slot| {
+                    if slot_index == index { *slot = restore.take(); }
+                });
+                continue;
+            }
+            now.retain(|slot| *slot != index);
+            log::info!("[BalancedMcHardcoreMain] Returned a second Totem of Eternity from an open container");
+        }
+        match source {
+            Slots::Block(key) => game.container_changed(key),
+            Slots::Double(first, second) => {
+                game.container_changed(first);
+                game.container_changed(second);
+            }
+            _ => {}
+        }
+    }
+    for (player, menu) in &mut server().open {
+        if menu.dimension == game.native_dimension() && menu.slots == source && (*player == uuid || source != Slots::Ender) {
+            menu.before.clone_from(&now);
         }
     }
 }
@@ -453,6 +529,7 @@ pub(super) fn on_server_tick(
             }
         }
     }
+    remember_vehicle_menus(game);
     for name in names {
         // A repeat of the advancement answers "unable to grant": nothing to retry.
         crate::game::bmh::award(game, &name, logic::SAVED_ADVANCEMENT);
@@ -511,17 +588,23 @@ pub(super) fn on_player_container_open(
     menu: &str,
     pos: Option<[i32; 3]>,
 ) {
-    let _ = (name, menu);
-    let before = pos.and_then(|pos| container_totems(game, dimension, pos).map(|found| (pos, found)));
-    let mut s = server();
-    match before {
-        Some((pos, before)) => {
-            s.open.insert(player, OpenMenu { dimension: dimension.to_owned(), pos, before });
-        }
-        None => {
-            s.open.remove(&player);
-        }
+    let _ = name;
+    if !menu.starts_with("minecraft:generic_9x") && !matches!(menu, "minecraft:hopper" | "minecraft:shulker_box" | "minecraft:generic_3x3") {
+        return;
     }
+    let Some([x, y, z]) = pos else { return };
+    let key = (x, y, z);
+    let source = if game.res.facts().get(game.world.block(x, y, z)).name.as_ref() == "minecraft:ender_chest" {
+        Slots::Ender
+    } else if let Some((other, right)) = game.chest_partner(key) {
+        if right { Slots::Double(key, other) } else { Slots::Double(other, key) }
+    } else if game.world.block_entities.contains_key(&key) {
+        Slots::Block(key)
+    } else {
+        return;
+    };
+    let before = menu_totems(game, source);
+    server().open.insert(player, OpenMenu { dimension: dimension.to_owned(), slots: source, clicked: false, before });
 }
 
 // T12: scan the closed container once more, and forget it. The menu's items are where it left them.
@@ -536,127 +619,6 @@ pub(super) fn on_player_container_close(
     let _ = (name, dimension, menu, pos);
     scan_open_container(game, player);
     server().open.remove(&player);
-}
-
-// ---------------------------------------------------------------------------------------------
-// T12, T14: the slot rule of the menus, before the click lands
-// ---------------------------------------------------------------------------------------------
-
-/// True for a stack of a Totem of Eternity.
-fn holds_totem(stack: &Option<ItemStack>) -> bool {
-    stack.as_ref().is_some_and(|stack| stack.count > 0 && logic::is_totem(&stack.item))
-}
-
-/// The guest `player` and the slots of the menu `window` that he has open, as a list that says
-/// which slot holds a totem, in the menu's order (which is the window's order). The container
-/// can be a block, a double chest, the ender chest, or the items of a chest minecart or a chest
-/// boat (`Slots::read` reads the key under which the game keeps them while a menu shows them).
-/// None for the inventory window, a menu of a mod and a menu that is not this window.
-fn menu_totems<'a>(
-    game: &'a crate::game::Game<'_>,
-    player: u128,
-    window: i32,
-) -> Option<(&'a horizon_client::lan::guest::Guest, Vec<bool>)> {
-    if window == 0 {
-        return None;
-    }
-    let host = game.lan.as_ref()?;
-    let guest = host.hub.guests.iter().find(|guest| guest.placed && guest.uuid == player)?;
-    let menu = guest.menu.as_ref().filter(|menu| menu.window == window && menu.mod_type.is_none())?;
-    if menu.slots == Slots::Native {
-        return None;
-    }
-    let items = menu.slots.read(&game.world, guest)?;
-    Some((guest, items.iter().map(holds_totem).collect()))
-}
-
-// T12, T14: a click in a container menu that would put a second Totem of Eternity in the container
-// is canceled before it lands. This is the job of `Slot.mayPlace` in the Java mod
-// (I_SlotTotemMixin.java:21-28). The game answers a canceled click as one the server refused:
-// the slots and the cursor of the client go back to the server's.
-// GAME RESULT (2026-11-19): in the game this hook finds no menu. The game takes the LAN host out of
-// `game.lan` while it handles a click (`lan_inventory_click_hooks(&mut self, host, ...)`), so `game.lan`
-// is None here and the cursor, the inventory and the open menu cannot be read. The code is kept for
-// the injection proposal in docs/horizon/solutions/totem-containers.md; today it returns at once.
-pub(super) fn on_inventory_click(
-    game: &crate::game::Game<'_>,
-    player: u128,
-    name: &str,
-    window: i32,
-    slot: i32,
-    button: i32,
-    mode: i32,
-    cancel: &mut bool,
-) {
-    let _ = name;
-    if *cancel {
-        return;
-    }
-    let refused = {
-        let Some((guest, container)) = menu_totems(game, player, window) else {
-            return;
-        };
-        if !container.iter().any(|totem| *totem) {
-            return;
-        }
-        let size = container.len();
-        // The window after the container: the 27 main slots, then the 9 of the hotbar.
-        let player_stack = |window_slot: usize| -> Option<&Option<ItemStack>> {
-            let index = window_slot.checked_sub(size)?;
-            if index < 27 {
-                guest.inventory.get(9 + index)
-            } else if index < 36 {
-                guest.inventory.get(index - 27)
-            } else {
-                None
-            }
-        };
-        let key_stack = mode == 2
-            && match button {
-                40 => holds_totem(&guest.offhand),
-                0..=8 => usize::try_from(button).ok().and_then(|n| guest.inventory.get(n)).is_some_and(holds_totem),
-                _ => false,
-            };
-        let click = logic::Click {
-            slot,
-            mode,
-            cursor: holds_totem(&guest.carried),
-            slot_stack: usize::try_from(slot).ok().and_then(player_stack).is_some_and(holds_totem),
-            key_stack,
-        };
-        logic::click_refused(&container, &click)
-    };
-    if refused {
-        *cancel = true;
-        log::info!(
-            "[BalancedMcHardcoreMain] A click that would put a second Totem of Eternity in a container was refused"
-        );
-    }
-}
-
-// T12, T14: the same for a drag over the slots of a container menu.
-pub(super) fn on_inventory_drag(
-    game: &crate::game::Game<'_>,
-    player: u128,
-    name: &str,
-    window: i32,
-    kind: i32,
-    slots: &[i32],
-    cancel: &mut bool,
-) {
-    let _ = (name, kind);
-    if *cancel {
-        return;
-    }
-    let Some((guest, container)) = menu_totems(game, player, window) else {
-        return;
-    };
-    if logic::drag_refused(&container, slots, holds_totem(&guest.carried)) {
-        *cancel = true;
-        log::info!(
-            "[BalancedMcHardcoreMain] A drag that would put a second Totem of Eternity in a container was refused"
-        );
-    }
 }
 
 // ---------------------------------------------------------------------------------------------

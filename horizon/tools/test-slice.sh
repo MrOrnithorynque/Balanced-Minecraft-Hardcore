@@ -2976,10 +2976,11 @@ fi
 
 # ---- z. One Totem of Eternity per container: menus, hoppers, a chest minecart, a dropper -----------------------
 # Gap workarounds T12, T13, T14 (docs/horizon/solutions/totem-containers.md). The slot ids of click-slot: 0 to 35
-# the inventory, 300 and up the container. The clicks are the Java mod's Slot.mayPlace cases: a refused click
-# changes nothing and the log tells "A click that would put a second Totem of Eternity".
+# the inventory, 300 and up the container. The clicks are the Java mod's Slot.mayPlace cases: the mod returns the extra stack
+# after the click and preserves the original stack in the container.
 z_chest_totems() { jget "$(ctl container "$1" "$2" "$3")" 'sum(s.get("count", 1) for s in d.get("slots", []) if s and "totem_of_eternity" in str(s.get("item", "")))'; }
-z_refusals() { count_log 'would put a second Totem of Eternity'; }
+z_returns() { count_log 'Returned a second Totem of Eternity from an open container'; }
+z_marked() { inv_comp bmh:totem_of_eternity | grep -q bmh_container_test; }
 if wanted z; then
     echo "--- z. totem containers: a chest menu, a hopper on the ground, a chest minecart, a dropper"
     ensure_point
@@ -2992,23 +2993,23 @@ if wanted z; then
     ctl command "setblock $CX $CY $CZ minecraft:chest" >/dev/null
     ctl wait 10 >/dev/null
     ctl container "$CX" "$CY" "$CZ" bmh:totem_of_eternity 1 >/dev/null
-    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl command "give @s bmh:totem_of_eternity[minecraft:custom_data={bmh_container_test:1b}]" >/dev/null
     ctl wait 10 >/dev/null
     echo "z-evidence start: chest $(ctl container "$CX" "$CY" "$CZ" | head -c 400)"
-    # z1: a shift click of the player's totem into a chest that holds one is refused.
-    r0="$(z_refusals)"
+    # z1: a shift click of the player's totem into a chest that holds one returns the new totem.
+    r0="$(z_returns)"
     ctl interact "$CX" "$CY" "$CZ" >/dev/null
     ctl wait 10 >/dev/null
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
     echo "z-evidence z1: menu $(ctl menu | head -c 700)"
-    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && [ "$(z_refusals)" -gt "$r0" ]; then
-        pass z1 "a shift click of a second totem into a chest that holds one was refused: chest 1, player 1, log line"
+    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && [ "$(z_returns)" -gt "$r0" ]; then
+        pass z1 "a shift click returned the marked totem to the player and kept the original in the chest"
     else
-        fail z1 "shift click: chest $(z_chest_totems "$CX" "$CY" "$CZ"), player $(t_counts bmh:totem_of_eternity), refusals $(z_refusals) (was $r0)"
+        fail z1 "shift click: chest $(z_chest_totems "$CX" "$CY" "$CZ"), player $(t_counts bmh:totem_of_eternity), returns $(z_returns) (was $r0)"
     fi
-    # z2: pick the totem up on the cursor and click an empty chest slot: refused, the cursor keeps it.
-    r0="$(z_refusals)"
+    # z2: pick the totem up on the cursor and click an empty chest slot: the new stack goes back to the player.
+    r0="$(z_returns)"
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" >/dev/null
     ctl wait 5 >/dev/null
     ctl click-slot 305 >/dev/null
@@ -3017,10 +3018,10 @@ if wanted z; then
     echo "z-evidence z2: menu $(printf '%s' "$z_menu" | head -c 700)"
     ctl close >/dev/null
     ctl wait 10 >/dev/null
-    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && [ "$(z_refusals)" -gt "$r0" ]; then
-        pass z2 "a pickup click on an empty chest slot with a second totem on the cursor was refused: chest 1, player 1"
+    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && [ "$(z_returns)" -gt "$r0" ]; then
+        pass z2 "a cursor click returned the marked totem to the player and kept the original in the chest"
     else
-        fail z2 "pickup click: chest $(z_chest_totems "$CX" "$CY" "$CZ"), player $(t_counts bmh:totem_of_eternity), refusals $(z_refusals) (was $r0)"
+        fail z2 "pickup click: chest $(z_chest_totems "$CX" "$CY" "$CZ"), player $(t_counts bmh:totem_of_eternity), returns $(z_returns) (was $r0)"
     fi
     # z3: the control. An empty chest takes the totem by a shift click.
     ctl command "setblock $CX $CY $CZ minecraft:air" >/dev/null
@@ -3111,18 +3112,18 @@ if wanted z; then
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
     z7a="$(t_counts bmh:totem_of_eternity)"
-    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl command "give @s bmh:totem_of_eternity[minecraft:custom_data={bmh_container_test:1b}]" >/dev/null
     ctl wait 10 >/dev/null
-    r0="$(z_refusals)"
+    r0="$(z_returns)"
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
     echo "z-evidence z7: cart $(printf '%s' "$z_cart_menu" | head -c 180), menu $(ctl menu | head -c 600)"
     z7b="$(t_counts bmh:totem_of_eternity)"
     ctl close >/dev/null
-    if [ "$z7a" = 0 ] && [ "$z7b" = 1 ] && [ "$(z_refusals)" -gt "$r0" ]; then
-        pass z7 "a chest minecart took the first totem and refused the second (player 0, then 1, log line)"
+    if [ "$z7a" = 0 ] && [ "$z7b" = 1 ] && z_marked && [ "$(z_returns)" -gt "$r0" ]; then
+        pass z7 "the cart kept the original totem and returned the marked second totem to the player"
     else
-        fail z7 "chest minecart: player after the first $z7a, after the second $z7b, refusals $(z_refusals) (was $r0)"
+        fail z7 "chest minecart: player after the first $z7a, after the second $z7b, returns $(z_returns) (was $r0)"
     fi
     # A hopper feeding the cart keeps its second totem, then moves it after the cart is emptied.
     ctl command "setblock $HX $HY $HZ minecraft:hopper[facing=west]" >/dev/null

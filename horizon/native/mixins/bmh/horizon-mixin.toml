@@ -927,12 +927,7 @@ helper = "hook_inventory_click.rs"
 bindings = [
   { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
   { name = "player", ty = "u128", value = "player" },
-  { name = "name", ty = "&str", value = "name" },
   { name = "window", ty = "i32", value = "window" },
-  { name = "slot", ty = "i32", value = "slot" },
-  { name = "button", ty = "i32", value = "button" },
-  { name = "mode", ty = "i32", value = "mode" },
-  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
 ]
 
 [[injection]]
@@ -943,11 +938,7 @@ helper = "hook_inventory_drag.rs"
 bindings = [
   { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
   { name = "player", ty = "u128", value = "player" },
-  { name = "name", ty = "&str", value = "name" },
   { name = "window", ty = "i32", value = "window" },
-  { name = "kind", ty = "i32", value = "kind" },
-  { name = "slots", ty = "&[i32]", value = "slots" },
-  { name = "cancel", ty = "&mut bool", value = "&mut *cancel" },
 ]
 
 [[injection]]
