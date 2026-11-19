@@ -21,24 +21,20 @@
 // - `player_tick` drops every Totem of Eternity after the first, whatever the game rule says.
 // - A container block is checked after the fact, while the player has its menu open and when he
 //   closes it. The Java mod refuses the placement (a slot rule); no hook can do that.
-// - A hopper move into a container that holds a totem is canceled. A hopper never picks up a
-//   Totem of Eternity from the ground: that hook has no `Game`, so it cannot read the hopper.
+// - A hopper or dropper keeps a totem when the destination already holds one.
 
 use bmh_logic::eternal as eternal_logic;
 use bmh_logic::ids;
 use bmh_logic::totem as logic;
-use horizon_client::containers::BlockEntity;
 use horizon_client::items::ItemStack;
-use horizon_client::lan::menu::{Slots, VEHICLE_KEY_Y};
+use horizon_client::lan::menu::Slots;
 use horizon_client::mod_api::{NativeEffect, NativeServerPlayer};
 use horizon_client::particles::{ParticleOptions, ParticleType};
 use horizon_client::text::Text;
 use horizon_core::geometry::Direction;
-use horizon_world::nbt::{Compound, Tag};
+use horizon_world::nbt::Tag;
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
-use std::time::Instant;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// The game mode number of a spectator (`NativeServerPlayer.game_mode`: 3 is spectator).
 /// TotemOfEternityHandler.java:62 skips a spectator.
@@ -82,15 +78,6 @@ struct Server {
     hand: Vec<HandSaveRecord>,
     /// The world that the state above belongs to.
     epoch: Option<horizon_client::mod_api::NativeWorldEpoch>,
-    /// The scan of containers (T13, T14): the totems each held at the last scan, by level and
-    /// position. A double chest is under both halves.
-    scan_blocks: BTreeMap<(String, [i32; 3]), usize>,
-    /// The same for chest minecarts, hopper minecarts and chest boats, by entity id.
-    scan_vehicles: BTreeMap<u32, usize>,
-    /// False until the first scan has set the counts: that scan takes nothing out.
-    scan_ready: bool,
-    /// Server ticks since the last scan.
-    scan_ticks: u32,
 }
 
 static SERVER: Mutex<Server> = Mutex::new(Server {
@@ -99,36 +86,7 @@ static SERVER: Mutex<Server> = Mutex::new(Server {
     awards: Vec::new(),
     hand: Vec::new(),
     epoch: None,
-    scan_blocks: BTreeMap::new(),
-    scan_vehicles: BTreeMap::new(),
-    scan_ready: false,
-    scan_ticks: 0,
 });
-
-/// The hook without a `Game` (`hopper_pickup_item`) acts only inside a server tick that the gated
-/// `server_tick` hook opened (HOOKS.md, "Hooks with no Game"). This holds the start time of that
-/// tick in milliseconds after `CLOCK_BASE`, plus 1, and 0 when no such tick is open. So a world with
-/// the mod off never gets the rule, also after a world with the mod on in the same process.
-static ACTIVE_TICK: AtomicU64 = AtomicU64::new(0);
-
-/// The start of the clock of `ACTIVE_TICK`.
-static CLOCK_BASE: OnceLock<Instant> = OnceLock::new();
-
-/// A tick mark older than this does not count. A player can turn the mod off between the start and
-/// the end of a tick: the end then does not clear the mark, and this limit ends it.
-const ACTIVE_TICK_MAX_AGE_MS: u64 = 60_000;
-
-/// The milliseconds since `CLOCK_BASE`, plus 1 (never 0).
-fn clock_mark() -> u64 {
-    let base = *CLOCK_BASE.get_or_init(Instant::now);
-    u64::try_from(base.elapsed().as_millis()).unwrap_or(u64::MAX - 1).saturating_add(1)
-}
-
-/// True inside a server tick that the gated `server_tick` hook opened.
-fn active() -> bool {
-    let mark = ACTIVE_TICK.load(Ordering::Relaxed);
-    mark != 0 && clock_mark().saturating_sub(mark) < ACTIVE_TICK_MAX_AGE_MS
-}
 
 /// The server state. A lock that a panic left behind still holds valid data.
 fn server() -> MutexGuard<'static, Server> {
@@ -451,7 +409,6 @@ pub(super) fn on_player_logged_out(game: &mut crate::game::Game<'_>, player: u12
     s.open.remove(&player);
 }
 
-// T13: the start of a tick opens the window of the hopper rule, and the end closes it.
 // T3: the advancement of a save. A state tied to an old world is forgotten (the owner of a
 // single-player world has the same uuid in every world).
 pub(super) fn on_server_tick(
@@ -466,19 +423,13 @@ pub(super) fn on_server_tick(
             s.open.clear();
             s.awards.clear();
             s.hand.clear();
-            s.scan_blocks.clear();
-            s.scan_vehicles.clear();
-            s.scan_ready = false;
-            s.scan_ticks = 0;
             s.epoch = Some(context.epoch);
         }
-        ACTIVE_TICK.store(clock_mark(), Ordering::Relaxed);
         return;
     }
     let horizon_client::mod_api::ServerTickPhase::ServerTickEnd { .. } = phase else {
         return;
     };
-    ACTIVE_TICK.store(0, Ordering::Relaxed);
     let (mut names, hand) = {
         let mut s = server();
         (std::mem::take(&mut s.awards), std::mem::take(&mut s.hand))
@@ -502,7 +453,6 @@ pub(super) fn on_server_tick(
             }
         }
     }
-    scan_all(game);
     for name in names {
         // A repeat of the advancement answers "unable to grant": nothing to retry.
         crate::game::bmh::award(game, &name, logic::SAVED_ADVANCEMENT);
@@ -552,65 +502,6 @@ pub(super) fn on_tooltip(
     lines.splice(at..at, added);
 }
 
-// T13, T14: refuse a hopper move of a Totem of Eternity into a container that holds one
-// (I_ContainerTotemMixin.java:27-44: `canPlaceItem` is false when another totem is in the
-// container; a double chest counts both halves). A chest minecart or boat is reported at the block it
-// is in. `native_container_slots` does not read it, so the entity's items are read from the game's
-// list of vehicles (`vehicle_holds_totem_at`).
-pub(super) fn on_inventory_move_item(
-    game: &crate::game::Game<'_>,
-    source: [i32; 3],
-    destination: [i32; 3],
-    item: &str,
-    cancel: &mut bool,
-) {
-    let _ = source;
-    if *cancel || !logic::is_totem(item) {
-        return;
-    }
-    let dimension = game.native_dimension();
-    match container_totems(game, dimension, destination) {
-        Some(found) => {
-            if !found.is_empty() {
-                *cancel = true;
-            }
-        }
-        // No block container there: a chest minecart or a chest boat is reported at the block it is
-        // in (T14). Its items are read from the entity.
-        None => {
-            if vehicle_holds_totem_at(game, destination) {
-                *cancel = true;
-            }
-        }
-    }
-}
-
-// T13: a hopper picks up a Totem of Eternity from the ground only when it holds none
-// (I_ContainerTotemMixin.java:27-44: `canPlaceItem`). The hook has no `Game`, but it binds the
-// level, which holds the world's block entities: the hopper's slots are read there. The hook acts
-// only inside a server tick that the gated `server_tick` hook opened (`active`).
-pub(super) fn on_hopper_pickup_item(
-    level: &crate::game::GameLevel<'_>,
-    dimension: crate::game::LevelDimension,
-    pos: horizon_core::position::BlockPos,
-    item: &str,
-    count: u32,
-    cancel: &mut bool,
-) {
-    let _ = (dimension, count);
-    if !active() || !logic::is_totem(item) {
-        return;
-    }
-    let holds = level
-        .world
-        .block_entities
-        .get(&(pos.x, pos.y, pos.z))
-        .is_some_and(|entity| count_totems(entity.slots()) > 0);
-    if holds {
-        *cancel = true;
-    }
-}
-
 // T12: note the container that the player opened, and which slots held a totem.
 pub(super) fn on_player_container_open(
     game: &mut crate::game::Game<'_>,
@@ -654,11 +545,6 @@ pub(super) fn on_player_container_close(
 /// True for a stack of a Totem of Eternity.
 fn holds_totem(stack: &Option<ItemStack>) -> bool {
     stack.as_ref().is_some_and(|stack| stack.count > 0 && logic::is_totem(&stack.item))
-}
-
-/// The totems in a list of slots.
-fn count_totems(slots: &[Option<ItemStack>]) -> usize {
-    slots.iter().filter(|stack| holds_totem(stack)).count()
 }
 
 /// The guest `player` and the slots of the menu `window` that he has open, as a list that says
@@ -771,204 +657,6 @@ pub(super) fn on_inventory_drag(
             "[BalancedMcHardcoreMain] A drag that would put a second Totem of Eternity in a container was refused"
         );
     }
-}
-
-// ---------------------------------------------------------------------------------------------
-// T13, T14: chest minecarts, chest boats and the paths with no hook
-// ---------------------------------------------------------------------------------------------
-
-/// The block that holds a position of the world.
-fn block_of(position: &impl VehiclePosition) -> [i32; 3] {
-    let [x, y, z] = position.xyz();
-    [x.floor() as i32, y.floor() as i32, z.floor() as i32]
-}
-
-/// The position of a vehicle as three numbers (the game's own vector type).
-trait VehiclePosition {
-    fn xyz(&self) -> [f64; 3];
-}
-
-impl VehiclePosition for horizon_core::geometry::Vec3 {
-    fn xyz(&self) -> [f64; 3] {
-        [self.x, self.y, self.z]
-    }
-}
-
-/// True when the vehicle `id` holds a totem. While a menu shows the vehicle, the game keeps the live
-/// items under a key in the world's block entities and the vehicle's own list may be old: that copy
-/// counts then.
-fn vehicle_has_totem(game: &crate::game::Game<'_>, id: u32, own: &[Option<ItemStack>]) -> bool {
-    let key = (i32::MAX - 15, VEHICLE_KEY_Y, id as i32);
-    let slots = game.world.block_entities.get(&key).map_or(own, |entity| entity.slots());
-    count_totems(slots) > 0
-}
-
-/// T14: true when a chest minecart, hopper minecart or chest boat in the block `pos` holds a totem.
-fn vehicle_holds_totem_at(game: &crate::game::Game<'_>, pos: [i32; 3]) -> bool {
-    game.carts.iter().any(|cart| block_of(&cart.position) == pos && vehicle_has_totem(game, cart.id, &cart.items))
-        || game.boats.iter().any(|boat| block_of(&boat.position) == pos && vehicle_has_totem(game, boat.id, &boat.items))
-}
-
-/// Takes `count` totems out of `items`, the ones in the highest slots first.
-fn take_totems(items: &mut [Option<ItemStack>], count: usize) -> Vec<ItemStack> {
-    let mut taken = Vec::new();
-    for slot in items.iter_mut().rev() {
-        if taken.len() >= count {
-            break;
-        }
-        if holds_totem(slot) {
-            taken.extend(slot.take());
-        }
-    }
-    taken
-}
-
-/// Drops `stack` at `at` as an item entity with a pickup delay, a small hop and (for an Eternal Item)
-/// the health that a blast does not kill. False when the game made no entity.
-fn drop_at(game: &mut crate::game::Game<'_>, dimension: &str, at: [f64; 3], stack: &ItemStack) -> bool {
-    let mut nbt = Compound::new();
-    nbt.insert("Item".into(), horizon_client::save::item_to_nbt(stack));
-    nbt.insert("PickupDelay".into(), Tag::Short(eternal_logic::DROP_PICKUP_DELAY));
-    nbt.insert(
-        "Motion".into(),
-        Tag::List(vec![Tag::Double(0.0f64.to_bits()), Tag::Double(0.2f64.to_bits()), Tag::Double(0.0f64.to_bits())]),
-    );
-    if let Some(health) = eternal_logic::item_health(&stack.item) {
-        nbt.insert("Health".into(), Tag::Short(health));
-    }
-    game.native_summon(dimension, "minecraft:item", at, nbt).is_some()
-}
-
-/// The scan of T13 and T14, once a second: any container that grew to two totems since the last scan
-/// gives the new ones back to the world. It catches what has no hook: a dropper, a hopper minecart
-/// that picks up an item, a command. The first scan of a world only counts, and a container that is
-/// new to the scan (a chunk that just loaded) is only counted, so a pair that was already there is
-/// left alone, as in Java.
-fn scan_all(game: &mut crate::game::Game<'_>) {
-    let run = {
-        let mut s = server();
-        s.scan_ticks += 1;
-        if s.scan_ticks >= SCAN_EVERY {
-            s.scan_ticks = 0;
-            true
-        } else {
-            false
-        }
-    };
-    if !run {
-        return;
-    }
-    let (ready, blocks, vehicles) = {
-        let s = server();
-        (s.scan_ready, s.scan_blocks.clone(), s.scan_vehicles.clone())
-    };
-    let dimension = game.native_dimension();
-    let (blocks_now, vehicles_now) = (
-        scan_blocks(game, dimension, ready, &blocks),
-        scan_vehicles(game, dimension, ready, &vehicles),
-    );
-    let mut s = server();
-    s.scan_blocks = blocks_now;
-    s.scan_vehicles = vehicles_now;
-    s.scan_ready = true;
-}
-
-/// Server ticks between two scans.
-const SCAN_EVERY: u32 = 20;
-
-fn scan_blocks(
-    game: &mut crate::game::Game<'_>,
-    dimension: &'static str,
-    ready: bool,
-    previous: &BTreeMap<(String, [i32; 3]), usize>,
-) -> BTreeMap<(String, [i32; 3]), usize> {
-    let candidates: Vec<[i32; 3]> = game
-        .world
-        .block_entities
-        .iter()
-        .filter(|(pos, entity)| {
-            pos.1 != VEHICLE_KEY_Y
-                && !matches!(
-                    entity,
-                    BlockEntity::Beehive(_) | BlockEntity::Campfire(_) | BlockEntity::Brushable(_) | BlockEntity::Mod(_)
-                )
-                && count_totems(entity.slots()) > 0
-        })
-        .map(|(pos, _)| [pos.0, pos.1, pos.2])
-        .collect();
-    let mut now = BTreeMap::new();
-    for pos in candidates {
-        let Some(found) = container_totems(game, dimension, pos) else {
-            continue;
-        };
-        let key = (dimension.to_owned(), pos);
-        // The other half of a double chest knows the count of the whole.
-        let known = previous.get(&key).copied().or_else(|| {
-            [[1, 0], [-1, 0], [0, 1], [0, -1]]
-                .iter()
-                .find_map(|[dx, dz]| previous.get(&(dimension.to_owned(), [pos[0] + dx, pos[1], pos[2] + dz])).copied())
-        });
-        let mut count = found.len();
-        let eject = if ready { logic::scan_ejects(known, count) } else { 0 };
-        for slot in found.iter().rev().take(eject) {
-            let Some(stack) = game.native_extract_item(dimension, pos, Direction::Up, *slot, 1) else {
-                continue;
-            };
-            count = count.saturating_sub(1);
-            let at = [f64::from(pos[0]) + 0.5, f64::from(pos[1]) + 1.0, f64::from(pos[2]) + 0.5];
-            if !drop_at(game, dimension, at, &stack) {
-                log::warn!("[BalancedMcHardcoreMain] A second Totem of Eternity left a container and could not be dropped");
-            }
-        }
-        if eject > 0 {
-            log::info!("[BalancedMcHardcoreMain] The scan took a second Totem of Eternity out of a container");
-        }
-        now.insert(key, count);
-    }
-    now
-}
-
-fn scan_vehicles(
-    game: &mut crate::game::Game<'_>,
-    dimension: &'static str,
-    ready: bool,
-    previous: &BTreeMap<u32, usize>,
-) -> BTreeMap<u32, usize> {
-    // (id, is a boat, position) of the vehicles with a totem that no menu shows now.
-    let mut found: Vec<(u32, bool, [f64; 3], usize)> = Vec::new();
-    for cart in game.carts.iter() {
-        let count = count_totems(&cart.items);
-        if count > 0 && !game.world.block_entities.contains_key(&(i32::MAX - 15, VEHICLE_KEY_Y, cart.id as i32)) {
-            found.push((cart.id, false, cart.position.xyz(), count));
-        }
-    }
-    for boat in game.boats.iter() {
-        let count = count_totems(&boat.items);
-        if count > 0 && !game.world.block_entities.contains_key(&(i32::MAX - 15, VEHICLE_KEY_Y, boat.id as i32)) {
-            found.push((boat.id, true, boat.position.xyz(), count));
-        }
-    }
-    let mut now = BTreeMap::new();
-    for (id, boat, at, count) in found {
-        let eject = if ready { logic::scan_ejects(previous.get(&id).copied(), count) } else { 0 };
-        let taken = if eject == 0 {
-            Vec::new()
-        } else if boat {
-            game.boats.iter_mut().find(|b| b.id == id).map(|b| take_totems(&mut b.items, eject)).unwrap_or_default()
-        } else {
-            game.carts.iter_mut().find(|c| c.id == id).map(|c| take_totems(&mut c.items, eject)).unwrap_or_default()
-        };
-        for stack in &taken {
-            if !drop_at(game, dimension, [at[0], at[1] + 1.0, at[2]], stack) {
-                log::warn!("[BalancedMcHardcoreMain] A second Totem of Eternity left a vehicle and could not be dropped");
-            }
-        }
-        if !taken.is_empty() {
-            log::info!("[BalancedMcHardcoreMain] The scan took a second Totem of Eternity out of a vehicle");
-        }
-        now.insert(id, count - taken.len());
-    }
-    now
 }
 
 // ---------------------------------------------------------------------------------------------

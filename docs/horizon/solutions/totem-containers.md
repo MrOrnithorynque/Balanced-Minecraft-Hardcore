@@ -98,3 +98,8 @@ host taken out of `game.lan` (the call site at lan_actions.rs:2101 passes `host`
    The cursor helper reads the missing host for vanilla menus. The inventory click handlers therefore cannot read the server cursor.
 2. The control command `entities` lists mobs, loose items and experience orbs. It omits vehicles (`game/agent.rs`, `entities_value`).
    A vehicle check must aim at its known position and use the normal interaction.
+3. On the pin, the dropper calls `Game::add_item` in `game/machines.rs`. Hoppers use that same method for blocks, vehicles and loose items.
+   Its view contains the actual destination slots, including both halves of a chest and the selected vehicle.
+4. The T13 injection refuses a second totem at that transfer. The sender keeps the stack. The periodic scan and both hopper handlers are removed.
+   Scenario z6 checks that the item stays in the dropper. A second pulse with an empty destination checks that the same dropper can transfer it.
+5. The pin's mixin planner accepts the transfer injection. The branch passes 356 logic tests and the shell syntax check.

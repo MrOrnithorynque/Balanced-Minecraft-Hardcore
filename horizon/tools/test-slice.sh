@@ -3034,7 +3034,7 @@ if wanted z; then
     else
         fail z5 "empty hopper: hopper $(z_chest_totems "$HX" "$HY" "$HZ"), items near: $(printf '%s' "$z_item" | head -c 300)"
     fi
-    # z6: a dropper pushes its totem into a chest that holds one; the scan gives the new one back.
+    # z6: the second totem stays inside the dropper. Nothing falls on the ground.
     ctl command "setblock $HX $HY $HZ minecraft:air" >/dev/null
     ctl command "kill @e[type=item]" >/dev/null
     ctl command "setblock $CX $CY $CZ minecraft:chest" >/dev/null
@@ -3047,10 +3047,21 @@ if wanted z; then
     ctl wait 80 >/dev/null
     z_item="$(ctl entities 8 item)"
     echo "z-evidence z6: chest $(z_chest_totems "$CX" "$CY" "$CZ"), dropper $(z_chest_totems "$HX" "$HY" "$HZ"), items $(printf '%s' "$z_item" | head -c 300)"
-    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && printf '%s' "$z_item" | grep -q totem_of_eternity; then
-        pass z6 "a dropper pushed a second totem into a chest and the scan put it back in the world: chest 1"
+    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(z_chest_totems "$HX" "$HY" "$HZ")" = 1 ] && ! printf '%s' "$z_item" | grep -q totem_of_eternity; then
+        pass z6 "the dropper kept the second totem and left no loose totem"
     else
         fail z6 "dropper: chest $(z_chest_totems "$CX" "$CY" "$CZ"), dropper $(z_chest_totems "$HX" "$HY" "$HZ"), items near: $(printf '%s' "$z_item" | head -c 300)"
+    fi
+    ctl command "setblock $HX $((HY + 1)) $HZ minecraft:air" >/dev/null
+    ctl command "setblock $CX $CY $CZ minecraft:air" >/dev/null
+    ctl command "setblock $CX $CY $CZ minecraft:chest" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl command "setblock $HX $((HY + 1)) $HZ minecraft:redstone_block" >/dev/null
+    ctl wait 20 >/dev/null
+    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(z_chest_totems "$HX" "$HY" "$HZ")" = 0 ]; then
+        pass z6b "the same powered dropper moved its first totem into an empty chest"
+    else
+        fail z6b "empty chest control: chest $(z_chest_totems "$CX" "$CY" "$CZ"), dropper $(z_chest_totems "$HX" "$HY" "$HZ")"
     fi
     # z7: a chest minecart. The first totem goes in by a shift click, the second is refused.
     ctl command "kill @e[type=item]" >/dev/null

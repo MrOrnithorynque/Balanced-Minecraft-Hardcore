@@ -248,17 +248,6 @@ pub fn drag_refused(container: &[bool], slots: &[i32], cursor: bool) -> bool {
             .any(|slot| usize::try_from(*slot).is_ok_and(|slot| slot < container.len() && holds_another(container, slot)))
 }
 
-/// How many totems the periodic scan takes out of a container (T13 droppers, T14 vehicles, any
-/// path that has no hook). `previous` is the count of the last scan, None when the container was
-/// not known then (a chunk that just loaded: a pair that was already there is left alone, as in
-/// Java). A container that grows past one loses the new ones.
-pub fn scan_ejects(previous: Option<usize>, now: usize) -> usize {
-    match previous {
-        Some(previous) if now >= 2 && now > previous => now - previous.max(1),
-        _ => 0,
-    }
-}
-
 // ---------------------------------------------------------------------------------------------
 // T1: the tooltip lines
 // ---------------------------------------------------------------------------------------------
@@ -826,15 +815,5 @@ mod tests {
         assert!(!drag_refused(&chest, &[1], false));
         assert!(!drag_refused(&chest, &[3, 4], true));
         assert!(!drag_refused(&[false; 3], &[0, 1], true));
-    }
-
-    #[test]
-    fn the_scan_takes_only_the_new_totems() {
-        assert_eq!(scan_ejects(Some(1), 2), 1);
-        assert_eq!(scan_ejects(Some(0), 2), 1);
-        assert_eq!(scan_ejects(Some(1), 1), 0);
-        assert_eq!(scan_ejects(Some(2), 2), 0);
-        assert_eq!(scan_ejects(Some(2), 3), 1);
-        assert_eq!(scan_ejects(None, 5), 0);
     }
 }
