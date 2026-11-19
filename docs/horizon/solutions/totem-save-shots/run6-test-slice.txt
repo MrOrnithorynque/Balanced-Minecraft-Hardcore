@@ -1,0 +1,38 @@
+test-slice.sh: resources /Users/louisobenicherousse/Library/Caches/bmh-horizon/resources/26.3
+test-slice.sh: binaries  /Users/louisobenicherousse/Library/Caches/bmh-horizon/horizon-mods/native/target/cargo/fast
+test-slice.sh: scratch   /Users/louisobenicherousse/Library/Caches/bmh-horizon/slice.IrRzhu
+test-slice.sh: launch reply: {'ok': True, 'pid': 44433, 'screen': 'playing', 'dimension': 'minecraft:overworld', 'player': {'food': 20, 'health': 20.0, 'max_health': None, 'on_ground': True, 'position': [5.5, 127.0, 0.5], 'velocity': [0.0, -0.0784000015258789, 0.0]}}
+test-slice.sh: world spawn (the start position of the player): x=5.5 z=0.5
+test-slice.sh: expected distant respawn distance (Normal, no Eternal Item): 23333 blocks
+--- t. totem: Undying order, extra totem, anvil, E6, the save on a lethal hit, the dead flag, /kill
+test-slice.sh: spawnpoint at 5 127 0: {"chat":["Set spawn point to 5, 127, 0 [0.0, 0.0] in minecraft:overworld for Player96330"],"ok":true}
+t-evidence t6: health 5.0, counts {'bmh:totem_of_eternity': 1}, effects ['regeneration', 'absorption']
+PASS t6: the Totem of Undying saved first, the Totem of Eternity stayed, no Fire Resistance
+PASS t7: of two Totems of Eternity one stayed and one dropped on the ground
+t-evidence t8: menu {"carried":null,"info":{"anvil_cost":39,"bookcases":0,"clues":[null,null,null],"costs":[0,0,0],"recipes":[],"result":"bmh:totem_of_eternity x1","selected":null},"level":0,"name":"Hollow Totem of Eternal Life","screen":"inventory","slots":[{"slot":600,"stack":{"count":1,"custom_name":null,"damage":0,"enchantments":[],"item":"bmh:dormant_totem","potion":null,"repair_cost":0,"stored_enchantments":[],"trim":null}},{"slot":601,"stack":{"count":1,"custom_name":null,"damage":0,"enchantments":[],"item":"bmh:echo_heart","potion":null,"repair_cost":0,"stored_enchantments":[],"trim":null}},{"slot":650,"stack":{"count":1,"custom_name":null,"damage":0,"enchantments":[],"item":"bmh:totem_of_eternity","potion":null,"repair_cost":0,"stored_enchantments":[],"trim":null}}],"station":"Anvil","xp_seed":0}
+PASS t8: the anvil shows a Totem of Eternity as result
+t-evidence t9: menu {"carried":null,"info":{"anvil_cost":15,"bookcases":0,"clues":[null,null,null],"costs":[0,0,0],"recipes":[],"result":"bmh:eternal_sword x1","selected":null},"level":0,"name":"The Sword of Eternity","screen":"inventory","slots":[{"slot":0,"stack":{"count":1,"custom_name":null,"damage":0,"enchantments":[],"item":"bmh:dormant_totem","potion":null,"repair_cost":0,"stored_enchantments":[],"trim":null}},{"slot":1,"stack":{"count":1,"custom_name":null,"damage":0,"enchantments":[],"item":"bmh:echo_heart","potion":null,"repair_cost":0,"stored_enchantments":[],"trim":null}},{"slot":600,"stack":{"count":1,"custom_name":null,"damage":20000,"enchantments":[],"item":"bmh:eternal_sword","potion":null,"repair_cost":40,"stored_enchantments":[],"trim":null}},{"slot":601,"stack":{"count":2,"custom_name":null,"damage":0,"enchantments":[],"item":"minecraft:gold_block","potion":null,"repair_cost":0,"stored_enchantments":[],"trim":null}},{"slot":650,"stack":{"count":1,"custom_name":null,"damage":3500,"enchantments":[],"item":"bmh:eternal_sword","potion":null,"repair_cost":40,"stored_enchantments":[],"trim":null}}],"station":"Anvil","xp_seed":0}
+PASS t9: E6: the anvil result has damage 3500 and cost 15
+t-evidence selected slot after the anvil checks: 1
+t-evidence t-anvil: hotbar before [(0, 'bmh:totem_of_eternity'), (1, None), (2, None), (3, None), (4, None), (5, None), (6, None), (7, None), (8, None)]; screen after playing; health 4.333333492279053; counts {'bmh:sleeping_totem': 1}
+t-evidence t12: main bmh:totem_of_eternity then bmh:totem_of_eternity, off minecraft:totem_of_undying then None; health 3.8333332538604736; counts {'bmh:totem_of_eternity': 1}; effects ['regeneration', 'absorption']
+PASS t12: the Totem of Undying in the off hand saved first; the Totem of Eternity stayed in the main hand
+t-evidence t11: off hand before bmh:totem_of_eternity, after bmh:sleeping_totem; health 3.6666665077209473; counts {'bmh:sleeping_totem': 1}; effects ['regeneration', 'absorption', 'fire_resistance']
+PASS t11: a Totem of Eternity in the off hand saved; the Dormant Totem is in the off hand
+t-evidence probe: components before the hit: ; screen after playing; health 2.6666667461395264; counts {'bmh:sleeping_totem': 1}
+t-evidence: health after the hit: 3.999999761581421; screen: playing
+t-evidence: effects: {"effects":{"active":[{"amplifier":1,"duration":879,"id":"regeneration"},{"amplifier":1,"duration":79,"id":"absorption"},{"amplifier":0,"duration":779,"id":"fire_resistance"}],"thrown":[]},"health":3.999999761581421}
+t-evidence: counts: {'bmh:sleeping_totem': 1}
+t-evidence: log lines: refused effects 0, refused health 0, saved 1
+PASS t1: the player lives after a lethal hit with a Totem of Eternity: health 3.999999761581421
+PASS t2: the totem became a Dormant Totem
+PASS t3: Regeneration, Absorption and Fire Resistance are on the player
+PASS t4: the log has the 'saved ... and is now dormant' line
+t-evidence: health before /damage @s 10: 5.333333492279053, after: 0.0
+PASS t5: a later /damage @s 10 lowers the health: 5.333333492279053 then 0.0
+t-evidence t13 (gap): totem in slot 9; screen after the hit dead; health 0.0
+PASS t10: /kill kills a player who carries a Totem of Eternity
+
+test-slice.sh: 12 passed, 0 failed, 0 skipped
+test-slice.sh: game log: /Users/louisobenicherousse/Library/Caches/bmh-horizon/slice.IrRzhu/home/logs/latest.log (kept only with --keep)
+test-slice.sh: scratch folder kept: /Users/louisobenicherousse/Library/Caches/bmh-horizon/slice.IrRzhu

@@ -201,6 +201,17 @@ bindings = [
 ]
 
 [[injection]]
+id = "hook_player_totem"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_totem"
+helper = "hook_player_totem.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+]
+
+[[injection]]
 id = "hook_server_tick"
 kind = "HEAD"
 target = "horizon_client::game::native_hooks::Game<'_>::native_server_tick"

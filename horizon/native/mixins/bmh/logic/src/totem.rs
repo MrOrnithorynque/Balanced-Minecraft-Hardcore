@@ -365,6 +365,55 @@ pub fn anvil_case(left: &str, right: Option<&str>) -> Option<Anvil> {
 }
 
 // ---------------------------------------------------------------------------------------------
+// T2: the save from a hand (route A, docs/horizon/solutions/totem-save.md)
+// ---------------------------------------------------------------------------------------------
+
+/// The Totem of Undying. Java lets vanilla's hand check run first (A_LivingEntityTotemMixin.java:46),
+/// so a Totem of Undying in a hand saves before the Totem of Eternity.
+pub const TOTEM_OF_UNDYING: &str = "minecraft:totem_of_undying";
+
+/// The off hand in the numbering of `native_carried_stack`.
+pub const CARRIED_OFF_HAND: i32 = -106;
+
+/// The off hand in the numbering of `native_set_inventory_slot` (`NativeInventoryKind::Player`).
+pub const INVENTORY_OFF_HAND: usize = 40;
+
+/// What the mod does when Horizon's own hand check saves a player. The game spends the main hand
+/// when it has `death_protection`, else the off hand (`Game::apply_totem`, game/totem.rs:86-93).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HandSave {
+    /// No Totem of Eternity is spent: nothing to do.
+    Nothing,
+    /// The main hand holds a Totem of Eternity and the off hand a Totem of Undying. The mod swaps
+    /// the two hands before the use-up, so the Totem of Undying saves first, as in Java. After the
+    /// tick, the Totem of Eternity goes back to the main hand.
+    Swap,
+    /// The game spends the Totem of Eternity of this hand. After the tick, the Dormant Totem goes in
+    /// the emptied slot. `carried` is the slot for `native_carried_stack`, `inventory` the slot for
+    /// `native_set_inventory_slot`.
+    Eternity { carried: i32, inventory: usize },
+}
+
+/// The answer for the two hands of a player that the game saves. `main` and `off` are the item ids
+/// of the hands (None when empty). `selected` is the selected hotbar slot (0 to 8). Only the Totem
+/// of Undying and the Totem of Eternity carry `death_protection` in this mod.
+pub fn hand_save(main: Option<&str>, off: Option<&str>, selected: u8) -> HandSave {
+    match (main, off) {
+        (Some(TOTEM_OF_UNDYING), _) => HandSave::Nothing,
+        (Some(m), Some(TOTEM_OF_UNDYING)) if is_totem(m) => HandSave::Swap,
+        (Some(m), _) if is_totem(m) => HandSave::Eternity {
+            carried: i32::from(selected),
+            inventory: usize::from(selected),
+        },
+        (_, Some(o)) if is_totem(o) => HandSave::Eternity {
+            carried: CARRIED_OFF_HAND,
+            inventory: INVENTORY_OFF_HAND,
+        },
+        _ => HandSave::Nothing,
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
 // T5: the Totem of Undying without Fire Resistance
 // ---------------------------------------------------------------------------------------------
 
@@ -376,6 +425,47 @@ pub const UNDYING_LOSES: &str = "minecraft:fire_resistance";
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hand_save_undying_in_the_main_hand_saves_first() {
+        let t = Some(ids::TOTEM_OF_ETERNITY);
+        assert_eq!(hand_save(Some(TOTEM_OF_UNDYING), t, 3), HandSave::Nothing);
+        assert_eq!(hand_save(Some(TOTEM_OF_UNDYING), None, 3), HandSave::Nothing);
+    }
+
+    #[test]
+    fn hand_save_swaps_when_the_undying_is_in_the_off_hand() {
+        assert_eq!(
+            hand_save(Some(ids::TOTEM_OF_ETERNITY), Some(TOTEM_OF_UNDYING), 2),
+            HandSave::Swap
+        );
+    }
+
+    #[test]
+    fn hand_save_spends_the_eternity_of_the_main_hand() {
+        assert_eq!(
+            hand_save(Some(ids::TOTEM_OF_ETERNITY), None, 4),
+            HandSave::Eternity { carried: 4, inventory: 4 }
+        );
+        assert_eq!(
+            hand_save(Some(ids::TOTEM_OF_ETERNITY), Some("minecraft:shield"), 8),
+            HandSave::Eternity { carried: 8, inventory: 8 }
+        );
+    }
+
+    #[test]
+    fn hand_save_spends_the_eternity_of_the_off_hand() {
+        let off = HandSave::Eternity { carried: -106, inventory: 40 };
+        assert_eq!(hand_save(None, Some(ids::TOTEM_OF_ETERNITY), 0), off);
+        assert_eq!(hand_save(Some("minecraft:stone_sword"), Some(ids::TOTEM_OF_ETERNITY), 0), off);
+    }
+
+    #[test]
+    fn hand_save_leaves_other_hands_alone() {
+        assert_eq!(hand_save(None, Some(TOTEM_OF_UNDYING), 0), HandSave::Nothing);
+        assert_eq!(hand_save(Some(ids::SLEEPING_TOTEM), None, 0), HandSave::Nothing);
+        assert_eq!(hand_save(None, None, 0), HandSave::Nothing);
+    }
 
     #[test]
     fn the_save_effects_are_the_java_ones() {
