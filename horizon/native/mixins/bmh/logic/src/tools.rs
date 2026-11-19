@@ -220,48 +220,6 @@ impl MineableAnswers {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The attack strength (E7)
-// ---------------------------------------------------------------------------------------------
-
-/// The attack speed of the Eternal Sword: the player's base 4.0 plus the modifier -1.4 (ItemInit.java:51).
-pub const SWORD_ATTACK_SPEED: f64 = 4.0 - 1.4;
-
-/// `Player.getAttackStrengthScale(0.5)` after `ticks` ticks without a reset (Java: `(attackStrengthTicker
-/// + 0.5) / getCurrentItemAttackStrengthDelay()`, clamped to 0 to 1, with a delay of `1 / speed * 20`).
-pub fn attack_strength(ticks: i64, attack_speed: f64) -> f32 {
-    let delay = 1.0 / attack_speed * 20.0;
-    ((ticks as f64 + 0.5) / delay).clamp(0.0, 1.0) as f32
-}
-
-/// The game times of the last two resets of the attack strength of a player. The punch packet resets it
-/// after the attack packet of the same swing or before it: a hit uses the reset that is not of its own
-/// tick.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Resets {
-    last: Option<i64>,
-    previous: Option<i64>,
-}
-
-impl Resets {
-    /// A reset at game time `now`. A second reset in the same tick changes nothing.
-    pub fn reset(&mut self, now: i64) {
-        if self.last != Some(now) {
-            self.previous = self.last;
-            self.last = Some(now);
-        }
-    }
-
-    /// The attack strength of a hit at game time `now`. No reset known (the player never swung): full.
-    pub fn strength_at(&self, now: i64, attack_speed: f64) -> f32 {
-        let since = if self.last == Some(now) { self.previous } else { self.last };
-        match since {
-            Some(at) => attack_strength(now - at, attack_speed),
-            None => 1.0,
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------------------------
 // The fall and Axe Smash (E8)
 // ---------------------------------------------------------------------------------------------
 
@@ -1042,35 +1000,6 @@ mod tests {
         assert_eq!(answers.get(Tool::Axe, "test:one_more"), None);
         answers.set(Tool::Pickaxe, "minecraft:stone", true);
         assert_eq!(answers.get(Tool::Pickaxe, "minecraft:stone"), Some(true));
-    }
-
-    // ---- attack strength ----
-
-    #[test]
-    fn the_sword_needs_seven_ticks_for_a_full_swing() {
-        // Delay 20 / 2.6 = 7.69 ticks. The scale is (ticks + 0.5) / delay.
-        assert!(attack_strength(6, SWORD_ATTACK_SPEED) < MIN_ATTACK_STRENGTH);
-        assert!(attack_strength(7, SWORD_ATTACK_SPEED) >= MIN_ATTACK_STRENGTH);
-        assert!((attack_strength(100, SWORD_ATTACK_SPEED) - 1.0).abs() < 1e-6);
-        assert!(attack_strength(-5, SWORD_ATTACK_SPEED) >= 0.0);
-        assert!((attack_strength(0, SWORD_ATTACK_SPEED) - 0.065).abs() < 1e-3);
-    }
-
-    #[test]
-    fn a_hit_uses_the_reset_that_is_not_of_its_own_tick() {
-        let mut resets = Resets::default();
-        // A player who never swung hits at full strength.
-        assert!((resets.strength_at(100, SWORD_ATTACK_SPEED) - 1.0).abs() < 1e-6);
-        resets.reset(100);
-        // The attack packet came first: the last reset is of an earlier tick.
-        resets.reset(110);
-        assert!(resets.strength_at(120, SWORD_ATTACK_SPEED) >= MIN_ATTACK_STRENGTH);
-        assert!(resets.strength_at(112, SWORD_ATTACK_SPEED) < MIN_ATTACK_STRENGTH);
-        // The punch came first, in the tick of the hit: the older reset counts.
-        assert!(resets.strength_at(110, SWORD_ATTACK_SPEED) >= MIN_ATTACK_STRENGTH);
-        // A second reset in one tick changes nothing.
-        resets.reset(110);
-        assert!(resets.strength_at(110, SWORD_ATTACK_SPEED) >= MIN_ATTACK_STRENGTH);
     }
 
     // ---- the fall and the smash ----

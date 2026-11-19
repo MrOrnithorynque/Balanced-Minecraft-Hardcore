@@ -581,21 +581,6 @@ bindings = [
 ]
 
 [[injection]]
-id = "hook_entity_join_level"
-kind = "HEAD"
-target = "horizon_client::game::native_hooks::Game<'_>::native_entity_join_level"
-helper = "hook_entity_join_level.rs"
-bindings = [
-  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
-  { name = "dimension", ty = "&str", value = "dimension" },
-  { name = "entity", ty = "u32", value = "entity" },
-  { name = "kind", ty = "&str", value = "kind" },
-  { name = "pos", ty = "[f64; 3]", value = "pos" },
-  { name = "loaded_from_disk", ty = "bool", value = "loaded_from_disk" },
-  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
-]
-
-[[injection]]
 id = "hook_destroy_block"
 kind = "HEAD"
 target = "horizon_client::game::native_hooks::Game<'_>::native_destroy_block"

@@ -31,13 +31,8 @@ const OFF_HAND_SLOT: i32 = -106;
 const SURVIVAL: i32 = bmh_logic::eternal::SURVIVAL;
 /// The entity type of a player.
 const PLAYER: &str = "minecraft:player";
-/// The most hostile mobs the server list keeps. A mob that left is dropped at the next sweep of its
-/// dimension.
-const MAX_MOBS: usize = 8192;
-/// Ticks between two sweeps of the glows, and between two sweeps of the mobs of one dimension.
+/// The interval between checks for expired glows.
 const SWEEP_TICKS: i64 = 100;
-/// The ender dragon is no mob of `native_mob`, but an echo may hit it.
-const ENDER_DRAGON: &str = "minecraft:ender_dragon";
 /// The most mineable answers the server remembers as sent. Past it, no answer is sent: the client then
 /// scales the speed, which is the safe side.
 const MAX_TOLD: usize = 65_536;
@@ -104,8 +99,6 @@ struct Server {
     hits: BTreeMap<u128, Hit>,
     /// The echoes that wait for each player.
     echoes: BTreeMap<u128, Vec<logic::PendingEcho>>,
-    /// The hostile mobs that joined a level: entity id and dimension.
-    mobs: BTreeMap<u32, String>,
     /// The glows of Echo Sense.
     glows: logic::GlowBook,
     /// The game time when each player may read an ore again.
@@ -116,8 +109,6 @@ struct Server {
     awards: Vec<(u128, String, &'static str)>,
     /// The game time of the last sweep of the glows.
     swept: i64,
-    /// The game time of the last sweep of the mobs, by dimension.
-    mob_sweeps: BTreeMap<String, i64>,
     /// The mineable answers that each player was sent (E4): each one goes once.
     told: BTreeSet<(u128, logic::Tool, String)>,
     /// The mineable answers to send at the end of the tick.
@@ -128,13 +119,11 @@ static SERVER: Mutex<Server> = Mutex::new(Server {
     falls: BTreeMap::new(),
     hits: BTreeMap::new(),
     echoes: BTreeMap::new(),
-    mobs: BTreeMap::new(),
     glows: logic::GlowBook::new(),
     next_sense: BTreeMap::new(),
     readings: Vec::new(),
     awards: Vec::new(),
     swept: 0,
-    mob_sweeps: BTreeMap::new(),
     told: BTreeSet::new(),
     answers: Vec::new(),
 });
@@ -422,64 +411,18 @@ fn send_burst(game: &mut crate::game::Game<'_>, burst: &logic::Burst) {
     );
 }
 
-// E7: keep the list of mobs that an echo can hit.
-pub(super) fn on_entity_join_level(
-    game: &mut crate::game::Game<'_>,
-    dimension: &str,
-    entity: u32,
-    kind: &str,
-    pos: [f64; 3],
-    loaded_from_disk: bool,
-    canceled: &mut bool,
-) {
-    let _ = (game, pos, loaded_from_disk, canceled);
-    if !logic::is_enemy(kind) {
-        return;
-    }
-    let mut s = server();
-    if s.mobs.len() >= MAX_MOBS {
-        // The oldest ids go first.
-        if let Some(oldest) = s.mobs.keys().next().copied() {
-            s.mobs.remove(&oldest);
-        }
-    }
-    s.mobs.insert(entity, dimension.to_owned());
-}
-
 // ---------------------------------------------------------------------------------------------
 // E7, E8: the player's tick
 // ---------------------------------------------------------------------------------------------
 
 // E7: land the echoes that are due, at the head of the tick of their player (EchoStrikeHandler.java:91-113).
 // E8: follow the fall of the player (the fall distance is the mod's: no helper reads it).
-// The mobs of the player's dimension that left are dropped here, where that level is in place.
 pub(super) fn on_player_tick(game: &mut crate::game::Game<'_>) {
     let Some(me) = game.native_acting_player() else {
         return;
     };
     deliver_due_echoes(game, &me);
     track_fall(game, &me);
-    sweep_mobs(game, &me.dimension);
-}
-
-fn sweep_mobs(game: &crate::game::Game<'_>, dimension: &str) {
-    let Some(now) = game_time(game) else {
-        return;
-    };
-    let ids: Vec<u32> = {
-        let mut s = server();
-        let last = s.mob_sweeps.get(dimension).copied().unwrap_or(i64::MIN);
-        if now >= last && now.saturating_sub(last) < SWEEP_TICKS {
-            return;
-        }
-        s.mob_sweeps.insert(dimension.to_owned(), now);
-        s.mobs.iter().filter(|(_, d)| d.as_str() == dimension).map(|(id, _)| *id).collect()
-    };
-    let gone: Vec<u32> = ids.into_iter().filter(|id| game.native_entity(*id).is_none()).collect();
-    let mut s = server();
-    for id in gone {
-        s.mobs.remove(&id);
-    }
 }
 
 fn deliver_due_echoes(game: &mut crate::game::Game<'_>, me: &horizon_client::mod_api::NativeServerPlayer) {
@@ -509,18 +452,16 @@ fn deliver(
 ) {
     // The target may have died or been knocked away: follow it while it lives.
     let origin = center_of(game, echo.target).map_or(echo.origin, |(center, _)| center);
-    let ids: Vec<u32> = server()
-        .mobs
-        .iter()
-        .filter(|(_, dimension)| **dimension == me.dimension)
-        .map(|(id, _)| *id)
-        .collect();
-    // Java skips a mob that is not alive (EchoStrikeHandler.java:170). A mob in its death animation is
-    // still in the level, and `native_hurt_entity` refuses it: leave it out.
-    let candidates: Vec<logic::Candidate> = ids
+    let candidates: Vec<logic::Candidate> = game
+        .native_mobs(&me.dimension)
         .into_iter()
-        .filter(|id| is_alive(game, &me.dimension, *id))
-        .filter_map(|id| center_of(game, id).map(|(center, _)| logic::Candidate { id, center }))
+        .filter(|mob| {
+            mob.id != echo.target
+                && logic::is_enemy(&mob.kind)
+                && (mob.pos[0] - origin[0]).abs() <= logic::RANGE
+                && (mob.pos[2] - origin[2]).abs() <= logic::RANGE
+        })
+        .filter_map(|mob| center_of(game, mob.id).map(|(center, _)| logic::Candidate { id: mob.id, center }))
         .collect();
     let Some(victim) = logic::nearest_victim(origin, echo.target, &candidates) else {
         return;
@@ -553,15 +494,6 @@ fn deliver(
         echo.damage,
         logic::distance(origin, end)
     );
-}
-
-/// True when the hostile mob `id` of the level in place lives. The ender dragon is no mob of
-/// `native_mob`: it counts while the level holds it.
-fn is_alive(game: &crate::game::Game<'_>, dimension: &str, id: u32) -> bool {
-    if game.native_mob(dimension, id).is_some() {
-        return true;
-    }
-    game.native_entity(id).and_then(|e| game.native_entity_kind(e)).as_deref() == Some(ENDER_DRAGON)
 }
 
 // E8: one tick of the fall of the player.

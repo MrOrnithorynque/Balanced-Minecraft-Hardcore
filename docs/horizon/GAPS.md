@@ -166,7 +166,6 @@ Tier is for the Nightly pin. API numbers come from the doc comments in `G/native
 | `item_damaged` | hook | N | 162 | E2 |
 | `hurt_enemy` | hook | N | 39 | E7, E8 |
 | `attack_entity` | hook | N | 22 | E3, E7, E8 |
-| `entity_join_level` | hook | N | 47 | E7 |
 | `destroy_block` | hook | N | 14 | E9 |
 | `living_fall` | hook | N | 357 | E8 |
 | `item_expire`, `item_spawn` | hooks | N | 325, 234 | E10 |
