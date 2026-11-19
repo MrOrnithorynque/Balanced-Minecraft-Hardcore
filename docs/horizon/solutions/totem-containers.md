@@ -111,3 +111,6 @@ host taken out of `game.lan` (the call site at lan_actions.rs:2101 passes `host`
 9. The host compares open menus once per tick (`game/native_menus.rs`, `tick_player_menus`). A menu that opens and closes within one tick can escape recovery.
    Two players who place totems in the same container in the same tick can compete for the returned stacks.
    Exact refusal for those cases requires the server slot rule before a click changes the container.
+
+
+The packaged integration passed all ten container checks on the pinned game. An ordinary chest, an Ender chest and a chest minecart kept the original stack. The player recovered the marked duplicate. A blocked dropper kept its input. The same dropper filled an empty chest. A hopper accepted the first loose totem and refused a second one. A hopper above a chest minecart resumed transfer when the player emptied the cart. Run `test-slice.sh --only z` to repeat the checks.

@@ -68,6 +68,16 @@ python3 horizon/tools/package.py
 sh horizon/tools/test-slice.sh --no-build --package horizon/build/bmh-1.9.0-horizon-26.3.zip
 ```
 
+To test a dedicated server, use the same package, the folder containing the built `horizon-client`, and the prepared game resources.
+
+```sh
+python3 horizon/tools/test-dedicated.py --package horizon/build/bmh-1.9.0-horizon-26.3.zip \
+  --bin-dir "$HOME/Library/Caches/bmh-horizon/horizon-mods/native/target/cargo/fast" \
+  --resources "$HOME/Library/Caches/bmh-horizon/resources/26.3"
+```
+
+The test boots a temporary world three times. It checks the installed item, config correction, console commands, rule persistence and import from a Java world. Use `--out <folder>` to keep the logs.
+
 Use `--only abilities` to check all three Eternal tools. The tests measure enemy health, read earned advancements and compare the Echo Sense outline before and after expiry.
 Use `--only z` for containers and transfers, `--only t` for death protection, and `--only rules,o,cooldown` for the world rules, world creation button and amulet HUD.
 
