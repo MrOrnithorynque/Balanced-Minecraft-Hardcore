@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r s t u v w x y z cooldown rules o m j), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r abilities s t u v w x y z cooldown rules o m j), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -30,6 +30,7 @@
 #   level (/bmh rule refused, /bmh point save works); y a Java world's rules imported (it quits and relaunches);
 #   z one Totem of Eternity per container, hopper and vehicle; cooldown the amulet icon;
 #   rules the /gamerule command and completion; o Hardcore and Re-Create on the world screen;
+#   abilities the sword echo, the airborne axe hit and the ore outline behind stone;
 #   j dead when the game closes (it quits and relaunches).
 # Environment: BMH_HORIZON_CACHE (default ~/Library/Caches/bmh-horizon).
 # Exit codes: 0 all checks passed (SKIPs allowed), 1 a check failed, 77 no prepared files,
@@ -2356,6 +2357,150 @@ if wanted r; then
     fi
     ctl command "clear @s" >/dev/null
     ctl command "difficulty normal" >/dev/null
+fi
+
+# ---- abilities. The Eternal tools in combat and during a real dig ----------------------------
+if wanted abilities; then
+    echo "--- abilities. Echo Strike, Axe Smash and Echo Sense"
+    ensure_point
+    ctl command "gamemode survival" >/dev/null
+    ctl command "difficulty normal" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl command "weather clear" >/dev/null
+    ctl command "time set 18000" >/dev/null
+    platform
+    ctl command "fill $((PX - 2)) $((PY - 1)) $((PZ - 2)) $((PX + 6)) $((PY - 1)) $((PZ + 4)) stone" >/dev/null
+    ctl command "fill $((PX - 1)) $PY $((PZ - 1)) $((PX + 5)) $((PY + 9)) $((PZ + 4)) air" >/dev/null
+
+    ability_tool() {
+        ctl command "clear @s" >/dev/null
+        ctl command "give @s $1" >/dev/null
+        ctl select "${1%%\[*}" >/dev/null
+        ctl wait 30 >/dev/null
+    }
+    ability_summon() {
+        ctl command "summon $1 $(center $((PX + 2))) $PY $(center $((PZ + $2))) {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[bmh_ability]}" >/dev/null
+        ctl wait 5 >/dev/null
+        jget "$(ctl entities 8 "$1")" 'd["entities"][0]["id"]'
+    }
+    ability_health() {
+        jget "$(ctl entities 12 "$1")" "next(e['health'] for e in d['entities'] if e['id'] == $2)"
+    }
+    ability_awarded() {
+        ctl save >/dev/null
+        python3 - "$GAMEDIR/saves/$WORLD" "$1" <<'PYEOF'
+import json, pathlib, sys
+files = pathlib.Path(sys.argv[1]).rglob("advancements/*.json")
+print(any(json.loads(f.read_text()).get("bmh:eternity/" + sys.argv[2], {}).get("done") for f in files))
+PYEOF
+    }
+    ability_hits() {
+        [ -n "$2" ] && [ "$(jget "$1" "d.get('target') == $2 and d.get('hit') and d['health'] < d['health_before']")" = True ]
+    }
+    for ability in echo_strike smash echo_sense; do
+        ctl command "advancement revoke @s only bmh:eternity/$ability" >/dev/null
+    done
+    # A three-block gap puts the second mob beyond the vanilla sword sweep and inside the echo radius.
+    ability_tool 'bmh:eternal_sword[damage=32999]'
+    direct_id="$(ability_summon husk 0)"
+    echo_id="$(ability_summon zombie 3)"
+    hp_before="$(ability_health zombie "$echo_id")"
+    hit="$(ctl attack "$direct_id")"
+    ctl wait 14 >/dev/null
+    hp_worn="$(ability_health zombie "$echo_id")"
+    if ability_hits "$hit" "$direct_id" && [ -n "$hp_before" ] && [ "$hp_worn" = "$hp_before" ] && [ "$(ability_awarded echo_strike)" = False ]; then
+        pass abilities1 "the worn sword hit its target and left the second zombie at $hp_before health"
+    else
+        fail abilities1 "worn sword hit $hit, second zombie $echo_id health $hp_before to $hp_worn"
+    fi
+    ctl command "kill @e[tag=bmh_ability]" >/dev/null
+    ctl wait 30 >/dev/null
+    ability_tool bmh:eternal_sword
+    direct_id="$(ability_summon husk 0)"
+    echo_id="$(ability_summon zombie 3)"
+    hp_before="$(ability_health zombie "$echo_id")"
+    hit="$(ctl attack "$direct_id")"
+    ctl wait 14 >/dev/null
+    hp_echo="$(ability_health zombie "$echo_id")"
+    if ability_hits "$hit" "$direct_id" && awk -v a="$hp_before" -v b="$hp_echo" 'BEGIN {exit !(a!="" && b!="" && b+0 < a+0)}' && [ "$(ability_awarded echo_strike)" = True ]; then
+        pass abilities2 "one sword swing also damaged the second zombie ($hp_before to $hp_echo) and awarded Echo Strike"
+    else
+        fail abilities2 "sword hit $hit, second zombie $echo_id health $hp_before to $hp_echo, advancement $(ability_awarded echo_strike)"
+    fi
+    ctl command "kill @e[tag=bmh_ability]" >/dev/null
+    ctl wait 30 >/dev/null
+
+    ability_tool bmh:eternal_axe
+    smash_id="$(ability_summon ravager 0)"
+    hit="$(ctl attack "$smash_id")"
+    ground_damage="$(jget "$hit" 'd["health_before"] - d["health"]')"
+    if ability_hits "$hit" "$smash_id" && [ "$(ability_awarded smash)" = False ]; then
+        pass abilities3 "the axe hit a ravager on the ground for $ground_damage without a smash"
+    else
+        fail abilities3 "grounded axe hit $hit, advancement $(ability_awarded smash)"
+    fi
+    ctl command "kill @e[tag=bmh_ability]" >/dev/null
+    ctl wait 30 >/dev/null
+    smash_id="$(ability_summon ravager 0)"
+    # Slow ticks widen the input window without changing fall distance or the axe multiplier.
+    ctl command "tick rate 5" >/dev/null
+    ctl command "tp @s $(center "$PX") $((PY + 8)) $(center "$PZ")" >/dev/null
+    hit=""
+    for ((attempt = 0; attempt < 150; attempt++)); do
+        falling="$(jget "$(state)" "not d['player']['on_ground'] and $PY + 0.6 < d['player']['position'][1] < $PY + 2.8")"
+        if [ "$falling" = True ]; then
+            hit="$(ctl attack "$smash_id")"
+            break
+        fi
+    done
+    ctl command "tick rate 20" >/dev/null
+    ctl wait 25 >/dev/null
+    air_damage="$(jget "$hit" 'd["health_before"] - d["health"]')"
+    if ability_hits "$hit" "$smash_id" && awk -v a="$ground_damage" -v b="$air_damage" 'BEGIN {exit !(a+0 > 0 && b+0 > a*1.5)}' && [ "$(ability_awarded smash)" = True ]; then
+        pass abilities4 "the falling axe did $air_damage damage versus $ground_damage on the ground and awarded Smash"
+    else
+        fail abilities4 "falling axe hit $hit, ground damage $ground_damage, advancement $(ability_awarded smash)"
+    fi
+    ctl command "kill @e[tag=bmh_ability]" >/dev/null
+    ctl wait 30 >/dev/null
+
+    # The second ore sits behind an opaque wall. The cyan box must disappear when its five seconds end.
+    ability_tool bmh:eternal_pickaxe
+    ctl command "time set 6000" >/dev/null
+    ctl command "tp @s $(center "$PX") $PY $(center "$PZ")" >/dev/null
+    ctl command "fill $((PX + 3)) $PY $((PZ - 2)) $((PX + 3)) $((PY + 3)) $((PZ + 2)) stone" >/dev/null
+    ctl command "setblock $((PX + 4)) $((PY + 1)) $PZ ancient_debris" >/dev/null
+    ctl command "setblock $((PX + 1)) $PY $PZ ancient_debris" >/dev/null
+    ctl wait 10 >/dev/null
+    ore_hit="$(ctl break $((PX + 1)) "$PY" "$PZ")"
+    ctl look -90 0 >/dev/null
+    ctl wait 4 >/dev/null
+    ctl screenshot "$SHOTS/abilities-active.png" >/dev/null
+    ctl wait 130 >/dev/null
+    ctl screenshot "$SHOTS/abilities-expired.png" >/dev/null
+    if [ "$(jget "$ore_hit" 'd.get("block")')" = minecraft:air ] && [ "$(ability_awarded echo_sense)" = True ]; then
+        pass abilities5 "mining ancient debris with another behind a wall awarded Echo Sense"
+    else
+        fail abilities5 "mined $ore_hit, advancement $(ability_awarded echo_sense)"
+    fi
+    outline="$(python3 - "$SHOTS/abilities-active.png" "$SHOTS/abilities-expired.png" <<'PYEOF'
+from PIL import Image
+import sys
+def cyan(path):
+    with Image.open(path) as img:
+        w, h = img.size
+        roi = img.crop((w//3, h//3, w*2//3, h*2//3)).convert("RGB")
+        return {i for i, (r,g,b) in enumerate(roi.getdata()) if g > 140 and b > 150 and r < min(g,b) * 0.5}
+active, expired = map(cyan, sys.argv[1:])
+print(len(active - expired), len(expired - active))
+PYEOF
+)"
+    if printf '%s\n' "$outline" | awk 'NF==2 && $1 >= 24 && $1 > 3*$2 {ok=1} END {exit !ok}'; then
+        pass abilities6 "cyan outline behind stone vanished after expiry (active-only and expired-only pixels: $outline)"
+    else
+        fail abilities6 "no distinct temporary cyan outline behind stone (active-only and expired-only pixels: $outline)"
+    fi
+    ctl command "clear @s" >/dev/null
 fi
 
 # ---- s. The moon ritual: refused by day, a fail when the aim leaves the moon, a full ritual at night -------
