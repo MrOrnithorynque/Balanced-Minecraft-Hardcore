@@ -66,8 +66,7 @@ enum HandWork {
 
 /// One hand save that waits for the end of the server tick.
 struct HandSaveRecord {
-    uuid: u128,
-    name: String,
+    player: NativeServerPlayer,
     work: HandWork,
 }
 
@@ -92,8 +91,6 @@ struct Server {
     scan_ready: bool,
     /// Server ticks since the last scan.
     scan_ticks: u32,
-    rng: bmh_logic::respawn::Rng,
-    seeded: bool,
 }
 
 static SERVER: Mutex<Server> = Mutex::new(Server {
@@ -106,8 +103,6 @@ static SERVER: Mutex<Server> = Mutex::new(Server {
     scan_vehicles: BTreeMap::new(),
     scan_ready: false,
     scan_ticks: 0,
-    rng: bmh_logic::respawn::Rng::new(0x54_4F54_454D),
-    seeded: false,
 });
 
 /// The hook without a `Game` (`hopper_pickup_item`) acts only inside a server tick that the gated
@@ -140,19 +135,6 @@ fn server() -> MutexGuard<'static, Server> {
     SERVER.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-/// The next random value in [0, 1). The source mixes in the clock once.
-fn random() -> f64 {
-    let mut s = server();
-    if !s.seeded {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_nanos() as u64);
-        s.rng.mix(nanos);
-        s.seeded = true;
-    }
-    s.rng.next_f64()
-}
-
 // ---------------------------------------------------------------------------------------------
 // Helpers for the stacks of the acting player
 // ---------------------------------------------------------------------------------------------
@@ -174,30 +156,6 @@ fn carried_items(game: &mut crate::game::Game<'_>) -> Vec<(i32, Arc<str>)> {
 fn totem_slots(game: &mut crate::game::Game<'_>) -> Vec<i32> {
     let carried = carried_items(game);
     logic::totem_slots(carried.iter().map(|(slot, item)| (*slot, &**item)))
-}
-
-/// Drops `stack` from the acting player as vanilla `Player.drop(stack, false)` does: 0.3 below the
-/// eyes, a pickup delay of 40 ticks, thrown along the view with a small spread. An Eternal Item gets
-/// the largest health in its data, so a blast does not kill it (E10). True when the item entity
-/// exists. The stack is not lost on a failure: the caller keeps it.
-/// (The eternal area has the same function. It is private there and the area files are separate.)
-fn drop_stack(game: &mut crate::game::Game<'_>, stack: &ItemStack) -> bool {
-    let Some(me) = game.native_acting_player() else {
-        return false;
-    };
-    let at = eternal_logic::drop_position(me.position, f64::from(me.eye_height));
-    let velocity = eternal_logic::drop_velocity(me.yaw, me.pitch, false, &mut random);
-    let mut nbt = Compound::new();
-    nbt.insert("Item".into(), horizon_client::save::item_to_nbt(stack));
-    nbt.insert("PickupDelay".into(), Tag::Short(eternal_logic::DROP_PICKUP_DELAY));
-    nbt.insert(
-        "Motion".into(),
-        Tag::List(velocity.iter().map(|v| Tag::Double(v.to_bits())).collect()),
-    );
-    if let Some(health) = eternal_logic::item_health(&stack.item) {
-        nbt.insert("Health".into(), Tag::Short(health));
-    }
-    game.native_summon(&me.dimension, "minecraft:item", at, nbt).is_some()
 }
 
 /// Takes the Totem of Eternity out of `slot` of the acting player, and out of no other slot
@@ -334,7 +292,7 @@ fn hand_protector<'a>(game: &crate::game::Game<'_>, stack: Option<&'a ItemStack>
 // with the `death_protection` of the Totem of Eternity (content item). This hook runs before the
 // game spends the hand. The player is swapped in, at 0 health. The slot is not written here: the
 // use-up reads the hands after this hook.
-pub(super) fn on_player_totem(game: &mut crate::game::Game<'_>, player: u128, name: &str) {
+pub(super) fn on_player_totem(game: &mut crate::game::Game<'_>, player: u128, _name: &str) {
     let Some(me) = game.native_acting_player() else {
         return;
     };
@@ -362,19 +320,19 @@ pub(super) fn on_player_totem(game: &mut crate::game::Game<'_>, player: u128, na
         }
         logic::HandSave::Eternity { inventory, .. } => HandWork::Dormant { slot: inventory },
     };
-    server().hand.push(HandSaveRecord { uuid: player, name: name.to_owned(), work });
+    server().hand.push(HandSaveRecord { player: me, work });
 }
 
-/// Puts the Dormant Totem in `slot` of `uuid`, which the game emptied. Another item there: the
-/// inventory gets it. No room: a warning (the save already happened).
-fn place_dormant(game: &mut crate::game::Game<'_>, uuid: u128, name: &str, slot: usize) {
+/// Returns true once the Dormant Totem reaches its slot, the inventory or the ground.
+fn place_dormant(game: &mut crate::game::Game<'_>, player: &NativeServerPlayer, slot: usize) -> bool {
     let dormant = ItemStack::new(ids::SLEEPING_TOTEM, 1);
     let kind = crate::game::NativeInventoryKind::Player;
-    if game.native_set_inventory_slot(uuid, kind, slot, None, Some(dormant.clone())).is_ok() {
-        return;
+    if game.native_set_inventory_slot(player.uuid, kind, slot, None, Some(dormant.clone())).is_ok() {
+        return true;
     }
-    if game.native_give_stack(uuid, dormant).is_some() {
-        log::warn!("[BalancedMcHardcoreMain] No room for the Dormant Totem of {name}");
+    match game.native_give_stack(player.uuid, dormant) {
+        None => true,
+        Some(left) => crate::game::bmh_eternal::drop_at_player(game, player, &left, false),
     }
 }
 
@@ -382,6 +340,10 @@ fn place_dormant(game: &mut crate::game::Game<'_>, uuid: u128, name: &str, slot:
 /// It moves only when the off hand still holds it and the main slot is empty.
 fn swap_back(game: &mut crate::game::Game<'_>, uuid: u128, name: &str, slot: usize, totem: ItemStack) {
     let kind = crate::game::NativeInventoryKind::Player;
+    let Ok(inventory) = game.native_inventory(uuid, kind) else { return };
+    if !matches!(inventory.slots.get(slot), Some(None)) {
+        return;
+    }
     if game.native_set_inventory_slot(uuid, kind, logic::INVENTORY_OFF_HAND, Some(&totem), None).is_err() {
         return;
     }
@@ -414,7 +376,7 @@ fn drop_extra_totems(game: &mut crate::game::Game<'_>, me: &NativeServerPlayer) 
         else {
             continue;
         };
-        if drop_stack(game, &stack) {
+        if crate::game::bmh_eternal::drop_stack(game, &stack, false) {
             remove_totem(game, slot, i32::from(me.selected_slot));
         }
     }
@@ -458,7 +420,7 @@ fn scan_open_container(game: &mut crate::game::Game<'_>, uuid: u128) {
         let Some(left) = game.native_give_stack(uuid, stack) else {
             continue;
         };
-        if !drop_stack(game, &left) {
+        if !crate::game::bmh_eternal::drop_stack(game, &left, false) {
             log::warn!(
                 "[BalancedMcHardcoreMain] A second Totem of Eternity left a container and could not be given or dropped"
             );
@@ -498,14 +460,6 @@ pub(super) fn on_server_tick(
     phase: horizon_client::mod_api::ServerTickPhase,
 ) {
     if let horizon_client::mod_api::ServerTickPhase::ServerTickStart { .. } = phase {
-        ACTIVE_TICK.store(clock_mark(), Ordering::Relaxed);
-        return;
-    }
-    let horizon_client::mod_api::ServerTickPhase::ServerTickEnd { .. } = phase else {
-        return;
-    };
-    ACTIVE_TICK.store(0, Ordering::Relaxed);
-    let (mut names, hand) = {
         let mut s = server();
         if s.epoch != Some(context.epoch) {
             s.book.clear();
@@ -518,21 +472,33 @@ pub(super) fn on_server_tick(
             s.scan_ticks = 0;
             s.epoch = Some(context.epoch);
         }
+        ACTIVE_TICK.store(clock_mark(), Ordering::Relaxed);
+        return;
+    }
+    let horizon_client::mod_api::ServerTickPhase::ServerTickEnd { .. } = phase else {
+        return;
+    };
+    ACTIVE_TICK.store(0, Ordering::Relaxed);
+    let (mut names, hand) = {
+        let mut s = server();
         (std::mem::take(&mut s.awards), std::mem::take(&mut s.hand))
     };
     // T2, route A: no player is swapped in here, so `native_set_inventory_slot` reaches each one.
     for record in hand {
         match record.work {
             HandWork::Dormant { slot } => {
-                place_dormant(game, record.uuid, &record.name, slot);
+                if !place_dormant(game, &record.player, slot) {
+                    server().hand.push(record);
+                    continue;
+                }
                 log::info!(
                     "[BalancedMcHardcoreMain] The Totem of Eternity saved {} and is now dormant",
-                    record.name
+                    record.player.name
                 );
-                names.push(record.name);
+                names.push(record.player.name);
             }
             HandWork::SwapBack { slot, totem } => {
-                swap_back(game, record.uuid, &record.name, slot, totem);
+                swap_back(game, record.player.uuid, &record.player.name, slot, totem);
             }
         }
     }

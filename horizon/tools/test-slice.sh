@@ -1878,7 +1878,7 @@ if wanted t; then
     # t6: a Totem of Undying in the hand saves first; the Totem of Eternity stays.
     ctl command "give @s minecraft:totem_of_undying" >/dev/null
     ctl command "give @s bmh:totem_of_eternity" >/dev/null
-    ctl command "select 1" >/dev/null
+    ctl select 1 >/dev/null
     ctl wait 10 >/dev/null
     ctl command "damage @s 100 minecraft:generic" >/dev/null
     ctl wait 20 >/dev/null
@@ -2011,6 +2011,25 @@ if wanted t; then
         pass t11 "a Totem of Eternity in the off hand saved; the Dormant Totem is in the off hand"
     else
         fail t11 "off hand save: off hand $t_off0 then $t_off1, screen $(jget "$(state)" 'd.get("screen")')"
+    fi
+    # Another item's death protection takes priority over the Totem of Eternity in the off hand.
+    t_alive
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl select 1 >/dev/null
+    ctl command 'item replace entity @s weapon.mainhand with minecraft:stick[minecraft:death_protection={}]' >/dev/null
+    ctl command 'item replace entity @s weapon.offhand with bmh:totem_of_eternity' >/dev/null
+    ctl wait 10 >/dev/null
+    t_saves_before="$(count_log 'The Totem of Eternity saved')"
+    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    ctl wait 20 >/dev/null
+    T_INV="$(ctl inventory)"
+    if [ "$(jget "$T_INV" '(d.get("offhand") or {}).get("item")')" = bmh:totem_of_eternity ] \
+        && [ "$(t_counts minecraft:stick)" = 0 ] && [ "$(t_counts bmh:sleeping_totem)" = 0 ] \
+        && [ "$(jget "$(state)" 'd.get("screen")')" != dead ] && [ "$(count_log 'The Totem of Eternity saved')" = "$t_saves_before" ]; then
+        pass t14 "the custom protector saved the player and the off-hand totem stayed active"
+    else
+        fail t14 "custom protector: inventory $T_INV, screen $(jget "$(state)" 'd.get("screen")')"
     fi
     # t-probe: a Totem of Eternity with the component written on the stack itself. Evidence only: it tells whether
     # the server reads the component from the stack patch when it does not read it from the item defaults.
@@ -2419,6 +2438,7 @@ if wanted v; then
     ctl command "clear @s" >/dev/null
     platform
     open_sky
+    ctl command "gamerule advance_time false" >/dev/null
     ctl command "time set 18000" >/dev/null
     ctl give bmh:navigator_amulet 1 >/dev/null
     ctl give minecraft:spyglass 1 >/dev/null
@@ -2464,10 +2484,9 @@ if wanted v; then
         ctl look "$v_yaw" "$v_pitch" >/dev/null
         ctl wait 40 >/dev/null
         ctl screenshot "$skyshots/v4-reading-toward-point.png" >/dev/null
-        # V2: through a spyglass, aim at the last star of the first line: its name shows under the centre. The 1.8 degrees
-        # of extra pitch were measured on a screenshot: the spyglass view put that star 190 px above the centre at the log's altitude.
+        # Keep the sky still and aim at the last star at its logged altitude.
         ctl select minecraft:spyglass >/dev/null
-        ctl look "$(python3 -c 'import sys; print((float(sys.argv[1]) + 180) % 360)' "$v_lastaz")" "$(python3 -c 'import sys; print(-float(sys.argv[1]) - 1.8)' "$v_alt")" >/dev/null
+        ctl look "$(python3 -c 'import sys; print((float(sys.argv[1]) + 180) % 360)' "$v_lastaz")" "$(python3 -c 'import sys; print(-float(sys.argv[1]))' "$v_alt")" >/dev/null
         ctl mouse right down >/dev/null
         ctl wait 25 >/dev/null
         ctl screenshot "$skyshots/v5-spyglass-on-last-star-early.png" >/dev/null
@@ -2500,6 +2519,7 @@ if wanted v; then
         fail v4 "no azimuth or altitude to aim the view at"
     fi
     ctl command "clear @s" >/dev/null
+    ctl command "gamerule advance_time true" >/dev/null
     ctl command "difficulty normal" >/dev/null
 fi
 

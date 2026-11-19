@@ -12,7 +12,7 @@
     "item.bmh.sleeping_totem": "Dormant Totem of Eternal Life",
     "item.bmh.echo_heart": "Echo Heart",
     "tooltip.bmh.eternity": "Eternity",
-    "tooltip.bmh.totem_of_eternity_save": "Saves you from death once from your inventory, then falls dormant",
+    "tooltip.bmh.totem_of_eternity_save": "Hold in either hand to survive a fatal hit. The totem then falls dormant.",
     "tooltip.bmh.heavy_with_eternity": "Heavy with eternity: you wake farther while you carry it",
     "tooltip.bmh.death_wear": "Loses 7%% of its durability per death",
     "tooltip.bmh.worn_out": "Worn out: weak, no ability",

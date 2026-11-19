@@ -13,7 +13,4 @@ fn bmh_hook_living_entity_use_item_tick(
     crate::game::bmh_ritual::on_living_entity_use_item_tick(
         game, stack, entity, hand, duration, canceled,
     );
-    crate::game::bmh_sky::on_living_entity_use_item_tick(
-        game, stack, entity, hand, duration, canceled,
-    );
 }

@@ -92,10 +92,19 @@ fn random() -> f64 {
 /// delay of 40 ticks, thrown along the view or in a random direction. An Eternal Item gets the
 /// largest health in its data (E10). True when the item entity exists. The stack is not lost on a
 /// failure: the caller keeps it.
-fn drop_stack(game: &mut crate::game::Game<'_>, stack: &ItemStack, randomly: bool) -> bool {
+pub(super) fn drop_stack(game: &mut crate::game::Game<'_>, stack: &ItemStack, randomly: bool) -> bool {
     let Some(me) = game.native_acting_player() else {
         return false;
     };
+    drop_at_player(game, &me, stack, randomly)
+}
+
+pub(super) fn drop_at_player(
+    game: &mut crate::game::Game<'_>,
+    me: &horizon_client::mod_api::NativeServerPlayer,
+    stack: &ItemStack,
+    randomly: bool,
+) -> bool {
     let at = logic::drop_position(me.position, f64::from(me.eye_height));
     let velocity = logic::drop_velocity(me.yaw, me.pitch, randomly, &mut random);
     let mut nbt = Compound::new();

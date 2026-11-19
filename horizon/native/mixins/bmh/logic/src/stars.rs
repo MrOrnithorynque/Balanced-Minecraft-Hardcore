@@ -926,15 +926,6 @@ pub const FADE_IN_MILLIS: i64 = 2000;
 pub const MIN_ALPHA: i64 = 4;
 /// The name sits this far under the centre of the view, in GUI pixels (K_GuiSpyglassMixin.java:57).
 pub const NAME_BELOW_CENTRE: i32 = 16;
-/// A use tick stamps the spyglass on the area's clock, and the stamp holds this many milliseconds: two client
-/// ticks of 50 ms, the tick of the stamp and one more. A use that stops without a release (a hand change) fires no
-/// hook, so the stamp runs out (docs/horizon/audit/verify-4.md row 3). The client game time is not used: the
-/// server's time packets move it, and it stands still while the game is paused.
-pub const SCOPING_MILLIS: i64 = 100;
-/// The camera is in first person when it is this close to the player's eyes, in blocks. No helper gives the
-/// camera type; the third person camera stands 4 blocks back.
-pub const FIRST_PERSON_REACH: f64 = 1.0;
-
 /// The fade of the aimed name (K_GuiSpyglassMixin.java:31-59).
 #[derive(Debug, Default)]
 pub struct NameFade {
@@ -975,18 +966,6 @@ impl NameFade {
 pub fn name_draw(text: &str, width: i32, gui: [i32; 2], alpha: i64) -> NameDraw {
     let argb = (alpha.clamp(0, 255) as u32) << 24 | NAME_RGB;
     NameDraw { text: text.to_owned(), x: gui[0] / 2 - width / 2, y: gui[1] / 2 + NAME_BELOW_CENTRE, argb }
-}
-
-/// The spyglass is in use at `now_ms` (the area's clock) when the last use tick stamped it at `stamp`
-/// (`SCOPING_MILLIS`).
-pub fn scoping(stamp: Option<i64>, now_ms: i64) -> bool {
-    stamp.is_some_and(|s| now_ms >= s && now_ms <= s.saturating_add(SCOPING_MILLIS))
-}
-
-/// The camera stands at the player's eyes (first person).
-pub fn first_person(camera: [f64; 3], eyes: [f64; 3]) -> bool {
-    let d = [camera[0] - eyes[0], camera[1] - eyes[1], camera[2] - eyes[2]];
-    dot(&d, &d) <= FIRST_PERSON_REACH * FIRST_PERSON_REACH
 }
 
 #[cfg(test)]
@@ -1480,20 +1459,6 @@ mod tests {
         assert_eq!((draw.x, draw.y), (213 - 12, 136));
         assert_eq!(draw.argb, 0xFFB5_8CFF);
         assert_eq!(name_draw("Home", 24, [428, 241], 4).argb, 0x04B5_8CFF);
-    }
-
-    #[test]
-    fn the_spyglass_stamp_runs_out() {
-        assert!(!scoping(None, 10));
-        assert!(scoping(Some(1000), 1000));
-        assert!(scoping(Some(1000), 1100));
-        assert!(!scoping(Some(1000), 1101));
-        assert!(!scoping(Some(1000), 999));
-        // A paused game runs no use tick: the stamp runs out on the area's clock.
-        assert!(!scoping(Some(1000), 60_000));
-        assert!(first_person([0.0, 1.62, 0.0], [0.0, 1.62, 0.0]));
-        assert!(first_person([0.3, 1.62, 0.0], [0.0, 1.62, 0.0]));
-        assert!(!first_person([0.0, 1.62, 4.0], [0.0, 1.62, 0.0]));
     }
 
     #[test]

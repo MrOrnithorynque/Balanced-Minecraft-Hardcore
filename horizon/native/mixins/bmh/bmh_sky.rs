@@ -8,8 +8,7 @@
 // 1. `net_from_server` hears `SkySignal::Reading` on `bmh:sky` (the amulet area sends it): the reading waits.
 // 2. `frame` (once a frame, before the drawing) starts a waiting reading by the Java start rule, builds the
 //    triangles of this frame and gives them to the render module.
-// 3. `living_entity_use_item_tick` stamps the area's clock while the local player uses a spyglass.
-// 4. `gui_render_post` draws the name of the line that the view aims at, while the spyglass shows and no screen
+// 3. `gui_render_post` draws the name of the line that the view aims at, while the spyglass shows and no screen
 //    covers the world.
 
 use bmh_logic::stars as logic;
@@ -23,8 +22,6 @@ use std::time::Instant;
 struct Client {
     sky: logic::Sky,
     fade: logic::NameFade,
-    /// The area's clock (`now`) at the last use tick of a spyglass.
-    scoping: Option<i64>,
     /// The start of the area's clock.
     epoch: Option<Instant>,
     /// The sky azimuth self-check is in the log.
@@ -34,7 +31,6 @@ struct Client {
 static CLIENT: Mutex<Client> = Mutex::new(Client {
     sky: logic::Sky::new(),
     fade: logic::NameFade::new(),
-    scoping: None,
     epoch: None,
     checked: false,
 });
@@ -128,28 +124,21 @@ pub(super) fn on_gui_render_post(
     gui_hidden: bool,
     _focused: bool,
 ) {
-    if gui_hidden || !game.native_window() {
+    if gui_hidden || !game.native_window() || !game.camera_type.first_person() || !game.scoping() {
         return;
     }
     let open = game.native_client_state().map(|state| state.screen);
     if !matches!(open, Some(NativeScreenKind::Playing | NativeScreenKind::Chat)) {
         return;
     }
-    let (Some(camera), Some(clock), Some(player)) = (game.native_camera(), game.native_clock(), game.native_player())
+    let (Some(camera), Some(clock)) = (game.native_camera(), game.native_clock())
     else {
         return;
     };
-    let eyes = [player.x, player.y + f64::from(camera.eye_height), player.z];
-    if !logic::first_person(camera.position, eyes) {
-        return;
-    }
     let look = logic::look(camera.yaw, camera.pitch);
     let shown = {
         let mut c = client();
         let now = now(&mut c);
-        if !logic::scoping(c.scoping, now) {
-            return;
-        }
         let name = c.sky.aimed_name(now, clock.day_time, look).map(str::to_owned);
         let alpha = c.fade.update(name.as_deref(), now);
         name.zip(alpha)
@@ -169,21 +158,4 @@ pub(super) fn on_gui_render_post(
         shadow: true,
     };
     game.native_gui_paint(batch, &[text]);
-}
-
-// V2: note on the client that the local player looks through a spyglass. The hook fires every tick of a use, on
-// both sides; on the window, `entity` is None for the local player (native_hooks.rs:8096-8115).
-pub(super) fn on_living_entity_use_item_tick(
-    game: &mut crate::game::Game<'_>,
-    stack: &horizon_client::items::ItemStack,
-    entity: Option<i32>,
-    _hand: horizon_client::first_person::Hand,
-    _duration: &mut i32,
-    _canceled: &mut bool,
-) {
-    if entity.is_some() || &*stack.item != "minecraft:spyglass" || !game.native_window() {
-        return;
-    }
-    let mut c = client();
-    c.scoping = Some(now(&mut c));
 }
