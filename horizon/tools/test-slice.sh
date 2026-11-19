@@ -38,6 +38,7 @@
 #
 # Written for /bin/bash 3.2 on macOS: no associative arrays, no empty arrays, no mapfile.
 set -u
+export HORIZON_TEST_LOOPBACK=1
 
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
@@ -3142,29 +3143,32 @@ if wanted x; then
             ctl command "gamerule pvp true" >/dev/null
             ctl command "gamerule natural_health_regeneration false" >/dev/null
             ctl command "effect clear @s" >/dev/null
-            ctl command "attribute Guest minecraft:max_health base set 40" >/dev/null
             ctl command "tp @s $attacker_x $arena_y $arena_z" >/dev/null
             pvp_damage() {
-                local before after
+                local before after poll
                 ctl command "tp Guest $victim_x $arena_y $arena_z" >/dev/null
                 ctl command "effect give Guest minecraft:instant_health 1 10 true" >/dev/null
                 ctl command "item replace entity @s weapon.mainhand with $1" >/dev/null
-                ctl look-at "$victim_x" "$((arena_y + 1)).6" "$arena_z" >/dev/null
                 ctl wait 35 >/dev/null
+                ctl look-at "$victim_x" "$((arena_y + 1)).6" "$arena_z" >/dev/null
+                ctl wait 3 >/dev/null
                 before="$(jget "$(gctl status)" 'd["server"]["health"]')"
                 ctl attack >/dev/null
-                ctl wait 10 >/dev/null
-                after="$(jget "$(gctl status)" 'd["server"]["health"]')"
-                awk -v a="$before" -v b="$after" 'BEGIN {if (a+0 == 40 && b+0 > 0 && b+0 < a+0) print a-b}'
+                for ((poll = 0; poll < 15; poll++)); do
+                    after="$(jget "$(gctl status)" 'd["server"]["health"]')"
+                    awk -v a="$before" -v b="$after" 'BEGIN {exit !(a!="" && b!="" && b+0 < a+0)}' && break
+                    ctl wait 2 >/dev/null
+                done
+                echo "x4 guest health with $1: $before to $after" >&2
+                awk -v a="$before" -v b="$after" 'BEGIN {if (a+0 == 20 && b+0 > 0 && b+0 < a+0) print a-b}'
             }
             pvp_worn="$(pvp_damage 'bmh:eternal_sword[damage=32999]')"
             pvp_fresh="$(pvp_damage bmh:eternal_sword)"
             if awk -v w="$pvp_worn" -v f="$pvp_fresh" 'BEGIN {exit !(w+0 > 0 && f > 2*w-0.05 && f < 2*w+0.05)}'; then
                 pass x4 "the worn and fresh swords dealt $pvp_worn and $pvp_fresh to the same full-health LAN guest"
             else
-                fail x4 "expected half the fresh damage on the LAN guest at 40 health, observed worn $pvp_worn and fresh $pvp_fresh"
+                fail x4 "expected half the fresh damage on the LAN guest at 20 health, observed worn $pvp_worn and fresh $pvp_fresh"
             fi
-            ctl command "attribute Guest minecraft:max_health base set 20" >/dev/null
             ctl command "effect give Guest minecraft:instant_health 1 10 true" >/dev/null
             ctl command "gamerule natural_health_regeneration true" >/dev/null
             gctl disconnect >/dev/null
