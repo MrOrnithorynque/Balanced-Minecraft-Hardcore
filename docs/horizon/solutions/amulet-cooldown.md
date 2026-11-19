@@ -67,12 +67,11 @@ Differences from vanilla (small):
   hard to see.
 - The game's own cooldown table stays empty, so other code that reads it (the vanilla "item on cooldown" check, the
   cooldown sound of other mods) does not see the amulet. The mod's server timer does the check.
-- A death or a world change does not clear the client's shade; it ends within 40 ticks by itself. Java gives the
-  new player an empty table.
+- A respawn in the same world can keep the shade until the timer expires. Changing worlds clears it.
 
 ## Evidence
 
-Scenario `z` of `horizon/tools/test-slice.sh` (`sh horizon/tools/test-slice.sh --only z`, run 2026-11-19, 1 passed,
+The original standalone check is now `sh horizon/tools/test-slice.sh --only cooldown` (run 2026-11-19, 1 passed,
 0 failed). It gives an amulet at night under open sky, uses it, and takes three screenshots: 4 ticks after the use,
 24 ticks, and 80 ticks (over). A script measures the pixels that are brighter than the last frame: the width gives the
 GUI scale (96 px = 16 px at scale 6) and the height gives what is left of the icon: 0.88 at 4 ticks, 0.38 at 24
@@ -92,5 +91,5 @@ Gates after the change: `test-logic.sh` 355 passed, `check.sh` `"check": "ok"`.
 
 - A LAN guest. The message goes to any player and the window uses its own clock, but no guest run was made (scenario
   `x` runs a guest; it does not check the sweep).
-- The 20 tick sweep after the naming screen opens (same code path, `start_cooldown`; only the reading is in scenario `z`).
+- The 20 tick sweep after the naming screen opens (same code path, `start_cooldown`; only the reading is in scenario `cooldown`).
 - Smoothness of the step by eye in a live window. The screenshots are single frames.

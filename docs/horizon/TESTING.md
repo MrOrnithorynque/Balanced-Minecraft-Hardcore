@@ -1,7 +1,6 @@
 # Testing the Horizon mod
 
-Status on 2026-11-17: `test-slice.sh` ran against the real game (see `docs/horizon/log/first-run.md`). The script bugs
-of the first run are fixed. The four FAILs left are mod defects. `prepare-game.sh` now also runs the sounds step.
+See the latest integration results in [the port log](LOG.md). The dated runs below record earlier builds.
 
 ## What the owner does once
 
@@ -29,7 +28,7 @@ The prepared files are made from the owner's copy of the game. Never commit them
 | `bash horizon/tools/test-logic.sh` | Unit tests of the logic crate (`cargo test`). | Rust |
 | `sh horizon/tools/check.sh` | Compiles the native bundle into Horizon (about 30 s after the first run). | Rust, network once |
 | `sh horizon/tools/content-check.sh` | Builds and checks the content mod (`.hmod`). | `cargo-horizon-mod` |
-| `sh horizon/tools/test-slice.sh` | The in-game test of settings, respawn and journey. | Prepared game files |
+| `sh horizon/tools/test-slice.sh` | The in-game tests for the host and a LAN guest. | Prepared game files |
 
 `test-slice.sh` options: `--only a,b` runs some scenarios, `--keep` keeps the scratch folder, `--window` shows a
 window instead of rendering offscreen, `--no-build` skips `check.sh build`, `--resources DIR`, `--bin-dir DIR`,
@@ -38,7 +37,8 @@ window instead of rendering offscreen, `--no-build` skips `check.sh build`, `--r
 
 How it works: it builds the game with `check.sh build` (the last line of that output is the folder of the binaries),
 makes a scratch folder in the cache with its own `HORIZON_HOME` and game folder, launches the game with
-`horizon-ctl launch --offscreen`, the content mod as `--dev-mod`, and a new world with seed 20261111, then drives it.
+`horizon-ctl launch --offscreen`, a new world with seed 20261111, then drives it. With `--package <zip>` both archives come from the distribution.
+Without it, the runner loads the content folder with `--dev-mod`.
 Sound, Discord and telemetry are off. A trap quits the game, stops it by force if it does not quit, and removes the
 scratch world on every exit, also on a failure and on Ctrl+C.
 
@@ -57,6 +57,19 @@ Facts the test uses, and where they come from:
   `Landing spot ready` (rule on) before they call `horizon-ctl respawn`. That is the path that works. Scenario d
   uses `horizon-ctl click-button respawn`, which clicks the death screen button. Whether that click reaches the
   mod's hold is one of the things the first run shows.
+
+## Run the distribution tests
+
+Build the native game from this checkout. Package the same sources and pass the ZIP to the runner.
+
+```sh
+sh horizon/tools/check.sh build
+python3 horizon/tools/package.py
+sh horizon/tools/test-slice.sh --no-build --package horizon/build/bmh-1.9.0-horizon-26.3.zip
+```
+
+Use `--only abilities` to check all three Eternal tools. The tests measure enemy health, read earned advancements and compare the Echo Sense outline before and after expiry.
+Use `--only z` for containers and transfers, `--only t` for death protection, and `--only rules,o,cooldown` for the world rules, world creation button and amulet HUD.
 
 ## The checks of test-slice.sh
 
@@ -104,7 +117,7 @@ Facts the test uses, and where they come from:
 | n5 | `gamerule immediate_respawn true`, `/kill`: the exile must still happen (23333 blocks) and the log has no new `WARN` line of the mod. | Passes since the journey fix round 1 (2026-11-18): the exile happens after the early respawn, with no `WARN`. | The cinematic after an immediate respawn (see w1c). |
 | w1 | `immediate_respawn` true after a first plain exile: `kill @s`, 12 s of frames. The player ends 23333 blocks (within 64) from the point; no new `WARN`; the log has the line "did not end before the respawn" once, then "moved to the landing after an early respawn" once; exactly one new "Homecoming record:" line. | The early respawn moves the player to the landing, once, with no warning. | That the player never stands at the point on screen (w1c). |
 | w1b | After w1 and `save`, the advancement file has `bmh:journey/exile` done. | The award reached the player on the early path. | That it was awarded exactly once (the file holds a flag, not a count). |
-| w1c | The frames of w1: at least 3 black frames, at least 5 frames of the `mod` screen, no frame of the landing world before the first black frame. Contact sheet `w1-sheet.png`. | The journey starts in black after the early respawn, then the sky, the message and the dissolve at the landing. | One frame of the world at the point shows between the kill and the black (about 0.3 s, `Departure` comes after the death packets). The look. |
+| w1c | The frames of w1: at least 200 ms of continuous black after the kill, at least 5 frames of the `mod` screen, no frame of the landing world before the first black frame. Contact sheet `w1-sheet.png`. | The journey starts in black after the early respawn, then the sky, the message and the dissolve at the landing. | One frame of the world at the point shows between the kill and the black (about 0.3 s, `Departure` comes after the death packets). The look. |
 | w1d | The log has no new "is home after" line during w1. | The early respawn at the old exile's home is no homecoming. | Fails now: the homecoming fires at the vanilla point, then the "Home" title shows at the landing (see `game-checks-5.md`, defect 1). |
 | w2 | `kill @s`, wait for the death screen and "Landing spot ready", then `respawn` and a frame every 0.1 s for 7 s. At least 3 black frames and no frame of the arrival world (playing, near the landing) before the first black. Contact sheet `w2-sheet.png`. | The arrival world is never drawn before the black. | The loading screen frames (allowed) and the look. |
 | w3 | `immediate_respawn` true: die once. Then `immediate_respawn` false and `random_death_spawn_point` false, die, click Respawn: no black frame, no `mod` screen, the player is within 64 blocks of the point. | A hold armed by an old death does not hold a later one. | |
@@ -113,14 +126,15 @@ Facts the test uses, and where they come from:
 | x1 | A second game joins over the loopback address (`lan open`, `connect`): a LAN guest (level 0) runs `/bmh rule` and `/bmh rule random_death_spawn_point false`. Two red unknown-command lines, `bmh/rules.txt` unchanged. | A player below level 2 cannot list or set the rules. | A level 2 or more other than the owner: a LAN guest has level 0 even with "commands" on. The owner (level 4) is tested by a2, e1, l6 and m1. |
 | x2 | The owner gives the guest an amulet and puts a bed; the guest runs `/bmh point save x y z GuestCamp`: the action bar says "Point saved: GuestCamp". | `/bmh point save` works at level 0. | The naming screen with a real mouse. |
 | x3 | The guest at level 0 types `/gamerule bmh:random_death_spawn_point false`: the log says "taken from a player" and the chat shows the unknown-command text. | `player_command` hears a guest, and `/bmh rule` refuses a level below 2 when it runs the line as the guest. | A guest at level 2 or higher. |
-| z0 | The owner of a world with Allow Commands off types `/gamerule bmh:...`: taken, refused, `rules.txt` unchanged. | The owner reaches `player_command`, and the level check holds for the owner. | |
-| z1 to z3 | A world made with Allow Commands on: `/gamerule bmh:display_text_on_respawn false`, the query, then `true`. | The Java command sets, reads and resets a BMH rule, with vanilla's answer texts. | The look of the chat line. |
-| z4, z5 | `/gamerule keep_inventory true` runs in vanilla. `/gamerule bmh:nonsense true` says "Unknown BMH rule: nonsense". | A vanilla rule is not taken, and a wrong BMH name is answered. | |
-| z6 | No "ran nothing for the line" warning in the log. | Every queued line ran. | |
-| z8 | A rule set to false, Save and Quit to Title, open the world again: still false. | The value is kept in the world. | A dedicated server. |
-| z9 | `/bmh rule rand` in the chat box shows a suggestion row. Screenshots are kept. | The server answers `tab_complete_v2`. | That Tab applies it (seen in `z9-completion-applied.png`, not asserted). |
+| rules0 | The owner of a world with Allow Commands off types `/gamerule bmh:...`: taken, refused, `rules.txt` unchanged. | The owner reaches `player_command`, and the level check holds for the owner. | |
+| rules1 to rules3 | A world made with Allow Commands on: `/gamerule bmh:display_text_on_respawn false`, the query, then `true`. | The Java command sets, reads and resets a BMH rule, with vanilla's answer texts. | The look of the chat line. |
+| rules4, rules5 | `/gamerule keep_inventory true` runs in vanilla. `/gamerule bmh:nonsense true` says "Unknown BMH rule: nonsense". | A vanilla rule is not taken, and a wrong BMH name is answered. | |
+| rules6 | No "ran nothing for the line" warning in the log. | Every queued line ran. | |
+| rules8 | A rule set to false, Save and Quit to Title, open the world again: still false. | The value is kept in the world. | A dedicated server. |
+| rules9 | `/bmh rule rand` in the chat box shows a suggestion row. Screenshots are kept. | The server answers `tab_complete_v2`. | That Tab applies it (seen in `z9-completion-applied.png`, not asserted). |
 | o1, o2 | Game Mode: Hardcore: a click on the button changes nothing. Back out: it takes clicks again. | The button is greyed in Hardcore. | The debug world case and the grey look (read the screenshot). |
-| o3 | Re-Create of a world made with the button OFF shows OFF, of a world with rules on shows ON. | The button follows the old world's rules. | A world with mixed values. |
+| o3 | Re-Create of a world made with the button OFF shows OFF, of a world with rules on shows ON. | The button follows the old world's rules. | See o4 and o5 for mixed values. |
+| o4, o5 | Re-create a world with mixed rules. Repeat with two clicks on the Game tab. | The new world preserves all six values until a click sets them together. | |
 | y1 to y3 | Quit, add `bmh:random_death_spawn_point` (a byte, 0) and `bmh:display_text_on_respawn` (a string, "false") to `data/minecraft/game_rules.dat`, delete `bmh/rules.txt`, launch again: `rules.txt` has those two false and four true (y1), `/bmh rule` lists them so (y2), the log says "java world = true" (y3). | The import of a Java world's rules works in single player. | A dedicated server and its console `/bmh rule` (no runner in `horizon/tools`), and a world that Java really saved. |
 | m1 | A rule at false, `quit`, a second launch: the rule is still false. | Rules survive a restart. | |
 | m2 | A hand edited config (3000, 999999, 99) before the second launch: a death uses the defaults (23333 blocks). | Out of range values give the key's default. | |
@@ -133,8 +147,8 @@ Facts the test uses, and where they come from:
 | p19, p20 | A bed, night, health 16, sleep: Haste II and Resistance II are on; with `food_and_health_regen_on_wake_up` false none. | C13 (effects). | The food values, leaving the bed by hand. |
 | q1, q2 | Night, clear, open sky: the action bar, the log line, two charges left on the stack, the advancement `navigation/stargazer`. | A2 in the game: the sky rules and `native_level` work in `use_item`. | The sound, the sky drawing, the Nether. |
 | q3 to q6 | Rain, day, blindness, a roof: the four refusal messages. | A2 refusals in the Java order. | The dimension refusal, eyes in water. |
-| q7, q8 | Three readings, then "No starlight left tonight."; the next night refills to 3. | A4 charges. | The cooldown sweep (see z). |
-| z1 | A reading at night: three screenshots (4, 24 and 80 ticks after the use) in `docs/horizon/solutions/amulet-cooldown-shots/`; PIL measures the white shade in the hotbar: about 0.9 of the icon, about 0.4, none. SKIP when PIL is missing. | The cooldown sweep of A4 is drawn and shrinks. | A LAN guest, the 20 tick sweep, the look in a live window. |
+| q7, q8 | Three readings, then "No starlight left tonight."; the next night refills to 3. | A4 charges. | The hotbar sweep is checked by `cooldown1`. |
+| cooldown1 | A reading at night: three screenshots (4, 24 and 80 ticks after the use) in `docs/horizon/solutions/amulet-cooldown-shots/`; PIL measures the white shade in the hotbar: about 0.9 of the icon, about 0.4, none. SKIP when PIL is missing. | The cooldown sweep of A4 is drawn and shrinks. | A LAN guest, the 20 tick sweep, the look in a live window. |
 | q9 to q11 | Sneak and use on a bed and on a lodestone opens the mod screen; typing Camp and Enter saves ("Point saved: Camp"). | A3, A5, A6. | The look (kept screenshots `docs/horizon/log/amulet-shots/`). |
 | q12 to q14 | `/bmh point save` twice inside one second (the second is ignored); 20 blocks away ("Stand next to"); no amulet in hand. | The server checks of `AmuletPointCommand`. | The same through the screen's own message. |
 | q15, q16 | After a death and after a restart the next reading names the point Camp. | A5 persistence (attachment with `copy_on_death`). | A LAN guest, a Java world import. |
@@ -153,7 +167,7 @@ Facts the test uses, and where they come from:
 | s2, s3 | At night (17850, moon straight up, pitch -90), 40 levels: the ritual starts; looking away fails it with `looked_away`; the totem stays; no `no acting player` line. | `native_acting_player()` answers for the single-player owner; the fail path. | A hit during the ritual, a release, a LAN guest, the chimes (muted). |
 | s4 to s6 | A full ritual (340 ticks held): a Totem of Eternity, `Moon ritual done`, 40 levels become 10, the advancement `Moon-touched`. | T7, the tick, the level drain and the finish. | The hand pose, the particles, the sound, creative. `horizon-ctl xp N` does not set the level the mod reads: the scenario uses `xp add @s 40 levels`. |
 | v1 to v3 | An amulet reading at night under open sky from a stone slab 60 blocks up, with a point Camp: `Star reading toward` lines, no `does not draw` line, the azimuth self-check line once with the expected values. | The sky area started the reading and its render pipeline built (check 16). | That the lines look right. |
-| v4, v5 | Screenshots in `docs/horizon/log/sky-shots/` (1280 px): the chain over the stars, terrain hides the low end, a spyglass on the last star. The script only checks that the files exist. | Nothing about the look: a person must open them. | The name under the spyglass: it did not show in two runs (see game-checks-4). |
+| v4, v5 | Screenshots under `--out DIR` in `DIR/sky/` (1280 px): the chain over the stars, terrain hides the low end, a spyglass on the last star. The script only checks that the files exist. | Nothing about the look: a person must open them. | The name under the spyglass: it did not show in two runs (see game-checks-4). |
 
 ## SKIPs the test has
 

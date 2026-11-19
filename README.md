@@ -1,22 +1,28 @@
-<img src="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/resources/bmh_banner.png" align="center"> </h1>
-<h1 align="center">BALANCED MINECRAFT HARDCORE 26.1 <img src="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/resources/totem_of_eternity.gif" align="center" width="30"><br>
-	<a href="https://minecraft.curseforge.com/projects/balanced-minecraft-hardcore/files"><img src="https://cf.way2muchnoise.eu/versions/For%20MC_982343_all.svg" alt="Supported Versions"></a>
-	<a href="https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/blob/main/LICENSE"><img src="https://img.shields.io/github/license/MrOrnithorynque/Balanced-Minecraft-Hardcore?style=flat&color=900c3f" alt="License"></a>
-	<a href="https://discord.gg/Czn9JQxMjT"><img src="https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white&style=flat" alt="Discord"></a>
-	<a href="https://www.curseforge.com/minecraft/mc-mods/balanced-minecraft-hardcore"><img src="http://cf.way2muchnoise.eu/full_982343.svg" alt="CF"></a>
-  <a href="https://modrinth.com/mod/balanced-minecraft-hardcore"><img src="https://img.shields.io/modrinth/dt/balanced-minecraft-hardcore?logo=modrinth&label=&suffix=%20&style=flat&color=242629&labelColor=5ca424&logoColor=1c1c1c" alt="Modrinth"></a>
-    <br><br>
-</h1>
+# Balanced Minecraft Hardcore for Horizon 26.3
 
-Hardcore is too punishing: one death and your world is gone. Balanced Minecraft Hardcore (BMH) is the middle ground between normal Minecraft and Hardcore. When you die, you keep your world, but you wake up far away from home.
+Death sends you far from home. Your world survives, and your Eternal Items travel with you.
+Start a Survival world and leave **Balanced Hardcore** enabled on the Game tab.
 
-You can go back to where you were. It takes a long time, and you can die again on the way. Or you can start a new adventure in the same world. The **Eternal Items** you carry stay with you and give you a head start.
+## Install
 
-**Do not play on hardcore Minecraft: the mod works only on normal Minecraft.**
+This branch targets Horizon Nightly `nightly-source/2026-11-08-fdc87ae`.
+The distribution contains the content pack and the native Rust mod. Use both in the same Horizon instance.
 
-**Install BMH on the server and on every client.** A client without BMH cannot play on a BMH server.
+1. Extract `bmh-1.9.0-horizon-26.3.zip` into the instance's game directory. Keep the two folders from the ZIP.
+2. Enable Balanced Minecraft Hardcore on the instance's Mods tab. Build the native mods in the launcher.
+3. Start that instance. For LAN play, install the same files on the host and each guest.
 
-[![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white&style=flat)](https://discord.gg/Czn9JQxMjT) [![GitHub](https://img.shields.io/badge/GitHub-Source-24292f?logo=github&logoColor=white&style=flat)](https://github.com/MrOrnithorynque/Balanced-Minecraft-Hardcore)
+## Run from this checkout
+
+Use the prepared Minecraft 26.3 files and the pinned tools in the BMH cache.
+
+```sh
+sh horizon/tools/play.sh --build
+```
+
+The game keeps its worlds under `~/Library/Caches/bmh-horizon/play/game/saves`.
+Build the distribution with `python3 horizon/tools/package.py`. It writes the ZIP under `horizon/build/`.
+For a fresh machine, follow the [game preparation instructions](docs/horizon/TESTING.md).
 
 ## Features
 
@@ -63,7 +69,7 @@ Eternal Items stay with you after you die. Each death costs the Eternal tools 7%
   <img src="resources/showcase/eternal_items.png" alt="The five Eternal Items" width="640">
 </p>
 
-On the ground, an Eternal Item never despawns, and explosions and cactus do not destroy it. The void still does.
+Dropped Eternal Items have an extended lifetime. Cactus and explosions can still damage them on Horizon.
 
 ### Totem of Undying
 
@@ -87,13 +93,11 @@ The heart of every Eternal Item, made in three steps:
 
 The awakened totem glows like an enchanted item. It is the smithing template of the Eternal tools and the core of the Eternal Bundle.
 
-Carried anywhere in your inventory, the totem saves you from death once, like a Totem of Undying in your hand, and it also gives Fire Resistance. A Totem of Undying in your hand is used first. You carry one at most, and a chest, a shulker box or any other container holds one at most.
+Hold the awakened totem in either hand. It saves you once and gives Fire Resistance. A Totem of Undying in the other hand takes priority.
 
 After it saves you, it falls asleep: it becomes a **Dormant Totem of Eternal Life**. The Dormant Totem cannot save you, but it is still an Eternal Item: it stays with you when you die. Only the moon can wake it. At night, under open sky, hold use with the Dormant Totem and look at the moon. For 15 seconds your levels drain, 30 levels in all, while a chime climbs and the totem trembles more and more, and then the totem is awake again. The ritual must be done in one go: if you let go, look away, get hurt, lose the moon or run out of levels, the totem stays asleep and the levels already drained are gone.
 
-<p align="center">
-  <img src="resources/showcase/totem_of_eternity_save.gif" alt="The Totem of Eternity saves you from your inventory" width="640">
-</p>
+
 
 <p align="center">
   <img src="resources/showcase/moon_ritual.gif" alt="The moon ritual: the Dormant Totem raised under the moon, runes flow into it, the levels drain, the totem wakes" width="640">
@@ -146,19 +150,11 @@ Legacy minecraft bundle implementation.
 </p>
 
 
-## GameRules
+## World rules
 
-- randomDeathSpawnPoint (default : true)
-- displayTextOnRespawn (default : true)
-- foodAndHealthRegenOnWakeUp (default : true)
-- onlyCarryOneEternalItemType (default : true)
-- damageEternalItemWhenDead (default : true)
-- removeCoordinatesInSurvival (default : true)
+Use `/bmh rule` to list the six rules. Operators can change a rule for the current world.
+For example, `/bmh rule display_text_on_respawn false` hides the respawn text.
+The mod stores the values in the world's `bmh/rules.txt`.
 
-## More Information
-
-Most of the features are not actives when in creative mod.
-
-## Loaders
-
-Available for Forge and Fabric (Fabric needs [Fabric API](https://modrinth.com/mod/fabric-api)), from Minecraft 1.20 to 1.20.4, 1.21.1, and 26.1 to 26.1.2. NeoForge: 1.20.1 (the Forge version), 1.20.4, 1.21.1 and 26.1 to 26.1.2.
+The [Horizon compatibility notes](docs/horizon/GAPS.md) describe differences from the Java mod.
+The feature images above show the Java edition.
