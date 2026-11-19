@@ -3739,6 +3739,8 @@ fi
 # the game twice, so it runs just before j.
 if wanted m; then
     echo "--- m. a rule at false and a config out of range, then a quit and a second launch"
+    ctl command "difficulty normal" >/dev/null
+    ctl command "clear @s" >/dev/null
     ensure_point
     ctl command "gamemode survival" >/dev/null
     ctl command "bmh rule display_text_on_respawn false" >/dev/null
@@ -3806,6 +3808,8 @@ fi
 if wanted j; then
     echo "--- j. dead when the game closes, the world opens again: the exile still happens"
     POINT_SET=0
+    ctl command "difficulty normal" >/dev/null
+    ctl command "clear @s" >/dev/null
     ensure_point
     ctl command "gamemode survival" >/dev/null
     seq="$(jget "$(ctl events)" 'd["last"]')"; [ -n "$seq" ] || seq=0
