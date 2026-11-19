@@ -318,3 +318,15 @@ The coordinator read the fix against the game's source before the merge and foun
    set on a normal Create too, and None when the old world has no data pack. The old world's folder is not known
    to a hook. Left as a difference: a re-created world starts with the choice ON.
 5. Parity minor 2 (Java rules imported once): behaviour kept. Written as difference 0 above.
+
+## Gap round 2026-11-19 (S1 and S2 workarounds)
+
+Full text and evidence: `docs/horizon/solutions/rules-createworld.md`. Short list:
+
+- `player_command` (API 95) stops `gamerule bmh:<rule> [value]`, `server_tick` runs `bmh rule ...` as the player
+  (`native_run_command_as`). The level check of `/bmh rule` applies. Checks z0 to z8 and x3 of `test-slice.sh`.
+- `/bmh rule <name:word?> <value:boolean>`: the rule name completes through the pending hook `tab_complete_v2`
+  (check z9).
+- The Create World button is greyed in Hardcore and debug worlds, and Re-Create shows ON when any rule of the old
+  world is on (checks o1 to o3). This closes parity minor 1 of fix round 2 for the state, not for mixed values.
+- New injections: `hook_player_command`, `hook_tab_complete_v2`. `hook_server_tick` calls the settings area first.

@@ -27,6 +27,12 @@ impl Rules {
         Rules([value; 6])
     }
 
+    /// True when at least one rule is on: the state of the Java button for a world that has rules
+    /// already (CreateWorldGameTabMixin.java:58-60, `anyMatch`). Re-Create shows it.
+    pub fn any_on(self) -> bool {
+        self.0.iter().any(|value| *value)
+    }
+
     /// The value of one rule.
     pub fn get(self, rule: Rule) -> bool {
         self.0[index(rule)]
@@ -198,9 +204,34 @@ pub fn may_run_rule(permission: u8) -> bool {
 /// its own `bmh point` usages: the server merges the usages that share the word `bmh`.
 pub const COMMAND_USAGES: [&str; 3] = [
     "bmh rule",
-    "bmh rule <name:word>",
-    "bmh rule <name:word> <value:boolean>",
+    "bmh rule <name:word?>",
+    "bmh rule <name:word?> <value:boolean>",
 ];
+
+/// The namespace of the BMH rules in `/gamerule` (the id of `BMHGameRules`: `bmh:<name>`).
+pub const GAMERULE_NAMESPACE: &str = "bmh:";
+
+/// A typed `/gamerule bmh:<name> [value]` as the line `bmh rule <name> [value]` that the settings
+/// area runs. None when the line is not a `gamerule` line for a rule of the `bmh` namespace. The
+/// vanilla rules (`gamerule keep_inventory true`) stay vanilla's. The namespace test is exact:
+/// `bmh:` and the name after it; the name is not checked here, `parse_rule_command` does that.
+pub fn gamerule_line_to_bmh(line: &str) -> Option<String> {
+    let mut words = line.split_whitespace();
+    if words.next()? != "gamerule" {
+        return None;
+    }
+    let name = words.next()?.strip_prefix(GAMERULE_NAMESPACE)?;
+    let rest: Vec<&str> = words.collect();
+    let line = format!("bmh rule {name} {}", rest.join(" "));
+    Some(line.trim_end().to_owned())
+}
+
+/// The rule names that begin with `typed`, for the completion of `bmh rule <name>`. A typed `bmh:`
+/// prefix is allowed, as `/gamerule` takes the id.
+pub fn rule_name_matches(typed: &str) -> Vec<&'static str> {
+    let typed = typed.strip_prefix(GAMERULE_NAMESPACE).unwrap_or(typed);
+    Rule::ALL.iter().map(|rule| rule.name()).filter(|name| name.starts_with(typed)).collect()
+}
 
 /// Vanilla's text of `/gamerule <rule>`: "Game rule %s is currently set to: %s".
 pub const KEY_QUERY: &str = "commands.gamerule.query";
@@ -514,6 +545,59 @@ pub fn parse_choice(text: &str) -> Option<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_gamerule_line_of_the_bmh_namespace_becomes_a_bmh_rule_line() {
+        assert_eq!(
+            gamerule_line_to_bmh("gamerule bmh:random_death_spawn_point false").as_deref(),
+            Some("bmh rule random_death_spawn_point false")
+        );
+        assert_eq!(
+            gamerule_line_to_bmh("gamerule bmh:display_text_on_respawn").as_deref(),
+            Some("bmh rule display_text_on_respawn")
+        );
+        assert_eq!(gamerule_line_to_bmh("gamerule bmh:").as_deref(), Some("bmh rule"));
+        // Whatever follows is kept, so that the rule parser answers with its own errors.
+        assert_eq!(gamerule_line_to_bmh("gamerule bmh:x maybe now").as_deref(), Some("bmh rule x maybe now"));
+    }
+
+    #[test]
+    fn a_vanilla_gamerule_line_is_left_to_vanilla() {
+        assert_eq!(gamerule_line_to_bmh("gamerule keep_inventory true"), None);
+        assert_eq!(gamerule_line_to_bmh("gamerule minecraft:pvp false"), None);
+        assert_eq!(gamerule_line_to_bmh("gamerule"), None);
+        assert_eq!(gamerule_line_to_bmh("gamerule random_death_spawn_point false"), None);
+        assert_eq!(gamerule_line_to_bmh("bmh rule x"), None);
+        assert_eq!(gamerule_line_to_bmh("gamerulebmh:x"), None);
+        assert_eq!(gamerule_line_to_bmh("tell bmh:x"), None);
+    }
+
+    #[test]
+    fn the_converted_line_is_read_by_the_rule_parser() {
+        let line = gamerule_line_to_bmh("gamerule bmh:damage_eternal_item_when_dead false").unwrap();
+        assert_eq!(
+            parse_rule_command(&line),
+            RuleCommand::Set(Rule::from_name("damage_eternal_item_when_dead").unwrap(), false)
+        );
+        let line = gamerule_line_to_bmh("gamerule bmh:nonsense").unwrap();
+        assert_eq!(parse_rule_command(&line), RuleCommand::UnknownRule("nonsense".to_owned()));
+    }
+
+    #[test]
+    fn the_button_of_a_recreated_world_is_on_when_any_rule_is_on() {
+        assert!(Rules::DEFAULT.any_on());
+        assert!(!Rules::all(false).any_on());
+        assert!(Rules::all(false).with(Rule::ALL[3], true).any_on());
+        assert!(parse_rules("random_death_spawn_point = false\n").any_on());
+    }
+
+    #[test]
+    fn the_completion_lists_the_rules_that_match() {
+        assert_eq!(rule_name_matches("").len(), 6);
+        assert_eq!(rule_name_matches("random"), vec!["random_death_spawn_point"]);
+        assert_eq!(rule_name_matches("bmh:display"), vec!["display_text_on_respawn"]);
+        assert!(rule_name_matches("zzz").is_empty());
+    }
 
     #[test]
     fn rule_command_needs_the_gamerule_level() {

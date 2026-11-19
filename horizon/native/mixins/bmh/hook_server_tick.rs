@@ -12,6 +12,7 @@ fn bmh_hook_server_tick(
     for (player, exile) in &exiles {
         crate::game::bmh_homecoming::on_exile(game, *player, exile);
     }
+    crate::game::bmh_settings::on_server_tick(game, context, phase);
     crate::game::bmh_homecoming::on_server_tick(game, context, phase);
     crate::game::bmh_eternal::on_server_tick(game, context, phase);
     crate::game::bmh_totem::on_server_tick(game, context, phase);

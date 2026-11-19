@@ -44,6 +44,15 @@ static SERVER_RULES: Mutex<Store> = Mutex::new(Store::EMPTY);
 /// that save drops the keys of the Java mod, so the file is read earlier, at `level_load`.
 static PENDING_IMPORT: Mutex<Option<(PathBuf, Option<logic::Rules>)>> = Mutex::new(None);
 
+/// The `bmh rule ...` lines that typed `/gamerule bmh:...` commands asked for, with the player who
+/// typed each one. `player_command` cancels the typed line and cannot tell the player's level, so
+/// the next `server_tick` runs the converted line as that player (`native_run_command_as`), and
+/// `/bmh rule` refuses a player below the level of `/gamerule` as it does for a typed `/bmh rule`.
+static SERVER_GAMERULE_QUEUE: Mutex<Vec<(u128, String)>> = Mutex::new(Vec::new());
+
+/// The most lines kept between two ticks, so a flood of commands cannot grow the queue.
+const GAMERULE_QUEUE_LIMIT: usize = 64;
+
 /// The config values. The game thread of the window, the integrated server and a dedicated server
 /// share one file, so they share this value too.
 static COMMON_CONFIG: Mutex<Config> = Mutex::new(Config::DEFAULT);
@@ -54,6 +63,10 @@ static CLIENT_CHOICE: Mutex<Option<bool>> = Mutex::new(None);
 /// True while the title held one of the Create New World screens at the last screen hook. A Create
 /// New World screen that the title shows after another state is a new one, and its choice starts ON.
 static CREATE_OPEN: Mutex<bool> = Mutex::new(false);
+
+/// The folder of the world that the world list had selected at the last screen hook. Re-Create opens
+/// the Create New World screen from that row, and the screen does not tell which world it copies.
+static LAST_SELECTED: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 /// The lock of a static. A panic in another hook leaves the value usable.
 fn lock<T>(value: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -172,6 +185,77 @@ pub(super) fn on_perform_command(
 // level 4, so it needs no level check.
 pub(super) fn on_perform_console_command(game: &mut crate::game::Game<'_>, command: &str, ran: &mut bool) {
     run_rule_command(game, None, command, ran);
+}
+
+// S1: hear every command a player types (API 95). `/gamerule bmh:<name> [value]` is the Java
+// command for a BMH rule. Horizon's own `/gamerule` knows vanilla rules only, so the line is stopped
+// here and the next `server_tick` runs it as `/bmh rule <name> [value]` for the same player. A vanilla
+// rule (`/gamerule keep_inventory true`) is left alone. The answer text is vanilla's own.
+pub(super) fn on_player_command(
+    game: &mut crate::game::Game<'_>,
+    player: u128,
+    name: &str,
+    command: &str,
+    canceled: &mut bool,
+    replies: &mut Vec<horizon_client::text::Text>,
+) {
+    let _ = (game, name, replies);
+    if *canceled {
+        return;
+    }
+    let Some(line) = logic::gamerule_line_to_bmh(command) else {
+        return;
+    };
+    *canceled = true;
+    log::info!("[BalancedMcHardcoreMain] /gamerule bmh:... taken from a player, it runs as: {line}");
+    let mut queue = lock(&SERVER_GAMERULE_QUEUE);
+    if queue.len() < GAMERULE_QUEUE_LIMIT {
+        queue.push((player, line));
+    }
+}
+
+// S1: run the `/gamerule bmh:...` lines of the tick as the players who typed them. `run_command`
+// works here: no player is swapped in. The answer reaches the player as the answer to their own
+// command.
+pub(super) fn on_server_tick(
+    game: &mut crate::game::Game<'_>,
+    context: &horizon_client::mod_api::NativeLifecycleContext,
+    phase: horizon_client::mod_api::ServerTickPhase,
+) {
+    let _ = context;
+    let horizon_client::mod_api::ServerTickPhase::ServerTickEnd { .. } = phase else {
+        return;
+    };
+    let queued = std::mem::take(&mut *lock(&SERVER_GAMERULE_QUEUE));
+    for (player, line) in queued {
+        let result = game.native_run_command_as(player, &line);
+        if !result.ran {
+            log::warn!("[BalancedMcHardcoreMain] /gamerule bmh:... ran nothing for the line: {line}");
+        }
+    }
+}
+
+// S1: complete the rule name of `/bmh rule <name>` (the asked-server kind `word?`). `arguments` are
+// the words after `bmh`, the last one the word being typed.
+pub(super) fn on_tab_complete_v2(
+    game: &mut crate::game::Game<'_>,
+    label: &str,
+    arguments: &[String],
+    range: [usize; 2],
+    suggestions: &mut Vec<horizon_client::mod_api::Suggestion>,
+) {
+    let _ = game;
+    if label != "bmh" || arguments.len() != 2 || arguments[0] != "rule" {
+        return;
+    }
+    for name in logic::rule_name_matches(&arguments[1]) {
+        suggestions.push(horizon_client::mod_api::Suggestion {
+            range: (range[0], range[1]),
+            text: name.to_owned(),
+            tooltip: None,
+            int_value: None,
+        });
+    }
 }
 
 /// `permission` is the operator level of the player, None for the console.
@@ -347,11 +431,48 @@ fn create_choice() -> bool {
 /// screen fires the screen hooks with its own id while the title still holds the Create New World
 /// screen. With the hook's id, the way back from Data Packs put the choice back to ON (check k5e).
 fn track_screen(game: &crate::game::Game<'_>) {
+    if let Some(title) = game.title.as_ref()
+        && let crate::title::Mode::Select { worlds, selected: Some(row) } = &title.mode
+        && let Some(world) = worlds.get(*row)
+    {
+        *lock(&LAST_SELECTED) = Some(title.saves.join(&world.folder));
+    }
     let in_create = game.title.as_ref().is_some_and(|title| logic::is_create_screen(title.mode.id()));
     let was_open = std::mem::replace(&mut *lock(&CREATE_OPEN), in_create);
     if in_create && !was_open {
-        *lock(&CLIENT_CHOICE) = Some(true);
-        game.native_set_setting(crate::game::bmh::ID, logic::CHOICE_SETTING, logic::bool_text(true));
+        let choice = recreate_choice(game).unwrap_or(true);
+        *lock(&CLIENT_CHOICE) = Some(choice);
+        game.native_set_setting(crate::game::bmh::ID, logic::CHOICE_SETTING, logic::bool_text(choice));
+    }
+}
+
+/// Re-Create: the Java screen copies the rules of the old world, so its button shows whether any BMH
+/// rule of that world is on (CreateWorldGameTabMixin.java:58-60). The game fills the screen from the
+/// old world with `commands` set, and a new world has `commands` unset, so that tells the two apart at
+/// the first frame. The old world is the row that the world list had selected. None for a new world,
+/// or for an old world that has no rules file (a world never opened with the mod): the button starts ON.
+fn recreate_choice(game: &crate::game::Game<'_>) -> Option<bool> {
+    let title = game.title.as_ref()?;
+    let crate::title::Mode::Create { options, .. } = &title.mode else {
+        return None;
+    };
+    options.commands?;
+    let dir = lock(&LAST_SELECTED).clone()?;
+    let text = std::fs::read_to_string(rules_path(&dir)).ok()?;
+    Some(logic::parse_rules(&text).any_on())
+}
+
+/// The Java button is greyed out in Hardcore and in a debug world, where nobody respawns and BMH has
+/// nothing to do (CreateWorldGameTabMixin.java:49-51). The choice keeps its value.
+fn create_locked(game: &crate::game::Game<'_>) -> bool {
+    let Some(title) = game.title.as_ref() else {
+        return false;
+    };
+    match &title.mode {
+        crate::title::Mode::Create { options, .. } => {
+            options.hardcore || options.world_type == crate::save::WorldPreset::Debug
+        }
+        _ => false,
     }
 }
 
@@ -398,6 +519,10 @@ pub(super) fn on_screen_mouse_button_pressed_pre(
     if !logic::inside(rect, screen.mouse) {
         return;
     }
+    if create_locked(game) {
+        *canceled = true;
+        return;
+    }
     let choice = !create_choice();
     *lock(&CLIENT_CHOICE) = Some(choice);
     game.native_set_setting(crate::game::bmh::ID, logic::CHOICE_SETTING, logic::bool_text(choice));
@@ -415,8 +540,11 @@ pub(super) fn on_screen_render_post(
     let Some(rect) = button_rect(game, screen) else {
         return;
     };
-    let hovered = logic::inside(rect, screen.mouse);
-    let sprite = if hovered {
+    let locked = create_locked(game);
+    let hovered = !locked && logic::inside(rect, screen.mouse);
+    let sprite = if locked {
+        "gui/sprites/widget/button_disabled"
+    } else if hovered {
         "gui/sprites/widget/button_highlighted"
     } else {
         "gui/sprites/widget/button"
@@ -433,7 +561,8 @@ pub(super) fn on_screen_render_post(
     let width = game.native_text_width(&label);
     let x = rect[0] + ((rect[2] - width) / 2.0).floor();
     let y = rect[1] + (rect[3] - 8.0) / 2.0;
-    game.native_text(batch, &label, [x, y], 0xFF_FFFF, true);
+    let color = if locked { 0xA0_A0A0 } else { 0xFF_FFFF };
+    game.native_text(batch, &label, [x, y], color, !locked);
     if hovered {
         let info = Text::translate("bmh.createWorld.balancedHardcore.info", &[]);
         game.native_gui_tooltip(batch, &[info], screen.mouse);

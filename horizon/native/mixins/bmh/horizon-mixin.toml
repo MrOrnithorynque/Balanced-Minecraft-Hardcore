@@ -421,6 +421,33 @@ bindings = [
 ]
 
 [[injection]]
+id = "hook_player_command"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_player_command"
+helper = "hook_player_command.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "player", ty = "u128", value = "player" },
+  { name = "name", ty = "&str", value = "name" },
+  { name = "command", ty = "&str", value = "command" },
+  { name = "canceled", ty = "&mut bool", value = "&mut *canceled" },
+  { name = "replies", ty = "&mut Vec<horizon_client::text::Text>", value = "&mut *replies" },
+]
+
+[[injection]]
+id = "hook_tab_complete_v2"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_tab_complete_v2"
+helper = "hook_tab_complete_v2.rs"
+bindings = [
+  { name = "game", ty = "&mut crate::game::Game<'_>", value = "&mut *self" },
+  { name = "label", ty = "&str", value = "label" },
+  { name = "arguments", ty = "&[String]", value = "arguments" },
+  { name = "range", ty = "[usize; 2]", value = "range" },
+  { name = "suggestions", ty = "&mut Vec<horizon_client::mod_api::Suggestion>", value = "&mut *suggestions" },
+]
+
+[[injection]]
 id = "hook_perform_command"
 kind = "HEAD"
 target = "horizon_client::game::native_hooks::Game<'_>::native_perform_command"
