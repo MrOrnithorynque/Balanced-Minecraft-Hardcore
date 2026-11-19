@@ -2379,12 +2379,36 @@ if wanted abilities; then
         ctl wait 30 >/dev/null
     }
     ability_summon() {
-        ctl command "summon $1 $(center $((PX + 2))) $PY $(center $((PZ + $2))) {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[bmh_ability]}" >/dev/null
-        ctl wait 5 >/dev/null
-        jget "$(ctl entities 8 "$1")" 'd["entities"][0]["id"]'
+        local cx cz id attempt
+        cx="$(center "$((PX + 2))")"
+        cz="$(center "$((PZ + $2))")"
+        ctl command "summon $1 $cx $PY $cz {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[bmh_ability,$3]}" >/dev/null
+        ctl command "attribute @e[tag=$3,limit=1] minecraft:knockback_resistance base set 1" >/dev/null
+        for ((attempt = 0; attempt < 20; attempt++)); do
+            id="$(jget "$(ctl entities 8 "$1")" "next(e['id'] for e in d['entities'] if abs(e['pos'][0] - $cx) < 0.3 and abs(e['pos'][1] - $PY) < 0.3 and abs(e['pos'][2] - $cz) < 0.3)")"
+            if [ -n "$id" ]; then
+                echo "$id"
+                return
+            fi
+            ctl wait 2 >/dev/null
+        done
     }
     ability_health() {
-        jget "$(ctl entities 12 "$1")" "next(e['health'] for e in d['entities'] if e['id'] == $2)"
+        local reply
+        reply="$(ctl command "data get entity @e[tag=$1,limit=1] Health")"
+        jget "$reply" "next(float(line.rsplit('entity data: ', 1)[1].rstrip('f')) for line in d['chat'] if 'entity data: ' in line)"
+    }
+    ability_damage() {
+        local before="$1" tag="$2" after difference attempt
+        for ((attempt = 0; attempt < 15; attempt++)); do
+            after="$(ability_health "$tag")"
+            difference="$(awk -v a="$before" -v b="$after" 'BEGIN {if (a!="" && b!="" && a+0 > b+0) print a-b}')"
+            if [ -n "$difference" ]; then
+                echo "$difference"
+                return
+            fi
+            ctl wait 2 >/dev/null
+        done
     }
     ability_awarded() {
         ctl save >/dev/null
@@ -2395,22 +2419,22 @@ print(any(json.loads(f.read_text()).get("bmh:eternity/" + sys.argv[2], {}).get("
 PYEOF
     }
     ability_hits() {
-        [ -n "$2" ] && [ "$(jget "$1" "d.get('target') == $2 and d.get('hit') and d['health'] < d['health_before']")" = True ]
+        [ -n "$2" ] && [ "$(jget "$1" "d.get('target') == $2 and d.get('hit')")" = True ]
     }
     for ability in echo_strike smash echo_sense; do
         ctl command "advancement revoke @s only bmh:eternity/$ability" >/dev/null
     done
     # A three-block gap puts the second mob beyond the vanilla sword sweep and inside the echo radius.
     ability_tool 'bmh:eternal_sword[damage=32999]'
-    direct_id="$(ability_summon ravager 0)"
-    echo_id="$(ability_summon zombie 3)"
-    direct_before="$(ability_health ravager "$direct_id")"
-    hp_before="$(ability_health zombie "$echo_id")"
+    direct_id="$(ability_summon ravager 0 bmh_direct)"
+    echo_id="$(ability_summon zombie 3 bmh_echo)"
+    direct_before="$(ability_health bmh_direct)"
+    hp_before="$(ability_health bmh_echo)"
     hit="$(ctl attack "$direct_id")"
     ctl wait 14 >/dev/null
-    worn_damage="$(jget "$hit" 'd["health_before"] - d["health"]')"
-    hp_worn="$(ability_health zombie "$echo_id")"
-    if ability_hits "$hit" "$direct_id" && awk -v hp="$direct_before" 'BEGIN {exit !(hp+0 == 100)}' && [ -n "$hp_before" ] && [ "$hp_worn" = "$hp_before" ] && [ "$(ability_awarded echo_strike)" = False ]; then
+    worn_damage="$(ability_damage "$direct_before" bmh_direct)"
+    hp_worn="$(ability_health bmh_echo)"
+    if ability_hits "$hit" "$direct_id" && awk -v hp="$direct_before" 'BEGIN {exit !(hp+0 == 100)}' && [ -n "$worn_damage" ] && [ -n "$hp_before" ] && [ "$hp_worn" = "$hp_before" ] && [ "$(ability_awarded echo_strike)" = False ]; then
         pass abilities1 "the worn sword hit a fresh ravager for $worn_damage and left the second zombie at $hp_before health"
     else
         fail abilities1 "worn sword hit $hit, second zombie $echo_id health $hp_before to $hp_worn"
@@ -2418,20 +2442,21 @@ PYEOF
     ctl command "kill @e[tag=bmh_ability]" >/dev/null
     ctl wait 30 >/dev/null
     ability_tool bmh:eternal_sword
-    direct_id="$(ability_summon ravager 0)"
-    echo_id="$(ability_summon zombie 3)"
-    direct_before="$(ability_health ravager "$direct_id")"
-    hp_before="$(ability_health zombie "$echo_id")"
+    direct_id="$(ability_summon ravager 0 bmh_direct)"
+    echo_id="$(ability_summon zombie 3 bmh_echo)"
+    direct_before="$(ability_health bmh_direct)"
+    hp_before="$(ability_health bmh_echo)"
     hit="$(ctl attack "$direct_id")"
     ctl wait 14 >/dev/null
-    fresh_damage="$(jget "$hit" 'd["health_before"] - d["health"]')"
-    hp_echo="$(ability_health zombie "$echo_id")"
+    fresh_damage="$(ability_damage "$direct_before" bmh_direct)"
+    echo_damage="$(ability_damage "$hp_before" bmh_echo)"
+    hp_echo="$(ability_health bmh_echo)"
     if ability_hits "$hit" "$direct_id" && awk -v hp="$direct_before" -v f="$fresh_damage" -v w="$worn_damage" 'BEGIN {exit !(hp+0 == 100 && w+0 > 0 && f > 2*w-0.05 && f < 2*w+0.05)}'; then
         pass abilities7 "the worn and fresh swords dealt $worn_damage and $fresh_damage to full-health ravagers"
     else
         fail abilities7 "expected half of fresh damage, observed worn $worn_damage, fresh $fresh_damage, target $direct_before, hit $hit"
     fi
-    if ability_hits "$hit" "$direct_id" && awk -v a="$hp_before" -v b="$hp_echo" 'BEGIN {exit !(a!="" && b!="" && b+0 < a+0)}' && [ "$(ability_awarded echo_strike)" = True ]; then
+    if ability_hits "$hit" "$direct_id" && [ -n "$fresh_damage" ] && [ -n "$echo_damage" ] && awk -v a="$hp_before" -v b="$hp_echo" 'BEGIN {exit !(a!="" && b!="" && b+0 < a+0)}' && [ "$(ability_awarded echo_strike)" = True ]; then
         pass abilities2 "one sword swing also damaged the second zombie ($hp_before to $hp_echo) and awarded Echo Strike"
     else
         fail abilities2 "sword hit $hit, second zombie $echo_id health $hp_before to $hp_echo, advancement $(ability_awarded echo_strike)"
@@ -2440,17 +2465,21 @@ PYEOF
     ctl wait 30 >/dev/null
 
     ability_tool bmh:eternal_axe
-    smash_id="$(ability_summon ravager 0)"
+    ctl command "tp @s $(center "$PX") $PY $(center "$PZ")" >/dev/null
+    smash_id="$(ability_summon ravager 0 bmh_direct)"
+    direct_before="$(ability_health bmh_direct)"
     hit="$(ctl attack "$smash_id")"
-    ground_damage="$(jget "$hit" 'd["health_before"] - d["health"]')"
-    if ability_hits "$hit" "$smash_id" && [ "$(ability_awarded smash)" = False ]; then
+    ground_damage="$(ability_damage "$direct_before" bmh_direct)"
+    if ability_hits "$hit" "$smash_id" && [ -n "$ground_damage" ] && [ "$(ability_awarded smash)" = False ]; then
         pass abilities3 "the axe hit a ravager on the ground for $ground_damage without a smash"
     else
-        fail abilities3 "grounded axe hit $hit, advancement $(ability_awarded smash)"
+        fail abilities3 "grounded axe hit $hit, server health $direct_before to $(ability_health bmh_direct), advancement $(ability_awarded smash)"
     fi
     ctl command "kill @e[tag=bmh_ability]" >/dev/null
     ctl wait 30 >/dev/null
-    smash_id="$(ability_summon ravager 0)"
+    ctl command "tp @s $(center "$PX") $PY $(center "$PZ")" >/dev/null
+    smash_id="$(ability_summon ravager 0 bmh_direct)"
+    direct_before="$(ability_health bmh_direct)"
     # Slow ticks widen the input window without changing fall distance or the axe multiplier.
     ctl command "tick rate 5" >/dev/null
     ctl command "tp @s $(center "$PX") $((PY + 8)) $(center "$PZ")" >/dev/null
@@ -2464,11 +2493,11 @@ PYEOF
     done
     ctl command "tick rate 20" >/dev/null
     ctl wait 25 >/dev/null
-    air_damage="$(jget "$hit" 'd["health_before"] - d["health"]')"
+    air_damage="$(ability_damage "$direct_before" bmh_direct)"
     if ability_hits "$hit" "$smash_id" && awk -v a="$ground_damage" -v b="$air_damage" 'BEGIN {exit !(a+0 > 0 && b+0 > a*1.5)}' && [ "$(ability_awarded smash)" = True ]; then
         pass abilities4 "the falling axe did $air_damage damage versus $ground_damage on the ground and awarded Smash"
     else
-        fail abilities4 "falling axe hit $hit, ground damage $ground_damage, advancement $(ability_awarded smash)"
+        fail abilities4 "falling axe hit $hit, server health $direct_before to $(ability_health bmh_direct), ground damage $ground_damage, advancement $(ability_awarded smash)"
     fi
     ctl command "kill @e[tag=bmh_ability]" >/dev/null
     ctl wait 30 >/dev/null
@@ -3076,6 +3105,42 @@ if wanted x; then
             else
                 fail x3 "a LAN guest's /gamerule bmh:...: unknown-command lines +$(( ${bad_after:-0} - ${bad_before:-0} )) (1 expected); rules.txt changed: $([ "$(cat "$rules_file")" = "$rules_before" ] && echo no || echo yes); 'taken' log lines +$(( $(count_log 'taken from a player') - taken_before )); chat $(jget "$(gctl messages 4)" 'd["chat"][:4]')"
             fi
+            # Compare two full swings against the same unarmored player.
+            arena_y=$((gy + 6))
+            attacker_x="$(center "$gx")"
+            victim_x="$(center "$((gx + 2))")"
+            arena_z="$(center "$gz")"
+            ctl command "fill $((gx - 2)) $((arena_y - 1)) $((gz - 2)) $((gx + 5)) $((arena_y - 1)) $((gz + 2)) stone" >/dev/null
+            ctl command "fill $((gx - 2)) $arena_y $((gz - 2)) $((gx + 5)) $((arena_y + 3)) $((gz + 2)) air" >/dev/null
+            ctl command "gamemode survival Guest" >/dev/null
+            ctl command "gamerule pvp true" >/dev/null
+            ctl command "gamerule natural_health_regeneration false" >/dev/null
+            ctl command "effect clear @s" >/dev/null
+            ctl command "attribute Guest minecraft:max_health base set 40" >/dev/null
+            ctl command "tp @s $attacker_x $arena_y $arena_z" >/dev/null
+            pvp_damage() {
+                local before after
+                ctl command "tp Guest $victim_x $arena_y $arena_z" >/dev/null
+                ctl command "effect give Guest minecraft:instant_health 1 10 true" >/dev/null
+                ctl command "item replace entity @s weapon.mainhand with $1" >/dev/null
+                ctl look-at "$victim_x" "$((arena_y + 1)).6" "$arena_z" >/dev/null
+                ctl wait 35 >/dev/null
+                before="$(jget "$(gctl status)" 'd["server"]["health"]')"
+                ctl attack >/dev/null
+                ctl wait 10 >/dev/null
+                after="$(jget "$(gctl status)" 'd["server"]["health"]')"
+                awk -v a="$before" -v b="$after" 'BEGIN {if (a+0 == 40 && b+0 > 0 && b+0 < a+0) print a-b}'
+            }
+            pvp_worn="$(pvp_damage 'bmh:eternal_sword[damage=32999]')"
+            pvp_fresh="$(pvp_damage bmh:eternal_sword)"
+            if awk -v w="$pvp_worn" -v f="$pvp_fresh" 'BEGIN {exit !(w+0 > 0 && f > 2*w-0.05 && f < 2*w+0.05)}'; then
+                pass x4 "the worn and fresh swords dealt $pvp_worn and $pvp_fresh to the same full-health LAN guest"
+            else
+                fail x4 "expected half the fresh damage on the LAN guest at 40 health, observed worn $pvp_worn and fresh $pvp_fresh"
+            fi
+            ctl command "attribute Guest minecraft:max_health base set 20" >/dev/null
+            ctl command "effect give Guest minecraft:instant_health 1 10 true" >/dev/null
+            ctl command "gamerule natural_health_regeneration true" >/dev/null
             gctl disconnect >/dev/null
         fi
     fi
