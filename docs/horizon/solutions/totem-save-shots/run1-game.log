@@ -1,0 +1,143 @@
+[02:07:14] [Render thread/INFO]: Horizon 0.1.0
+[02:07:14] [Render thread/INFO]: Horizon: content from 1 mod(s) in /Users/louisobenicherousse/Library/Caches/bmh-horizon/slice.Ev5aOu/game/.horizon-cache/mod-content/0f2e5421e5cb3486
+[02:07:15] [load-render/INFO]: Horizon: block sprites: 1301 layers at 64 px (largest 64 px, budget 256 MiB)
+[02:07:15] [Render thread/INFO]: load core tables: 1.22s
+[02:07:15] [Render thread/INFO]: load pack tables: 1.23s
+[02:07:15] [load-items/INFO]: load items: 1.48s
+[02:07:15] [Render thread/INFO]: Horizon: resources loaded in 1.5s; 35723 block states, 1667 items, 67 biomes; 3 worker threads
+[02:07:15] [Render thread/WARN]: Horizon: no sound: audio off: HORIZON_NO_AUDIO is set
+[02:07:15] [Render thread/INFO]: Horizon: control socket /tmp/bmh-ts.dc52Z0/c.sock
+[02:07:15] [World data preload/INFO]: Horizon: worldgen data loaded in 411.942125ms
+[02:07:15] [World data preload/INFO]: Horizon: world data preloaded for the launch's world in 500 ms
+[02:07:16] [Render thread/INFO]: Horizon renderer: Apple M5 (Metal, IntegratedGpu)
+[02:07:16] [Render thread/INFO]: Horizon renderer: requesting the device (driver unnamed) with features [TEXTURE_FORMAT_16BIT_NORM | TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES | MAPPABLE_PRIMARY_BUFFERS | VERTEX_WRITABLE_STORAGE | CLEAR_TEXTURE | TEXTURE_ATOMIC | SUBGROUP | TIMESTAMP_QUERY | INDIRECT_FIRST_INSTANCE | RG11B10UFLOAT_RENDERABLE | FLOAT32_FILTERABLE | FLOAT32_BLENDABLE] and the adapter's limits (buffers up to 14302248960 bytes, storage bindings up to 14302248960 bytes, 2048 texture layers)
+[02:07:16] [Render thread/INFO]: Horizon: 512 block textures per array (the GPU's limit)
+[02:07:16] [Render thread/INFO]: Horizon renderer: creating the pipelines
+[02:07:16] [Render thread/INFO]: Horizon: 1301 block textures in 3 arrays
+[02:07:16] [Render thread/INFO]: Horizon renderer: pipelines ready (multi-draw on, occlusion culling on, GPU culling unavailable, GPU timer on)
+[02:07:16] [Render thread/INFO]: [BalancedMcHardcoreMain] Sky azimuth self-check: from (0, 0), azimuth 0 aims at (0, -100), azimuth 90 at (100, 0); expected (0, -100) and (100, 0)
+[02:07:16] [Server thread/INFO]: Starting integrated minecraft server version 26.3
+[02:07:16] [unnamed/INFO]: Horizon: live features ready in 18.972834ms
+[02:07:16] [Render thread/INFO]: Horizon renderer: acquiring the first frame
+[02:07:16] [Render thread/INFO]: Horizon renderer: submitting the first frame
+[02:07:16] [Render thread/INFO]: Horizon: first frame after 443 ms
+[02:07:16] [Server thread/INFO]: [BalancedMcHardcoreMain] World rules created: java world = false, new world = true, choice = None
+[02:07:16] [Server thread/INFO]: Player97606[/127.0.0.1:0] logged in with entity id 1 at (9.5, 127.0, -4.5)
+[02:07:16] [Server thread/INFO]: System chat: Player97606 joined the game
+[02:07:16] [Render thread/INFO]: [CHAT] The difficulty did not change; it is already set to Normal
+[02:07:17] [Server thread/INFO]: Saving and pausing game...
+[02:07:27] [Render thread/INFO]: [CHAT] Game rule bmh:random_death_spawn_point is currently set to true
+[02:07:27] [Render thread/INFO]: [CHAT] Game rule bmh:display_text_on_respawn is currently set to true
+[02:07:27] [Render thread/INFO]: [CHAT] Game rule bmh:food_and_health_regen_on_wake_up is currently set to true
+[02:07:27] [Render thread/INFO]: [CHAT] Game rule bmh:only_carry_one_eternal_item_type is currently set to true
+[02:07:27] [Render thread/INFO]: [CHAT] Game rule bmh:damage_eternal_item_when_dead is currently set to true
+[02:07:27] [Render thread/INFO]: [CHAT] Game rule bmh:remove_coordinates_in_survival is currently set to true
+[02:07:27] [Server thread/INFO]: System chat: [Player97606: Set spawn point to 9, 127, -5 [0.0, 0.0] in minecraft:overworld for Player97606]
+[02:07:27] [Render thread/INFO]: [CHAT] Set spawn point to 9, 127, -5 [0.0, 0.0] in minecraft:overworld for Player97606
+[02:07:27] [Server thread/INFO]: System chat: [Player97606: The difficulty has been set to Peaceful]
+[02:07:27] [Render thread/INFO]: [CHAT] The difficulty has been set to Peaceful
+[02:07:27] [Render thread/INFO]: [CHAT] No items were found on player Player97606
+[02:07:27] [Render thread/INFO]: [CHAT] Target has no effects to remove
+[02:07:27] [Server thread/INFO]: System chat: [Player97606: Set minecraft:overworld to 6000 tick(s)]
+[02:07:27] [Render thread/INFO]: [CHAT] Set minecraft:overworld to 6000 tick(s)
+[02:07:27] [Server thread/INFO]: System chat: [Player97606: Gave 1 [Totem of Undying] to Player97606]
+[02:07:27] [Render thread/INFO]: [CHAT] Gave 1 [Totem of Undying] to Player97606
+[02:07:27] [Server thread/INFO]: System chat: [Player97606: Gave 1 [The Totem of Eternal Life] to Player97606]
+[02:07:27] [Render thread/INFO]: [CHAT] Player97606 has reached the goal [Eternity awakens]
+[02:07:27] [Render thread/INFO]: [CHAT] Gave 1 [The Totem of Eternal Life] to Player97606
+[02:07:27] [Render thread/INFO]: [CHAT] Unknown or incomplete command. See below for error
+[02:07:27] [Render thread/INFO]: [CHAT] select 1<--[HERE]
+[02:07:28] [Server thread/INFO]: System chat: [Player97606: Applied 100.0 damage to Player97606]
+[02:07:28] [Render thread/INFO]: [CHAT] Player97606 has reached the goal [Postmortal]
+[02:07:28] [Render thread/INFO]: [CHAT] Applied 100.0 damage to Player97606
+[02:07:29] [Server thread/INFO]: System chat: [Player97606: Removed every effect from Player97606]
+[02:07:29] [Render thread/INFO]: [CHAT] Removed every effect from Player97606
+[02:07:29] [Server thread/INFO]: System chat: [Player97606: Removed 1 item(s) from player Player97606]
+[02:07:29] [Render thread/INFO]: [CHAT] Removed 1 item(s) from player Player97606
+[02:07:29] [Server thread/INFO]: System chat: [Player97606: Gave 2 [The Totem of Eternal Life] to Player97606]
+[02:07:29] [Render thread/INFO]: [CHAT] Gave 2 [The Totem of Eternal Life] to Player97606
+[02:07:31] [Server thread/INFO]: System chat: [Player97606: Killed 5 entities]
+[02:07:31] [Render thread/INFO]: [CHAT] Killed 5 entities
+[02:07:31] [Server thread/INFO]: System chat: [Player97606: Removed 1 item(s) from player Player97606]
+[02:07:31] [Render thread/INFO]: [CHAT] Removed 1 item(s) from player Player97606
+[02:07:31] [Server thread/INFO]: System chat: [Player97606: Successfully filled 40 block(s)]
+[02:07:31] [Render thread/INFO]: [CHAT] Successfully filled 40 block(s)
+[02:07:31] [Server thread/INFO]: System chat: [Player97606: Successfully filled 10 block(s)]
+[02:07:31] [Render thread/INFO]: [CHAT] Successfully filled 10 block(s)
+[02:07:31] [Server thread/INFO]: System chat: [Player97606: Changed the block at 11, 127, -5]
+[02:07:31] [Render thread/INFO]: [CHAT] Changed the block at 11, 127, -5
+[02:07:31] [Server thread/INFO]: System chat: [Player97606: Changed the block at 12, 127, -5]
+[02:07:31] [Render thread/INFO]: [CHAT] Changed the block at 12, 127, -5
+[02:07:31] [Server thread/INFO]: System chat: [Player97606: Teleported Player97606 to 9.500000, 127.000000, -4.500000]
+[02:07:31] [Render thread/INFO]: [CHAT] Teleported Player97606 to 9.500000, 127.000000, -4.500000
+[02:07:32] [Server thread/INFO]: System chat: [Player97606: Changed the block at 11, 127, -5]
+[02:07:32] [Render thread/INFO]: [CHAT] Changed the block at 11, 127, -5
+[02:07:33] [Server thread/INFO]: System chat: [Player97606: Killed 3 entities]
+[02:07:33] [Render thread/INFO]: [CHAT] Killed 3 entities
+[02:07:33] [Render thread/INFO]: [CHAT] No items were found on player Player97606
+[02:07:33] [Render thread/INFO]: [CHAT] Incorrect argument for command
+[02:07:33] [Render thread/INFO]: [CHAT] xp 45<--[HERE]
+[02:07:33] [Server thread/INFO]: System chat: [Player97606: Gave 1 [Hollow Totem of Eternal Life] to Player97606]
+[02:07:33] [Render thread/INFO]: [CHAT] Gave 1 [Hollow Totem of Eternal Life] to Player97606
+[02:07:33] [Server thread/INFO]: System chat: [Player97606: Gave 1 [Echo Heart] to Player97606]
+[02:07:33] [Render thread/INFO]: [CHAT] Gave 1 [Echo Heart] to Player97606
+[02:07:35] [Render thread/INFO]: [CHAT] No items were found on player Player97606
+[02:07:35] [Server thread/INFO]: System chat: [Player97606: Gave 1 [The Sword of Eternity] to Player97606]
+[02:07:35] [Render thread/INFO]: [CHAT] Gave 1 [The Sword of Eternity] to Player97606
+[02:07:35] [Server thread/INFO]: System chat: [Player97606: Gave 2 [Block of Gold] to Player97606]
+[02:07:35] [Render thread/INFO]: [CHAT] Gave 2 [Block of Gold] to Player97606
+[02:07:37] [Server thread/INFO]: System chat: [Player97606: Removed 2 item(s) from player Player97606]
+[02:07:37] [Render thread/INFO]: [CHAT] Removed 2 item(s) from player Player97606
+[02:07:37] [Server thread/INFO]: System chat: [Player97606: Changed the block at 11, 127, -5]
+[02:07:37] [Render thread/INFO]: [CHAT] Changed the block at 11, 127, -5
+[02:07:37] [Render thread/INFO]: [CHAT] Target has no effects to remove
+[02:07:37] [Server thread/INFO]: System chat: [Player97606: Gave 1 [The Totem of Eternal Life] to Player97606]
+[02:07:37] [Render thread/INFO]: [CHAT] Gave 1 [The Totem of Eternal Life] to Player97606
+[02:07:38] [Server thread/INFO]: System chat: [Player97606: Applied 100.0 damage to Player97606]
+[02:07:38] [Render thread/INFO]: [CHAT] Applied 100.0 damage to Player97606
+[02:07:38] [Server thread/INFO]: System chat: Player97606 died
+[02:07:38] [Render thread/INFO]: [CHAT] Player97606 died
+[02:07:38] [Server thread/INFO]: [BalancedMcHardcoreMain] Respawn point RespawnPoint { dimension: "minecraft:overworld", pos: [9, 127, -5], forced: true } reads minecraft:air: Forced, centre [9, 127, -5]
+[02:07:38] [Server thread/INFO]: [BalancedMcHardcoreMain] Landing spot ready after 294 ms: [22495, 65, -6234]
+[02:07:39] [Render thread/INFO]: [CHAT] Target has no effects to remove
+[02:07:39] [Render thread/INFO]: [CHAT] Target is invulnerable to the given damage type
+[02:07:40] [Server thread/INFO]: [BalancedMcHardcoreMain] new respawn pos and bed : [22495, 65, -6234], [9, 127, -5]
+[02:07:40] [Server thread/INFO]: [BalancedMcHardcoreMain] Homecoming record: 1 homes (0 amulet points), 23333 blocks, in minecraft:overworld
+[02:07:42] [Server thread/INFO]: System chat: [Player97606: Removed 2 item(s) from player Player97606]
+[02:07:42] [Render thread/INFO]: [CHAT] Removed 2 item(s) from player Player97606
+[02:07:42] [Render thread/INFO]: [CHAT] Target has no effects to remove
+[02:07:42] [Server thread/INFO]: System chat: [Player97606: Gave 1 [The Totem of Eternal Life] to Player97606]
+[02:07:42] [Render thread/INFO]: [CHAT] Gave 1 [The Totem of Eternal Life] to Player97606
+[02:07:43] [Render thread/INFO]: [CHAT] Target is invulnerable to the given damage type
+[02:07:44] [Server thread/INFO]: System chat: [Player97606: Removed 1 item(s) from player Player97606]
+[02:07:44] [Render thread/INFO]: [CHAT] Removed 1 item(s) from player Player97606
+[02:07:44] [Render thread/INFO]: [CHAT] Target has no effects to remove
+[02:07:44] [Server thread/INFO]: System chat: [Player97606: Gave 1 [The Totem of Eternal Life] to Player97606]
+[02:07:44] [Render thread/INFO]: [CHAT] Gave 1 [The Totem of Eternal Life] to Player97606
+[02:07:44] [Server thread/INFO]: System chat: [Player97606: Gave 1 [Totem of Undying] to Player97606]
+[02:07:44] [Render thread/INFO]: [CHAT] Gave 1 [Totem of Undying] to Player97606
+[02:07:46] [Render thread/INFO]: [CHAT] Target is invulnerable to the given damage type
+[02:07:47] [Server thread/INFO]: System chat: [Player97606: Removed 2 item(s) from player Player97606]
+[02:07:47] [Render thread/INFO]: [CHAT] Removed 2 item(s) from player Player97606
+[02:07:47] [Render thread/INFO]: [CHAT] Target has no effects to remove
+[02:07:47] [Server thread/INFO]: System chat: [Player97606: Gave 576 [Dirt] to Player97606]
+[02:07:47] [Render thread/INFO]: [CHAT] Gave 576 [Dirt] to Player97606
+[02:07:47] [Server thread/INFO]: System chat: [Player97606: Gave 1 [The Totem of Eternal Life] to Player97606]
+[02:07:47] [Render thread/INFO]: [CHAT] Gave 1 [The Totem of Eternal Life] to Player97606
+[02:07:48] [Render thread/INFO]: [CHAT] Target is invulnerable to the given damage type
+[02:07:49] [Server thread/INFO]: System chat: [Player97606: Killed 13 entities]
+[02:07:49] [Render thread/INFO]: [CHAT] Killed 13 entities
+[02:07:49] [Server thread/INFO]: System chat: [Player97606: Removed 577 item(s) from player Player97606]
+[02:07:49] [Render thread/INFO]: [CHAT] Removed 577 item(s) from player Player97606
+[02:07:49] [Server thread/INFO]: System chat: [Player97606: Gave 1 [The Totem of Eternal Life] to Player97606]
+[02:07:49] [Render thread/INFO]: [CHAT] Gave 1 [The Totem of Eternal Life] to Player97606
+[02:07:49] [Server thread/INFO]: System chat: [Player97606: Killed Player97606]
+[02:07:49] [Render thread/INFO]: [CHAT] Killed Player97606
+[02:07:49] [Server thread/INFO]: System chat: Player97606 was killed
+[02:07:49] [Render thread/INFO]: [CHAT] Player97606 was killed
+[02:07:49] [Server thread/INFO]: [BalancedMcHardcoreMain] Respawn point RespawnPoint { dimension: "minecraft:overworld", pos: [9, 127, -5], forced: true } reads minecraft:air: Forced, centre [9, 127, -5]
+[02:07:50] [Server thread/INFO]: [BalancedMcHardcoreMain] Landing spot ready after 945 ms: [-10225, 65, -13856]
+[02:07:50] [Server thread/INFO]: [BalancedMcHardcoreMain] new respawn pos and bed : [-10225, 65, -13856], [9, 127, -5]
+[02:07:50] [Server thread/INFO]: [BalancedMcHardcoreMain] Homecoming record: 1 homes (0 amulet points), 17222 blocks, in minecraft:overworld
+[02:07:52] [Server thread/INFO]: System chat: [Player97606: The difficulty has been set to Normal]
+[02:07:52] [Render thread/INFO]: [CHAT] The difficulty has been set to Normal

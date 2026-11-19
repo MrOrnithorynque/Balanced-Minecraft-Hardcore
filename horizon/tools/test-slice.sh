@@ -1861,6 +1861,10 @@ fi
 # canceled living_death leaves the dead flag of the body set). Difficulty is peaceful in t, so that no mob interferes.
 # T_TYPE overrides the damage type of the lethal hit (default minecraft:generic).
 t_counts() { jget "$(ctl inventory)" 'd["counts"].get("'"$1"'", 0)'; }
+# t_alive: when the player is dead, respawn and wait past the 200 ticks of respawn immunity (scenario c).
+t_alive() {
+    if [ "$(jget "$(state)" 'd.get("screen")')" = dead ]; then ctl respawn >/dev/null; ctl wait 220 >/dev/null; fi
+}
 if wanted t; then
     echo "--- t. totem: Undying order, extra totem, anvil, E6, the save on a lethal hit, the dead flag, /kill"
     ensure_point
@@ -1940,6 +1944,87 @@ if wanted t; then
     ctl close >/dev/null
     ctl command "clear @s" >/dev/null
     ctl command "setblock $((PX + 2)) $PY $PZ minecraft:air" >/dev/null
+    echo "t-evidence selected slot after the anvil checks: $(jget "$(state)" 'd.get("selected")')"
+    # t-anvil: the order of the first run of 2026-11-19, where t1 failed: a Totem of Eternity given right after the anvil
+    # checks, with no "ctl select". Evidence only, not counted.
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    t_hot="$(jget "$(ctl inventory)" '[(s.get("slot"), s.get("item")) for s in d.get("hotbar", [])]')"
+    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    ctl wait 20 >/dev/null
+    echo "t-evidence t-anvil: hotbar before $t_hot; screen after $(jget "$(state)" 'd.get("screen")'); health $(health_of); counts $(jget "$(ctl inventory)" 'd["counts"]')"
+    t_alive
+    # t11 to t13: route A of GAPS T2 (docs/horizon/solutions/totem-save.md). The game saves from a hand only.
+    # t12: a Totem of Eternity in the main hand and a Totem of Undying in the off hand: the Undying saves first
+    # (A_LivingEntityTotemMixin.java:46), no Fire Resistance, and the Totem of Eternity stays in the main hand.
+    t_alive
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl select 1 >/dev/null
+    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl command "give @s minecraft:totem_of_undying" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl select 2 >/dev/null
+    ctl key f tap >/dev/null
+    ctl wait 5 >/dev/null
+    ctl select 1 >/dev/null
+    ctl wait 10 >/dev/null
+    t_main0="$(jget "$(ctl inventory)" '([s.get("item") for s in d.get("hotbar", []) if s.get("slot") == 0] or [None])[0]')"
+    t_off0="$(jget "$(ctl inventory)" '(d.get("offhand") or {}).get("item")')"
+    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    ctl wait 20 >/dev/null
+    T_INV="$(ctl inventory)"
+    T_EFF="$(ctl effects)"
+    t_main1="$(jget "$T_INV" '([s.get("item") for s in d.get("hotbar", []) if s.get("slot") == 0] or [None])[0]')"
+    t_off1="$(jget "$T_INV" '(d.get("offhand") or {}).get("item")')"
+    echo "t-evidence t12: main $t_main0 then $t_main1, off $t_off0 then $t_off1; health $(health_of); counts $(jget "$T_INV" 'd["counts"]'); effects $(jget "$T_EFF" '[e["id"] for e in d["effects"]["active"]]')"
+    if [ "$t_main0" = bmh:totem_of_eternity ] && [ "$t_off0" = minecraft:totem_of_undying ] && [ "$t_main1" = bmh:totem_of_eternity ] \
+        && [ "$(jget "$T_INV" 'd["counts"].get("minecraft:totem_of_undying", 0)')" = 0 ] && [ "$(jget "$T_INV" 'd["counts"].get("bmh:sleeping_totem", 0)')" = 0 ] \
+        && printf '%s' "$T_EFF" | grep -q regeneration && ! printf '%s' "$T_EFF" | grep -q fire_resistance; then
+        pass t12 "the Totem of Undying in the off hand saved first; the Totem of Eternity stayed in the main hand"
+    else
+        fail t12 "swap save: main $t_main0 then $t_main1, off $t_off0 then $t_off1, counts $(jget "$T_INV" 'd["counts"]')"
+    fi
+    # t11: a Totem of Eternity in the off hand saves, and the Dormant Totem lands in the off hand.
+    t_alive
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl select 1 >/dev/null
+    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl key f tap >/dev/null
+    ctl wait 10 >/dev/null
+    t_off0="$(jget "$(ctl inventory)" '(d.get("offhand") or {}).get("item")')"
+    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    ctl wait 20 >/dev/null
+    T_INV="$(ctl inventory)"
+    T_EFF="$(ctl effects)"
+    t_off1="$(jget "$T_INV" '(d.get("offhand") or {}).get("item")')"
+    ctl screenshot "$SHOTS/t11-dormant-in-off-hand.png" >/dev/null
+    echo "t-evidence t11: off hand before $t_off0, after $t_off1; health $(health_of); counts $(jget "$T_INV" 'd["counts"]'); effects $(jget "$T_EFF" '[e["id"] for e in d["effects"]["active"]]')"
+    if [ "$t_off0" = bmh:totem_of_eternity ] && [ "$t_off1" = bmh:sleeping_totem ] && [ "$(jget "$(state)" 'd.get("screen")')" != dead ] \
+        && [ "$(jget "$T_EFF" 'sorted(e["id"] for e in d["effects"]["active"] if e["id"] in ("regeneration","absorption","fire_resistance"))')" = "['absorption', 'fire_resistance', 'regeneration']" ]; then
+        pass t11 "a Totem of Eternity in the off hand saved; the Dormant Totem is in the off hand"
+    else
+        fail t11 "off hand save: off hand $t_off0 then $t_off1, screen $(jget "$(state)" 'd.get("screen")')"
+    fi
+    # t-probe: a Totem of Eternity with the component written on the stack itself. Evidence only: it tells whether
+    # the server reads the component from the stack patch when it does not read it from the item defaults.
+    t_alive
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl select 1 >/dev/null
+    ctl command 'give @s bmh:totem_of_eternity[minecraft:death_protection={death_effects:[{type:"minecraft:clear_all_effects"}]}]' >/dev/null
+    ctl wait 10 >/dev/null
+    t_comp="$(inv_comp bmh:totem_of_eternity)"
+    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    ctl wait 20 >/dev/null
+    echo "t-evidence probe: components before the hit: $t_comp; screen after $(jget "$(state)" 'd.get("screen")'); health $(health_of); counts $(jget "$(ctl inventory)" 'd["counts"]')"
+    t_alive
+    ctl command "clear @s" >/dev/null
+    ctl select 1 >/dev/null
     # t1 to t5: the lethal hit with only a Totem of Eternity.
     ctl command "effect clear @s" >/dev/null
     ctl command "give @s bmh:totem_of_eternity" >/dev/null
@@ -1953,6 +2038,7 @@ if wanted t; then
     T_EFF="$(ctl effects)"
     T_INV="$(ctl inventory)"
     T_H1="$(health_of)"
+    ctl screenshot "$SHOTS/t1-dormant-in-main-hand.png" >/dev/null
     echo "t-evidence: health after the hit: $T_H1; screen: $(jget "$T_STATE" 'd.get("screen")')"
     echo "t-evidence: effects: $(printf '%s' "$T_EFF" | head -c 600)"
     echo "t-evidence: counts: $(jget "$T_INV" 'd["counts"]')"
@@ -1980,15 +2066,29 @@ if wanted t; then
     ctl command "effect clear @s" >/dev/null
     ctl wait 5 >/dev/null
     t_h2="$(health_of)"
-    ctl command "damage @s 1 minecraft:generic" >/dev/null
+    # 10, not 1: absorption left after "effect clear" can take a hit of 1 (t5 failed 2 of 4 runs on 2026-11-19 with
+    # the health up by one saturation heal). A death here also proves that the hit lands.
+    ctl command "damage @s 10 minecraft:generic" >/dev/null
     ctl wait 10 >/dev/null
     t_h3="$(health_of)"
-    echo "t-evidence: health before /damage @s 1: $t_h2, after: $t_h3"
+    echo "t-evidence: health before /damage @s 10: $t_h2, after: $t_h3"
     if python3 -c 'import sys; a, b = float(sys.argv[1]), float(sys.argv[2]); sys.exit(0 if a > 0 and b < a else 1)' "${t_h2:-0}" "${t_h3:-0}"; then
-        pass t5 "a later /damage @s 1 lowers the health: $t_h2 then $t_h3"
+        pass t5 "a later /damage @s 10 lowers the health: $t_h2 then $t_h3"
     else
-        fail t5 "no live player takes a later /damage @s 1: health $t_h2 then $t_h3"
+        fail t5 "no live player takes a later /damage @s 10: health $t_h2 then $t_h3"
     fi
+    t_alive
+    # t13 (accepted gap, GAPS T2): a Totem of Eternity outside the hands does not save. Evidence only, not counted.
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl command "give @s minecraft:dirt 576" >/dev/null
+    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    t_slot="$(inv_slot bmh:totem_of_eternity)"
+    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    ctl wait 20 >/dev/null
+    echo "t-evidence t13 (gap): totem in slot $t_slot; screen after the hit $(jget "$(state)" 'd.get("screen")'); health $(health_of)"
+    ctl command "kill @e[type=item]" >/dev/null
     # t10: /kill kills a player with a Totem of Eternity; the totem is not spent.
     if [ "$(jget "$(state)" 'd.get("screen")')" = dead ]; then ctl respawn >/dev/null; ctl wait 40 >/dev/null; fi
     ctl command "clear @s" >/dev/null

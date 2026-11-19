@@ -20,12 +20,12 @@ All stats come from `common/src/main/java/github/mrornithorynque/bmh/init/ItemIn
 | `bmh:eternal_pickaxe` | IT:37-45 (damage 7.0 :40, speed -2.0 :41), TIER:20-21, `items/EternalPickaxeItem.java`:19 | `minecraft:netherite_pickaxe` | as the axe with damage +7.0, speed -2.0 and `#minecraft:mineable/pickaxe`. |
 | `bmh:eternal_bundle` | IT:19-25 (stack 1 :22, empty `BUNDLE_CONTENTS` :23, fire :24, EPIC :25), `items/EternalBundleItem.java`:44 (weight 64, as vanilla) | `minecraft:bundle` | fire. The empty `bundle_contents` is the template's default. |
 | `bmh:navigator_amulet` | IT:57-61 (stack 1 :60, COMMON :61), `items/NavigatorAmuletItem.java`:36-50 (no durability, no enchantment) | `minecraft:compass` | None. The default `lodestone_tracker` was removed (the game refuses it, see the needle section). The compass has no durability and no enchantability, so the amulet has none. |
-| `bmh:totem_of_eternity` | IT:63-68 (stack 1 :65, fire :66, EPIC :67), `items/TotemOfEternityItem.java`:26 (`isFoil` true) | `minecraft:echo_shard` | fire, `enchantment_glint_override` true. |
+| `bmh:totem_of_eternity` | IT:63-68 (stack 1 :65, fire :66, EPIC :67), `items/TotemOfEternityItem.java`:26 (`isFoil` true) | `minecraft:echo_shard` | fire, `enchantment_glint_override` true, `death_protection` (the three save effects of `TotemOfEternityHandler.java`:44-46). |
 | `bmh:sleeping_totem` | IT:74-79 (stack 1 :77, fire :78, EPIC :79), `items/DormantTotemOfEternityItem.java`:69 (glint only during the ritual: code) | `minecraft:echo_shard` | fire. No glint. |
 | `bmh:dormant_totem` (Hollow Totem) | IT:83-89 (stack 1 :86, fire :87, RARE :88) | `minecraft:echo_shard` | fire. |
 | `bmh:echo_heart` | IT:91-97 (stack 1 :94, fire :95, RARE :96) | `minecraft:echo_shard` | fire. |
 
-Why `echo_shard` for the plain items: it has no behaviour and no special component. A copy of `totem_of_undying` would carry `death_protection` and could save the player in Horizon's own way. Why `compass` for the amulet: it is the vanilla item that owns the needle component.
+Why `echo_shard` for the plain items: it has no behaviour and no special component. A copy of `totem_of_undying` would also bring the totem's own behaviour. The Totem of Eternity adds `death_protection` on purpose (GAPS T2, `docs/horizon/solutions/totem-save.md`): Horizon then saves the player when the totem is in a hand, and the mod puts the Dormant Totem in its slot. Why `compass` for the amulet: it is the vanilla item that owns the needle component.
 
 ### The amulet needle (data only, tracker still missing)
 

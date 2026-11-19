@@ -208,3 +208,21 @@ Fix agent of the totem area. Inputs: the reviews `docs/horizon/review/totem-pari
 9. Set `status`, `outcome` and `note` of every finding in both review files.
 10. Gates after the last code change: `sh horizon/tools/test-logic.sh` (214 passed, 25 of them in `totem`) and
     `sh horizon/tools/check.sh` (`"check": "ok"`). No game was run (no game rights). Changes outside my files: none.
+
+## The save from a hand (route A, session gap-totem-save, 2026-11-19)
+
+The full record is `docs/horizon/solutions/totem-save.md`. In short:
+
+1. Cause of difference 12 and of GAPS T2: Horizon calls `living_death` for a player only when trait mods exist
+   (`guest_die`, `lan_actions.rs:4293-4296`). BMH has none (D2), so the old path never runs, for any player.
+2. The content item `totem_of_eternity.json` has `minecraft:death_protection` with the three Java effects. Horizon's
+   own hand check now saves the player, as with a Totem of Undying, with no tick of delay.
+3. New hook `player_totem` (`hook_player_totem.rs`, `bmh_totem::on_player_totem`): it runs before the game spends
+   the hand. The pure answer is `logic::hand_save`. A Totem of Undying in the off hand with a Totem of Eternity in the
+   main hand: the hook swaps the hands, so the Undying saves first, and the end of the server tick puts the Totem of
+   Eternity back. A Totem of Eternity spent from a hand: the end of the server tick puts the Dormant Totem in that
+   slot, awards `eternity/saved` and logs the saved line.
+4. The old `living_death` path stays: it is the path for any slot the day the gate of item 1 opens.
+5. In the game: `test-slice.sh --only t`, 12 passed, 0 failed (t1 to t12; t13 is evidence of the gap). Screenshots in
+   `docs/horizon/solutions/totem-save-shots/`.
+6. Differences that stay: a Totem of Eternity outside the hands does not save; a mob that holds one is saved once.

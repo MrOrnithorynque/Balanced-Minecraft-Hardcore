@@ -52,6 +52,23 @@ struct OpenMenu {
     before: Vec<usize>,
 }
 
+/// What a hand save leaves to do at the end of the server tick (route A, GAPS T2).
+enum HandWork {
+    /// The game spent the Totem of Eternity of `slot` (`NativeInventoryKind::Player` numbering): put
+    /// the Dormant Totem there.
+    Dormant { slot: usize },
+    /// The hook swapped the hands so the Totem of Undying saved first: put `totem` back from the off
+    /// hand into the main hand `slot`.
+    SwapBack { slot: usize, totem: ItemStack },
+}
+
+/// One hand save that waits for the end of the server tick.
+struct HandSaveRecord {
+    uuid: u128,
+    name: String,
+    work: HandWork,
+}
+
 /// What the area keeps between hooks (all on the server).
 struct Server {
     /// Who carries a totem, and which saves wait for their swap.
@@ -60,6 +77,8 @@ struct Server {
     open: BTreeMap<u128, OpenMenu>,
     /// The names of the players who were saved and wait for the advancement.
     awards: Vec<String>,
+    /// The hand saves of this tick, finished at its end.
+    hand: Vec<HandSaveRecord>,
     /// The world that the state above belongs to.
     epoch: Option<horizon_client::mod_api::NativeWorldEpoch>,
     rng: bmh_logic::respawn::Rng,
@@ -70,6 +89,7 @@ static SERVER: Mutex<Server> = Mutex::new(Server {
     book: logic::SaveBook::new(),
     open: BTreeMap::new(),
     awards: Vec::new(),
+    hand: Vec::new(),
     epoch: None,
     rng: bmh_logic::respawn::Rng::new(0x54_4F54_454D),
     seeded: false,
@@ -286,6 +306,77 @@ fn complete_save(game: &mut crate::game::Game<'_>, me: &NativeServerPlayer) {
     );
 }
 
+/// The item id of a non-empty stack in `slot` of the acting player.
+fn carried_item(game: &mut crate::game::Game<'_>, slot: i32) -> Option<Arc<str>> {
+    game.native_carried_stack(slot)
+        .filter(|stack| stack.count > 0)
+        .map(|stack| stack.item.clone())
+}
+
+// T2, route A (docs/horizon/solutions/totem-save.md): Horizon's own hand check saves the player
+// with the `death_protection` of the Totem of Eternity (content item). This hook runs before the
+// game spends the hand. The player is swapped in, at 0 health. The slot is not written here: the
+// use-up reads the hands after this hook.
+pub(super) fn on_player_totem(game: &mut crate::game::Game<'_>, player: u128, name: &str) {
+    let Some(me) = game.native_acting_player() else {
+        return;
+    };
+    if me.uuid != player {
+        return;
+    }
+    let main_slot = i32::from(me.selected_slot);
+    let main = carried_item(game, main_slot);
+    let off = carried_item(game, logic::CARRIED_OFF_HAND);
+    let work = match logic::hand_save(main.as_deref(), off.as_deref(), me.selected_slot) {
+        logic::HandSave::Nothing => return,
+        logic::HandSave::Swap => {
+            let totem = game.native_carried_stack(main_slot).map(|stack| stack.clone());
+            let undying = game.native_carried_stack(logic::CARRIED_OFF_HAND).map(|stack| stack.clone());
+            let (Some(totem), Some(undying)) = (totem, undying) else {
+                return;
+            };
+            if let Some(stack) = game.native_carried_stack(main_slot) {
+                *stack = undying;
+            }
+            if let Some(stack) = game.native_carried_stack(logic::CARRIED_OFF_HAND) {
+                *stack = totem.clone();
+            }
+            HandWork::SwapBack { slot: usize::from(me.selected_slot), totem }
+        }
+        logic::HandSave::Eternity { inventory, .. } => HandWork::Dormant { slot: inventory },
+    };
+    server().hand.push(HandSaveRecord { uuid: player, name: name.to_owned(), work });
+}
+
+/// Puts the Dormant Totem in `slot` of `uuid`, which the game emptied. Another item there: the
+/// inventory gets it. No room: a warning (the save already happened).
+fn place_dormant(game: &mut crate::game::Game<'_>, uuid: u128, name: &str, slot: usize) {
+    let dormant = ItemStack::new(ids::SLEEPING_TOTEM, 1);
+    let kind = crate::game::NativeInventoryKind::Player;
+    if game.native_set_inventory_slot(uuid, kind, slot, None, Some(dormant.clone())).is_ok() {
+        return;
+    }
+    if game.native_give_stack(uuid, dormant).is_some() {
+        log::warn!("[BalancedMcHardcoreMain] No room for the Dormant Totem of {name}");
+    }
+}
+
+/// Puts the Totem of Eternity back from the off hand into the main hand `slot` after a swap save.
+/// It moves only when the off hand still holds it and the main slot is empty.
+fn swap_back(game: &mut crate::game::Game<'_>, uuid: u128, name: &str, slot: usize, totem: ItemStack) {
+    let kind = crate::game::NativeInventoryKind::Player;
+    if game.native_set_inventory_slot(uuid, kind, logic::INVENTORY_OFF_HAND, Some(&totem), None).is_err() {
+        return;
+    }
+    if game.native_set_inventory_slot(uuid, kind, slot, None, Some(totem.clone())).is_ok() {
+        return;
+    }
+    let back = game.native_set_inventory_slot(uuid, kind, logic::INVENTORY_OFF_HAND, None, Some(totem.clone()));
+    if back.is_err() && game.native_give_stack(uuid, totem).is_some() {
+        log::warn!("[BalancedMcHardcoreMain] No room for the Totem of Eternity of {name}");
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // T11, T12: one Totem of Eternity per player and per container
 // ---------------------------------------------------------------------------------------------
@@ -397,16 +488,33 @@ pub(super) fn on_server_tick(
         return;
     };
     ACTIVE_TICK.store(0, Ordering::Relaxed);
-    let names = {
+    let (mut names, hand) = {
         let mut s = server();
         if s.epoch != Some(context.epoch) {
             s.book.clear();
             s.open.clear();
             s.awards.clear();
+            s.hand.clear();
             s.epoch = Some(context.epoch);
         }
-        std::mem::take(&mut s.awards)
+        (std::mem::take(&mut s.awards), std::mem::take(&mut s.hand))
     };
+    // T2, route A: no player is swapped in here, so `native_set_inventory_slot` reaches each one.
+    for record in hand {
+        match record.work {
+            HandWork::Dormant { slot } => {
+                place_dormant(game, record.uuid, &record.name, slot);
+                log::info!(
+                    "[BalancedMcHardcoreMain] The Totem of Eternity saved {} and is now dormant",
+                    record.name
+                );
+                names.push(record.name);
+            }
+            HandWork::SwapBack { slot, totem } => {
+                swap_back(game, record.uuid, &record.name, slot, totem);
+            }
+        }
+    }
     for name in names {
         // A repeat of the advancement answers "unable to grant": nothing to retry.
         crate::game::bmh::award(game, &name, logic::SAVED_ADVANCEMENT);

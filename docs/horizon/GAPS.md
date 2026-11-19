@@ -38,7 +38,7 @@ Tier rule of this file: a row's tier is the worst tier that the Java behaviour n
 | C16 | Black screen held across the respawn load; input held | N | `gui_render_post` also fires over the level-loading screen of a respawn. `mod_screen_open`, retried each frame, holds input after the load. | None expected. Not proven by a run. | v4 1d |
 | C17 | Music fade, star chimes, bell at the end | N | `music` hook `volume`; `play_local_sound`. | No sound category: the Players slider does not scale them. The fade steps at 20 Hz. | v4 1e |
 | T1 | Totem items: Totem of Eternity, Dormant, Hollow, Echo Heart; ids, names, rarity, fire resistance, glint, tooltip lines | N | Content mod item JSON (already in `horizon/content`), `tooltip` hook. | None. | v2 2; v3 1a; NOTES |
-| T2 | Save from death: a Totem of Eternity anywhere in the inventory saves at 1 health and becomes a Dormant Totem in the same slot | N | `living_death` cancel records the entity id; the next `player_tick` replaces the stack in its slot with `carried_stack`. | The swap lands one tick late. A second death in that tick must not save again. Bypass types are a hard-coded list. Accepted by the owner on 2026-11-18: the totem does not save the owner of a single-player world, because Horizon never calls `living_death` for the owner (callers: mobs and `guest_die` only). A Horizon hook for the owner's death would close it; an injection into the game would break D8. For a LAN guest the save is not tested (the dead flag may stay set). Checks t1 to t5 of `test-slice.sh` stay red until then. | v2 1a; v4 5a; LOG.md step 11 |
+| T2 | Save from death: a Totem of Eternity anywhere in the inventory saves at 1 health and becomes a Dormant Totem in the same slot | N | Route A (2026-11-19, `docs/horizon/solutions/totem-save.md`): the content item carries `minecraft:death_protection` with the three Java effects, so Horizon's own hand check saves the player. The `player_totem` hook swaps the hands when a Totem of Undying is in the off hand (it saves first, as in Java) or records the slot; the end of the server tick puts the Dormant Totem there. The old `living_death` path stays. | Only a Totem of Eternity in a hand saves: one in another slot does not (Java: any slot). The reason: Horizon calls `living_death` for a player only when trait mods exist (`guest_die`, `lan_actions.rs:4293-4296`), and BMH has none (D2). Any slot needs an upstream change or an injection (proposal in the solution file, D8). A mob that holds a Totem of Eternity is saved by it once (Java: never). Bypass types are a hard-coded list. Checks t1 to t5, t11 (off hand) and t12 (Undying first) pass in the game on 2026-11-19; t13 shows the gap. | v2 1a; v4 5a; LOG.md step 11; totem-save.md |
 | T3 | Save effects: clear all, Regeneration, Absorption, Fire Resistance | N | `run_command("effect clear ...")` and `effect give` from `server_tick`. | One or two ticks late: a second hit in that window finds no Absorption. | v2 1b |
 | T4 | Save animation shows the Totem of Eternity (entity event 35) | X | Inject into `Game::update_totem_ready`, `apply_totem`, `find_totem` (G/totem.rs:53, :67, :166). Ships at N: totem sound and particles through `run_command`, no item overlay. | Without X: no item animation on screen. | v2 1c; v4 8 |
 | T5 | Totem of Undying gives no Fire Resistance | N | `modify_default_components` on `minecraft:totem_of_undying`. | Mobs holding a totem lose it too (they read the same component). | v2 1d |
@@ -98,7 +98,7 @@ Counts over the 59 rows: N 36, M 0, F 11, X 7, G 5.
 - C5, hardcore. Without the X field read, the mod reads `level.dat`. A brand new world may have no `level.dat` yet (open question).
 - C9, the tenth death. Until `player_stat` is stamped, deaths count from install.
 - C14, coordinates. The restore sets `false` until `level_game_rule` is stamped.
-- T2 and T3, the totem save. The save cancels the death, then the swap and the effects come one or two ticks later.
+- T2 and T3, the totem save. Only a Totem of Eternity in a hand saves (route A). The effects come at once; the Dormant Totem lands at the end of the same server tick.
 - T4, the save animation. Sound and particles only, no item overlay, until the X injection.
 - T9, runes. Sent by the server through `/particle`, one tick late.
 - T13, droppers. Not stopped until the X injection.
@@ -144,6 +144,7 @@ Tier is for the Nightly pin. API numbers come from the doc comments in `G/native
 | `loot_drops` (dying player's inventory) | hook | N | 75, extension 405 | C1, C8, C11, C12 |
 | `player_died` | hook | N | 40 | C9 |
 | `player_tick` | hook | N | 31 | C1, C6, T2, T11, E8 |
+| `player_totem` | hook | N | 182 | T2 |
 | `player_respawned` | hook | N | 115 | C2, C8, C11 |
 | `server_tick` | hook | N | 4 | C3, C7, C9, C10, C14, T3, T9, E7 |
 | `living_incoming_damage` | hook | N | 50 | C6 |
