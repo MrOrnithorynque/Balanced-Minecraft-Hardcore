@@ -16,7 +16,7 @@
 //   refuses. So the sounds, the particles and the advancement wait in `SERVER.effects` and go out at the end
 //   of the server tick (one tick late, GAPS.md T9).
 
-use bmh_logic::amulet as amulet_logic;
+use crate::game::bmh_amulet::{sky, sky_at};
 use bmh_logic::moon as logic;
 use horizon_client::first_person::Hand;
 use horizon_client::items::ItemStack;
@@ -133,42 +133,6 @@ fn is_ritual(stack: &ItemStack) -> bool {
 fn game_time(game: &crate::game::Game<'_>) -> Option<i64> {
     let level = game.native_level(OVERWORLD)?;
     game.native_level_game_time(level)
-}
-
-/// The sky as the rules read it, for the eyes at `eye` in `dimension` (AmuletReading.java:111-145). The amulet
-/// area has the same function; it is private to that file. `blinded` is false when the caller cannot read the
-/// effects (the window has no local player id).
-fn sky_at(
-    game: &crate::game::Game<'_>,
-    dimension: &str,
-    eye_position: [f64; 3],
-    blinded: bool,
-) -> amulet_logic::Sky {
-    let eye = amulet_logic::block_of(eye_position);
-    let wet = amulet_logic::block_of([eye_position[0], eye_position[1] - amulet_logic::FLUID_EYE_OFFSET, eye_position[2]]);
-    let wet_block = game.native_block(wet);
-    let waterlogged = game.native_block_property(wet, "waterlogged").as_deref() == Some("true");
-    let (rain, thunder) = game.native_weather();
-    amulet_logic::Sky {
-        overworld: dimension == OVERWORLD,
-        rain,
-        thunder,
-        day_time: game.native_day_time(),
-        sky_light: game.native_light(eye).1,
-        blinded,
-        eyes_covered: amulet_logic::holds_water(&wet_block, waterlogged)
-            || amulet_logic::holds_lava(&wet_block)
-            || amulet_logic::is_powder_snow(&game.native_block(eye)),
-    }
-}
-
-/// The sky for the player whose state is swapped in (server).
-fn sky(game: &crate::game::Game<'_>, me: &NativeServerPlayer) -> amulet_logic::Sky {
-    let [x, y, z] = me.position;
-    let blinded = game
-        .native_effects(me.uuid)
-        .is_some_and(|effects| effects.iter().any(|e| amulet_logic::BLINDING_EFFECTS.contains(&e.id.as_str())));
-    sky_at(game, &me.dimension, [x, y + f64::from(me.eye_height), z], blinded)
 }
 
 /// The start test as the window can compute it, from the camera of the last frame (GAPS.md T7). None when

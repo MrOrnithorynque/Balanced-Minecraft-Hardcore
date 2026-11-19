@@ -101,10 +101,10 @@ The grid and its rows are built in `title/create_world.rs` (`grid` at `:307`, ro
 
 `options.rules` is a `GameRules`, so it cannot hold a BMH rule (R2). The More tab's Game Rules list therefore cannot show or sync the choice.
 
-### R11. What was added this round (`bmh_settings.rs`, `track_screen`, `recreate_choice`, `create_locked`)
+### R11. What was added this round (`bmh_settings.rs`, `track_screen`, `recreate_rules`, `create_locked`)
 
 - Grey-out. In Hardcore (`options.hardcore`) and in a debug world (`world_type == Debug`) the button is drawn with the disabled sprite and a grey label, takes no click, and keeps its value. This is what `CreateWorldGameTabMixin.java:49-51` does.
-- Re-Create. A Create screen with `options.commands` set is a Re-Create (a new world has it unset). The old world is the row that the world list had selected at the last screen hook. The button starts ON when any rule of that world's `bmh/rules.txt` is on (`CreateWorldGameTabMixin.java:58-60`, `anyMatch`). A world with no rules file starts ON.
+- Re-Create. A Create screen with `options.commands` set is a Re-Create (a new world has it unset). The old world is the row that the world list had selected at the last screen hook. The button starts ON when any rule of that world's `bmh/rules.txt` is on (`CreateWorldGameTabMixin.java:58-60`, `anyMatch`). The new world keeps all six values unless the player clicks the button. A click sets all six rules. A Java source world without a Horizon rules file uses its saved BMH rules.
 
 ## S2. Evidence
 
@@ -122,7 +122,6 @@ Not run: the debug world case (the create screen offers no debug preset; the cod
 - Not a child of the tab's grid (R9). The place is computed from the game's own arithmetic.
 - Not synced with the More tab's list (R10).
 - No click sound and no narrator text. `native_play_local_sound` plays nothing on a server and needs `&mut Game`, while the click hook gets `&Game`. Not tried in the game.
-- Re-Create copies the state, not the six values: an old world with mixed values becomes all ON or all OFF.
 
 ## Files
 

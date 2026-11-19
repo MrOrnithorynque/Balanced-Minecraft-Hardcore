@@ -27,12 +27,6 @@ impl Rules {
         Rules([value; 6])
     }
 
-    /// True when at least one rule is on: the state of the Java button for a world that has rules
-    /// already (CreateWorldGameTabMixin.java:58-60, `anyMatch`). Re-Create shows it.
-    pub fn any_on(self) -> bool {
-        self.0.iter().any(|value| *value)
-    }
-
     /// The value of one rule.
     pub fn get(self, rule: Rule) -> bool {
         self.0[index(rule)]
@@ -87,7 +81,11 @@ pub fn rules_text(rules: Rules) -> String {
 /// The rules in a rules file. A line that is not understood is skipped. A rule that the file does
 /// not name stays on, as a rule that is missing from the Java saved data does.
 pub fn parse_rules(text: &str) -> Rules {
-    let mut rules = Rules::DEFAULT;
+    read_rule_entries(text).unwrap_or(Rules::DEFAULT)
+}
+
+fn read_rule_entries(text: &str) -> Option<Rules> {
+    let mut rules = None;
     for line in text.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
@@ -99,7 +97,7 @@ pub fn parse_rules(text: &str) -> Rules {
         let (Some(rule), Some(value)) = (Rule::from_name(name.trim()), parse_bool(value.trim())) else {
             continue;
         };
-        rules = rules.with(rule, value);
+        rules = Some(rules.unwrap_or(Rules::DEFAULT).with(rule, value));
     }
     rules
 }
@@ -172,7 +170,7 @@ pub fn initial_rules(
     file: Option<Rules>,
     imported: Option<Rules>,
     new_world: bool,
-    choice: Option<bool>,
+    choice: Option<Rules>,
 ) -> Rules {
     if let Some(rules) = file {
         return rules;
@@ -181,7 +179,7 @@ pub fn initial_rules(
         return rules;
     }
     match (new_world, choice) {
-        (true, Some(value)) => Rules::all(value),
+        (true, Some(rules)) => rules,
         _ => Rules::DEFAULT,
     }
 }
@@ -489,7 +487,7 @@ pub fn is_create_screen(id: &str) -> bool {
 
 /// The name of the mod setting that keeps the choice, in the mod's data folder. It is the channel
 /// to the server, which reads it when it opens the new world. Each new Create New World screen
-/// writes `true` into it first.
+/// stores its rules before the player can create the world.
 pub const CHOICE_SETTING: &str = "balanced_hardcore";
 
 /// The width of the button in GUI pixels. The Java button is 210 wide (CreateWorldGameTabMixin.java:41),
@@ -537,9 +535,18 @@ pub fn inside(rect: [f32; 4], pointer: [f32; 2]) -> bool {
     pointer[0] >= x && pointer[0] < x + width && pointer[1] >= y && pointer[1] < y + height
 }
 
-/// The choice in the setting file. None when the file holds no choice.
-pub fn parse_choice(text: &str) -> Option<bool> {
-    parse_bool(text.trim())
+/// Keep the original boolean format for uniform rules. Mixed worlds use the world rules file format.
+pub fn choice_text(rules: Rules) -> String {
+    let enabled = rules.any();
+    if rules == Rules::all(enabled) {
+        bool_text(enabled).to_owned()
+    } else {
+        rules_text(rules)
+    }
+}
+
+pub fn parse_choice(text: &str) -> Option<Rules> {
+    parse_bool(text.trim()).map(Rules::all).or_else(|| read_rule_entries(text))
 }
 
 #[cfg(test)]
@@ -585,10 +592,10 @@ mod tests {
 
     #[test]
     fn the_button_of_a_recreated_world_is_on_when_any_rule_is_on() {
-        assert!(Rules::DEFAULT.any_on());
-        assert!(!Rules::all(false).any_on());
-        assert!(Rules::all(false).with(Rule::ALL[3], true).any_on());
-        assert!(parse_rules("random_death_spawn_point = false\n").any_on());
+        assert!(Rules::DEFAULT.any());
+        assert!(!Rules::all(false).any());
+        assert!(Rules::all(false).with(Rule::ALL[3], true).any());
+        assert!(parse_rules("random_death_spawn_point = false\n").any());
     }
 
     #[test]
@@ -710,13 +717,13 @@ mod tests {
         let off = Rules::all(false);
         let mixed = Rules::DEFAULT.with(Rule::RandomDeathSpawnPoint, false);
         // The file of the world wins over everything.
-        assert_eq!(initial_rules(Some(mixed), Some(off), true, Some(false)), mixed);
+        assert_eq!(initial_rules(Some(mixed), Some(off), true, Some(off)), mixed);
         // Then a Java world.
-        assert_eq!(initial_rules(None, Some(mixed), true, Some(false)), mixed);
+        assert_eq!(initial_rules(None, Some(mixed), true, Some(off)), mixed);
         // Then the choice, for a new world only.
-        assert_eq!(initial_rules(None, None, true, Some(false)), off);
-        assert_eq!(initial_rules(None, None, true, Some(true)), Rules::DEFAULT);
-        assert_eq!(initial_rules(None, None, false, Some(false)), Rules::DEFAULT);
+        assert_eq!(initial_rules(None, None, true, Some(off)), off);
+        assert_eq!(initial_rules(None, None, true, Some(Rules::DEFAULT)), Rules::DEFAULT);
+        assert_eq!(initial_rules(None, None, false, Some(off)), Rules::DEFAULT);
         assert_eq!(initial_rules(None, None, true, None), Rules::DEFAULT);
     }
 
@@ -963,9 +970,18 @@ mod tests {
     }
 
     #[test]
+    fn recreate_preserves_mixed_rules_until_the_player_clicks() {
+        let mixed = Rules::all(false).with(Rule::DisplayTextOnRespawn, true);
+        assert_eq!(initial_rules(None, None, true, parse_choice(&choice_text(mixed))), mixed);
+        let clicked = Rules::all(!mixed.any());
+        assert_eq!(choice_text(clicked), "false");
+        assert_eq!(choice_text(Rules::all(!clicked.any())), "true");
+    }
+
+    #[test]
     fn the_choice_is_read_from_the_setting() {
-        assert_eq!(parse_choice("true"), Some(true));
-        assert_eq!(parse_choice("false\n"), Some(false));
+        assert_eq!(parse_choice("true"), Some(Rules::DEFAULT));
+        assert_eq!(parse_choice("false\n"), Some(Rules::all(false)));
         assert_eq!(parse_choice(""), None);
         assert_eq!(parse_choice("on"), None);
     }

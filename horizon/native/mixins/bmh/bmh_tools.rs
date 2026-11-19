@@ -13,6 +13,7 @@
 use bmh_logic::contract::Rule;
 use bmh_logic::eternal::PLAYER_SOUND_SOURCE;
 use bmh_logic::tools as logic;
+use bmh_logic::wire::{TOOLS_CHANNEL, ToolsSignal};
 use horizon_client::items::ItemStack;
 use horizon_client::mod_api::{ParticleOptions, ParticleType};
 use horizon_client::text::Text;
@@ -105,7 +106,7 @@ struct Server {
     /// The mineable answers that each player was sent (E4): each one goes once.
     told: BTreeSet<(u128, logic::Tool, String)>,
     /// The mineable answers to send at the end of the tick.
-    answers: Vec<(u128, logic::ToolsSignal)>,
+    answers: Vec<(u128, ToolsSignal)>,
 }
 
 static SERVER: Mutex<Server> = Mutex::new(Server {
@@ -681,7 +682,7 @@ pub(super) fn on_server_tick(
 fn send_answers(game: &mut crate::game::Game<'_>) {
     let answers = std::mem::take(&mut server().answers);
     for (player, signal) in answers {
-        if let Err(error) = game.native_net_send_to_player(player, logic::CHANNEL, &signal.encode()) {
+        if let Err(error) = game.native_net_send_to_player(player, TOOLS_CHANNEL, &signal.encode()) {
             log::debug!("[BalancedMcHardcoreMain] Mineable answer not sent: {error}");
         }
     }
@@ -695,7 +696,7 @@ fn send_readings(game: &mut crate::game::Game<'_>) {
     }
     let online = game.native_server_players();
     for reading in readings {
-        let message = logic::ToolsSignal::Glow {
+        let message = ToolsSignal::Glow {
             ticks: u32::try_from(logic::LIFETIME_TICKS).unwrap_or_default(),
             positions: reading.positions,
         }
@@ -704,7 +705,7 @@ fn send_readings(game: &mut crate::game::Game<'_>) {
             if !logic::sees_glow(&player.dimension, player.position, &reading.dimension, reading.center) {
                 continue;
             }
-            if let Err(error) = game.native_net_send_to_player(player.uuid, logic::CHANNEL, &message) {
+            if let Err(error) = game.native_net_send_to_player(player.uuid, TOOLS_CHANNEL, &message) {
                 log::debug!("[BalancedMcHardcoreMain] Echo Sense glow not sent: {error}");
             }
         }
@@ -828,12 +829,12 @@ fn in_tag(game: &crate::game::Game<'_>, block: &str, tag: &str) -> bool {
 
 // E9: read the ore positions to glow on `bmh:tools`. E4: keep the mineable answers of the server.
 pub(super) fn on_net_from_server(game: &mut crate::game::Game<'_>, channel: &str, data: &[u8]) {
-    if channel != logic::CHANNEL {
+    if channel != TOOLS_CHANNEL {
         return;
     }
-    match logic::ToolsSignal::decode(data) {
-        Some(logic::ToolsSignal::Glow { ticks, positions }) => glow(game, ticks, positions),
-        Some(logic::ToolsSignal::Mineable { tool, block, mineable }) => {
+    match ToolsSignal::decode(data) {
+        Some(ToolsSignal::Glow { ticks, positions }) => glow(game, ticks, positions),
+        Some(ToolsSignal::Mineable { tool, block, mineable }) => {
             client().mineable.set(tool, &block, mineable);
         }
         None => {}
@@ -946,7 +947,7 @@ fn tell_client(game: &crate::game::Game<'_>, tool: logic::Tool, block: &str, min
         return;
     }
     s.told.insert(key);
-    s.answers.push((me.uuid, logic::ToolsSignal::Mineable { tool, block: block.to_owned(), mineable }));
+    s.answers.push((me.uuid, ToolsSignal::Mineable { tool, block: block.to_owned(), mineable }));
 }
 
 // ---------------------------------------------------------------------------------------------

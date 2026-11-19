@@ -53,7 +53,7 @@ How the timer gets to the screen:
    cooling amulet is unchanged.
 2. `start_cooldown` also sends the new message `AmuletSignal::Cooldown { ticks }` (tag 3 on `bmh:amulet`,
    `logic/src/wire.rs`) to the player.
-3. The window stores `Cooldown { start: <its own game time>, ticks }`, so a guest's clock does not matter.
+3. Each window starts the cooldown on its own clock. It clears the timer on expiry, disconnect or a change of world.
 4. `on_item_decorations` draws the shade on every amulet icon while the cooldown runs.
    The hook is wired in `horizon-mixin.toml` (`hook_item_decorations`) and `hook_item_decorations.rs`, HOOKS.md row added.
 

@@ -13,10 +13,8 @@
 // - The config (S3) is `config/bmh-common.toml`. The game hands its text to `config_loading` and
 //   `config_reloading`. The values are in `COMMON_CONFIG`, one value for the whole process: the
 //   window, the integrated server and a dedicated server read the same file.
-// - The Create New World choice (S2) belongs to one Create New World screen: each new screen starts
-//   ON (`CLIENT_CHOICE`). A flip is also written to the mod setting `balanced_hardcore` in the mod
-//   data folder. That file is only the channel to the server, which reads it when it opens the new
-//   world for the first time.
+// - The world creation screen stores its six rules in the `balanced_hardcore` mod setting.
+//   The server reads this setting when it opens the new world for the first time.
 //
 // A command line `bmh rule ...` is mine. `bmh point ...` belongs to the amulet area: see
 // docs/horizon/HOOKS.md, "The /bmh command root".
@@ -58,7 +56,7 @@ const GAMERULE_QUEUE_LIMIT: usize = 64;
 static COMMON_CONFIG: Mutex<Config> = Mutex::new(Config::DEFAULT);
 
 /// The Create New World choice of the screen the window shows (or showed last).
-static CLIENT_CHOICE: Mutex<Option<bool>> = Mutex::new(None);
+static CLIENT_CHOICE: Mutex<logic::Rules> = Mutex::new(logic::Rules::DEFAULT);
 
 /// True while the title held one of the Create New World screens at the last screen hook. A Create
 /// New World screen that the title shows after another state is a new one, and its choice starts ON.
@@ -416,15 +414,16 @@ fn open_world(game: &mut crate::game::Game<'_>) {
 
 /// The choice of the screen: ON until the player flips it.
 fn create_choice() -> bool {
-    lock(&CLIENT_CHOICE).unwrap_or(true)
+    lock(&CLIENT_CHOICE).any()
 }
 
-/// Tells when a new Create New World screen opens. A Create New World screen that the title shows
-/// after another title screen (the world list, the main screen) or after a world is a new one: its
-/// choice starts ON, as the state of the Java button does (CreateWorldGameTabMixin.java:39 reads the
-/// rules of the screen). The file for the server is reset with it, so the world made from this
-/// screen reads this screen's choice. The flat and buffet editors belong to the same screen and keep
-/// the choice.
+fn set_create_rules(game: &crate::game::Game<'_>, rules: logic::Rules) {
+    *lock(&CLIENT_CHOICE) = rules;
+    game.native_set_setting(crate::game::bmh::ID, logic::CHOICE_SETTING, &logic::choice_text(rules));
+}
+
+/// Start each creation screen with the selected source rules or the defaults for a new world.
+/// Keep that choice when the player opens a preset editor or the Data Packs screen.
 ///
 /// This reads the title's own state, not the id of the screen that fired the hook: Data Packs opens
 /// a screen of the game's own over the title (`Action::DataPacks` sets `Screen::Options`), and that
@@ -440,26 +439,20 @@ fn track_screen(game: &crate::game::Game<'_>) {
     let in_create = game.title.as_ref().is_some_and(|title| logic::is_create_screen(title.mode.id()));
     let was_open = std::mem::replace(&mut *lock(&CREATE_OPEN), in_create);
     if in_create && !was_open {
-        let choice = recreate_choice(game).unwrap_or(true);
-        *lock(&CLIENT_CHOICE) = Some(choice);
-        game.native_set_setting(crate::game::bmh::ID, logic::CHOICE_SETTING, logic::bool_text(choice));
+        set_create_rules(game, recreate_rules(game).unwrap_or(logic::Rules::DEFAULT));
     }
 }
 
-/// Re-Create: the Java screen copies the rules of the old world, so its button shows whether any BMH
-/// rule of that world is on (CreateWorldGameTabMixin.java:58-60). The game fills the screen from the
-/// old world with `commands` set, and a new world has `commands` unset, so that tells the two apart at
-/// the first frame. The old world is the row that the world list had selected. None for a new world,
-/// or for an old world that has no rules file (a world never opened with the mod): the button starts ON.
-fn recreate_choice(game: &crate::game::Game<'_>) -> Option<bool> {
+/// Re-Create copies the selected world's rules. The initial Create screen has `commands` set only for Re-Create.
+fn recreate_rules(game: &crate::game::Game<'_>) -> Option<logic::Rules> {
     let title = game.title.as_ref()?;
     let crate::title::Mode::Create { options, .. } = &title.mode else {
         return None;
     };
     options.commands?;
     let dir = lock(&LAST_SELECTED).clone()?;
-    let text = std::fs::read_to_string(rules_path(&dir)).ok()?;
-    Some(logic::parse_rules(&text).any_on())
+    std::fs::read_to_string(rules_path(&dir)).ok().map(|text| logic::parse_rules(&text))
+        .or_else(|| import_java_rules(&dir))
 }
 
 /// The Java button is greyed out in Hardcore and in a debug world, where nobody respawns and BMH has
@@ -523,9 +516,7 @@ pub(super) fn on_screen_mouse_button_pressed_pre(
         *canceled = true;
         return;
     }
-    let choice = !create_choice();
-    *lock(&CLIENT_CHOICE) = Some(choice);
-    game.native_set_setting(crate::game::bmh::ID, logic::CHOICE_SETTING, logic::bool_text(choice));
+    set_create_rules(game, logic::Rules::all(!create_choice()));
     *canceled = true;
 }
 

@@ -521,6 +521,98 @@ impl SkySignal {
     }
 }
 
+use crate::tools::Tool;
+
+// ---------------------------------------------------------------------------------------------
+// The message of Echo Sense (decision D6: the server draws nothing, the client does)
+// ---------------------------------------------------------------------------------------------
+
+/// The channel of the area: server to client.
+pub const TOOLS_CHANNEL: &str = "bmh:tools";
+
+/// The most positions that one message carries. A reading holds at most 64 new glows, and the ones it
+/// lengthens are at most 64 more; a longer list is cut.
+pub const MAX_GLOW_POSITIONS: usize = 256;
+
+/// A message of the tools area.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToolsSignal {
+    /// Tag 1. These blocks glow for `ticks` ticks (the client counts them in real time, 50 ms each).
+    Glow { ticks: u32, positions: Vec<[i32; 3]> },
+    /// Tag 2. Whether the block `block` is in the mineable tag of `tool`, as the server read it (E4). The
+    /// client scales the dig speed of a worn out tool with it, as the server does.
+    Mineable { tool: Tool, block: String, mineable: bool },
+}
+
+/// The byte of a tool in a message.
+fn tool_byte(tool: Tool) -> u8 {
+    match tool {
+        Tool::Sword => 0,
+        Tool::Axe => 1,
+        Tool::Pickaxe => 2,
+    }
+}
+
+/// The tool of a byte in a message, or None for another byte.
+fn byte_tool(byte: u8) -> Option<Tool> {
+    match byte {
+        0 => Some(Tool::Sword),
+        1 => Some(Tool::Axe),
+        2 => Some(Tool::Pickaxe),
+        _ => None,
+    }
+}
+
+impl ToolsSignal {
+    const GLOW: u8 = 1;
+    const MINEABLE: u8 = 2;
+
+    /// The bytes of this message.
+    pub fn encode(&self) -> Vec<u8> {
+        let mut w = Writer::new();
+        match self {
+            Self::Glow { ticks, positions } => {
+                let positions = &positions[..positions.len().min(MAX_GLOW_POSITIONS)];
+                w.u8(Self::GLOW).u32(*ticks).u32(positions.len() as u32);
+                for pos in positions {
+                    w.i32(pos[0]).i32(pos[1]).i32(pos[2]);
+                }
+            }
+            Self::Mineable { tool, block, mineable } => {
+                w.u8(Self::MINEABLE).u8(tool_byte(*tool)).str(block).bool(*mineable);
+            }
+        }
+        w.finish()
+    }
+
+    /// The message in `bytes`, or None when the bytes are not valid.
+    pub fn decode(bytes: &[u8]) -> Option<Self> {
+        let mut r = Reader::new(bytes);
+        let signal = match r.u8()? {
+            Self::GLOW => {
+                let ticks = r.u32()?;
+                let count = usize::try_from(r.u32()?).ok()?;
+                if count > MAX_GLOW_POSITIONS {
+                    return None;
+                }
+                let mut positions = Vec::with_capacity(count);
+                for _ in 0..count {
+                    positions.push([r.i32()?, r.i32()?, r.i32()?]);
+                }
+                Self::Glow { ticks, positions }
+            }
+            Self::MINEABLE => {
+                let tool = byte_tool(r.u8()?)?;
+                let block = r.str()?.to_owned();
+                let mineable = r.bool()?;
+                Self::Mineable { tool, block, mineable }
+            }
+            _ => return None,
+        };
+        r.is_done().then_some(signal)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -845,5 +937,83 @@ mod tests {
         assert_eq!(r.remaining(), bytes.len());
         r.u8();
         assert_eq!(r.remaining(), bytes.len() - 1);
+    }
+
+    // ---- the message ----
+
+    #[test]
+    fn a_glow_message_round_trips() {
+        let signal = ToolsSignal::Glow { ticks: 100, positions: vec![[1, 2, 3], [-4, 70, 99_999]] };
+        assert_eq!(ToolsSignal::decode(&signal.encode()), Some(signal));
+        let empty = ToolsSignal::Glow { ticks: 0, positions: Vec::new() };
+        assert_eq!(ToolsSignal::decode(&empty.encode()), Some(empty));
+    }
+
+    #[test]
+    fn a_long_list_is_cut_to_the_cap() {
+        let positions: Vec<[i32; 3]> = (0..300).map(|i| [i, 0, 0]).collect();
+        let decoded = ToolsSignal::decode(&ToolsSignal::Glow { ticks: 1, positions }.encode());
+        match decoded {
+            Some(ToolsSignal::Glow { positions, .. }) => assert_eq!(positions.len(), MAX_GLOW_POSITIONS),
+            other => panic!("the cut message must decode as a glow: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_bad_message_is_refused() {
+        let good = ToolsSignal::Glow { ticks: 5, positions: vec![[1, 2, 3]] }.encode();
+        // Every cut of the bytes is refused.
+        for len in 0..good.len() {
+            assert_eq!(ToolsSignal::decode(&good[..len]), None, "cut at {len}");
+        }
+        // Extra bytes are refused.
+        let mut long = good.clone();
+        long.push(0);
+        assert_eq!(ToolsSignal::decode(&long), None);
+        // An unknown tag is refused.
+        let mut other = good.clone();
+        other[0] = 9;
+        assert_eq!(ToolsSignal::decode(&other), None);
+        // A count past the cap is refused before anything is read.
+        let mut w = Writer::new();
+        w.u8(1).u32(5).u32(1000);
+        assert_eq!(ToolsSignal::decode(&w.finish()), None);
+    }
+
+    #[test]
+    fn a_mineable_message_round_trips() {
+        for (tool, mineable) in [(Tool::Pickaxe, true), (Tool::Axe, false), (Tool::Sword, true)] {
+            let signal = ToolsSignal::Mineable { tool, block: "minecraft:deepslate".to_owned(), mineable };
+            assert_eq!(ToolsSignal::decode(&signal.encode()), Some(signal));
+        }
+        let empty = ToolsSignal::Mineable { tool: Tool::Axe, block: String::new(), mineable: true };
+        assert_eq!(ToolsSignal::decode(&empty.encode()), Some(empty));
+    }
+
+    #[test]
+    fn a_bad_mineable_message_is_refused() {
+        let good = ToolsSignal::Mineable { tool: Tool::Pickaxe, block: "minecraft:stone".to_owned(), mineable: true }
+            .encode();
+        for len in 0..good.len() {
+            assert_eq!(ToolsSignal::decode(&good[..len]), None, "cut at {len}");
+        }
+        let mut long = good.clone();
+        long.push(0);
+        assert_eq!(ToolsSignal::decode(&long), None);
+        // An unknown tool byte is refused.
+        let mut tool = good.clone();
+        tool[1] = 7;
+        assert_eq!(ToolsSignal::decode(&tool), None);
+        // A bool byte other than 0 or 1 is refused.
+        let mut flag = good.clone();
+        if let Some(last) = flag.last_mut() {
+            *last = 2;
+        }
+        assert_eq!(ToolsSignal::decode(&flag), None);
+    }
+
+    #[test]
+    fn the_channel_is_bmh_tools() {
+        assert_eq!(TOOLS_CHANNEL, crate::ids::channel("tools"));
     }
 }

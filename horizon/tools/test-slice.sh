@@ -10,6 +10,7 @@
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
+#   --package    test the installed .hmod from the distribution ZIP with the matching native build
 #   --resources  the prepared game files (default $BMH_HORIZON_CACHE/resources/26.3)
 #   --bin-dir    the folder with horizon-client and horizon-ctl
 #   --out DIR    where the screenshots go (default: the scratch folder, printed at the end)
@@ -44,6 +45,7 @@ cache="${BMH_HORIZON_CACHE:-$HOME/Library/Caches/bmh-horizon}"
 game_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["game"])' "$repo/horizon/native/compatibility.json" 2>/dev/null || echo 26.3)"
 
 only=""
+distribution=""
 keep=0
 window=0
 build=1
@@ -53,6 +55,8 @@ outdir=""
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --package) [ "$#" -ge 2 ] || { echo "test-slice.sh: --package needs a ZIP." >&2; exit 64; }
+                   distribution="$2"; shift 2 ;;
         --only)      [ "$#" -ge 2 ] || { echo "test-slice.sh: --only needs a list." >&2; exit 64; }
                      only=",$2,"; shift 2 ;;
         --keep)      keep=1; shift ;;
@@ -299,13 +303,32 @@ echo "test-slice.sh: scratch   $scratch"
 mkdir -p "$GAMEDIR"
 extra=""
 [ "$window" -eq 1 ] || extra="--offscreen"
+mod_args=(--dev-mod "$content")
+if [ -n "$distribution" ]; then
+    python3 - "$distribution" "$GAMEDIR" "$scratch/ggame" <<'PYMOD' || exit 3
+import sys
+from pathlib import Path
+from zipfile import ZipFile
+
+with ZipFile(sys.argv[1]) as archive:
+    for target in map(Path, sys.argv[2:]):
+        for name in ("horizon-mods/bmh.hmod", "horizon-native-mods/bmh.hnmod"):
+            dest = target / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(archive.read(name))
+        (target / "horizon-mods.txt").write_text("mod.bmh:true\n")
+PYMOD
+    mod_args=()
+    echo "test-slice.sh: installed packages from $distribution"
+fi
+
 # launch_game [--wait]: starts the game on the scratch world (made at the first launch, opened again
 # after). Sets reply, launch_status and GAMEPID.
 launch_game() {
     reply="$(HORIZON_HOME="$HOMEDIR" HORIZON_NO_AUDIO=1 HORIZON_TELEMETRY_URL=off HORIZON_NO_DISCORD=1 \
         HORIZON_LAUNCHER_NO_SELF_UPDATE=1 \
         "$CTL" --socket "$SOCK" --timeout 900 launch --game "$GAME" --world "$WORLD" --seed "$SEED" "$@" \
-        --resources "$resources" --game-dir "$GAMEDIR" --home "$HOMEDIR" --dev-mod "$content" $extra 2>&1)"
+        --resources "$resources" --game-dir "$GAMEDIR" --home "$HOMEDIR" ${mod_args[@]+"${mod_args[@]}"} $extra 2>&1)"
     launch_status=$?
     # The launch reply is the whole state of the game. Print only what a person needs.
     echo "test-slice.sh: launch reply: $(jget "$reply" '{"ok": d.get("launch", {}).get("ok"), "pid": d.get("launch", {}).get("pid"), "screen": d.get("screen"), "dimension": d.get("dimension"), "player": d.get("player")}')"
@@ -795,7 +818,13 @@ fi
 # Settings fix round 1 (2026-11-17): the button sits in the Game tab, in the row under Allow Commands, as
 # wide as the tab's buttons. Its place is read from the bounds of the Allow Commands widget of "ui".
 CHOICE_FILE="$GAMEDIR/horizon-mods/.horizon-mod-data/bmh/balanced_hardcore"
-choice_now() { cat "$CHOICE_FILE" 2>/dev/null | tr -d ' \n'; }
+choice_now() {
+    awk '
+        $1 == "true" || $1 == "false" { print $1; exit }
+        $2 == "=" { found = 1; if ($3 == "true") enabled = 1 }
+        END { if (found) print enabled ? "true" : "false" }
+    ' "$CHOICE_FILE" 2>/dev/null
+}
 # button_xy: the middle of the button, "X Y" in GUI pixels: the middle of Allow Commands, then the
 # button's own row (its height 20 and the row gap 8, then half of the 20 high button). Empty when the
 # open tab is not the Game tab.
@@ -2816,7 +2845,7 @@ if wanted x; then
     mkdir -p "$scratch/ghome" "$scratch/ggame"
     greply="$(HORIZON_HOME="$scratch/ghome" HORIZON_NO_AUDIO=1 HORIZON_TELEMETRY_URL=off HORIZON_NO_DISCORD=1 HORIZON_LAUNCHER_NO_SELF_UPDATE=1 \
         "$CTL" --socket "$GSOCK" --timeout 300 launch --game "$GAME" --resources "$resources" --game-dir "$scratch/ggame" --home "$scratch/ghome" \
-        --dev-mod "$content" $extra 2>&1)"
+        ${mod_args[@]+"${mod_args[@]}"} $extra 2>&1)"
     gctl() { "$CTL" --socket "$GSOCK" --timeout 60 "$@" 2>&1; }
     if [ -z "$port" ] || [ "$port" = None ] || [ ! -S "$GSOCK" ]; then
         skip x1 "no LAN port or the guest game did not start: $(printf '%s' "$lan" | head -c 150) / $(printf '%s' "$greply" | head -c 150)"
@@ -3386,7 +3415,32 @@ if wanted o; then
         fail o3 "Re-Create: world with rules false gave '$rc_off' (false expected), world with rules on gave '$rc_on' (true expected)"
     fi
     ctl click cancel >/dev/null; sleep 1
-    ctl click back >/dev/null; sleep 1
+
+    # Prepare a mixed source in the test's closed scratch world.
+    mixed_rules="$GAMEDIR/saves/bmhrc/bmh/rules.txt"
+    sed 's/^display_text_on_respawn = false$/display_text_on_respawn = true/' "$mixed_rules" > "$mixed_rules.tmp"
+    mv "$mixed_rules.tmp" "$mixed_rules"
+    recreate_choice_of bmhrc
+    make_world bmhrcmixed
+    if [ "$(grep -c ' = false$' "$mixed_rules")" = 5 ] && [ "$(grep -c ' = true$' "$mixed_rules")" = 1 ] &&
+       cmp -s "$mixed_rules" "$GAMEDIR/saves/bmhrcmixed/bmh/rules.txt"; then
+        pass o4 "Re-Create preserves all six mixed source rules without a click"
+    else
+        fail o4 "the source must have one rule on and five off, and its copy must match"
+    fi
+    leave_world
+    ctl click singleplayer >/dev/null; sleep 2
+    recreate_choice_of bmhrc
+    flip_button
+    rc_first_click="$(choice_now)"
+    flip_button
+    make_world bmhrcflipped
+    if [ "$rc_first_click" = false ] && [ "$(grep -c ' = true$' "$GAMEDIR/saves/bmhrcflipped/bmh/rules.txt")" = 6 ]; then
+        pass o5 "the two clicks on the mixed source turn all rules off and then all six on"
+    else
+        fail o5 "expected OFF after the first click and six enabled rules in the new world"
+    fi
+    leave_world
     ctl open "$WORLD" >/dev/null
     ctl wait-for loaded --timeout 200 >/dev/null
     sleep 3

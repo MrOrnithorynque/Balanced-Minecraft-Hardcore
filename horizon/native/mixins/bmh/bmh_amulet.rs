@@ -569,20 +569,20 @@ fn used_slot(game: &mut crate::game::Game<'_>, selected: u8) -> Option<i32> {
         .find(|slot| is_amulet(game.native_carried_stack(*slot).map(|s| &*s)))
 }
 
-/// The sky as the rules read it, for the player whose state is swapped in (AmuletReading.java:111-145).
-fn sky(game: &crate::game::Game<'_>, me: &horizon_client::mod_api::NativeServerPlayer) -> logic::Sky {
-    let [x, y, z] = me.position;
-    let eye_y = y + f64::from(me.eye_height);
-    let eye = logic::block_of([x, eye_y, z]);
-    let wet = logic::block_of([x, eye_y - logic::FLUID_EYE_OFFSET, z]);
+/// Reads the sky at eye level for an amulet reading or a moon ritual.
+pub(super) fn sky_at(
+    game: &crate::game::Game<'_>,
+    dimension: &str,
+    eye_position: [f64; 3],
+    blinded: bool,
+) -> logic::Sky {
+    let eye = logic::block_of(eye_position);
+    let wet = logic::block_of([eye_position[0], eye_position[1] - logic::FLUID_EYE_OFFSET, eye_position[2]]);
     let wet_block = game.native_block(wet);
     let waterlogged = game.native_block_property(wet, "waterlogged").as_deref() == Some("true");
     let (rain, thunder) = game.native_weather();
-    let blinded = game
-        .native_effects(me.uuid)
-        .is_some_and(|effects| effects.iter().any(|e| logic::BLINDING_EFFECTS.contains(&e.id.as_str())));
     logic::Sky {
-        overworld: me.dimension == OVERWORLD,
+        overworld: dimension == OVERWORLD,
         rain,
         thunder,
         day_time: game.native_day_time(),
@@ -592,6 +592,15 @@ fn sky(game: &crate::game::Game<'_>, me: &horizon_client::mod_api::NativeServerP
             || logic::holds_lava(&wet_block)
             || logic::is_powder_snow(&game.native_block(eye)),
     }
+}
+
+/// The sky for the player whose state is swapped in (server).
+pub(super) fn sky(game: &crate::game::Game<'_>, me: &horizon_client::mod_api::NativeServerPlayer) -> logic::Sky {
+    let [x, y, z] = me.position;
+    let blinded = game
+        .native_effects(me.uuid)
+        .is_some_and(|effects| effects.iter().any(|e| logic::BLINDING_EFFECTS.contains(&e.id.as_str())));
+    sky_at(game, &me.dimension, [x, y + f64::from(me.eye_height), z], blinded)
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -935,14 +944,39 @@ struct Client {
     shown: Option<Shown>,
     outbox: Vec<AmuletRequest>,
     close: bool,
-    /// The cooldown the server told, in the window's own game time, for the sweep on the icon (A4).
-    cooldown: Option<logic::Cooldown>,
+    /// Each window draws its own cooldown in the world where the server sent it.
+    cooldowns: BTreeMap<u64, (crate::game::native_client_services::NativeWorldId, logic::Cooldown)>,
 }
 
-static CLIENT: Mutex<Client> = Mutex::new(Client { shown: None, outbox: Vec::new(), close: false, cooldown: None });
+static CLIENT: Mutex<Client> = Mutex::new(Client {
+    shown: None,
+    outbox: Vec::new(),
+    close: false,
+    cooldowns: BTreeMap::new(),
+});
 
 fn client() -> MutexGuard<'static, Client> {
     lock(&CLIENT)
+}
+
+impl Client {
+    fn cooldown_fraction(&mut self, game: &crate::game::Game<'_>) -> f32 {
+        if self.cooldowns.is_empty() {
+            return 0.0;
+        }
+        let Some(state) = game.native_client_state() else { return 0.0 };
+        let Some((world, cooldown)) = self.cooldowns.get(&state.window_id) else { return 0.0 };
+        if state.world.as_ref() == Some(world)
+            && let Some(clock) = game.native_clock()
+        {
+            let left = cooldown.remaining(clock.game_time, 0.0);
+            if left > 0.0 {
+                return left;
+            }
+        }
+        self.cooldowns.remove(&state.window_id);
+        0.0
+    }
 }
 
 /// True when the amulet's own screen is open in this window.
@@ -966,9 +1000,11 @@ pub(super) fn on_net_from_server(game: &mut crate::game::Game<'_>, channel: &str
         return;
     };
     if let AmuletSignal::Cooldown { ticks } = message {
-        // The sweep starts now, in the game time this window counts (a guest's differs from the server's).
-        if let Some(clock) = game.native_clock() {
-            client().cooldown = Some(logic::Cooldown { start: clock.game_time, ticks: i64::from(ticks) });
+        if let (Some(state), Some(clock)) = (game.native_client_state(), game.native_clock())
+            && let Some(world) = state.world
+        {
+            let cooldown = logic::Cooldown { start: clock.game_time, ticks: i64::from(ticks) };
+            client().cooldowns.insert(state.window_id, (world, cooldown));
         }
         return;
     }
@@ -1010,6 +1046,8 @@ pub(super) fn on_frame(game: &mut crate::game::Game<'_>) {
     let open = screen_open(game);
     let (requests, close) = {
         let mut c = client();
+        // Remove the timer when this window leaves the world, even with no amulet on screen.
+        c.cooldown_fraction(game);
         let close = std::mem::take(&mut c.close);
         if !open || close {
             c.shown = None;
@@ -1375,10 +1413,7 @@ pub(super) fn on_item_decorations(
     if &*stack.item != logic::AMULET || !game.native_window() {
         return;
     }
-    let (Some(clock), Some(cooldown)) = (game.native_clock(), client().cooldown) else {
-        return;
-    };
-    let Some((top, height)) = logic::sweep_rows(cooldown.remaining(clock.game_time, 0.0)) else {
+    let Some((top, height)) = logic::sweep_rows(client().cooldown_fraction(game)) else {
         return;
     };
     game.native_fill(batch, [x, y + top as f32, 16.0, height as f32], logic::SWEEP_COLOR);
