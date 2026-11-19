@@ -3150,7 +3150,7 @@ if wanted z; then
     ctl wait 10 >/dev/null
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
-    z_menu="$(ctl menu)"
+    z_menu="$(ctl screen)"
     echo "z-evidence z1: menu $(printf '%s' "$z_menu" | head -c 700)"
     if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && z_original_in_menu "$z_menu" && [ "$(z_returns)" -gt "$r0" ]; then
         pass z1 "a shift click returned the marked totem to the player and kept the original in the chest"
@@ -3163,7 +3163,7 @@ if wanted z; then
     ctl wait 5 >/dev/null
     ctl click-slot 305 >/dev/null
     ctl wait 10 >/dev/null
-    z_menu="$(ctl menu)"
+    z_menu="$(ctl screen)"
     echo "z-evidence z2: menu $(printf '%s' "$z_menu" | head -c 700)"
     ctl close >/dev/null
     ctl wait 10 >/dev/null
@@ -3266,7 +3266,7 @@ if wanted z; then
     r0="$(z_returns)"
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
-    z_menu="$(ctl menu)"
+    z_menu="$(ctl screen)"
     echo "z-evidence z7: cart $(printf '%s' "$z_cart_menu" | head -c 180), menu $(printf '%s' "$z_menu" | head -c 600)"
     z7b="$(t_counts bmh:totem_of_eternity)"
     ctl close >/dev/null
@@ -3308,7 +3308,7 @@ if wanted z; then
     r0="$(z_returns)"
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
-    z_menu="$(ctl menu)"
+    z_menu="$(ctl screen)"
     if [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && z_original_in_menu "$z_menu" && [ "$(z_returns)" -gt "$r0" ]; then
         pass z9 "the ender chest kept the first totem and the marked second totem returned to the player"
     else
