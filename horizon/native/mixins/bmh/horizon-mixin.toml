@@ -868,6 +868,19 @@ bindings = [
 ]
 
 [[injection]]
+id = "hook_item_decorations"
+kind = "HEAD"
+target = "horizon_client::game::native_hooks::Game<'_>::native_item_decorations"
+helper = "hook_item_decorations.rs"
+bindings = [
+  { name = "game", ty = "&crate::game::Game<'_>", value = "&*self" },
+  { name = "stack", ty = "&horizon_client::items::ItemStack", value = "stack" },
+  { name = "x", ty = "f32", value = "x" },
+  { name = "y", ty = "f32", value = "y" },
+  { name = "batch", ty = "&mut horizon_client::hud::HudBatch", value = "&mut *batch" },
+]
+
+[[injection]]
 id = "hook_inventory_move_item"
 kind = "HEAD"
 target = "horizon_client::game::native_hooks::Game<'_>::native_inventory_move_item"

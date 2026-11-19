@@ -324,11 +324,15 @@ pub enum AmuletSignal {
         max: i32,
         points: Vec<(String, [i32; 3])>,
     },
+    /// Tag 3. The amulet's cooldown starts for `ticks` ticks: the client draws the sweep on the icon
+    /// (GAPS.md A4; Java sends `ClientboundCooldownPacket`).
+    Cooldown { ticks: i32 },
 }
 
 impl AmuletSignal {
     const OPEN: u8 = 1;
     const LIST: u8 = 2;
+    const COOLDOWN: u8 = 3;
 
     /// The bytes of this signal. A list longer than `MAX_LIST_POINTS` is cut.
     pub fn encode(&self) -> Vec<u8> {
@@ -351,6 +355,9 @@ impl AmuletSignal {
                     w.str(name);
                     write_pos(&mut w, *pos);
                 }
+            }
+            Self::Cooldown { ticks } => {
+                w.u8(Self::COOLDOWN).i32(*ticks);
             }
         }
         w.finish()
@@ -378,6 +385,7 @@ impl AmuletSignal {
                 }
                 Self::List { max, points }
             }
+            Self::COOLDOWN => Self::Cooldown { ticks: r.i32()? },
             _ => return None,
         };
         r.is_done().then_some(signal)
@@ -599,6 +607,7 @@ mod tests {
             AmuletSignal::Open { pos: [-7, 70, 2], name: Some("Home: étoile".to_owned()), used: 5, max: 5, bed: false },
             AmuletSignal::List { max: 16, points: vec![] },
             AmuletSignal::List { max: 1, points: vec![("A".to_owned(), [1, 2, 3]), (String::new(), [-4, 5, -6])] },
+            AmuletSignal::Cooldown { ticks: 40 },
         ]
     }
 
@@ -637,7 +646,8 @@ mod tests {
         assert_eq!(AmuletRequest::Remove { pos: [1, 0, 0] }.encode(), [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         assert_eq!(AmuletRequest::decode(&[]), None);
         assert_eq!(AmuletRequest::decode(&[4]), None);
-        assert_eq!(AmuletSignal::decode(&[3]), None);
+        assert_eq!(AmuletSignal::decode(&[4]), None);
+        assert_eq!(AmuletSignal::Cooldown { ticks: 40 }.encode(), [3, 40, 0, 0, 0]);
         // A list that says it holds more points than the cap is refused before any allocation.
         let mut w = Writer::new();
         w.u8(2).i32(5).u32(u32::MAX);
