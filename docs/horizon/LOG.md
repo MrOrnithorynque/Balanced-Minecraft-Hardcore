@@ -387,7 +387,7 @@ load; it passes alone, and it was not weakened). The coordinator opened `w1d-fix
 Also seen, not investigated: the ritual checks s2, s4, s5 and s6 failed once in one full run and passed alone and in
 the next full run.
 
-## Resume here
+## Earlier handoff after step 15
 
 State on 2026-11-18, about 22:40. Branch `horizon-26.3`, local only (never pushed: the owner did not ask). HEAD: see
 git log.
@@ -536,3 +536,30 @@ Nothing here is done until a run in the game shows it. Each area adds its rows.
 
 | Area | What | How |
 |---|---|---|
+
+## Step 16. Packaged Horizon 26.3 integration (2026-11-19)
+
+The installable ZIP contains the content pack and the native mod. Both packages use the mod id `bmh` and version `1.9.0`.
+The launcher builds the native mod against Horizon `fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca`.
+See the [installation instructions](../../README.md) and [test commands](TESTING.md).
+
+The mod now uses the actual held death protector. A vanilla protector can take precedence over an active BMH totem.
+A successful BMH save gives one Dormant Totem. The engine shows the consumed item and applies its effects.
+Hoppers and droppers keep an extra active totem at the source. After a container click, the mod returns the marked extra and preserves the original.
+The Create World screen preserves six mixed rule values on Re-Create. The amulet clears its cooldown display when the player changes worlds.
+
+On this pin a client with BMH alone has no native camera snapshot. The spyglass uses the actual first-person aim in that case.
+The visual check reads the four letters of a saved point from the frame. It also verifies the server accepted the point before the reading.
+
+The optional combat dispatch and entity-join callbacks in this pin can be absent with BMH alone.
+The mod captures the actual attack strength before the server resets it. It adjusts the primary hit in the incoming damage hook.
+Echo Strike finds its next target among the live mobs in the level. The game checks cover a separate enemy, the smash advancement and a hidden ore behind stone.
+A worn sword dealt 5.5 damage against a fresh sword's 11 on both a ravager and a LAN guest.
+
+The native check and build passed. All 363 Rust logic tests passed. Three boots of the same packaged mod on a dedicated server verified the installed item, configuration correction, console commands, persisted rules and Java rule import.
+The distribution at `horizon/build/bmh-1.9.0-horizon-26.3.zip` has SHA-256 `135cc2ee30ba2e0d39d01ff9da055f8a5d9942c22d94a02eac3ad3fc619bb138`.
+
+All 172 distinct in-game checks passed against the ZIP across isolated worlds. Two timing-sensitive checks needed separate runs. The input check recorded 31 frames with the same player position while movement and menu keys were held or tapped. The cooldown check now samples at absolute game ticks so the time to save one screenshot does not delay the next sample.
+
+The active totem saves from either hand. Manual placement of a second active totem is corrected after the click. A fast close or concurrent placement can bypass that correction.
+See [the compatibility matrix](GAPS.md) for the other differences. Sound quality and controller or split-screen play still need a person.

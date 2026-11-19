@@ -3463,12 +3463,23 @@ if wanted cooldown; then
     ctl command "time set 18000" >/dev/null
     ctl wait 60 >/dev/null
     z_reads="$(count_log 'Star reading for')"
+    cooldown_tick() {
+        jget "$(ctl command 'time query gametime')" 'int(d["chat"][-1].split()[-2])'
+    }
+    cooldown_wait_until() {
+        z_now="$(cooldown_tick)"
+        if [ -n "$z_start" ] && [ -n "$z_now" ]; then
+            z_left=$((z_start + $1 - z_now))
+            if [ "$z_left" -gt 0 ]; then ctl wait "$z_left" >/dev/null; fi
+        fi
+    }
+    z_start="$(cooldown_tick)"
     ctl use-item >/dev/null
-    ctl wait 4 >/dev/null
+    cooldown_wait_until 4
     ctl screenshot "$zshots/z1-sweep-4-ticks.png" >/dev/null
-    ctl wait 20 >/dev/null
+    cooldown_wait_until 24
     ctl screenshot "$zshots/z2-sweep-24-ticks.png" >/dev/null
-    ctl wait 60 >/dev/null
+    cooldown_wait_until 80
     ctl screenshot "$zshots/z3-sweep-over.png" >/dev/null
     z_out="$(python3 - "$zshots/z1-sweep-4-ticks.png" "$zshots/z2-sweep-24-ticks.png" "$zshots/z3-sweep-over.png" <<'PYEOF'
 import sys
