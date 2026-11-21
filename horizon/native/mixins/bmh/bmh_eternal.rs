@@ -6,8 +6,8 @@
 // Owner: the eternal agent. Log: docs/horizon/log/eternal.md.
 //
 // The flow, on the server:
-// - C11. `loot_drops` of a dying player takes the Eternal stacks out of the drops (Respawn counted
-//   them and Tools wore them before: HOOKS.md). They wait in the compound that the mod keeps on the
+// - C11. Before vanilla drops the inventory, the mod counts and wears the Eternal Items.
+//   When the inventory drops, the items wait in the compound that the mod keeps on the
 //   player: that is the one source of truth, so a restart while the player is dead does not lose
 //   them and a stack never leaves the world where the player died. `SERVER.kept` holds a list
 //   only when the game refused the compound, and the area forgets it when the world changes. The
@@ -18,8 +18,7 @@
 // - C13. `player_bed_leave` fires where the player is out of reach of the helpers (a guest waking
 //   from a packet or a night skip), so it only queues the player. The next `server_tick` end gives
 //   the reward.
-// - E10. `item_expire` gives an Eternal Item on the ground the longest extra life. `item_spawn` gives
-//   it the largest health.
+// - E10. Ground damage hooks protect Eternal Items. The expiry hook renews their lifetime.
 // - E11. `inventory_tick` drops a stack when an earlier slot holds the same Eternal Item.
 //   `item_picked_up` refuses a second one.
 // - E12. `inventory_tick` moves an Eternal Item or an Ender Chest out of an Eternal Bundle.
@@ -114,9 +113,6 @@ pub(super) fn drop_at_player(
         "Motion".into(),
         Tag::List(velocity.iter().map(|v| Tag::Double(v.to_bits())).collect()),
     );
-    if let Some(health) = logic::item_health(&stack.item) {
-        nbt.insert("Health".into(), Tag::Short(health));
-    }
     game.native_summon(&me.dimension, "minecraft:item", at, nbt).is_some()
 }
 
@@ -186,27 +182,29 @@ fn store_waiting(game: &mut crate::game::Game<'_>, player: u128, stacks: Vec<Ite
     server().kept.put(player, stacks);
 }
 
-// C11: take the Eternal Items out of the drops and keep them for the respawn
-// (KeepItemAfterDeath.java:30-58). The 7 percent wear is not here: the tools area wears the stacks
-// while they are still in `drops`, and this function runs after it (HOOKS.md, `loot_drops`).
-pub(super) fn on_loot_drops(
-    game: &mut crate::game::Game<'_>,
-    context: &horizon_client::mod_api::NativeLootDrops<'_>,
-    drops: &mut Vec<horizon_client::items::ItemStack>,
-) {
-    // A player's own death: the entity is the player and no loot table rolled.
-    let Some((_, "minecraft:player")) = context.entity else {
-        return;
-    };
-    let Some(player) = context.player.filter(|_| context.table.is_empty()) else {
-        return;
-    };
-    let kept = logic::take_eternal(drops, |stack| (&*stack.item, stack.count));
-    if kept.is_empty() {
-        return;
+/// Record the Eternal Items before vanilla checks the keep-inventory rule or the Curse of Vanishing.
+pub(super) fn before_inventory_drops(game: &mut crate::game::Game<'_>, player: u128) {
+    let wear = game.native_acting_player().is_some_and(|me| me.game_mode == logic::SURVIVAL)
+        && crate::game::bmh_settings::rule(game, Rule::DamageEternalItemWhenDead);
+    let mut kept = Vec::new();
+    let mut count = 0;
+    for slot in game.inventory.iter_mut().chain(game.armor.iter_mut().rev()).chain([&mut game.offhand]) {
+        let Some(stack) = slot.as_mut() else { continue };
+        if stack.count == 0 || !ids::is_eternal(&stack.item) {
+            continue;
+        }
+        count += 1;
+        if wear && bmh_logic::tools::tool_of(&stack.item).is_some() {
+            let limit = crate::game::bmh_tools::max_damage(stack);
+            stack.damage = bmh_logic::tools::death_wear(stack.damage, limit);
+        }
+        kept.extend(slot.take());
     }
-    let before = waiting_for(game, player);
-    store_waiting(game, player, logic::keep_after_death(before, kept));
+    crate::game::bmh_respawn::record_death_inventory(player, count);
+    if !kept.is_empty() {
+        let before = waiting_for(game, player);
+        store_waiting(game, player, logic::keep_after_death(before, kept));
+    }
 }
 
 // C11: give back the Eternal Items kept at death (KeepItemAfterDeath.java:58-74). Java adds each
@@ -493,26 +491,6 @@ pub(super) fn on_item_expire(
 }
 
 // E10: give an Eternal Item on the ground its health (G_ItemEntityMixin.java:26-40). The fire
-// resistance comes from the item's `damage_resistant` component in the content mod.
-pub(super) fn on_item_spawn(
-    game: &mut crate::game::Game<'_>,
-    entity: u32,
-    item: &str,
-    count: i32,
-    pos: [f64; 3],
-) {
-    let _ = (count, pos);
-    let Some(health) = logic::item_health(item) else {
-        return;
-    };
-    let Some(handle) = game.native_entity(entity) else {
-        return;
-    };
-    let mut nbt = Compound::new();
-    nbt.insert("Health".into(), Tag::Short(health));
-    game.native_entity_merge_nbt(handle, nbt);
-}
-
 // E12: the Eternal Bundle drops all its items at once (EternalBundleItem.java:141-158, 196-210).
 // The hook claims the click, so the template's own use (one item at a time) does not start. Java
 // answers FAIL for an empty bundle: the hook has no FAIL. The host's template use of a bundle
@@ -555,13 +533,19 @@ pub(super) fn on_use_item(
     if spilled.is_empty() {
         return;
     }
+    let total = spilled.len();
     let mut stuck = Vec::new();
     for dropped in spilled {
         if !drop_stack(game, &dropped, true) {
             stuck.push(dropped);
         }
     }
+    let emptied = stuck.len() < total;
     put_back_in_bundle(game, slot, stuck);
+    if !emptied {
+        return;
+    }
+    game.award_stat("used", ids::ETERNAL_BUNDLE, 1);
     let pitch = logic::bundle_sound_pitch(random());
     game.native_play_sound_in_place(
         logic::BUNDLE_DROP_SOUND,
@@ -570,4 +554,35 @@ pub(super) fn on_use_item(
         logic::BUNDLE_SOUND_VOLUME,
         pitch,
     );
+}
+
+pub(super) fn on_tooltip(
+    game: &crate::game::Game<'_>,
+    stack: &ItemStack,
+    lines: &mut Vec<(horizon_client::text::Text, u32)>,
+) {
+    use horizon_client::text::{self, Text};
+    if !logic::is_bundle(&stack.item) {
+        return;
+    }
+    let Some(contents) = horizon_client::bundle::Contents::of(game.items(), stack) else {
+        return;
+    };
+    let used = (contents.weight_fraction() * 64.0) as u32;
+    let fullness = Text::translate("item.minecraft.bundle.fullness", &[
+        Text::literal(used.to_string()), Text::literal("64"),
+    ]).with_color(text::GRAY);
+    let heavy = Text::translate(bmh_logic::tools::KEY_HEAVY, &[]).with_color(bmh_logic::tools::GOLD);
+    let at = lines.len().min(1);
+    lines.splice(at..at, [(fullness, u32::MAX), (heavy, u32::MAX)]);
+}
+
+pub(super) fn on_item_bar(
+    _game: &crate::game::Game<'_>,
+    stack: &ItemStack,
+    bar: &mut Option<(i32, u32)>,
+) {
+    if logic::is_bundle(&stack.item) && let Some((_, color)) = bar {
+        *color = 0x6666FF;
+    }
 }

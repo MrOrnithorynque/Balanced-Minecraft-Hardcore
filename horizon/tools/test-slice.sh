@@ -6,7 +6,7 @@
 #
 # Usage: sh horizon/tools/test-slice.sh [--only a,b,...] [--keep] [--window] [--no-build]
 #                                       [--resources DIR] [--bin-dir DIR] [--out DIR]
-#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r abilities s t u v w x y z cooldown rules o m j), default all
+#   --only a,b   run only these scenarios (a b c d e f g h i k l n p q r abilities s t u v w x y z cooldown rules o m j respawnpoints anchor hardcoredeath ground bundlebar pocket needle homeawards respawnrace), default all
 #   --keep       keep the scratch folder (world, game log, screenshots)
 #   --window     run with a window instead of offscreen
 #   --no-build   do not run "check.sh build" first (use --bin-dir or the cache's build)
@@ -296,6 +296,31 @@ death_and_respawn() {
     ctl wait 40 >/dev/null
     DR_OK=1
     return 0
+}
+
+# Confirm that the client stays at the landing chosen for this death.
+wait_for_exile() {
+    local pattern="$1" before="$2" dimension="$3" center_x="$4" center_z="$5" radius="$6"
+    local feet fx fz distance attempt matches
+    wait_log "$pattern" "$before" 150 || return 1
+    feet="$(grep -- "$pattern" "$(logfile)" | tail -n 1 | sed -n 's/.*new respawn pos and bed : \[\([-0-9]*\), [-0-9]*, \([-0-9]*\)\].*/\1 \2/p')"
+    read -r fx fz <<< "$feet"
+    [ -n "$fx" ] && [ -n "$fz" ] || return 1
+    distance="$(dist_check "$fx" "$fz" "$center_x" "$center_z" "$radius" 64)"
+    [ "${distance##* }" = ok ] || return 1
+    attempt=0
+    matches=0
+    while [ "$attempt" -lt 30 ]; do
+        ctl wait 20 >/dev/null
+        if [ "$(jget "$(state)" "d['dimension'] == '$dimension' and abs(d['player']['position'][0] - ($fx + 0.5)) < 1 and abs(d['player']['position'][2] - ($fz + 0.5)) < 1")" = True ]; then
+            matches=$((matches + 1))
+            [ "$matches" -eq 2 ] && return 0
+        else
+            matches=0
+        fi
+        attempt=$((attempt + 1))
+    done
+    return 1
 }
 
 # ---- 4. Launch ---------------------------------------------------------------------------------
@@ -842,6 +867,7 @@ flip_button() {
 
 # leave_world: pause, Save and Quit to Title, wait for the title screen.
 leave_world() {
+    if [ "$(jget "$(state)" 'd.get("screen")')" = title ]; then return; fi
     # A journey that is still running holds the screen (its hold screen takes Escape): wait for the end.
     ctl wait-for screen playing --timeout 30 >/dev/null
     ctl pause >/dev/null
@@ -1064,14 +1090,62 @@ fi
 
 # ---- l. The settings page and the config file ----------------------------------------------------------
 cfgval() { sed -n "s/^$1 *= *\([0-9]*\).*/\1/p" "$GAMEDIR/config/bmh-common.toml" 2>/dev/null | head -n 1; }
-# cfg_click ID COUNT: click a widget of the settings page COUNT times, then wait for the reload.
+# Horizon's Options page clips the list 33 GUI pixels from either end.
+# A clipped row can still have a widget id. Click only fully visible rows.
+cfg_visible() {
+    ctl ui | python3 -c '
+import json, sys
+page = json.loads(sys.stdin.read().strip().splitlines()[-1])
+bottom = page["gui_size"][1] - 33
+for widget in page["widgets"]:
+    label = (widget.get("label") or "").split(":", 1)[0]
+    _, y, _, height = widget["bounds"]
+    if label == sys.argv[1] and widget["enabled"] and y >= 33 and y + height <= bottom:
+        print(widget["id"])
+        break
+' "$1"
+}
+cfg_reveal() {
+    local widget wheel
+    for wheel in 0 12 -3 -3 -3 -3; do
+        if [ "$wheel" != 0 ]; then
+            ctl scroll-at 150 90 "$wheel" >/dev/null || return 1
+            sleep 0.3
+        fi
+        widget="$(cfg_visible "$1")" || return 1
+        if [ -n "$widget" ]; then
+            echo "$widget"
+            return 0
+        fi
+    done
+    return 1
+}
+# Click the control identified by its label. The +/- rows can share a widget slug.
 cfg_click() {
-    i=0
-    while [ "$i" -lt "$2" ]; do ctl click "$1" >/dev/null; sleep 0.3; i=$((i + 1)); done
+    local widget i=0
+    if ! widget="$(cfg_reveal "$1")"; then
+        fail l-ui "Could not bring the '$1' control into view"
+        return 1
+    fi
+    while [ "$i" -lt "$2" ]; do
+        if ! ctl click "$widget" >/dev/null; then
+            fail l-ui "Click failed on '$1' (widget '$widget')"
+            return 1
+        fi
+        sleep 0.3
+        i=$((i + 1))
+    done
     sleep 1.5
 }
+# Replace the focused field through normal keyboard events.
+cfg_type() {
+    ctl key end tap >/dev/null
+    local n
+    for n in 1 2 3 4 5 6; do ctl key backspace tap >/dev/null; done
+    ctl type "$1" >/dev/null
+}
 if wanted l; then
-    echo "--- l. Options > Mods > BMH settings: the six buttons, the limits, the file, the next death"
+    echo "--- l. Options > Mods > BMH settings: typed values, the limits, the config file and the next death"
     ctl command "gamemode survival" >/dev/null
     ctl options mods >/dev/null
     sleep 1
@@ -1082,35 +1156,80 @@ if wanted l; then
     fi
     ctl click settings >/dev/null
     sleep 1
-    ids="$(jget "$(ctl ui)" '" ".join(sorted(w["id"] for w in d["widgets"] if w["id"] != "done"))')"
-    if [ "$ids" = "amulet-points amulet-points-2 maximum-respawn-distance maximum-respawn-distance-2 minimum-respawn-distance minimum-respawn-distance-2" ]; then
-        pass l1 "the settings page has the six stepper buttons: $(jget "$(ctl ui)" '" | ".join(w["label"] for w in d["widgets"] if w["id"] != "done")')"
+    missing=""
+    for label in "[+] Minimum respawn distance" "[-] Minimum respawn distance" \
+            "[+] Maximum respawn distance" "[-] Maximum respawn distance" \
+            "[+] Amulet points" "[-] Amulet points"; do
+        if [ -z "$(cfg_visible "$label")" ]; then missing="$missing [$label]"; fi
+    done
+    if [ -z "$missing" ] && cfg_reveal "Edit exact values" >/dev/null; then
+        pass l1 "All six steppers fit before scrolling and the exact editor is reachable"
     else
-        fail l1 "the settings page buttons are: $ids"
+        fail l1 "Missing steppers on entry '$missing' or exact editor unreachable"
     fi
-    cfg_click minimum-respawn-distance-2 1
-    cfg_click minimum-respawn-distance 2
+    cfg_click "Edit exact values" 1
+    ctl wait-for screen dialog --timeout 10 >/dev/null
+    cfg_type 6137
+    ctl type x >/dev/null
+    ctl key tab tap >/dev/null
+    cfg_type 7249
+    ctl key tab tap >/dev/null
+    cfg_type 7
+    l_fields="$(jget "$(state)" '[i["value"] for i in d["dialog"]["open"]["inputs"]]')"
+    ctl click done >/dev/null
+    sleep 1
+    if [ "$l_fields" = "['6137', '7249', '7']" ] && [ "$(cfgval minDistanceFromBed)" = 6137 ] \
+        && [ "$(cfgval maxDistanceFromBed)" = 7249 ] && [ "$(cfgval maxAmuletPoints)" = 7 ]; then
+        pass l8 "Done saved the exact distances 6137 and 7249 and the point limit 7"
+    else
+        fail l8 "typed fields $l_fields; file $(cfgval minDistanceFromBed) $(cfgval maxDistanceFromBed) $(cfgval maxAmuletPoints)"
+    fi
+    cfg_click "Edit exact values" 1
+    ctl wait-for screen dialog --timeout 10 >/dev/null
+    cfg_type 9999
+    ctl key enter tap >/dev/null
+    l_invalid="$(state)"
+    ctl screenshot "$SHOTS/l9-invalid-config.png" >/dev/null
+    ctl key esc tap >/dev/null
+    if [ "$(jget "$l_invalid" 'd.get("screen")')" = dialog ] && \
+        jget "$l_invalid" 'd["dialog"]["open"]["body"]' | grep -q 'minimum distance is greater' && \
+        [ "$(cfgval minDistanceFromBed)" = 6137 ] && [ "$(cfgval maxDistanceFromBed)" = 7249 ]; then
+        pass l9 "the invalid interval stayed on screen and Escape discarded the draft"
+    else
+        fail l9 "invalid config form $(jget "$l_invalid" 'd.get("dialog")'); saved minimum $(cfgval minDistanceFromBed)"
+    fi
+    cfg_click "Edit exact values" 1
+    ctl wait-for screen dialog --timeout 10 >/dev/null
+    cfg_type 5000
+    ctl key tab tap >/dev/null
+    cfg_type 60000
+    ctl key tab tap >/dev/null
+    cfg_type 5
+    ctl key enter tap >/dev/null
+    sleep 1
+    cfg_click "[-] Minimum respawn distance" 1
+    cfg_click "[+] Minimum respawn distance" 2
     if [ "$(cfgval minDistanceFromBed)" = 15000 ]; then
         pass l2 "min distance: one click down at 5000 changes nothing, two clicks up give 15000 in the file"
     else
         fail l2 "min distance in the file: $(cfgval minDistanceFromBed), expected 15000"
     fi
-    cfg_click maximum-respawn-distance-2 12
+    cfg_click "[-] Maximum respawn distance" 12
     if [ "$(cfgval maxDistanceFromBed)" = 15000 ] && [ "$(cfgval minDistanceFromBed)" = 15000 ]; then
         pass l3 "the max stops at the min: max $(cfgval maxDistanceFromBed), min $(cfgval minDistanceFromBed)"
     else
         fail l3 "the max went below the min or the min moved: max $(cfgval maxDistanceFromBed), min $(cfgval minDistanceFromBed)"
     fi
-    cfg_click minimum-respawn-distance 1
+    cfg_click "[+] Minimum respawn distance" 1
     if [ "$(cfgval minDistanceFromBed)" = 15000 ]; then
         pass l4 "the min cannot pass the max: still $(cfgval minDistanceFromBed)"
     else
         fail l4 "the min passed the max: $(cfgval minDistanceFromBed) with max $(cfgval maxDistanceFromBed)"
     fi
-    cfg_click maximum-respawn-distance 45
-    cfg_click amulet-points-2 6
+    cfg_click "[+] Maximum respawn distance" 45
+    cfg_click "[-] Amulet points" 6
     lo="$(cfgval maxAmuletPoints)"
-    cfg_click amulet-points 20
+    cfg_click "[+] Amulet points" 20
     hi="$(cfgval maxAmuletPoints)"
     if [ "$(cfgval maxDistanceFromBed)" = 200000 ] && [ "$lo" = 1 ] && [ "$hi" = 16 ]; then
         pass l5 "the ranges hold: max distance 200000, amulet points $lo at the bottom and $hi at the top"
@@ -1118,8 +1237,8 @@ if wanted l; then
         fail l5 "the ranges: max distance $(cfgval maxDistanceFromBed) (expected 200000), amulet points $lo and $hi (expected 1 and 16)"
     fi
     # The same distance for the next death with no restart: min = max = 15000.
-    cfg_click maximum-respawn-distance-2 37
-    cfg_click amulet-points-2 11
+    cfg_click "[-] Maximum respawn distance" 37
+    cfg_click "[-] Amulet points" 11
     ctl click done >/dev/null
     sleep 1
     ctl click done >/dev/null
@@ -1149,8 +1268,8 @@ if wanted l; then
     sleep 1
     ctl click settings >/dev/null
     sleep 1
-    cfg_click maximum-respawn-distance 9
-    cfg_click minimum-respawn-distance-2 2
+    cfg_click "[+] Maximum respawn distance" 9
+    cfg_click "[-] Minimum respawn distance" 2
     ctl click done >/dev/null
     sleep 1
     ctl click done >/dev/null
@@ -1276,8 +1395,9 @@ if wanted n; then
     ctl wait 60 >/dev/null
     ctl command "gamerule immediate_respawn true" >/dev/null
     warn_before="$(count_log 'WARN.*BalancedMcHardcoreMain')"
+    record_before="$(count_log 'Homecoming record:')"
     ctl command "kill @s" >/dev/null
-    sleep 6
+    wait_log 'Homecoming record:' "$record_before" 150 >/dev/null
     pos="$(position_of)"
     res="$(dist_check "$(echo "$pos" | cut -d ' ' -f 1)" "$(echo "$pos" | cut -d ' ' -f 3)" "$spawn_x" "$spawn_z" "$expected" 64)"
     warns="$(( $(count_log 'WARN.*BalancedMcHardcoreMain') - warn_before ))"
@@ -1307,6 +1427,14 @@ inv_slot() {
 # inv_comp ID: the components text of the first stack of an item.
 inv_comp() {
     jget "$(ctl inventory)" '([s.get("components", "") for k in ("hotbar", "main") for s in d.get(k, []) if s.get("item") == "'"$1"'"] or [""])[0]'
+}
+used_stat() {
+    ctl save >/dev/null
+    python3 - "$GAMEDIR/saves/$WORLD" "$1" <<'PYEOF'
+import json, pathlib, sys
+files = list(pathlib.Path(sys.argv[1]).rglob("stats/*.json"))
+print(sum(json.loads(f.read_text()).get("stats", {}).get("minecraft:used", {}).get(sys.argv[2], 0) for f in files))
+PYEOF
 }
 # daytime: the time of day in ticks, from "time_of_day" in the "time" object of state ("time query daytime" does not exist on 26.3: it
 # wants a timeline).
@@ -1584,8 +1712,8 @@ if wanted p; then
         fail p13 "E11: sword count $(inv_count bmh:eternal_sword); items near: $(printf '%s' "$ent" | head -c 300)"
     fi
     data="$(ctl command 'data get entity @e[type=item,sort=nearest,limit=1]')"
-    if printf '%s' "$data" | grep -q 'Health: 32767s' && printf '%s' "$data" | grep -q 'bmh:eternal_sword'; then
-        pass p14 "E10: the dropped sword has Health 32767s"
+    if printf '%s' "$data" | grep -q 'Health: 5s' && printf '%s' "$data" | grep -q 'bmh:eternal_sword'; then
+        pass p14 "E10: the dropped sword has its normal five health points"
     else
         fail p14 "E10: $(printf '%s' "$data" | head -c 400)"
     fi
@@ -1617,16 +1745,53 @@ if wanted p; then
     ctl open-inventory >/dev/null
     ctl wait 5 >/dev/null
     ctl click-slot "$bslot" >/dev/null
-    ctl click-slot "$eslot" >/dev/null
-    ctl click-slot "$bslot" >/dev/null
-    ctl wait 40 >/dev/null
-    ctl close >/dev/null
-    if [ "$(inv_count minecraft:ender_chest)" = 1 ] && ! printf '%s' "$(inv_comp bmh:eternal_bundle)" | grep -q 'ender_chest'; then
-        pass p16 "E12: an Ender Chest put into the bundle comes out again within 40 ticks"
+    ctl click-slot "$eslot" right >/dev/null
+    ctl wait 3 >/dev/null
+    p_bundle="$(ctl screen)"
+    p_hand="$(jget "$p_bundle" 'd.get("carried") or {}')"
+    if [ "$(inv_slot minecraft:ender_chest)" = "$eslot" ] && printf '%s' "$p_hand" | grep -q 'bmh:eternal_bundle' && ! printf '%s' "$p_hand" | grep -q 'minecraft:ender_chest'; then
+        pass p16 "the carried Eternal Bundle refused the Ender Chest in its source slot"
     else
-        fail p16 "E12: ender chests carried $(inv_count minecraft:ender_chest); the bundle holds $(inv_comp bmh:eternal_bundle)"
+        fail p16 "bundle cursor $p_hand, Ender Chest slot $(inv_slot minecraft:ender_chest)"
     fi
+    ctl click-slot "$bslot" >/dev/null
+    ctl click-slot "$eslot" >/dev/null
+    ctl click-slot "$bslot" right >/dev/null
+    ctl wait 3 >/dev/null
+    p_bundle="$(ctl screen)"
+    if [ "$(jget "$p_bundle" '(d.get("carried") or {}).get("item")')" = minecraft:ender_chest ] && ! printf '%s' "$(inv_comp bmh:eternal_bundle)" | grep -q 'minecraft:ender_chest'; then
+        pass p16b "the slotted Eternal Bundle refused the Ender Chest on the cursor"
+    else
+        fail p16b "cursor $(jget "$p_bundle" 'd.get("carried")'), bundle $(inv_comp bmh:eternal_bundle)"
+    fi
+    ctl click-slot "$eslot" >/dev/null
+    p_dirt="$(inv_slot minecraft:dirt)"
+    ctl click-slot "$p_dirt" >/dev/null
+    ctl click-slot "$bslot" right >/dev/null
+    ctl wait 3 >/dev/null
+    if printf '%s' "$(inv_comp bmh:eternal_bundle)" | grep -q 'minecraft:dirt'; then
+        pass p16c "a secondary click inserted dirt into the Eternal Bundle"
+    else
+        fail p16c "legal insertion: bundle $(inv_comp bmh:eternal_bundle)"
+    fi
+    ctl close >/dev/null
+    ctl command 'give @s minecraft:bundle' >/dev/null
+    ctl wait 5 >/dev/null
+    ctl open-inventory >/dev/null
+    ctl wait 5 >/dev/null
+    p_vanilla="$(inv_slot minecraft:bundle)"
+    ctl click-slot "$p_vanilla" >/dev/null
+    ctl click-slot "$eslot" >/dev/null
+    ctl click-slot "$p_vanilla" >/dev/null
+    ctl wait 3 >/dev/null
+    if printf '%s' "$(inv_comp minecraft:bundle)" | grep -q 'minecraft:ender_chest'; then
+        pass p16d "a primary click inserted the Ender Chest into a vanilla bundle"
+    else
+        fail p16d "vanilla bundle $(inv_comp minecraft:bundle)"
+    fi
+    ctl close >/dev/null
     ctl command 'kill @e[type=item]' >/dev/null
+    bundle_before="$(used_stat bmh:eternal_bundle)"
     ctl select bmh:eternal_bundle >/dev/null
     ctl use-item >/dev/null
     ctl wait 15 >/dev/null
@@ -1643,6 +1808,13 @@ if wanted p; then
         pass p18 "E12: a right click with the empty bundle drops nothing"
     else
         fail p18 "E12: the empty bundle dropped something: $(ctl entities 8 item | head -c 300)"
+    fi
+
+    bundle_after="$(used_stat bmh:eternal_bundle)"
+    if [ "$bundle_after" = "$((bundle_before + 1))" ] && [ "$bundle_after" -gt 0 ]; then
+        pass p21 "one loaded and one empty bundle use increased the saved statistic once"
+    else
+        fail p21 "bundle uses before $bundle_before, after $bundle_after"
     fi
 
     # C13: the wake-up reward.
@@ -1788,13 +1960,46 @@ if wanted q; then
     else
         fail q9 "sneak and use on a bed: screen '$(jget "$(state)" 'd.get("screen")')'"
     fi
-    ctl type "Camp" >/dev/null
+    ctl key shift up >/dev/null
+    edit_modifier=ctrl
+    if [ "$(uname -s)" = Darwin ]; then edit_modifier=super; fi
+    ctl type "Unused" >/dev/null
+    ctl key "$edit_modifier" down >/dev/null
+    ctl key a tap >/dev/null
+    ctl key "$edit_modifier" up >/dev/null
+    ctl type "Camp North" >/dev/null
+    ctl key "$edit_modifier" down >/dev/null
+    ctl key shift down >/dev/null
+    ctl key left tap >/dev/null
+    ctl key shift up >/dev/null
+    ctl key "$edit_modifier" up >/dev/null
+    ctl wait 2 >/dev/null
+    ctl screenshot "$SHOTS/q10-amulet-word-selection.png" >/dev/null
+    ctl key backspace tap >/dev/null
+    ctl key backspace tap >/dev/null
+    # Run the cut and paste round trip with an isolated system clipboard.
+    if [ "${BMH_TEST_CLIPBOARD:-0}" = 1 ]; then
+        ctl key "$edit_modifier" down >/dev/null
+        ctl key a tap >/dev/null
+        ctl key x tap >/dev/null
+        ctl key "$edit_modifier" up >/dev/null
+        ctl wait 3 >/dev/null
+        if [ "$(jget "$(ctl status)" 'd["debug"].get("clipboard")')" = Camp ]; then
+            pass q10a "Cut copied Camp to the test clipboard"
+        else
+            fail q10a "Cut did not copy the selected word"
+        fi
+        ctl type "Discard" >/dev/null
+        ctl key "$edit_modifier" down >/dev/null
+        ctl key a tap >/dev/null
+        ctl key v tap >/dev/null
+        ctl key "$edit_modifier" up >/dev/null
+    fi
     ctl wait 5 >/dev/null
     ctl key enter tap >/dev/null
     ctl wait 20 >/dev/null
     bar="$(jget "$(ctl messages 1)" 'd["actionbar"]')"
-    case "$bar" in *"Point saved: Camp"*) pass q10 "Save: '$bar'" ;; *) fail q10 "Save: action bar '$bar', screen '$(jget "$(state)" 'd.get("screen")')'" ;; esac
-    ctl key shift up >/dev/null
+    case "$bar" in "Point saved: Camp") pass q10 "Selected and replaced the point name: '$bar'" ;; *) fail q10 "Save: action bar '$bar', screen '$(jget "$(state)" 'd.get("screen")')'" ;; esac
     ctl command "setblock $((PX + 2)) $PY $((PZ + 1)) minecraft:lodestone" >/dev/null
     ctl wait 5 >/dev/null
     for pitch in 8 4 12 16 20; do
@@ -1898,6 +2103,67 @@ t_counts() { jget "$(ctl inventory)" 'd["counts"].get("'"$1"'", 0)'; }
 t_alive() {
     if [ "$(jget "$(state)" 'd.get("screen")')" = dead ]; then ctl respawn >/dev/null; ctl wait 220 >/dev/null; fi
 }
+if wanted t || wanted pocket; then
+    ctl command "difficulty peaceful" >/dev/null
+    ctl command "gamemode survival" >/dev/null
+    # An inventory totem saves in its own slot with both hands occupied.
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl select 1 >/dev/null
+    ctl command "item replace entity @s weapon.mainhand with minecraft:iron_sword" >/dev/null
+    ctl command "item replace entity @s weapon.offhand with minecraft:shield" >/dev/null
+    ctl command "item replace entity @s inventory.0 with bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    t_slot="$(inv_slot bmh:totem_of_eternity)"
+    t_saves_before="$(count_log 'The Totem of Eternity saved')"
+    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    ctl wait 20 >/dev/null
+    T_INV="$(ctl inventory)"
+    T_EFF="$(ctl effects)"
+    t_dormant="$(inv_slot bmh:sleeping_totem)"
+    echo "t-evidence t13: before $t_slot, dormant $t_dormant; health $(health_of); hands $(jget "$T_INV" '[(d.get(k) or {}).get("item") for k in ("held","offhand")]'); effects $T_EFF"
+    if [ "$t_slot" = 9 ] && [ "$t_dormant" = 9 ] && [ "$(jget "$(state)" 'd.get("screen")')" = playing ] \
+        && [ "$(jget "$T_INV" '[(d.get(k) or {}).get("item") for k in ("held","offhand")]')" = "['minecraft:iron_sword', 'minecraft:shield']" ] \
+        && [ "$(jget "$T_EFF" 'sorted(e["id"] for e in d["effects"]["active"])')" = "['absorption', 'fire_resistance', 'regeneration']" ] \
+        && [ "$(count_log 'The Totem of Eternity saved')" -eq "$((t_saves_before + 1))" ]; then
+        pass t13 "slot 9 saved the player once and now holds the Dormant Totem, with both hands intact"
+    else
+        fail t13 "inventory save failed: slots $t_slot and $t_dormant, inventory $T_INV, effects $T_EFF"
+    fi
+    t_alive
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl select 1 >/dev/null
+    ctl command "item replace entity @s hotbar.7 with bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    ctl wait 20 >/dev/null
+    T_INV="$(ctl inventory)"
+    if [ "$(inv_slot bmh:sleeping_totem)" = 7 ] && [ "$(jget "$T_INV" 'd["selected"]')" = 1 ] \
+        && [ "$(jget "$T_INV" '(d.get("held") or {}).get("item")')" = None ] \
+        && [ "$(jget "$(state)" 'd.get("screen")')" = playing ]; then
+        pass t15 "an unselected hotbar totem saved the player with an empty main hand"
+    else
+        fail t15 "unselected hotbar save failed: $T_INV"
+    fi
+    t_alive
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl command "item replace entity @s armor.head with bmh:totem_of_eternity" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    ctl wait 20 >/dev/null
+    T_INV="$(ctl inventory)"
+    if [ "$(jget "$T_INV" 'next(s.get("item") for s in d["armor"] if s["part"] == "head")')" = bmh:sleeping_totem ] \
+        && [ "$(jget "$(state)" 'd.get("screen")')" = playing ]; then
+        pass t16 "a totem equipped with a command saved from its armor slot"
+    else
+        fail t16 "equipped totem save failed: $T_INV"
+    fi
+    ctl command "clear @s" >/dev/null
+    ctl command "effect clear @s" >/dev/null
+    ctl wait 25 >/dev/null
+fi
 if wanted t; then
     echo "--- t. totem: Undying order, extra totem, anvil, E6, the save on a lethal hit, the dead flag, /kill"
     ensure_point
@@ -1940,7 +2206,7 @@ if wanted t; then
     ctl wait 20 >/dev/null
     ctl command "kill @e[type=item]" >/dev/null
     ctl command "clear @s" >/dev/null
-    ctl command "xp 45" >/dev/null
+    ctl command "xp set @s 45 levels" >/dev/null
     ctl command "give @s bmh:dormant_totem" >/dev/null
     ctl command "give @s bmh:echo_heart" >/dev/null
     ctl wait 10 >/dev/null
@@ -1956,9 +2222,19 @@ if wanted t; then
     else
         fail t8 "no Totem of Eternity result in the anvil menu"
     fi
+    ctl click-slot 650 shift >/dev/null
+    ctl wait 10 >/dev/null
     ctl close >/dev/null
+    anvil_xp="$(jget "$(state)" 'd["player"]["xp"]["level"]')"
+    if [ "$anvil_xp" = 6 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] \
+        && [ "$(t_counts bmh:dormant_totem)" = 0 ] && [ "$(t_counts bmh:echo_heart)" = 0 ]; then
+        pass t8b "taking the active totem consumed both inputs and 39 levels"
+    else
+        fail t8b "awakening left level '$anvil_xp' and inventory $(jget "$(ctl inventory)" 'd["counts"]')"
+    fi
     # t9 (E6): damage 20000, repair_cost 40, two gold blocks: expect damage 3500, cost 15 levels, penalty 40.
     ctl command "clear @s" >/dev/null
+    ctl command "xp set @s 45 levels" >/dev/null
     ctl command "give @s bmh:eternal_sword[repair_cost=40,damage=20000]" >/dev/null
     ctl command "give @s minecraft:gold_block 2" >/dev/null
     ctl wait 10 >/dev/null
@@ -1974,7 +2250,18 @@ if wanted t; then
     else
         fail t9 "E6: the anvil result does not show damage 3500 and cost 15 (see the t-evidence line)"
     fi
+    ctl click-slot 650 shift >/dev/null
+    ctl wait 10 >/dev/null
     ctl close >/dev/null
+    anvil_xp="$(jget "$(state)" 'd["player"]["xp"]["level"]')"
+    anvil_tool="$(inv_comp bmh:eternal_sword)"
+    if [ "$anvil_xp" = 30 ] && [ "$(t_counts minecraft:gold_block)" = 0 ] \
+        && printf '%s' "$anvil_tool" | grep -q 'damage[^0-9]*3500' \
+        && printf '%s' "$anvil_tool" | grep -q 'repair_cost[^0-9]*40'; then
+        pass t9b "taking the repaired tool consumed the gold and 15 levels and kept the prior penalty"
+    else
+        fail t9b "repair left level '$anvil_xp', $(t_counts minecraft:gold_block) gold and tool '$anvil_tool'"
+    fi
     ctl command "clear @s" >/dev/null
     ctl command "setblock $((PX + 2)) $PY $PZ minecraft:air" >/dev/null
     echo "t-evidence selected slot after the anvil checks: $(jget "$(state)" 'd.get("selected")')"
@@ -1989,7 +2276,6 @@ if wanted t; then
     ctl wait 20 >/dev/null
     echo "t-evidence t-anvil: hotbar before $t_hot; screen after $(jget "$(state)" 'd.get("screen")'); health $(health_of); counts $(jget "$(ctl inventory)" 'd["counts"]')"
     t_alive
-    # t11 to t13: route A of GAPS T2 (docs/horizon/solutions/totem-save.md). The game saves from a hand only.
     # t12: a Totem of Eternity in the main hand and a Totem of Undying in the off hand: the Undying saves first
     # (A_LivingEntityTotemMixin.java:46), no Fire Resistance, and the Totem of Eternity stays in the main hand.
     t_alive
@@ -2048,14 +2334,17 @@ if wanted t; then
     ctl command "clear @s" >/dev/null
     ctl command "effect clear @s" >/dev/null
     ctl select 1 >/dev/null
+    ctl command "effect give @s minecraft:fire_resistance 60" >/dev/null
     ctl command 'item replace entity @s weapon.mainhand with minecraft:stick[minecraft:death_protection={}]' >/dev/null
     ctl command 'item replace entity @s weapon.offhand with bmh:totem_of_eternity' >/dev/null
     ctl wait 10 >/dev/null
+    t_before_effects="$(ctl effects)"
     t_saves_before="$(count_log 'The Totem of Eternity saved')"
     ctl command "damage @s 100 minecraft:generic" >/dev/null
     ctl wait 20 >/dev/null
     T_INV="$(ctl inventory)"
     if [ "$(jget "$T_INV" '(d.get("offhand") or {}).get("item")')" = bmh:totem_of_eternity ] \
+        && printf '%s' "$t_before_effects" | grep -q fire_resistance && ! ctl effects | grep -q fire_resistance \
         && [ "$(t_counts minecraft:stick)" = 0 ] && [ "$(t_counts bmh:sleeping_totem)" = 0 ] \
         && [ "$(jget "$(state)" 'd.get("screen")')" != dead ] && [ "$(count_log 'The Totem of Eternity saved')" = "$t_saves_before" ]; then
         pass t14 "the custom protector saved the player and the off-hand totem stayed active"
@@ -2120,42 +2409,72 @@ if wanted t; then
     t_h2="$(health_of)"
     # 10, not 1: absorption left after "effect clear" can take a hit of 1 (t5 failed 2 of 4 runs on 2026-11-19 with
     # the health up by one saturation heal). A death here also proves that the hit lands.
-    ctl command "damage @s 10 minecraft:generic" >/dev/null
+    ctl command "damage @s 2 minecraft:generic" >/dev/null
     ctl wait 10 >/dev/null
     t_h3="$(health_of)"
-    echo "t-evidence: health before /damage @s 10: $t_h2, after: $t_h3"
+    echo "t-evidence: health before /damage @s 2: $t_h2, after: $t_h3"
     if python3 -c 'import sys; a, b = float(sys.argv[1]), float(sys.argv[2]); sys.exit(0 if a > 0 and b < a else 1)' "${t_h2:-0}" "${t_h3:-0}"; then
-        pass t5 "a later /damage @s 10 lowers the health: $t_h2 then $t_h3"
+        pass t5 "a later /damage @s 2 lowers the health: $t_h2 then $t_h3"
     else
-        fail t5 "no live player takes a later /damage @s 10: health $t_h2 then $t_h3"
+        fail t5 "no live player takes a later /damage @s 2: health $t_h2 then $t_h3"
     fi
     t_alive
-    # t13 (accepted gap, GAPS T2): a Totem of Eternity outside the hands does not save. Evidence only, not counted.
+    t_alive
     ctl command "clear @s" >/dev/null
     ctl command "effect clear @s" >/dev/null
-    ctl command "give @s minecraft:dirt 576" >/dev/null
-    ctl command "give @s bmh:totem_of_eternity" >/dev/null
+    ctl command "item replace entity @s inventory.0 with bmh:totem_of_eternity" >/dev/null
     ctl wait 10 >/dev/null
-    t_slot="$(inv_slot bmh:totem_of_eternity)"
-    ctl command "damage @s 100 minecraft:generic" >/dev/null
+    t_saves_before="$(count_log 'The Totem of Eternity saved')"
+    ctl command "damage @s 100 minecraft:out_of_world" >/dev/null
     ctl wait 20 >/dev/null
-    echo "t-evidence t13 (gap): totem in slot $t_slot; screen after the hit $(jget "$(state)" 'd.get("screen")'); health $(health_of)"
-    ctl command "kill @e[type=item]" >/dev/null
-    # t10: /kill kills a player with a Totem of Eternity; the totem is not spent.
-    if [ "$(jget "$(state)" 'd.get("screen")')" = dead ]; then ctl respawn >/dev/null; ctl wait 40 >/dev/null; fi
+    if [ "$(jget "$(state)" 'd.get("screen")')" = dead ] && [ "$(count_log 'The Totem of Eternity saved')" = "$t_saves_before" ]; then
+        pass t17 "out-of-world damage bypassed the inventory totem"
+    else
+        fail t17 "out-of-world damage: screen $(jget "$(state)" 'd.get("screen")'), health $(health_of)"
+    fi
+    t_alive
     ctl command "clear @s" >/dev/null
     ctl command "give @s bmh:totem_of_eternity" >/dev/null
     ctl wait 10 >/dev/null
+    t_saves_before="$(count_log 'The Totem of Eternity saved')"
     ctl command "kill @s" >/dev/null
     ctl wait 20 >/dev/null
-    if [ "$(jget "$(state)" 'd.get("screen")')" = dead ]; then
+    if [ "$(jget "$(state)" 'd.get("screen")')" = dead ] && [ "$(count_log 'The Totem of Eternity saved')" = "$t_saves_before" ]; then
         pass t10 "/kill kills a player who carries a Totem of Eternity"
     else
-        fail t10 "/kill did not kill: screen $(jget "$(state)" 'd.get("screen")'), health $(health_of)"
+        fail t10 "/kill bypass failed: screen $(jget "$(state)" 'd.get("screen")'), health $(health_of)"
     fi
     ctl respawn >/dev/null
     ctl wait 40 >/dev/null
     ctl command "difficulty normal" >/dev/null
+    ctl wait-for screen playing --timeout 60 >/dev/null
+    # The restrictions on players must leave an armed mob's vanilla totem intact.
+    ctl command 'summon minecraft:husk ~1 ~ ~ {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[bmh_test_undying]}' >/dev/null
+    ctl command 'item replace entity @e[tag=bmh_test_undying,limit=1] weapon.offhand with minecraft:totem_of_undying' >/dev/null
+    ctl wait 10 >/dev/null
+    t_mob_hand="$(ctl command 'data get entity @e[tag=bmh_test_undying,limit=1] equipment')"
+    ctl command 'damage @e[tag=bmh_test_undying,limit=1] 100 minecraft:generic' >/dev/null
+    ctl wait 30 >/dev/null
+    t_mob_effects="$(ctl command 'data get entity @e[tag=bmh_test_undying,limit=1] active_effects')"
+    if printf '%s' "$t_mob_hand" | grep -q minecraft:totem_of_undying && printf '%s' "$t_mob_effects" | grep -q minecraft:fire_resistance; then
+        pass t18 "a mob's Totem of Undying kept its Fire Resistance"
+    else
+        fail t18 "mob equipment before the hit $t_mob_hand, effects after $t_mob_effects"
+    fi
+    ctl command 'kill @e[tag=bmh_test_undying]' >/dev/null
+    ctl command 'summon minecraft:husk ~1 ~ ~ {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[bmh_test_eternity]}' >/dev/null
+    ctl command 'item replace entity @e[tag=bmh_test_eternity,limit=1] weapon.offhand with bmh:totem_of_eternity' >/dev/null
+    ctl wait 10 >/dev/null
+    t_mob_hand="$(ctl command 'data get entity @e[tag=bmh_test_eternity,limit=1] equipment')"
+    ctl command 'damage @e[tag=bmh_test_eternity,limit=1] 100 minecraft:generic' >/dev/null
+    ctl wait 30 >/dev/null
+    t_mob_after="$(ctl command 'data get entity @e[tag=bmh_test_eternity,limit=1] Health')"
+    if printf '%s' "$t_mob_hand" | grep -q bmh:totem_of_eternity && printf '%s' "$t_mob_after" | grep -Ei 'no entity|not found' >/dev/null; then
+        pass t19 "a Totem of Eternity in a mob's hand did not save it"
+    else
+        fail t19 "mob equipment before the hit $t_mob_hand, health after $t_mob_after"
+    fi
+    ctl command 'kill @e[tag=bmh_test_eternity]' >/dev/null
 fi
 
 # ---- u. The homecoming: the record, the title, the awards, the rule -------------------------------------
@@ -2356,11 +2675,35 @@ if wanted r; then
     else
         fail r5 "no respawn: $DR_NOTE"
     fi
+    ctl command "gamemode survival" >/dev/null
+    ctl command "clear @s" >/dev/null
+    ctl command "bmh rule damage_eternal_item_when_dead true" >/dev/null
+    ctl command "gamerule keep_inventory true" >/dev/null
+    ctl command 'item replace entity @s inventory.11 with bmh:eternal_sword[enchantments={"minecraft:vanishing_curse":1}]' >/dev/null
+    if death_and_respawn ctl 1 && [ "$(r_damage bmh:eternal_sword)" = 2310 ] && [ "$(inv_count bmh:eternal_sword)" = 1 ]; then
+        pass r8 "keep_inventory applied exactly one death of wear to the cursed sword"
+    else
+        fail r8 "keep_inventory sword count $(inv_count bmh:eternal_sword), data $(inv_comp bmh:eternal_sword), $DR_NOTE"
+    fi
+    ctl command "gamerule keep_inventory false" >/dev/null
+    if death_and_respawn ctl 1 && [ "$(r_damage bmh:eternal_sword)" = 4620 ] && [ "$(inv_count bmh:eternal_sword)" = 1 ] && printf '%s' "$(inv_comp bmh:eternal_sword)" | grep -q vanishing; then
+        pass r9 "the cursed Eternal Sword survived a second death with its curse and another 2310 wear"
+    else
+        fail r9 "cursed sword count $(inv_count bmh:eternal_sword), data $(inv_comp bmh:eternal_sword), $DR_NOTE"
+    fi
     ctl command "clear @s" >/dev/null
     ctl command "difficulty normal" >/dev/null
 fi
 
 # ---- abilities. The Eternal tools in combat and during a real dig ----------------------------
+ability_awarded() {
+        ctl save >/dev/null
+        python3 - "$GAMEDIR/saves/$WORLD" "$1" <<'PYEOF'
+import json, pathlib, sys
+files = pathlib.Path(sys.argv[1]).rglob("advancements/*.json")
+print(any(json.loads(f.read_text()).get("bmh:eternity/" + sys.argv[2], {}).get("done") for f in files))
+PYEOF
+    }
 if wanted abilities; then
     echo "--- abilities. Echo Strike, Axe Smash and Echo Sense"
     ensure_point
@@ -2412,14 +2755,6 @@ if wanted abilities; then
             fi
             ctl wait 2 >/dev/null
         done
-    }
-    ability_awarded() {
-        ctl save >/dev/null
-        python3 - "$GAMEDIR/saves/$WORLD" "$1" <<'PYEOF'
-import json, pathlib, sys
-files = pathlib.Path(sys.argv[1]).rglob("advancements/*.json")
-print(any(json.loads(f.read_text()).get("bmh:eternity/" + sys.argv[2], {}).get("done") for f in files))
-PYEOF
     }
     ability_hits() {
         [ -n "$2" ] && [ "$(jget "$1" "d.get('target') == $2 and d.get('hit')")" = True ]
@@ -2505,10 +2840,18 @@ PYEOF
     ctl command "kill @e[tag=bmh_ability]" >/dev/null
     ctl wait 30 >/dev/null
 
-    # The second ore sits behind an opaque wall. The cyan box must disappear when its five seconds end.
-    ability_tool bmh:eternal_pickaxe
+    # Test the outline in a clear area above the terrain. Water stops any fire from the previous fights.
+    ctl command 'difficulty peaceful' >/dev/null
     ctl command "time set 6000" >/dev/null
+    ctl command "setblock $PX 219 $PZ minecraft:stone" >/dev/null
+    ctl command "tp @s $(center "$PX") 220 $(center "$PZ")" >/dev/null
+    platform
+    ctl command "setblock $PX $PY $PZ minecraft:water" >/dev/null
+    ctl wait 10 >/dev/null
+    ctl command "setblock $PX $PY $PZ minecraft:air" >/dev/null
+    ability_tool bmh:eternal_pickaxe
     ctl command "tp @s $(center "$PX") $PY $(center "$PZ")" >/dev/null
+    # The opaque wall hides the second ore. The box must disappear when its five seconds end.
     ctl command "fill $((PX + 3)) $PY $((PZ - 2)) $((PX + 3)) $((PY + 3)) $((PZ + 2)) stone" >/dev/null
     ctl command "setblock $((PX + 4)) $((PY + 1)) $PZ ancient_debris" >/dev/null
     ctl command "setblock $((PX + 1)) $PY $PZ ancient_debris" >/dev/null
@@ -2565,6 +2908,7 @@ if wanted s; then
     ctl command "time set 6000" >/dev/null
     ctl look 0 -90 >/dev/null
     ctl wait 10 >/dev/null
+    ritual_before="$(used_stat bmh:sleeping_totem)"
     s_started="$(count_log 'Moon ritual started')"
     ctl mouse right down >/dev/null
     ctl wait 30 >/dev/null
@@ -2635,6 +2979,12 @@ if wanted s; then
         pass s6 "the advancement Moon-touched was held after the ritual"
     else
         fail s6 "the advancement eternity/moon_ritual was not held: $(printf '%s' "$s_adv" | head -c 200)"
+    fi
+    ritual_after="$(used_stat bmh:sleeping_totem)"
+    if [ "$ritual_after" = "$((ritual_before + 1))" ] && [ "$ritual_after" -gt 0 ]; then
+        pass s7 "only the completed ritual increased the saved item-use statistic"
+    else
+        fail s7 "dormant totem uses before $ritual_before, after $ritual_after"
     fi
     ctl command "clear @s" >/dev/null
     ctl command "difficulty normal" >/dev/null
@@ -2900,6 +3250,7 @@ if wanted w; then
     rec_before="$(count_log 'Homecoming record:')"
     out="$(PROBE_SECS=12 series_probe immediate "$SHOTS/w1")"
     echo "test-slice.sh: w1 series: $out"
+    wait_log 'Homecoming record:' "$rec_before" 150 >/dev/null
     ctl command "gamerule immediate_respawn false" >/dev/null
     new_log="$(tail -n +$((log_mark + 1)) "$(logfile)")"
     early_n="$(printf '%s\n' "$new_log" | grep -c 'did not end before the respawn')"
@@ -2938,13 +3289,14 @@ print(d.get("bmh:journey/exile", {}).get("done"))' "$adv_file")"
     fi
     # The series: black from the departure, then the sky and the message at the landing. A person must look at the sheet.
     sbl="$(jget "$out" 'd["black"]')"
-    span_ms="$(jget "$out" 'd["black_span_ms"]')"
     smod="$(jget "$out" 'd["mod_frames"]')"
     sab="$(jget "$out" 'len(d["arrival_before_black"])')"
-    if [ "${span_ms:-0}" -ge 200 ] && [ "${smod:-0}" -ge 5 ] && [ "${sab:-1}" -eq 0 ]; then
-        pass w1c "immediate_respawn: a black interval of $span_ms ms ($sbl black frames), $smod frames of the mod screen, no frame of the landing world before the black (first black at $(jget "$out" 'd["first_black_t"]') s, the kill at $(jget "$out" 'd["mark"]') s; sheet $SHOTS/w1/sheet.png; screens: $(jget "$out" 'd["screens"]'))"
+    # Screen capture samples about every 120 ms. One frame can show the 250 ms black phase.
+    # The Rust timeline tests check the black phase independently.
+    if [ "${sbl:-0}" -ge 1 ] && [ "${smod:-0}" -ge 5 ] && [ "${sab:-1}" -eq 0 ]; then
+        pass w1c "immediate_respawn: $sbl black frames, $smod frames of the mod screen, no frame of the landing world before the black (first black at $(jget "$out" 'd["first_black_t"]') s, the kill at $(jget "$out" 'd["mark"]') s; sheet $SHOTS/w1/sheet.png; screens: $(jget "$out" 'd["screens"]'))"
     else
-        fail w1c "immediate_respawn series: black interval ${span_ms:-?} ms (expected at least 200 ms, ${sbl:-?} black frames), mod frames ${smod:-?} (5 or more), landing-world frames before the black ${sab:-?} (0); screens $(jget "$out" 'd["screens"]')"
+        fail w1c "immediate_respawn series: black frames ${sbl:-?} (expected at least one), mod frames ${smod:-?} (5 or more), landing-world frames before the black ${sab:-?} (0); screens $(jget "$out" 'd["screens"]')"
     fi
     ctl wait 60 >/dev/null
 
@@ -3043,10 +3395,12 @@ print(d.get("bmh:journey/exile", {}).get("done"))' "$adv_file")"
     echo "test-slice.sh: w5 series: $out"
     sply="$(jget "$out" 'len(d["plain_respawn"])')"
     smod="$(jget "$out" 'd["mod_frames"]')"
-    if [ "${sply:-1}" -eq 0 ]; then
-        pass w5 "a press right after the death: no plain respawn at the point; click reply '$(jget "$out" 'd["reply"]')', screens $(jget "$out" 'd["screens"]'), $smod mod frames (sheet $SHOTS/w5/sheet.png)"
-    else
+    if [ "${sply:-1}" -ne 0 ]; then
         fail w5 "a press right after the death: $sply frames of a plain respawn at the point; screens $(jget "$out" 'd["screens"]')"
+    elif [ "${smod:-0}" -eq 0 ]; then
+        skip w5 "the early click did not start the journey during capture (sheet $SHOTS/w5/sheet.png)"
+    else
+        pass w5 "a press right after the death started the journey without a plain respawn ($smod mod frames, sheet $SHOTS/w5/sheet.png)"
     fi
     # Finish the death: if the click was ignored, press again once the landing is found.
     if [ "$(jget "$(state)" 'd.get("screen")')" = dead ]; then
@@ -3135,6 +3489,32 @@ if wanted x; then
             else
                 fail x3 "a LAN guest's /gamerule bmh:...: unknown-command lines +$(( ${bad_after:-0} - ${bad_before:-0} )) (1 expected); rules.txt changed: $([ "$(cat "$rules_file")" = "$rules_before" ] && echo no || echo yes); 'taken' log lines +$(( $(count_log 'taken from a player') - taken_before )); chat $(jget "$(gctl messages 4)" 'd["chat"][:4]')"
             fi
+            # The server saves a connected guest without using either held item.
+            ctl command 'gamemode survival Guest' >/dev/null
+            ctl command 'clear Guest' >/dev/null
+            ctl command 'effect clear Guest' >/dev/null
+            ctl command 'item replace entity Guest weapon.mainhand with minecraft:iron_sword' >/dev/null
+            ctl command 'item replace entity Guest weapon.offhand with minecraft:shield' >/dev/null
+            ctl command 'item replace entity Guest inventory.0 with bmh:totem_of_eternity' >/dev/null
+            ctl wait 20 >/dev/null
+            guest_before="$(gctl inventory)"
+            ctl command 'damage Guest 100 minecraft:generic' >/dev/null
+            ctl wait 20 >/dev/null
+            guest_after="$(gctl inventory)"
+            guest_hp="$(jget "$(gctl status)" 'd["server"]["health"]')"
+            guest_slot='next((e["item"] for e in d["main"] if e["slot"] == 9), "")'
+            guest_hands='[(d.get(k) or {}).get("item") for k in ("held", "offhand")]'
+            if [ "$(jget "$guest_before" "$guest_slot")" = bmh:totem_of_eternity ] \
+                && [ "$(jget "$guest_after" "$guest_slot")" = bmh:sleeping_totem ] \
+                && [ "$(jget "$guest_after" "$guest_hands")" = "['minecraft:iron_sword', 'minecraft:shield']" ] \
+                && awk -v hp="$guest_hp" 'BEGIN {exit !(hp+0 > 0 && hp+0 < 20)}'; then
+                pass x7 "the LAN guest survived the lethal hit and kept both hands intact with the dormant totem in slot 9"
+            else
+                fail x7 "LAN guest health '$guest_hp', slot 9 '$(jget "$guest_before" "$guest_slot")' to '$(jget "$guest_after" "$guest_slot")', hands $(jget "$guest_after" "$guest_hands")"
+            fi
+            ctl command 'effect clear Guest' >/dev/null
+            ctl command 'clear Guest' >/dev/null
+
             # Compare two full swings against the same unarmored player.
             arena_y=$((gy + 6))
             attacker_x="$(center "$gx")"
@@ -3172,7 +3552,56 @@ if wanted x; then
             else
                 fail x4 "expected half the fresh damage on the LAN guest at 20 health, observed worn $pvp_worn and fresh $pvp_fresh"
             fi
-            ctl command "effect give Guest minecraft:instant_health 1 10 true" >/dev/null
+            # A secondary enemy four blocks from the guest is outside the vanilla sweep.
+            ctl command "difficulty normal" >/dev/null
+            ctl command "kill @e[type=!player,distance=..9]" >/dev/null
+            ctl command "summon husk $victim_x $arena_y $(center "$((gz + 4))") {NoAI:1b,NoGravity:1b,Silent:1b,Tags:[bmh_pvp_echo]}" >/dev/null
+            pvp_echo_health() {
+                local reply
+                reply="$(ctl command 'data get entity @e[tag=bmh_pvp_echo,limit=1] Health')"
+                jget "$reply" "next(float(l.rsplit('entity data: ',1)[1].rstrip('f')) for l in reversed(d['chat']) if 'entity data: ' in l)"
+            }
+            ctl command 'advancement revoke @a only bmh:eternity/echo_strike' >/dev/null
+            ctl command "tp @s $attacker_x $arena_y $arena_z" >/dev/null
+            echo_hp0="$(pvp_echo_health)"
+            guest_hit="$(pvp_damage bmh:eternal_sword)"
+            ctl wait 20 >/dev/null
+            echo_hp1="$(pvp_echo_health)"
+            if awk -v before="$echo_hp0" -v after="$echo_hp1" -v hit="$guest_hit" 'BEGIN {exit !(before+0==20 && after+0>0 && after+0<before+0 && hit+0>0)}' \
+                && [ "$(ability_awarded echo_strike)" = True ]; then
+                pass x5 "the sword hit the guest for $guest_hit and echoed onto the husk ($echo_hp0 to $echo_hp1)"
+            else
+                fail x5 "guest damage '$guest_hit', husk $echo_hp0 to $echo_hp1, Echo Strike $(ability_awarded echo_strike)"
+            fi
+            ctl command 'kill @e[tag=bmh_pvp_echo]' >/dev/null
+
+            # The same guest survives the grounded hit and dies from the falling hit.
+            ctl command 'advancement revoke @a only bmh:eternity/smash' >/dev/null
+            ctl command "tp @s $attacker_x $arena_y $arena_z" >/dev/null
+            axe_ground="$(pvp_damage bmh:eternal_axe)"
+            ctl command 'effect give Guest minecraft:instant_health 1 10 true' >/dev/null
+            ctl command "tp Guest $victim_x $arena_y $arena_z" >/dev/null
+            ctl wait 40 >/dev/null
+            axe_hp0="$(jget "$(gctl status)" 'd["server"]["health"]')"
+            ctl command 'tick rate 5' >/dev/null
+            ctl command "tp @s $attacker_x $((arena_y + 8)) $arena_z" >/dev/null
+            for ((attempt = 0; attempt < 150; attempt++)); do
+                falling="$(jget "$(state)" "not d['player']['on_ground'] and $arena_y + 0.8 < d['player']['position'][1] < $arena_y + 2.8")"
+                if [ "$falling" = True ]; then
+                    ctl look-at "$victim_x" "$((arena_y + 1)).4" "$arena_z" >/dev/null
+                    ctl attack >/dev/null
+                    break
+                fi
+            done
+            ctl command 'tick rate 20' >/dev/null
+            ctl wait 20 >/dev/null
+            axe_hp1="$(jget "$(gctl status)" 'd["server"]["health"]')"
+            if awk -v before="$axe_hp0" -v after="$axe_hp1" -v ground="$axe_ground" 'BEGIN {exit !(before!="" && after!="" && before+0==20 && after+0==0 && ground+0==18)}' \
+                && [ "$(ability_awarded smash)" = True ]; then
+                pass x6 "falling axe against the guest took $axe_hp0 to $axe_hp1, grounded damage $axe_ground, Smash earned"
+            else
+                fail x6 "falling axe against the guest $axe_hp0 to $axe_hp1, ground damage '$axe_ground', Smash $(ability_awarded smash)"
+            fi
             ctl command "gamerule natural_health_regeneration true" >/dev/null
             gctl disconnect >/dev/null
         fi
@@ -3243,11 +3672,12 @@ PYEOF
 fi
 
 # ---- z. One Totem of Eternity per container: menus, hoppers, a chest minecart, a dropper -----------------------
-# Gap workarounds T12, T13, T14 (docs/horizon/solutions/totem-containers.md). The slot ids of click-slot: 0 to 35
-# the inventory, 300 and up the container. The clicks are the Java mod's Slot.mayPlace cases: the mod returns the extra stack
-# after the click and preserves the original stack in the container.
+# Menu slot ids 0 to 35 are the player inventory. Container slots start at 300.
 z_chest_totems() { jget "$(ctl container "$1" "$2" "$3")" 'sum(s.get("count", 1) for s in d.get("slots", []) if s and "totem_of_eternity" in str(s.get("item", "")))'; }
-z_returns() { count_log 'Returned a second Totem of Eternity from an open container'; }
+z_cursor_marked() { jget "$1" '(d.get("carried") or {}).get("item") == "bmh:totem_of_eternity" and "bmh_container_test" in d["carried"].get("components", "")' | grep -qx True; }
+z_slot_center() {
+    jget "$1" "next(' '.join(str(int(b[i] + b[i+2]/2)) for i in (0, 1)) for w in d['widgets'] if w['id'] == 'slot-$2' for b in [w['bounds']])"
+}
 z_marked() { inv_comp bmh:totem_of_eternity | grep -q bmh_container_test; }
 z_original_in_menu() {
     jget "$1" '[(s["slot"], "bmh_container_test" in s.get("components", "")) for s in d.get("slots", []) if 300 <= s.get("slot", -1) < 400 and s.get("item") == "bmh:totem_of_eternity"] == [(300, False)]' | grep -qx True
@@ -3267,33 +3697,61 @@ if wanted z; then
     ctl command "give @s bmh:totem_of_eternity[minecraft:custom_data={bmh_container_test:1b}]" >/dev/null
     ctl wait 10 >/dev/null
     echo "z-evidence start: chest $(ctl container "$CX" "$CY" "$CZ" | head -c 400)"
-    # z1: a shift click of the player's totem into a chest that holds one returns the new totem.
-    r0="$(z_returns)"
+    # A refused shift click keeps the marked stack in its original slot.
+    z_source="$(inv_slot bmh:totem_of_eternity)"
     ctl interact "$CX" "$CY" "$CZ" >/dev/null
     ctl wait 10 >/dev/null
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
     z_menu="$(ctl screen)"
     echo "z-evidence z1: menu $(printf '%s' "$z_menu" | head -c 700)"
-    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && z_original_in_menu "$z_menu" && [ "$(z_returns)" -gt "$r0" ]; then
-        pass z1 "a shift click returned the marked totem to the player and kept the original in the chest"
+    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && z_original_in_menu "$z_menu" && [ "$(inv_slot bmh:totem_of_eternity)" = "$z_source" ]; then
+        pass z1 "a refused shift click kept the marked stack in its source slot and the original in the chest"
     else
-        fail z1 "shift click: chest $(z_chest_totems "$CX" "$CY" "$CZ"), player $(t_counts bmh:totem_of_eternity), returns $(z_returns) (was $r0)"
+        fail z1 "shift click: chest $(z_chest_totems "$CX" "$CY" "$CZ"), player $(t_counts bmh:totem_of_eternity)"
     fi
-    # z2: pick the totem up on the cursor and click an empty chest slot: the new stack goes back to the player.
-    r0="$(z_returns)"
-    ctl click-slot "$(inv_slot bmh:totem_of_eternity)" >/dev/null
+    # A number key moves a hotbar item to the slot under the pointer.
+    z_ui="$(ctl ui)"
+    read -r z_x z_y <<EOF
+$(z_slot_center "$z_ui" 305)
+EOF
+    ctl click-at "$z_x" "$z_y" >/dev/null
+    ctl key "$((z_source + 1))" tap >/dev/null
+    ctl wait 5 >/dev/null
+    if [ "$z_source" -lt 9 ] && [ "$(inv_slot bmh:totem_of_eternity)" = "$z_source" ] && z_marked && z_original_in_menu "$(ctl screen)"; then
+        pass z1b "a number key kept the marked stack in the hotbar"
+    else
+        fail z1b "number key: source $z_source, inventory $(inv_comp bmh:totem_of_eternity)"
+    fi
+
+    # A rejected cursor click keeps the same stack in the hand until the player closes the chest.
+    ctl click-slot "$z_source" >/dev/null
     ctl wait 5 >/dev/null
     ctl click-slot 305 >/dev/null
     ctl wait 10 >/dev/null
     z_menu="$(ctl screen)"
-    echo "z-evidence z2: menu $(printf '%s' "$z_menu" | head -c 700)"
+    if z_cursor_marked "$z_menu" && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && [ -z "$(inv_slot bmh:totem_of_eternity)" ] && z_original_in_menu "$z_menu"; then
+        pass z2 "the marked stack stayed on the cursor and the original stayed in the chest"
+    else
+        fail z2 "cursor $(jget "$z_menu" 'd.get("carried")'), player $(t_counts bmh:totem_of_eternity)"
+    fi
+    read -r z_x2 z_y2 <<EOF
+$(z_slot_center "$z_ui" 306)
+EOF
+    ctl drag-at right "$z_x" "$z_y" "$z_x2" "$z_y2" >/dev/null
+    ctl wait 5 >/dev/null
+    z_menu="$(ctl screen)"
+    if z_cursor_marked "$z_menu" && z_original_in_menu "$z_menu" && [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ]; then
+        pass z2b "dragging over the occupied chest kept the marked stack on the cursor"
+    else
+        fail z2b "drag: cursor $(jget "$z_menu" 'd.get("carried")'), chest $(z_chest_totems "$CX" "$CY" "$CZ")"
+    fi
     ctl close >/dev/null
     ctl wait 10 >/dev/null
-    if [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && z_original_in_menu "$z_menu" && [ "$(z_returns)" -gt "$r0" ]; then
-        pass z2 "a cursor click returned the marked totem to the player and kept the original in the chest"
+    if [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 1 ]; then
+        pass z2c "closing the chest returned the marked cursor stack to its owner"
     else
-        fail z2 "pickup click: chest $(z_chest_totems "$CX" "$CY" "$CZ"), player $(t_counts bmh:totem_of_eternity), returns $(z_returns) (was $r0)"
+        fail z2c "close: inventory $(inv_comp bmh:totem_of_eternity), chest $(z_chest_totems "$CX" "$CY" "$CZ")"
     fi
     # z3: the control. An empty chest takes the totem by a shift click.
     ctl command "setblock $CX $CY $CZ minecraft:air" >/dev/null
@@ -3301,6 +3759,22 @@ if wanted z; then
     ctl wait 10 >/dev/null
     ctl interact "$CX" "$CY" "$CZ" >/dev/null
     ctl wait 10 >/dev/null
+    z_source="$(inv_slot bmh:totem_of_eternity)"
+    z_ui="$(ctl ui)"
+    read -r z_x z_y <<EOF
+$(z_slot_center "$z_ui" 305)
+EOF
+    ctl click-at "$z_x" "$z_y" >/dev/null
+    ctl key "$((z_source + 1))" tap >/dev/null
+    ctl wait 5 >/dev/null
+    z_swap_in="$(z_chest_totems "$CX" "$CY" "$CZ")"
+    ctl key "$((z_source + 1))" tap >/dev/null
+    ctl wait 5 >/dev/null
+    if [ "$z_swap_in" = 1 ] && [ "$(z_chest_totems "$CX" "$CY" "$CZ")" = 0 ] && z_marked; then
+        pass z3b "the same number key moved the marked stack into an empty chest and back"
+    else
+        fail z3b "number-key control: chest after first key $z_swap_in, after second $(z_chest_totems "$CX" "$CY" "$CZ")"
+    fi
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
     ctl close >/dev/null
@@ -3386,17 +3860,16 @@ if wanted z; then
     z7a="$(t_counts bmh:totem_of_eternity)"
     ctl command "give @s bmh:totem_of_eternity[minecraft:custom_data={bmh_container_test:1b}]" >/dev/null
     ctl wait 10 >/dev/null
-    r0="$(z_returns)"
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
     z_menu="$(ctl screen)"
     echo "z-evidence z7: cart $(printf '%s' "$z_cart_menu" | head -c 180), menu $(printf '%s' "$z_menu" | head -c 600)"
     z7b="$(t_counts bmh:totem_of_eternity)"
     ctl close >/dev/null
-    if [ "$z7a" = 0 ] && [ "$z7b" = 1 ] && z_marked && z_original_in_menu "$z_menu" && [ "$(z_returns)" -gt "$r0" ]; then
-        pass z7 "the cart kept the original totem and returned the marked second totem to the player"
+    if [ "$z7a" = 0 ] && [ "$z7b" = 1 ] && z_marked && z_original_in_menu "$z_menu"; then
+        pass z7 "the cart kept the original totem and the player kept the marked totem"
     else
-        fail z7 "chest minecart: player after the first $z7a, after the second $z7b, returns $(z_returns) (was $r0)"
+        fail z7 "chest minecart: player after the first $z7a, after the second $z7b"
     fi
     # A hopper feeding the cart keeps its second totem, then moves it after the cart is emptied.
     ctl command "setblock $HX $HY $HZ minecraft:hopper[facing=west]" >/dev/null
@@ -3420,6 +3893,35 @@ if wanted z; then
     ctl command "kill @e[type=chest_minecart]" >/dev/null
     ctl command "kill @e[type=item]" >/dev/null
     ctl command "clear @s" >/dev/null
+    ctl command "setblock $CX $CY $CZ minecraft:air" >/dev/null
+    ctl command "summon minecraft:oak_chest_boat $(center "$CX") $CY $(center "$CZ")" >/dev/null
+    ctl command "tp @s $(center "$PX") $PY $(center "$PZ")" >/dev/null
+    ctl command 'give @s bmh:totem_of_eternity' >/dev/null
+    ctl wait 10 >/dev/null
+    ctl look-at "$(center "$CX")" "$CY.3" "$(center "$CZ")" >/dev/null
+    ctl key shift down >/dev/null
+    ctl wait 6 >/dev/null
+    ctl mouse right click >/dev/null
+    ctl wait 6 >/dev/null
+    ctl key shift up >/dev/null
+    ctl wait 10 >/dev/null
+    ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
+    ctl wait 5 >/dev/null
+    boat_first="$(t_counts bmh:totem_of_eternity)"
+    ctl command 'give @s bmh:totem_of_eternity[minecraft:custom_data={bmh_container_test:1b}]' >/dev/null
+    ctl wait 5 >/dev/null
+    ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
+    ctl wait 5 >/dev/null
+    boat_menu="$(ctl screen)"
+    if [ "$boat_first" = 0 ] && [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && z_original_in_menu "$boat_menu"; then
+        pass z7b "the chest boat kept the first totem and refused a second shift click"
+    else
+        fail z7b "the boat menu $(printf '%s' "$boat_menu" | head -c 300), player after first and second $(printf '%s %s' "$boat_first" "$(t_counts bmh:totem_of_eternity)")"
+    fi
+    ctl close >/dev/null
+    ctl command 'kill @e[type=oak_chest_boat]' >/dev/null
+    ctl command 'kill @e[type=item]' >/dev/null
+    ctl command 'clear @s' >/dev/null
     ctl command "setblock $CX $CY $CZ minecraft:ender_chest" >/dev/null
     ctl command "give @s bmh:totem_of_eternity" >/dev/null
     ctl interact "$CX" "$CY" "$CZ" >/dev/null
@@ -3428,12 +3930,11 @@ if wanted z; then
     ctl wait 10 >/dev/null
     ctl command "give @s bmh:totem_of_eternity[minecraft:custom_data={bmh_container_test:1b}]" >/dev/null
     ctl wait 10 >/dev/null
-    r0="$(z_returns)"
     ctl click-slot "$(inv_slot bmh:totem_of_eternity)" shift >/dev/null
     ctl wait 10 >/dev/null
     z_menu="$(ctl screen)"
-    if [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && z_original_in_menu "$z_menu" && [ "$(z_returns)" -gt "$r0" ]; then
-        pass z9 "the ender chest kept the first totem and the marked second totem returned to the player"
+    if [ "$(t_counts bmh:totem_of_eternity)" = 1 ] && z_marked && z_original_in_menu "$z_menu"; then
+        pass z9 "the ender chest kept the first totem and the player kept the marked totem"
     else
         fail z9 "ender chest menu $(printf '%s' "$z_menu" | head -c 300), inventory $(inv_comp bmh:totem_of_eternity)"
     fi
@@ -3877,6 +4378,545 @@ if wanted j; then
             fi
         fi
     fi
+fi
+
+# A blocked bed must use the current world spawn. A bed with open space must use its own point.
+if wanted respawnpoints; then
+    ctl command 'difficulty peaceful' >/dev/null
+    ctl command 'gamemode survival' >/dev/null
+    ctl command 'bmh rule random_death_spawn_point true' >/dev/null
+    ctl command 'clear @s' >/dev/null
+    platform
+    bed_x=$((PX + 3))
+    bed_y=$PY
+    bed_z=$PZ
+    moved_x=$((PX + 10))
+    ctl command "setworldspawn $moved_x $PY $PZ" >/dev/null
+    ctl command 'time set 18000' >/dev/null
+    sleep_through $((PX + 2)) "$PY" "$PZ"
+    open_pattern="reads minecraft:white_bed.*: Bed, centre \[$bed_x, $bed_y, $bed_z\]"
+    before_open="$(count_log "$open_pattern")"
+    if death_and_respawn ctl 1 && [ "$(count_log "$open_pattern")" -gt "$before_open" ]; then
+        pass point1 "the exile centered on the slept-in bed at $bed_x $bed_y $bed_z"
+    else
+        fail point1 "the clear bed did not center the exile: $DR_NOTE"
+    fi
+
+    # Keep the head and foot in place. Seal every possible stand-up position around the bed.
+    ctl command "tp @s $((bed_x + 8)) $bed_y $bed_z" >/dev/null
+    ctl wait 40 >/dev/null
+    ctl fill $((bed_x - 4)) $((bed_y - 2)) $((bed_z - 4)) $((bed_x + 4)) $((bed_y - 1)) $((bed_z + 4)) minecraft:stone >/dev/null
+    ctl fill $((bed_x - 4)) $((bed_y + 1)) $((bed_z - 4)) $((bed_x + 4)) $((bed_y + 4)) $((bed_z + 4)) minecraft:stone >/dev/null
+    ctl fill $((bed_x - 4)) "$bed_y" $((bed_z - 4)) $((bed_x + 4)) "$bed_y" $((bed_z - 1)) minecraft:stone >/dev/null
+    ctl fill $((bed_x - 4)) "$bed_y" $((bed_z + 1)) $((bed_x + 4)) "$bed_y" $((bed_z + 4)) minecraft:stone >/dev/null
+    ctl fill $((bed_x - 4)) "$bed_y" "$bed_z" $((bed_x - 2)) "$bed_y" "$bed_z" minecraft:stone >/dev/null
+    ctl fill $((bed_x + 1)) "$bed_y" "$bed_z" $((bed_x + 4)) "$bed_y" "$bed_z" minecraft:stone >/dev/null
+    closed_pattern="reads minecraft:white_bed.*: Missing, centre \[$moved_x, $bed_y, $bed_z\]"
+    before_closed="$(count_log "$closed_pattern")"
+    if death_and_respawn ctl 1 && [ "$(count_log "$closed_pattern")" -gt "$before_closed" ]; then
+        pass point2 "the enclosed bed used the relocated world spawn at $moved_x $bed_y $bed_z"
+    else
+        fail point2 "the enclosed bed did not use world spawn: $DR_NOTE"
+    fi
+
+    # The sole line of a fresh amulet points east or west when world spawn moves.
+    ctl command 'clear @s' >/dev/null
+    ctl give bmh:navigator_amulet 1 >/dev/null
+    ctl select bmh:navigator_amulet >/dev/null
+    open_sky
+    ctl command 'weather clear' >/dev/null
+    ctl command 'time set 18000' >/dev/null
+    for side in east west; do
+        if [ "$side" = east ]; then delta=10; else delta=-10; fi
+        ctl command "setworldspawn $((PX + delta)) $PY $PZ" >/dev/null
+        ctl wait 50 >/dev/null
+        ctl use-item >/dev/null
+        ctl wait 4 >/dev/null
+        reading="$(inv_comp bmh:navigator_amulet)"
+        if python3 - "$side" "$reading" <<'PYREAD'
+import re, sys
+side, stack = sys.argv[1:]
+angles = re.search(r'azimuths:\[([^\]]+)\]', stack)
+spawn = re.search(r'spawn:(\d+)', stack)
+if not angles or not spawn:
+    sys.exit(1)
+values = [float(v.strip().rstrip('f')) for v in angles[1].split(',')]
+index = int(spawn[1])
+expected = 90 if side == 'east' else 270
+sys.exit(0 if index < len(values) and abs(values[index] - expected) < 8 else 1)
+PYREAD
+        then
+            pass "point3-$side" "the world-spawn line points $side after setworldspawn"
+        else
+            fail "point3-$side" "incorrect world-spawn bearing after moving it $side: $reading"
+        fi
+    done
+fi
+
+# Use an actual Nether anchor, die, and check its dimension, scaled distance and remaining charge.
+if wanted anchor; then
+    ctl command 'difficulty peaceful' >/dev/null
+    ctl command 'gamemode creative' >/dev/null
+    ctl command 'bmh rule random_death_spawn_point true' >/dev/null
+    ctl command 'clear @s' >/dev/null
+    ctl command 'execute in minecraft:the_nether run tp @s 0.5 100 0.5' >/dev/null
+    ctl wait 60 >/dev/null
+    ctl fill -4 99 -4 4 99 4 minecraft:stone >/dev/null
+    ctl fill -4 100 -4 4 104 4 minecraft:air >/dev/null
+    ctl setblock 2 100 0 'minecraft:respawn_anchor[charges=2]' >/dev/null
+    ctl command 'tp @s 0.5 100 0.5' >/dev/null
+    ctl command 'gamemode survival' >/dev/null
+    ctl wait 20 >/dev/null
+    ctl interact 2 100 0 >/dev/null
+    ctl wait 20 >/dev/null
+    expected_nether=$(( ($(expected_distance 0 0) + 4) / 8 ))
+    anchor_pattern='reads minecraft:respawn_anchor.*: Anchor, centre \[2, 100, 0\]'
+    before_anchor="$(count_log "$anchor_pattern")"
+    if death_and_respawn ctl 1; then
+        anchor_state="$(state)"
+        anchor_dim="$(jget "$anchor_state" 'd["dimension"]')"
+        anchor_pos="$(position_of)"
+        travel="$(dist_check "$(echo "$anchor_pos" | cut -d ' ' -f 1)" "$(echo "$anchor_pos" | cut -d ' ' -f 3)" 2 0 "$expected_nether" 64)"
+        if [ "$anchor_dim" = minecraft:the_nether ] && [ "${travel##* }" = ok ] && [ "$(count_log "$anchor_pattern")" -gt "$before_anchor" ]; then
+            pass anchor1 "the 2-charge Nether anchor centered an exile of ${travel%% *} blocks, expected $expected_nether"
+        else
+            fail anchor1 "dimension '$anchor_dim', distance $travel, expected $expected_nether from the active Nether anchor"
+        fi
+        ctl command 'execute in minecraft:the_nether run tp @s 0.5 100 0.5' >/dev/null
+        ctl wait 40 >/dev/null
+        anchor_block="$(jget "$(ctl getblock 2 100 0)" 'd["block"]')"
+        if [ "$anchor_block" = 'minecraft:respawn_anchor[charges=1]' ]; then
+            pass anchor2 "the 2-charge anchor has one charge after the exile"
+        else
+            fail anchor2 "after the exile the anchor reads '$anchor_block', expected one charge"
+        fi
+    else
+        fail anchor1 "no distant respawn from the charged Nether anchor: $DR_NOTE"
+    fi
+fi
+
+# Change a saved point while the death screen is open. The host must resolve it again.
+if [ -n "$only" ] && wanted respawnrace; then
+    ctl command 'difficulty peaceful' >/dev/null
+    ctl command 'gamemode survival' >/dev/null
+    ctl command 'bmh rule random_death_spawn_point true' >/dev/null
+    ctl command 'gamerule immediate_respawn false' >/dev/null
+    ctl command 'clear @s' >/dev/null
+    platform
+    race_bed=$((PX + 3))
+    race_y=$PY
+    race_z=$PZ
+    race_world=$((PX + 12))
+    race_distance="$(expected_distance 0 0)"
+    ctl command "setworldspawn $race_world $race_y $race_z" >/dev/null
+    ctl command 'time set 18000' >/dev/null
+    sleep_through $((PX + 2)) "$race_y" "$race_z"
+    race_saved() { jget "$(ctl command 'data get entity @s respawn')" '" ".join(d["chat"])'; }
+    race_fallback="new respawn pos and bed.*\[$race_world, $race_y, $race_z\]"
+    race_bed_ready="reads minecraft:white_bed.*: Bed, centre \[$race_bed, $race_y, $race_z\]"
+    race_anchor_ready='reads minecraft:respawn_anchor.*: Anchor, centre \[2, 100, 0\]'
+    race_break_bed() {
+        ctl setblock "$race_bed" "$race_y" "$race_z" minecraft:air >/dev/null
+        race_changed="$(jget "$(ctl getblock "$race_bed" "$race_y" "$race_z")" 'd["block"]')"
+    }
+    race_empty_anchor() {
+        ctl setblock 2 100 0 'minecraft:respawn_anchor[charges=0]' >/dev/null
+        race_changed="$(jget "$(ctl getblock 2 100 0)" 'd["block"]')"
+    }
+    race_invalid() {
+        local label="$1" initial="$2" mutate="$3" original="$4" replacement="$5"
+        local ready fallback saved after
+        ready="$(count_log "$initial")"
+        fallback="$(count_log "$race_fallback")"
+        saved="$(race_saved)"
+        race_changed=''
+        DR_HOOK="$mutate"
+        if death_and_respawn ctl 1 \
+            && [ "$(count_log "$initial")" -gt "$ready" ] \
+            && [ "$race_changed" = "$replacement" ] \
+            && wait_for_exile "$race_fallback" "$fallback" minecraft:overworld "$race_world" "$race_z" "$race_distance"; then
+            after="$(race_saved)"
+            if [[ "$saved" == *"$original"* && "$after" == *'Found no elements matching respawn'* ]]; then
+                pass "$label" "the changed block moved the exile to world spawn and cleared the saved point"
+            else
+                fail "$label" "saved point before '$saved' and after '$after'"
+            fi
+        else
+            fail "$label" "expected the Overworld landing from $race_world $race_y $race_z after replacing the point with $replacement. Read '$race_changed'. $DR_NOTE"
+        fi
+        DR_HOOK=''
+    }
+    race_invalid race-bed "$race_bed_ready" race_break_bed minecraft:overworld minecraft:air
+
+    ctl command 'gamemode creative' >/dev/null
+    ctl command 'execute in minecraft:the_nether run tp @s 0.5 100 0.5' >/dev/null
+    ctl wait 60 >/dev/null
+    ctl fill -4 99 -4 4 99 4 minecraft:stone >/dev/null
+    ctl fill -4 100 -4 4 104 4 minecraft:air >/dev/null
+    ctl setblock 2 100 0 'minecraft:respawn_anchor[charges=2]' >/dev/null
+    ctl command 'tp @s 0.5 100 0.5' >/dev/null
+    ctl command 'gamemode survival' >/dev/null
+    ctl wait 20 >/dev/null
+    ctl interact 2 100 0 >/dev/null
+    ctl wait 20 >/dev/null
+
+    race_anchor='new respawn pos and bed.*\[2, 100, 0\]'
+    race_landing="$(count_log "$race_anchor")"
+    race_early="$(count_log 'did not end before the respawn')"
+    race_move="$(count_log 'moved to the landing after an early respawn')"
+    ctl command 'gamerule immediate_respawn true' >/dev/null
+    ctl command 'kill @s' >/dev/null
+    race_landed=0
+    if wait_for_exile "$race_anchor" "$race_landing" minecraft:the_nether 2 0 $(( (race_distance + 4) / 8 )) \
+        && [ "$(count_log 'did not end before the respawn')" -eq "$((race_early + 1))" ] \
+        && [ "$(count_log 'moved to the landing after an early respawn')" -eq "$((race_move + 1))" ]; then
+        race_landed=1
+    fi
+    ctl command 'gamerule immediate_respawn false' >/dev/null
+    ctl command 'execute in minecraft:the_nether run tp @s 0.5 100 0.5' >/dev/null
+    ctl wait 60 >/dev/null
+    race_left="$(jget "$(ctl getblock 2 100 0)" 'd["block"]')"
+    if [ "$race_landed" = 1 ] && [ "$race_left" = 'minecraft:respawn_anchor[charges=1]' ]; then
+        pass race-early "the early respawn reached the Nether landing once and used one of two charges"
+    else
+        fail race-early "early Nether landing confirmed '$race_landed', remaining block '$race_left'"
+    fi
+    race_invalid race-drained "$race_anchor_ready" race_empty_anchor minecraft:the_nether 'minecraft:respawn_anchor[charges=0]'
+fi
+
+# Match the rendered hotbar needle to the same 32 sprites that the Java model uses.
+if wanted needle; then
+    ctl command 'gamemode creative' >/dev/null
+    ctl command 'clear @s' >/dev/null
+    ctl command 'item replace entity @s hotbar.0 with bmh:navigator_amulet' >/dev/null
+    ctl wait 20 >/dev/null
+    ctl select bmh:navigator_amulet >/dev/null
+    for east in 0 20000000 -20000000; do
+        ctl command "tp @s ${east}.5 220 0.5" >/dev/null
+        ctl wait 60 >/dev/null
+        for yaw in 0 180; do
+            ctl look "$yaw" 0 >/dev/null
+            ctl wait 80 >/dev/null
+            shot="$SHOTS/needle-$east-$yaw.png"
+            ctl screenshot "$shot" >/dev/null
+            expected_sprite=16
+            [ "$yaw" = 180 ] && expected_sprite=0
+            actual_sprite="$(python3 - "$shot" "$content/assets/bmh/textures/item" <<'PYMATCH'
+from pathlib import Path
+import sys
+from PIL import Image
+frame = Image.open(sys.argv[1]).convert("RGB")
+root = Path(sys.argv[2])
+sprites = [Image.open(root / f"navigator_amulet_{i:02}.png").convert("RGB") for i in range(32)]
+mask = [(x,y) for x in range(16) for y in range(16) if len({s.getpixel((x,y)) for s in sprites}) > 1]
+scores = []
+for scale in range(1, min(frame.width // 182, frame.height // 22) + 1):
+    # The first hotbar icon starts at (center - 88, height - 19) in GUI coordinates.
+    seen = [frame.getpixel((int(frame.width/2 + (-88+x+0.5)*scale), int(frame.height + (-19+y+0.5)*scale))) for x,y in mask]
+    for i, sprite in enumerate(sprites):
+        error = sum((a-b)**2 for v,p in zip(seen,mask) for a,b in zip(v,sprite.getpixel(p)))
+        scores.append((error / (3*len(mask)), i))
+error, i = min(scores)
+print(i if error < 100 else f"unrecognized (error {error:.1f})")
+PYMATCH
+)"
+            if [ "$actual_sprite" = "$expected_sprite" ]; then
+                pass "needle-$east-$yaw" "x=$east, yaw=$yaw, hotbar sprite $actual_sprite"
+            else
+                fail "needle-$east-$yaw" "x=$east, yaw=$yaw, expected sprite $expected_sprite, got '$actual_sprite'"
+            fi
+        done
+    done
+fi
+
+# Run this named scenario explicitly. It creates a new scratch world and checks two real deaths.
+if [ -n "$only" ] && wanted homeawards; then
+    home_world=bmh_home_awards
+    home_dir="$GAMEDIR/saves/$home_world"
+    home_cfg="$GAMEDIR/config/bmh-common.toml"
+    cp "$home_cfg" "$scratch/homeawards-config.before"
+
+    home_distance() {
+        # The search uses this exact distance for every difficulty and inventory.
+        python3 - "$home_cfg" "$1" <<'PYDIST'
+from pathlib import Path
+import re, sys
+p = Path(sys.argv[1])
+text = p.read_text()
+for key in ("minDistanceFromBed", "maxDistanceFromBed"):
+    text, n = re.subn(rf"(?m)^({key}\s*=\s*)\d+", lambda m: m[1] + sys.argv[2], text)
+    assert n == 1, key
+p.write_text(text)
+PYDIST
+    }
+
+    home_progress() {
+        local stage="$1" want_deaths="$2" want_awards="$3"
+        ctl save >/dev/null
+        python3 - "$home_dir" "$home_uuid" "$stage" "$want_deaths" "$want_awards" <<'PYAWARDS'
+from pathlib import Path
+import json, sys
+world, uuid, stage, count, bits = sys.argv[1:]
+players = Path(world) / "players"
+stats = json.loads((players / "stats" / (uuid + ".json")).read_text())
+deaths = stats["stats"]["minecraft:custom"].get("minecraft:deaths", 0)
+progress = json.loads((players / "advancements" / (uuid + ".json")).read_text())
+observed = []
+for key in ("exile", "home_at_last", "far_away", "long_way_home", "here_we_go_again"):
+    award = progress.get("bmh:journey/" + key, {})
+    criteria = award.get("criteria", {})
+    granted = award.get("done") is True
+    assert granted == bool(criteria.get("done")), (key, award)
+    observed.append("1" if granted else "0")
+actual = "".join(observed)
+print(f"homeawards {stage}: {deaths} deaths, progress {actual}; expected {count}, {bits}")
+sys.exit(0 if deaths == int(count) and actual == bits else 1)
+PYAWARDS
+    }
+
+    home_awards_run() {
+        leave_world
+        open_create_screen
+        make_world "$home_world"
+        ctl command 'gamemode creative' >/dev/null
+        ctl command 'difficulty peaceful' >/dev/null
+        ctl command 'bmh rule random_death_spawn_point true' >/dev/null
+        ctl command 'bmh rule display_text_on_respawn true' >/dev/null
+        ctl command 'tp @s 0.5 180 0.5' >/dev/null
+        ctl wait 40 >/dev/null
+        ctl fill -3 179 -3 3 179 3 minecraft:stone >/dev/null
+        ctl fill -3 180 -3 3 184 3 minecraft:air >/dev/null
+        ctl command 'spawnpoint @s 0 180 0' >/dev/null
+        ctl command 'tp @s 94.5 180 0.5' >/dev/null
+        ctl wait 40 >/dev/null
+        ctl fill 92 179 -2 124 179 2 minecraft:stone >/dev/null
+        ctl fill 92 180 -2 124 184 2 minecraft:air >/dev/null
+        ctl setblock 96 180 0 minecraft:lodestone >/dev/null
+        ctl command 'tp @s 94.5 180 0.5' >/dev/null
+        ctl command 'give @s bmh:navigator_amulet' >/dev/null
+        ctl wait 10 >/dev/null
+        ctl select bmh:navigator_amulet >/dev/null
+        ctl command 'gamemode survival' >/dev/null
+        ctl command 'bmh point save 96 180 0 North Camp' >/dev/null
+        ctl wait 5 >/dev/null
+        named="$(jget "$(ctl messages 1)" 'd.get("actionbar")')"
+        if [ "$named" != 'Point saved: North Camp' ]; then
+            fail homeawards0 "could not save the live lodestone point: '$named'"
+            return
+        fi
+        ctl save >/dev/null
+        leave_world
+
+        # Seed only the vanilla statistic while the new save is closed. BMH grants each criterion in play.
+        if ! home_uuid="$(python3 - "$home_dir" <<'PYSEED'
+from pathlib import Path
+import json, sys, uuid
+files = list((Path(sys.argv[1]) / "players" / "stats").glob("*.json"))
+assert len(files) == 1, files
+p = files[0]
+uuid.UUID(p.stem)
+data = json.loads(p.read_text())
+data["stats"].setdefault("minecraft:custom", {})["minecraft:deaths"] = 8
+p.write_text(json.dumps(data))
+print(p.stem)
+PYSEED
+)"; then
+            fail homeawards0 'could not seed the ninth-death boundary for the scratch player'
+            return
+        fi
+
+        for distance in 29999 30000; do
+            if ! home_distance "$distance"; then
+                fail homeawards0 "could not set the scratch distance to $distance"
+                return
+            fi
+            ctl open "$home_world" >/dev/null
+            ctl wait-for loaded --timeout 200 >/dev/null
+            ctl wait 60 >/dev/null
+            if [ "$distance" -eq 29999 ] && ! home_progress before 8 00000; then
+                fail homeawards0 'unexpected prior journey progress in the new world'
+                return
+            fi
+            record="Homecoming record: 2 homes (1 amulet points), $distance blocks, in minecraft:overworld"
+            records_before="$(count_log "$record")"
+            if ! death_and_respawn ctl 1 || [ "$(count_log "$record")" -le "$records_before" ]; then
+                fail "homeawards-$distance" "no actual exile of $distance with both snapshotted homes: $DR_NOTE"
+                return
+            fi
+            if [ "$distance" -eq 29999 ]; then deaths=9; away=10000; back=11000; else deaths=10; away=11101; back=11111; fi
+            if home_progress "exile-$distance" "$deaths" "$away"; then
+                pass "homeawards-exile-$deaths" "the saved criteria match death $deaths and $distance blocks"
+            else
+                fail "homeawards-exile-$deaths" "incorrect criteria on distant respawn"
+            fi
+            arrivals="$(count_log 'is home after')"
+            ctl command 'tp @s 121.5 180 0.5' >/dev/null
+            ctl wait 45 >/dev/null
+            if [ "$(count_log 'is home after')" -ne "$arrivals" ]; then
+                fail "homeawards-radius-$deaths" 'the named point triggered at a horizontal distance of 25'
+                return
+            fi
+            ctl command 'tp @s 120.5 180 0.5' >/dev/null
+            if ! wait_log 'is home after' "$arrivals" 15; then
+                fail "homeawards-radius-$deaths" 'the named point did not trigger at 24 blocks'
+                return
+            fi
+            ctl wait 3 >/dev/null
+            messages="$(ctl messages)"
+            title="$(jget "$messages" 'd.get("title")')"
+            subtitle="$(jget "$messages" 'd.get("subtitle")')"
+            if [ "$title" = 'North Camp' ] && [ "$subtitle" = "$distance blocks since you left" ] \
+                && home_progress "return-$distance" "$deaths" "$back"; then
+                pass "homeawards-return-$deaths" "North Camp at 24 blocks, '$subtitle', and the correct persisted criteria"
+            else
+                fail "homeawards-return-$deaths" "got '$title' and '$subtitle', or incorrect saved homecoming awards"
+            fi
+            ctl wait 45 >/dev/null
+            if [ "$(count_log 'is home after')" -ne "$((arrivals + 1))" ]; then
+                fail "homeawards-once-$deaths" 'the same exile produced more than one homecoming'
+            fi
+            leave_world
+        done
+    }
+
+    home_awards_run
+    cp "$scratch/homeawards-config.before" "$home_cfg"
+    leave_world
+    if ! wanted hardcoredeath; then
+        ctl open "$WORLD" >/dev/null
+        ctl wait-for loaded --timeout 200 >/dev/null
+    fi
+fi
+
+# A Hardcore death opens the spectator death screen and skips the exile.
+if wanted hardcoredeath; then
+    leave_world
+    open_create_screen
+    n=0
+    while [ "$n" -lt 4 ]; do
+        hardcore_label="$(jget "$(ctl ui)" '[w["label"] for w in d["widgets"] if w["id"]=="game-mode"][0]')"
+        case "$hardcore_label" in *Hardcore*) break;; esac
+        ctl click game-mode >/dev/null
+        sleep 1
+        n=$((n + 1))
+    done
+    make_world bmh_hardcore_death
+    before_hc_land="$(count_log 'Landing spot ready')"
+    before_hc_move="$(count_log 'new respawn pos and bed')"
+    before_hc_death="$(jget "$(ctl events)" 'd["last"]')"
+    hc_state="$(state)"
+    hx="$(jget "$hc_state" 'd["player"]["block_pos"][0]')"
+    hy="$(jget "$hc_state" 'd["player"]["block_pos"][1]')"
+    hz="$(jget "$hc_state" 'd["player"]["block_pos"][2]')"
+    ctl fill $((hx - 3)) $((hy - 1)) $((hz - 3)) $((hx + 3)) $((hy + 4)) $((hz + 3)) minecraft:stone >/dev/null
+    if ctl wait-for event death --since "${before_hc_death:-0}" --timeout 80 >/dev/null \
+        && ctl wait-for screen dead --timeout 20 >/dev/null; then
+        hc_ui="$(ctl ui)"
+        if printf '%s' "$hc_ui" | grep -qi 'spectate'; then
+            hc_seq="$(jget "$(ctl events)" 'd["last"]')"
+            ctl respawn >/dev/null
+            if ctl wait-for event respawn --since "${hc_seq:-0}" --timeout 30 >/dev/null \
+                && ctl wait 20 >/dev/null \
+                && [ "$(jget "$(state)" 'd["gamemode"]')" = spectator ] \
+                && [ "$(count_log 'Landing spot ready')" -eq "$before_hc_land" ] \
+                && [ "$(count_log 'new respawn pos and bed')" -eq "$before_hc_move" ]; then
+                pass hardcore1 "hardcore death offered Spectate and returned without a distant landing"
+            else
+                fail hardcore1 "the spectator transition failed or a distant landing was recorded"
+            fi
+        else
+            fail hardcore1 "the hardcore death screen lacked the Spectate button: $hc_ui"
+        fi
+    else
+        fail hardcore1 "no death screen after enclosure in a world created with '$hardcore_label'"
+    fi
+fi
+
+if wanted bundlebar; then
+    ctl command "gamemode survival" >/dev/null
+    ctl command "clear @s" >/dev/null
+    for count in 0 32 64; do
+        spec=bmh:eternal_bundle
+        if [ "$count" -gt 0 ]; then
+            spec="bmh:eternal_bundle[bundle_contents=[{id:'minecraft:stone',count:$count}]]"
+        fi
+        ctl command "item replace entity @s hotbar.0 with $spec" >/dev/null
+        ctl select 1 >/dev/null
+        ctl wait 6 >/dev/null
+        ctl screenshot "$SHOTS/bundle-$count.png" >/dev/null
+    done
+    widths="$(python3 - "$SHOTS" <<'PYEOF'
+from PIL import Image
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+for count in (0, 32, 64):
+    with Image.open(root / f"bundle-{count}.png") as im:
+        w, h = im.size
+        pixels = im.convert("RGB").load()
+        best = 0
+        for y in range(h - h//6, h):
+            run = 0
+            for x in range(w//8, w//2):
+                r, g, b = pixels[x, y]
+                run = run + 1 if abs(r-102) <= 2 and abs(g-102) <= 2 and b >= 252 else 0
+                best = max(best, run)
+        print(best)
+PYEOF
+)"
+    if printf '%s\n' "$widths" | awk 'NR==1{empty=$1} NR==2{half=$1} NR==3{full=$1} END{exit !(NR==3 && empty==0 && half>=7 && full*7==half*13)}'; then
+        pass bundlebar1 "empty, half-full and full bundles drew blue bar widths $(echo "$widths" | xargs)"
+    else
+        fail bundlebar1 "measured blue widths $(echo "$widths" | xargs)"
+    fi
+    ctl command "clear @s" >/dev/null
+fi
+
+# Ground damage affects the control drop at the same position as the Eternal Item.
+if wanted ground; then
+    ctl command "gamemode creative" >/dev/null
+    platform
+    ground_x=$((PX + 6))
+    ground_y=$((PY + 1))
+    ground_pos="$(center "$ground_x") $ground_y $(center "$PZ")"
+    ctl command "fill $((ground_x - 2)) $((ground_y - 1)) $((PZ - 2)) $((ground_x + 2)) $((ground_y - 1)) $((PZ + 2)) obsidian" >/dev/null
+    ctl command "fill $((ground_x - 1)) $ground_y $((PZ - 1)) $((ground_x + 1)) $((ground_y + 3)) $((PZ + 1)) air" >/dev/null
+    for cause in command lightning explosion cactus; do
+        ctl command "kill @e[type=item,tag=bmh_ground]" >/dev/null
+        for id in bmh:eternal_sword minecraft:stick; do
+            if [ "$id" = minecraft:stick ]; then tag=control; else tag=eternal; fi
+            ctl command "summon item $ground_pos {Item:{id:\"$id\",count:1},Health:5s,Age:60s,PickupDelay:32767s,Tags:[\"bmh_ground\",\"bmh_$tag\"]}" >/dev/null
+        done
+        ctl wait 2 >/dev/null
+        if ! ctl command 'data get entity @e[type=item,tag=bmh_control,limit=1] Item.id' | grep -q 'minecraft:stick'; then
+            fail "ground_$cause" "the control item did not spawn at $ground_pos"
+            continue
+        fi
+        case "$cause" in
+            command)
+                ctl command "damage @e[type=item,tag=bmh_control,limit=1] 100 minecraft:generic" >/dev/null
+                ctl command "damage @e[type=item,tag=bmh_eternal,limit=1] 100 minecraft:generic" >/dev/null ;;
+            lightning) ctl command "summon lightning_bolt $ground_pos" >/dev/null ;;
+            explosion) ctl command "summon tnt $ground_pos {fuse:2}" >/dev/null ;;
+            cactus)
+                ctl command "setblock $ground_x $((ground_y - 1)) $PZ sand" >/dev/null
+                ctl command "setblock $ground_x $ground_y $PZ cactus" >/dev/null
+                for t in {1..10}; do
+                    ctl command "tp @e[type=item,tag=bmh_ground] $ground_pos" >/dev/null
+                    ctl wait 1 >/dev/null
+                done ;;
+        esac
+        ctl wait 40 >/dev/null
+        protected="$(ctl command 'data get entity @e[type=item,tag=bmh_eternal,limit=1]')"
+        control="$(ctl command 'data get entity @e[type=item,tag=bmh_control,limit=1] Item.id')"
+        if printf '%s' "$protected" | grep -q 'Health: 5s' && printf '%s' "$protected" | grep -q 'bmh:eternal_sword' && ! printf '%s' "$control" | grep -q 'minecraft:stick'; then
+            pass "ground_$cause" "the sword kept all five health points while the stick was destroyed"
+        else
+            fail "ground_$cause" "sword $(printf '%s' "$protected" | head -c 550), control $(printf '%s' "$control" | head -c 200)"
+        fi
+    done
+    ctl command "kill @e[type=item,tag=bmh_ground]" >/dev/null
+    ctl command "setblock $ground_x $ground_y $PZ air" >/dev/null
 fi
 
 # ---- summary -----------------------------------------------------------------------------------

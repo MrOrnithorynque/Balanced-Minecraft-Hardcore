@@ -439,12 +439,14 @@ pub fn timed_out(ticks: u32) -> bool {
 }
 
 /// A respawn point as the player's data keeps it (vanilla `ServerPlayer.RespawnConfig`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RespawnPoint {
     /// The level of the point.
     pub dimension: String,
     /// The bed head, the anchor or the block of a `/spawnpoint`.
     pub pos: [i32; 3],
+    /// The facing angle saved with the point.
+    pub yaw: f32,
     /// Set by `/spawnpoint`.
     pub forced: bool,
 }
@@ -462,50 +464,6 @@ pub enum PointUse {
     /// Anything else: vanilla forgets the point and the exile centre is the world spawn
     /// (RespawnPositionHandler.java:120-127, `missingRespawnBlock`).
     Missing,
-}
-
-/// The block id of a block state string (`minecraft:respawn_anchor[charges=2]` gives
-/// `minecraft:respawn_anchor`).
-pub fn state_name(state: &str) -> &str {
-    state.split('[').next().unwrap_or(state)
-}
-
-/// One property of a block state string, None when the state does not have it.
-pub fn state_property<'a>(state: &'a str, key: &str) -> Option<&'a str> {
-    let inside = state.split_once('[')?.1.strip_suffix(']')?;
-    inside.split(',').find_map(|pair| {
-        let (k, v) = pair.split_once('=')?;
-        (k.trim() == key).then_some(v.trim())
-    })
-}
-
-/// Room to respawn in this block (vanilla `Block.isPossibleToRespawnInThis`: neither solid nor
-/// liquid). Horizon gives no `isSolid` for a block, so a block with a collision box counts as solid.
-pub fn respawn_space(block: &BlockInfo) -> bool {
-    const LIQUIDS: [&str; 3] = ["minecraft:water", "minecraft:lava", "minecraft:bubble_column"];
-    block.boxes.is_empty() && !LIQUIDS.contains(&block.name.as_str())
-}
-
-/// Vanilla's resolution of the point at the respawn, in its order (respawn_anchor.rs:483-500):
-/// the anchor first, then the bed, then a forced point. `state` is the block state at the point,
-/// `free_at` and `free_above` are `respawn_space` of that block and of the one over it. The stand-up
-/// search round a bed or an anchor is not done: an obstructed bed counts as one that works.
-pub fn point_use(point: &RespawnPoint, state: &str, free_at: bool, free_above: bool) -> PointUse {
-    let name = state_name(state);
-    let anchor = name == "minecraft:respawn_anchor";
-    let charges = state_property(state, "charges").and_then(|c| c.parse::<i32>().ok()).unwrap_or(0);
-    // `RespawnAnchorBlock.canSetSpawn`: only the Nether's dimension type lets an anchor work.
-    if anchor && (point.forced || charges > 0) && point.dimension == NETHER {
-        return PointUse::Anchor;
-    }
-    // `BedRule.canSetSpawn`: only the Overworld's beds set the spawn, straw beds never.
-    if name.ends_with("_bed") && name != "minecraft:straw_bed" && point.dimension == OVERWORLD {
-        return PointUse::Bed;
-    }
-    if point.forced && !anchor && free_at && free_above {
-        return PointUse::Forced;
-    }
-    PointUse::Missing
 }
 
 /// The charges an anchor keeps after a respawn uses it, None when it has none to give.
@@ -1166,59 +1124,6 @@ mod tests {
         let tight = [10.25, 10.25, 10.75, 10.75];
         assert!(!inside_border(tight, 10, 10), "10 is under the min 10.25");
         assert!(!inside_border(tight, 11, 11), "11 is over the max 10.75");
-    }
-
-    #[test]
-    fn block_states_split_into_name_and_properties() {
-        let state = "minecraft:respawn_anchor[charges=2]";
-        assert_eq!(state_name(state), "minecraft:respawn_anchor");
-        assert_eq!(state_property(state, "charges"), Some("2"));
-        assert_eq!(state_property(state, "facing"), None);
-        assert_eq!(state_name("minecraft:air"), "minecraft:air");
-        assert_eq!(state_property("minecraft:air", "charges"), None);
-        let bed = "minecraft:red_bed[facing=east,occupied=false,part=head]";
-        assert_eq!(state_name(bed), "minecraft:red_bed");
-        assert_eq!(state_property(bed, "part"), Some("head"));
-        // A broken string gives no property and no panic.
-        assert_eq!(state_property("minecraft:x[charges=1", "charges"), None);
-    }
-
-    fn point(dimension: &str, forced: bool) -> RespawnPoint {
-        RespawnPoint { dimension: dimension.into(), pos: [5, 70, -3], forced }
-    }
-
-    #[test]
-    fn the_point_resolves_as_vanilla_does() {
-        let anchor = |c: i32| format!("minecraft:respawn_anchor[charges={c}]");
-        // A charged anchor in the Nether works; an empty one is gone unless forced.
-        assert_eq!(point_use(&point(NETHER, false), &anchor(1), false, false), PointUse::Anchor);
-        assert_eq!(point_use(&point(NETHER, false), &anchor(0), false, false), PointUse::Missing);
-        assert_eq!(point_use(&point(NETHER, true), &anchor(0), false, false), PointUse::Anchor);
-        // An anchor works only in the Nether, even forced and with room.
-        assert_eq!(point_use(&point(OVERWORLD, false), &anchor(4), true, true), PointUse::Missing);
-        assert_eq!(point_use(&point(OVERWORLD, true), &anchor(4), true, true), PointUse::Missing);
-        // A bed works in the Overworld only, and a straw bed never.
-        let bed = "minecraft:white_bed[facing=north,occupied=false,part=head]";
-        assert_eq!(point_use(&point(OVERWORLD, false), bed, false, false), PointUse::Bed);
-        assert_eq!(point_use(&point(NETHER, false), bed, false, false), PointUse::Missing);
-        assert_eq!(point_use(&point(OVERWORLD, false), "minecraft:straw_bed[part=head]", false, false), PointUse::Missing);
-        // A bed that is gone.
-        assert_eq!(point_use(&point(OVERWORLD, false), "minecraft:air", true, true), PointUse::Missing);
-        // A forced point holds while a player fits in it, in any level.
-        assert_eq!(point_use(&point(OVERWORLD, true), "minecraft:air", true, true), PointUse::Forced);
-        assert_eq!(point_use(&point(NETHER, true), "minecraft:air", true, true), PointUse::Forced);
-        assert_eq!(point_use(&point(OVERWORLD, true), "minecraft:stone", false, true), PointUse::Missing);
-        assert_eq!(point_use(&point(OVERWORLD, true), "minecraft:air", true, false), PointUse::Missing);
-        assert_eq!(point_use(&point(OVERWORLD, false), "minecraft:air", true, true), PointUse::Missing);
-    }
-
-    #[test]
-    fn respawn_space_is_neither_solid_nor_liquid() {
-        assert!(respawn_space(&air()));
-        assert!(respawn_space(&BlockInfo { name: "minecraft:oak_sign".into(), ..BlockInfo::default() }));
-        assert!(!respawn_space(&full("minecraft:stone")));
-        assert!(!respawn_space(&water()));
-        assert!(!respawn_space(&BlockInfo { name: "minecraft:lava".into(), ..BlockInfo::default() }));
     }
 
     #[test]

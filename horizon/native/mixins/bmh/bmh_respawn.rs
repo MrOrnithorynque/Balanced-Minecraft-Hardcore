@@ -28,7 +28,6 @@ use bmh_logic::respawn as logic;
 use bmh_logic::wire::{JOURNEY_CHANNEL, JourneySignal, RESPAWN_CHANNEL, RespawnRequest};
 use horizon_world::nbt::Tag;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 
 /// What the area keeps of a living player between hooks.
@@ -82,7 +81,6 @@ struct Placed {
     feet: [i32; 3],
     dimension: String,
     exile: Exile,
-    effect: PointEffect,
 }
 
 /// What the arrival needs of the player who arrives: entity id, feet position and level.
@@ -110,17 +108,6 @@ impl Running {
     }
 }
 
-/// What the arrival does after a distant respawn, besides the journey (vanilla's resolution of the
-/// point, which Horizon skips once the position is moved).
-#[derive(Debug, Clone)]
-enum PointEffect {
-    None,
-    /// A non-forced anchor gives one charge (vanilla `findRespawnAndUseSpawnBlock`).
-    UseCharge { dimension: String, pos: [i32; 3] },
-    /// The point does not work: vanilla tells the player (`NO_RESPAWN_BLOCK_AVAILABLE`).
-    NotValid,
-}
-
 /// A landing chunk that stays held for a while after the respawn took the search.
 struct Kept {
     owner: String,
@@ -140,18 +127,13 @@ struct Server {
     distances: BTreeMap<u128, i32>,
     searches: BTreeMap<u128, Running>,
     /// Exiles between `player_respawn_position` and `player_respawned` (Java `exiles`).
-    exiles: BTreeMap<u128, (Exile, PointEffect)>,
+    exiles: BTreeMap<u128, Exile>,
     shields: logic::Shields,
     /// Awards to run from `server_tick`: player, name, advancement path.
     awards: Vec<(u128, String, &'static str)>,
     /// Sound commands to run from `level_tick_post` of their level: player, level, block, line.
     sounds: Vec<(u128, String, [i32; 3], String)>,
-    /// Anchor charges to use from `level_tick_post` of their level: player, level, anchor.
-    charges: Vec<(u128, String, [i32; 3])>,
     kept: Vec<Kept>,
-    /// The world spawn that `spawn_change` told or a respawn showed, with the world folder it
-    /// belongs to.
-    world_spawn: Option<(PathBuf, [i32; 3])>,
     rng: logic::Rng,
     seeded: bool,
     serial: u64,
@@ -166,9 +148,7 @@ static SERVER: Mutex<Server> = Mutex::new(Server {
     shields: logic::Shields::new(),
     awards: Vec::new(),
     sounds: Vec::new(),
-    charges: Vec::new(),
     kept: Vec::new(),
-    world_spawn: None,
     rng: logic::Rng::new(0),
     seeded: false,
     serial: 0,
@@ -272,25 +252,11 @@ fn send(game: &mut crate::game::Game<'_>, player: u128, signal: &JourneySignal) 
     }
 }
 
-/// What `level.dat` says: hardcore (GAPS.md C5, substitute) and the world spawn.
-fn level_dat(game: &crate::game::Game<'_>) -> (bool, Option<[i32; 3]>) {
-    let level = game
-        .native_world_dir()
-        .and_then(|dir| horizon_client::save::Level::read(&dir));
-    level.map_or((false, None), |level| (level.hardcore, level.world_spawn))
-}
-
-/// The world spawn: the one `spawn_change` told or a respawn showed for this world, else the one of
-/// `level.dat`. A world never saved has a placeholder there (save.rs:4402), which the first respawn
-/// of a player with no point replaces (`logic::Fit::WorldSpawn`).
-fn world_spawn(game: &crate::game::Game<'_>) -> Option<[i32; 3]> {
-    let dir = game.native_world_dir();
-    let known = server()
-        .world_spawn
-        .clone()
-        .filter(|(world, _)| Some(world) == dir.as_ref())
-        .map(|(_, pos)| pos);
-    known.or_else(|| level_dat(game).1)
+/// Read the same live world spawn that the server uses for a guest respawn.
+pub(super) fn world_spawn(game: &crate::game::Game<'_>) -> [i32; 3] {
+    game.level.world_spawn
+        .or_else(|| game.spawn.map(|pos| logic::block_of([pos.x, pos.y, pos.z])))
+        .unwrap_or([0, 80, 0])
 }
 
 /// The `respawn` compound of a player's data (save.rs:4029-4042 reads the same keys).
@@ -308,7 +274,11 @@ fn point_of(tag: &Tag) -> Option<logic::RespawnPoint> {
         _ => logic::OVERWORLD.to_owned(),
     };
     let forced = matches!(respawn.get("forced"), Some(Tag::Byte(b)) if *b != 0);
-    Some(logic::RespawnPoint { dimension, pos, forced })
+    let yaw = match respawn.get("yaw") {
+        Some(Tag::Float(bits)) => f32::from_bits(*bits),
+        _ => 0.0,
+    };
+    Some(logic::RespawnPoint { dimension, pos, yaw, forced })
 }
 
 /// The player's data as the server would save it now (`native_player_compound`), else the player's
@@ -341,7 +311,7 @@ fn handle_death(
         logic::distance(config, eternal_slots, difficulty)
     });
     let rule = crate::game::bmh_settings::rule(game, Rule::RandomDeathSpawnPoint);
-    let hardcore = level_dat(game).0;
+    let hardcore = game.level.hardcore;
     if !logic::is_distant_respawn(rule, game_mode, hardcore) {
         return;
     }
@@ -363,10 +333,7 @@ fn handle_death(
         }
         // RespawnSearch.java:81-82: no point, the world spawn of the Overworld.
         None => {
-            let Some(spawn) = world_spawn(game) else {
-                no_world_spawn(game, player);
-                return;
-            };
+            let spawn = world_spawn(game);
             let distance = logic::level_distance(world_distance, logic::coordinate_scale(logic::OVERWORLD));
             Phase::Searching(logic::Search::new(logic::OVERWORLD, spawn, distance))
         }
@@ -386,12 +353,6 @@ fn handle_death(
     };
     server().searches.insert(player, running);
     advance(game, player);
-}
-
-/// No search can start: the client must not hold the Respawn click for a search that never ends.
-fn no_world_spawn(game: &mut crate::game::Game<'_>, player: u128) {
-    log::warn!("[BalancedMcHardcoreMain] No world spawn known, using default respawn position");
-    send(game, player, &JourneySignal::Ready);
 }
 
 /// Lets go of every chunk a search holds: the point, the candidate or the landing.
@@ -440,27 +401,85 @@ fn resolve(game: &mut crate::game::Game<'_>, player: u128) {
         server().searches.insert(player, running);
         return;
     };
-    let [x, y, z] = point.pos;
-    let free_at = logic::respawn_space(&block_info(game, point.pos));
-    let free_above = logic::respawn_space(&block_info(game, [x, y.saturating_add(1), z]));
-    let point_use = logic::point_use(&point, &state, free_at, free_above);
-    game.native_force_chunk_in(&running.owner, &point.dimension, logic::chunk_of(x, z), false);
-    running.point_use = Some(point_use);
-    let (dimension, centre) = if point_use == logic::PointUse::Missing {
-        // RespawnSearch.java:81-82, RespawnPositionHandler.java:120-127.
-        let Some(spawn) = world_spawn(game) else {
-            no_world_spawn(game, player);
-            return;
-        };
-        (logic::OVERWORLD.to_owned(), spawn)
-    } else {
-        (point.dimension.clone(), point.pos)
+    let Some(point_use) = check_point(game, &point, false) else {
+        server().searches.insert(player, running);
+        return;
     };
+    set_search_center(game, &mut running, &point, point_use);
+    let centre = running.search().expect("point resolved").center;
     log::info!("[BalancedMcHardcoreMain] Respawn point {point:?} reads {state}: {point_use:?}, centre {centre:?}");
-    let distance = logic::level_distance(running.world_distance, logic::coordinate_scale(&dimension));
-    running.phase = Phase::Searching(logic::Search::new(&dimension, centre, distance));
     server().searches.insert(player, running);
     advance(game, player);
+}
+
+/// Resolve only a loaded point, in its own dimension. A second check can consume a chosen anchor.
+fn check_point(
+    game: &mut crate::game::Game<'_>,
+    point: &logic::RespawnPoint,
+    consume: bool,
+) -> Option<logic::PointUse> {
+    let level = game.native_level(&point.dimension)?;
+    if !game.native_level_is_loaded(level, point.pos) {
+        return None;
+    }
+    let dim = super::Dim::from_id(&point.dimension);
+    if dim.id() != point.dimension { return None; }
+    let back = game.enter_command_level(dim);
+    if game.dim != dim { return None; }
+    let config = super::respawn_anchor::RespawnConfig { dim, pos: point.pos, yaw: point.yaw, forced: point.forced };
+    let found = game.find_respawn_and_use(config, consume);
+    let [x, y, z] = point.pos;
+    let state = game.world.block(x, y, z);
+    let used = match found {
+        Ok(Some(_)) if game.is_anchor(state) => Some(logic::PointUse::Anchor),
+        Ok(Some(_)) if game.is_bed(state) && game.bed_sets_spawn(state) => Some(logic::PointUse::Bed),
+        Ok(Some(_)) => Some(logic::PointUse::Forced),
+        Ok(None) => Some(logic::PointUse::Missing),
+        Err(error) => {
+            log::warn!("[BalancedMcHardcoreMain] Could not check respawn point {point:?}: {error}");
+            None
+        }
+    };
+    if let Some(back) = back {
+        game.enter_command_level(back);
+    }
+    used
+}
+
+/// Keep the work already done when the actual respawn center still matches.
+fn set_search_center(
+    game: &mut crate::game::Game<'_>,
+    running: &mut Running,
+    point: &logic::RespawnPoint,
+    point_use: logic::PointUse,
+) {
+    running.point_use = Some(point_use);
+    let (dimension, center) = if point_use == logic::PointUse::Missing {
+        (logic::OVERWORLD, world_spawn(game))
+    } else {
+        (point.dimension.as_str(), point.pos)
+    };
+    if running.search().is_some_and(|s| s.dimension == dimension && s.center == center) {
+        return;
+    }
+    release_all(game, running);
+    let distance = logic::level_distance(running.world_distance, logic::coordinate_scale(dimension));
+    running.phase = Phase::Searching(logic::Search::new(dimension, center, distance));
+    running.ticks = 0;
+    running.started = std::time::Instant::now();
+}
+
+/// Vanilla resolves an early saved-point respawn itself. Use its actual outcome, including the last charge.
+pub(super) fn on_vanilla_point(game: &mut crate::game::Game<'_>, config: super::respawn_anchor::RespawnConfig, found: bool) {
+    let Some(player) = game.lan_acting_uuid else { return };
+    let mut s = server();
+    let Some(r) = s.searches.get(&player) else { return };
+    let Some(point) = r.point.clone().filter(|p| r.early.is_some() && p.dimension == config.dim.id() && p.pos == config.pos) else { return };
+    let mut running = s.searches.remove(&player).expect("checked search");
+    drop(s);
+    let used = if found { logic::PointUse::Forced } else { logic::PointUse::Missing };
+    set_search_center(game, &mut running, &point, used);
+    server().searches.insert(player, running);
 }
 
 /// One step of a player's search. Sends `Ready` once when the search ends (RespawnSearch.java:95-122).
@@ -549,7 +568,16 @@ pub(super) fn on_player_respawn_position(
         return;
     };
     let handed = (dimension.clone(), logic::block_of(*pos));
-    if !running.is_finished() {
+    let mut let_vanilla_resolve = false;
+    if let Some(point) = running.point.clone().filter(|_| running.is_finished() && !running.stale) {
+        let used = check_point(game, &point, false);
+        if let Some(used) = used {
+            set_search_center(game, &mut running, &point, used);
+        }
+        // The host clears a missing point through its cancellable death_reset event.
+        let_vanilla_resolve = used.is_none() || used == Some(logic::PointUse::Missing);
+    }
+    if let_vanilla_resolve || !running.is_finished() {
         if running.stale {
             // RespawnSearch.java:148-157, `take`: a search that did not end gives its chunks back.
             release_all(game, &mut running);
@@ -565,12 +593,20 @@ pub(super) fn on_player_respawn_position(
         server().searches.insert(player, running);
         return;
     }
+    let anchor = running.point.clone().filter(|p| !p.forced && running.point_use == Some(logic::PointUse::Anchor));
     let Some(placed) = place(game, name, running, &handed) else {
         return;
     };
+    if let Some(anchor) = anchor {
+        // The host skips its resolver once BMH replaces the destination. Consume the charge here, on this call.
+        if check_point(game, &anchor, true) != Some(logic::PointUse::Anchor) {
+            return;
+        }
+        game.native_play_sound_to(player, logic::ANCHOR_DEPLETE_SOUND, "block", Some(anchor.pos.map(f64::from)), 1.0, 1.0);
+    }
     *pos = logic::bottom_center(placed.feet);
     dimension.clone_from(&placed.dimension);
-    server().exiles.insert(player, (placed.exile, placed.effect));
+    server().exiles.insert(player, placed.exile);
 }
 
 /// The distant respawn that a finished search allows for the point that the game handed, or None for
@@ -616,29 +652,16 @@ fn place(
     };
     // The exile centre: the point, or the world spawn as the game keeps it.
     let exile_centre = match fit {
-        Some(logic::Fit::WorldSpawn(spawn)) => {
-            if let Some(world) = game.native_world_dir() {
-                server().world_spawn = Some((world, spawn));
-            }
-            spawn
-        }
+        Some(logic::Fit::WorldSpawn(spawn)) => spawn,
         _ => search.center,
     };
     log::info!("[BalancedMcHardcoreMain] new respawn pos and bed : {feet:?}, {exile_centre:?}");
-    let effect = match (&running.point, running.point_use) {
-        (Some(p), Some(logic::PointUse::Anchor)) if !p.forced => PointEffect::UseCharge {
-            dimension: p.dimension.clone(),
-            pos: p.pos,
-        },
-        (Some(_), Some(logic::PointUse::Missing)) => PointEffect::NotValid,
-        _ => PointEffect::None,
-    };
     let exile = Exile {
         dimension: search.dimension.clone(),
         center: exile_centre,
         distance: running.world_distance,
     };
-    Some(Placed { feet, dimension: search.dimension.clone(), exile, effect })
+    Some(Placed { feet, dimension: search.dimension.clone(), exile })
 }
 
 //// True while a player has respawned early and the move to the landing has not happened. The player then
@@ -652,6 +675,12 @@ pub(super) fn early_pending(player: u128) -> bool {
 /// or with the tick's level teleports for another level), then run the arrival once. Gives the exile for
 /// the homecoming area, or None when the player keeps the vanilla point.
 fn finish_early(game: &mut crate::game::Game<'_>, player: u128) -> Option<Exile> {
+    // Complete the host's vanilla respawn trip first. Its resolver consumes or clears the saved point.
+    if game.lan.as_ref().and_then(|host| host.hub.guests.iter().find(|g| g.uuid == player))
+        .is_some_and(|g| game.on_server_trip(g.conn))
+    {
+        return None;
+    }
     let mut running = server().searches.remove(&player)?;
     let Some(early) = running.early.take() else {
         server().searches.insert(player, running);
@@ -671,7 +700,7 @@ fn finish_early(game: &mut crate::game::Game<'_>, player: u128) -> Option<Exile>
     }
     log::info!("[BalancedMcHardcoreMain] {name} moved to the landing after an early respawn: {:?}", placed.feet);
     let arrived = Arrived { entity: me.entity_id, position: at, dimension: placed.dimension.clone() };
-    arrive(game, player, &name, placed.exile, placed.effect, Some(arrived))
+    arrive(game, player, &name, placed.exile, Some(arrived))
 }
 
 // The journey signal needs the Eternal count of `loot_drops`, which fires after this hook. So
@@ -688,21 +717,7 @@ pub(super) fn on_living_death(
     let _ = (game, entity, kind, damage_type, attacker, cancel);
 }
 
-// C1: count the Eternal Items in the dying player's drops (one per slot, as the Java loop counts).
-pub(super) fn on_loot_drops(
-    game: &mut crate::game::Game<'_>,
-    context: &horizon_client::mod_api::NativeLootDrops<'_>,
-    drops: &mut Vec<horizon_client::items::ItemStack>,
-) {
-    let _ = game;
-    // A player's own death: the entity is the player and no loot table rolled.
-    let Some((_, "minecraft:player")) = context.entity else {
-        return;
-    };
-    let Some(player) = context.player.filter(|_| context.table.is_empty()) else {
-        return;
-    };
-    let count = logic::count_eternal(drops.iter().filter(|stack| stack.count > 0).map(|stack| &*stack.item));
+pub(super) fn record_death_inventory(player: u128, count: i32) {
     if let Some(pending) = server().deaths.get_mut(&player) {
         *pending = Some(count);
     }
@@ -755,7 +770,7 @@ pub(super) fn on_player_respawned(
 ) -> Option<Exile> {
     let me = game.native_acting_player();
     let taken = server().exiles.remove(&player);
-    let Some((exile, effect)) = taken else {
+    let Some(exile) = taken else {
         let early = server().searches.get(&player).is_some_and(|r| r.early.is_some());
         if early && let Some(me) = &me {
             server().shields.start(me.entity_id);
@@ -763,7 +778,7 @@ pub(super) fn on_player_respawned(
         return None;
     };
     let arrived = me.map(|me| Arrived { entity: me.entity_id, position: me.position, dimension: me.dimension });
-    arrive(game, player, name, exile, effect, arrived)
+    arrive(game, player, name, exile, arrived)
 }
 
 /// The arrival steps of a distant respawn (RespawnEffectHandler.java:27-65), at the respawn or, after
@@ -773,26 +788,16 @@ fn arrive(
     player: u128,
     name: &str,
     exile: Exile,
-    effect: PointEffect,
     me: Option<Arrived>,
 ) -> Option<Exile> {
     // RespawnEffectHandler.java:38: no journey in a hardcore world.
-    if level_dat(game).0 {
+    if game.level.hardcore {
         return None;
     }
     let deaths = game
         .native_player_stat(player, "minecraft:custom", "minecraft:deaths")
         .unwrap_or(0);
     let text = crate::game::bmh_settings::rule(game, Rule::DisplayTextOnRespawn);
-    match effect {
-        // Vanilla PlayerList.respawn: NO_RESPAWN_BLOCK_AVAILABLE, shown as this chat line.
-        PointEffect::NotValid => {
-            let line = horizon_client::text::Text::translate(logic::NOT_VALID_KEY, &[]);
-            game.native_tell(player, line);
-        }
-        PointEffect::UseCharge { dimension, pos } => server().charges.push((player, dimension, pos)),
-        PointEffect::None => {}
-    }
     {
         let mut s = server();
         for path in logic::journey_awards(deaths, exile.distance) {
@@ -827,7 +832,6 @@ pub(super) fn on_player_logged_out(game: &mut crate::game::Game<'_>, player: u12
     s.exiles.remove(&player);
     s.awards.retain(|(who, _, _)| *who != player);
     s.sounds.retain(|(who, _, _, _)| *who != player);
-    s.charges.retain(|(who, _, _)| *who != player);
 }
 
 // C1, C3, C8: the deaths of the tick, the search timeouts, the landing tickets. C9: the journey advancements (`run_command` works only where no player is swapped
@@ -910,15 +914,12 @@ pub(super) fn on_server_tick(
 // sounds of this level (`/playsound` reaches only the players of the level in place). The anchor
 // charges of this level.
 pub(super) fn on_level_tick_post(game: &mut crate::game::Game<'_>, dimension: &str) {
-    let (sounds, charges) = {
+    let sounds = {
         let mut s = server();
         let (here, other): (Vec<_>, Vec<_>) =
             std::mem::take(&mut s.sounds).into_iter().partition(|(_, level, _, _)| level == dimension);
         s.sounds = other;
-        let (charges, other): (Vec<_>, Vec<_>) =
-            std::mem::take(&mut s.charges).into_iter().partition(|(_, level, _)| level == dimension);
-        s.charges = other;
-        (here, charges)
+        here
     };
     if !sounds.is_empty() {
         let online = game.native_server_players();
@@ -934,18 +935,6 @@ pub(super) fn on_level_tick_post(game: &mut crate::game::Game<'_>, dimension: &s
             if !game.native_run_command(&line) {
                 log::warn!("[BalancedMcHardcoreMain] Sound command failed: {line}");
             }
-        }
-    }
-    for (player, _, pos) in charges {
-        // Vanilla `findRespawnAndUseSpawnBlock` with `useCharge`, then the deplete sound to the player.
-        let charges = game
-            .native_block_property(pos, "charges")
-            .and_then(|c| c.parse::<i32>().ok())
-            .and_then(logic::anchor_after_use);
-        if let Some(left) = charges.filter(|_| game.native_block(pos) == "minecraft:respawn_anchor") {
-            game.native_set_block_property(pos, "charges", &left.to_string());
-            let at = Some(pos.map(f64::from));
-            game.native_play_sound_to(player, logic::ANCHOR_DEPLETE_SOUND, "block", at, 1.0, 1.0);
         }
     }
     let (resolving, searching): (Vec<u128>, Vec<u128>) = {
@@ -1045,13 +1034,8 @@ pub(super) fn on_player_spawn_point_set(
 
 // C2: `/setworldspawn` moved the world spawn, the centre of an exile with no working point. A search
 // already round the old one does not fit any more.
-pub(super) fn on_spawn_change(game: &mut crate::game::Game<'_>, pos: [i32; 3], angle: [f32; 2]) {
-    let _ = angle;
-    let Some(world) = game.native_world_dir() else {
-        return;
-    };
+pub(super) fn on_spawn_change() {
     let mut s = server();
-    s.world_spawn = Some((world, pos));
     for running in s.searches.values_mut() {
         if running.search().is_some() && running.centre_is_world_spawn() {
             running.stale = true;

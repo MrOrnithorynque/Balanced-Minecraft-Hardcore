@@ -1,5 +1,7 @@
 # One Totem of Eternity per container: workarounds for T12, T13, T14
 
+The current port checks the destination in the inventory menu, the container menu and the drag commit. Its hopper and dropper check stays at insertion. The recovery design below records the earlier build. See the [gameplay comparison](../PARITY.md).
+
 The current implementation runs one check before a transfer and one after a menu click. See [Integration check](#integration-check).
 The sections below record the first experiment against Horizon revision `fdc87ae`. Its results explain why the integration changed the design.
 

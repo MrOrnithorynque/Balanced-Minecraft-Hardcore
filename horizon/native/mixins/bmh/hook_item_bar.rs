@@ -7,6 +7,7 @@ fn bmh_hook_item_bar(
     if !game.native_on(crate::game::bmh::ID) {
         return;
     }
+    crate::game::bmh_eternal::on_item_bar(game, stack, bar);
     crate::game::bmh_tools::on_item_bar(game, stack, bar);
     crate::game::bmh_amulet::on_item_bar(game, stack, bar);
 }

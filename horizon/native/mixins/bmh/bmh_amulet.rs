@@ -23,7 +23,6 @@ use horizon_client::mod_api::{AttachmentCodec, AttachmentError, AttachmentType, 
 use horizon_client::text::{self, Text};
 use horizon_world::nbt::JavaString;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 
 const OVERWORLD: &str = bmh_logic::respawn::OVERWORLD;
@@ -51,8 +50,6 @@ struct Server {
     took_click: BTreeMap<u128, i64>,
     /// The game time of the last point change (AmuletPointCommand.java:41).
     last_change: BTreeMap<u128, i64>,
-    /// The world spawn that `spawn_change` told, with its world folder.
-    world_spawn: Option<(PathBuf, [i32; 3])>,
     /// Advancements to award where no player is swapped in: player, name, path.
     awards: Vec<(u128, String, &'static str)>,
     /// Chimes for the other players: player, dimension, position, console line.
@@ -63,7 +60,6 @@ static SERVER: Mutex<Server> = Mutex::new(Server {
     cooldowns: BTreeMap::new(),
     took_click: BTreeMap::new(),
     last_change: BTreeMap::new(),
-    world_spawn: None,
     awards: Vec::new(),
     sounds: Vec::new(),
 });
@@ -302,14 +298,6 @@ fn import_java_points(game: &mut crate::game::Game<'_>) {
 // of the list (Java `AmuletPoints.get`). The homecoming area reads them. Empty for a player out of reach.
 pub(super) fn points(game: &mut crate::game::Game<'_>, player: u128) -> Vec<AmuletPoint> {
     load_points(game, player).unwrap_or_default()
-}
-
-/// The world spawn: the one `spawn_change` told for this world, else the one of `level.dat` (GAPS.md A2,
-/// the substitute of the X helper). None when neither is known.
-fn world_spawn(game: &crate::game::Game<'_>) -> Option<[i32; 3]> {
-    let dir = game.native_world_dir()?;
-    let known = server().world_spawn.clone().filter(|(world, _)| *world == dir).map(|(_, pos)| pos);
-    known.or_else(|| horizon_client::save::Level::read(&dir).and_then(|level| level.world_spawn))
 }
 
 /// What the area reads of a block that may hold a point.
@@ -772,7 +760,7 @@ pub(super) fn on_use_item(
         }
         logic::Use::Read => {
             let points = load_points(game, me.uuid).unwrap_or_default();
-            let read = logic::reading(me.position, &points, world_spawn(game), now);
+            let read = logic::reading(me.position, &points, Some(crate::game::bmh_respawn::world_spawn(game)), now);
             let after = logic::charges_after_reading(current, creative, day);
             let written = if let Some(stack) = game.native_carried_stack(slot) {
                 if let Some(full) = refilled {
@@ -858,14 +846,6 @@ pub(super) fn on_player_toggle_sneak(
     let _ = (game, player, name, sneaking);
 }
 
-// A2: `/setworldspawn` moved the world spawn, the last line of a reading.
-pub(super) fn on_spawn_change(game: &mut crate::game::Game<'_>, pos: [i32; 3], angle: [f32; 2]) {
-    let _ = angle;
-    if let Some(world) = game.native_world_dir() {
-        server().world_spawn = Some((world, pos));
-    }
-}
-
 // A2, A5: the import of the Java points, the advancements and the chimes for the other players.
 // `run_command` works here: no player is swapped in, and `/playsound` reaches the players of the level in
 // place.
@@ -920,8 +900,54 @@ struct Naming {
     used: i32,
     max: i32,
     bed: bool,
-    field: logic::TextField,
-    opened: std::time::Instant,
+    field: horizon_client::ui::EditBox,
+    input: Vec<NameInput>,
+    last_click: Option<std::time::Instant>,
+    dragging: bool,
+}
+
+#[derive(Debug, Clone)]
+enum NameInput {
+    Key(winit::keyboard::KeyCode, bool, bool),
+    Character(char),
+    Shortcut(horizon_client::clipboard::EditShortcut),
+    Click([i32; 4], f32, bool, bool),
+    Drag(f32),
+    Button(logic::NamingButton),
+}
+
+impl Naming {
+    fn place_field(&mut self, rect: [i32; 4]) {
+        [self.field.x, self.field.y, self.field.width, self.field.height] = rect.map(|n| n as f32);
+    }
+
+    fn insert(&mut self, text: &str) {
+        let filtered = horizon_client::clipboard::filter_text(text, false);
+        let insert = logic::fit_name_insert(&self.field.value, &self.field.selected_text(), &filtered);
+        self.field.insert_text(&insert);
+    }
+
+    // The frame owns the game clipboard. Process all input in its original order.
+    fn apply_input(&mut self, game: &mut crate::game::Game<'_>) -> Option<logic::NamingButton> {
+        use horizon_client::clipboard::{Clipboard, EditShortcut};
+        for event in std::mem::take(&mut self.input) {
+            match event {
+                NameInput::Key(code, control, shift) => { self.field.key(code, control, shift); }
+                NameInput::Character(c) => self.insert(&c.to_string()),
+                NameInput::Shortcut(EditShortcut::Paste) => self.insert(&game.clipboard.get()),
+                NameInput::Shortcut(shortcut) => { self.field.shortcut(shortcut, &mut game.clipboard); }
+                NameInput::Click(rect, x, shift, double) => {
+                    self.place_field(rect);
+                    self.field.click(&game.gui.atlas, x, shift, double);
+                }
+                NameInput::Drag(x) => self.field.drag_to(&game.gui.atlas, x),
+                NameInput::Button(logic::NamingButton::Save)
+                    if !logic::save_active(self.existing.is_some(), self.used, self.max, &self.field.value) => {}
+                NameInput::Button(button) => return Some(button),
+            }
+        }
+        None
+    }
 }
 
 /// The list screen (PointListScreen.java).
@@ -1016,8 +1042,11 @@ pub(super) fn on_net_from_server(game: &mut crate::game::Game<'_>, channel: &str
             if naming_open || !open_screen(game) {
                 return;
             }
-            let field = logic::TextField::with_text(name.as_deref().unwrap_or(""));
-            let naming = Naming { pos, existing: name, used, max, bed, field, opened: std::time::Instant::now() };
+            let mut field = horizon_client::ui::EditBox::new(0.0, 0.0, logic::FIELD_WIDTH as f32, 20.0);
+            field.max_length = logic::MAX_NAME_LENGTH;
+            field.set_value(&logic::fit_name_insert("", "", name.as_deref().unwrap_or("")));
+            field.message = translated(if name.is_some() { logic::KEY_SCREEN_EDIT } else { logic::KEY_SCREEN_NEW }, &[]);
+            let naming = Naming { pos, existing: name, used, max, bed, field, input: Vec::new(), last_click: None, dragging: false };
             client().shown = Some(Shown::Naming(naming));
         }
         AmuletSignal::Cooldown { .. } => {}
@@ -1048,6 +1077,17 @@ pub(super) fn on_frame(game: &mut crate::game::Game<'_>) {
         let mut c = client();
         // Remove the timer when this window leaves the world, even with no amulet on screen.
         c.cooldown_fraction(game);
+        if open && let Some(Shown::Naming(naming)) = c.shown.as_mut()
+            && let Some(button) = naming.apply_input(game)
+        {
+            let request = match button {
+                logic::NamingButton::Save => Some(AmuletRequest::Save { pos: naming.pos, name: logic::clean_name(&naming.field.value) }),
+                logic::NamingButton::Remove => Some(AmuletRequest::Remove { pos: naming.pos }),
+                logic::NamingButton::Cancel => None,
+            };
+            c.outbox.extend(request);
+            c.close = true;
+        }
         let close = std::mem::take(&mut c.close);
         if !open || close {
             c.shown = None;
@@ -1080,7 +1120,6 @@ pub(super) fn on_screen_mouse_button_pressed_pre(
     modifiers: u32,
     canceled: &mut bool,
 ) {
-    let _ = modifiers;
     if *canceled {
         return;
     }
@@ -1095,32 +1134,17 @@ pub(super) fn on_screen_mouse_button_pressed_pre(
     match shown {
         Shown::Naming(naming) => {
             let layout = logic::naming_layout(width, height, naming.existing.is_some());
-            let text = naming.field.text();
-            let active = logic::save_active(naming.existing.is_some(), naming.used, naming.max, &text);
             let hit = layout.buttons.iter().find(|(_, rect)| logic::inside(*rect, screen.mouse)).map(|b| b.0);
-            let mut c = client();
-            match hit {
-                Some(logic::NamingButton::Save) if active => {
-                    // PointScreen.java:96-105: the clean name goes to the server, then the screen closes.
-                    c.outbox.push(AmuletRequest::Save { pos: naming.pos, name: logic::clean_name(&text) });
-                    c.close = true;
-                }
-                Some(logic::NamingButton::Remove) => {
-                    c.outbox.push(AmuletRequest::Remove { pos: naming.pos });
-                    c.close = true;
-                }
-                Some(logic::NamingButton::Cancel) => c.close = true,
-                Some(logic::NamingButton::Save) => {}
-                None if logic::inside(layout.field, screen.mouse) => {
-                    drop(c);
-                    let widths: Vec<f32> =
-                        (0..=naming.field.len()).map(|i| game.native_text_width(&naming.field.prefix(i))).collect();
-                    let x = screen.mouse[0] - (layout.field[0] + 4) as f32;
-                    if let Some(Shown::Naming(open)) = client().shown.as_mut() {
-                        open.field.click(&widths, x);
-                    }
-                }
-                None => {}
+            let mut client = client();
+            let Some(Shown::Naming(open)) = client.shown.as_mut() else { return };
+            open.dragging = logic::inside(layout.field, screen.mouse);
+            if let Some(button) = hit {
+                open.input.push(NameInput::Button(button));
+            } else if open.dragging {
+                let now = std::time::Instant::now();
+                let double = open.last_click.is_some_and(|last| now.duration_since(last).as_millis() < 250);
+                open.last_click = Some(now);
+                open.input.push(NameInput::Click(layout.field, screen.mouse[0], modifiers & 1 != 0, double));
             }
         }
         Shown::List(list) => {
@@ -1150,6 +1174,21 @@ pub(super) fn on_screen_mouse_button_pressed_pre(
     }
 }
 
+pub(super) fn on_screen_mouse_dragged_pre(
+    game: &crate::game::Game<'_>,
+    screen: &horizon_client::mod_api::NativeScreenView<'_>,
+    button: i32,
+    canceled: &mut bool,
+) {
+    if *canceled || button != 0 || screen.id != "mod" || !screen_open(game) {
+        return;
+    }
+    if let Some(Shown::Naming(naming)) = client().shown.as_mut() && naming.dragging {
+        naming.input.push(NameInput::Drag(screen.mouse[0]));
+        *canceled = true;
+    }
+}
+
 // A6: the keys of the naming field. Escape stays the game's: it closes the screen. Every other key stops
 // here, as a vanilla screen with a focused text box takes it (the inventory key types a letter).
 pub(super) fn on_screen_key_pressed_pre(
@@ -1160,28 +1199,28 @@ pub(super) fn on_screen_key_pressed_pre(
     modifiers: u32,
     canceled: &mut bool,
 ) {
-    let _ = (repeat, modifiers);
-    if *canceled || logic::is_escape(key) {
+    let _ = repeat;
+    if *canceled || logic::is_escape(key) || screen.id != "mod" || !screen_open(game) {
         return;
     }
-    let Some(shown) = shown_on(game, screen) else {
-        return;
-    };
-    *canceled = true;
-    let Shown::Naming(naming) = shown else {
-        return;
-    };
-    let mut c = client();
+    let mut client = client();
+    *canceled |= client.shown.is_some();
+    let Some(Shown::Naming(naming)) = client.shown.as_mut() else { return };
     if logic::is_confirmation(key) {
-        let text = naming.field.text();
-        if logic::save_active(naming.existing.is_some(), naming.used, naming.max, &text) {
-            c.outbox.push(AmuletRequest::Save { pos: naming.pos, name: logic::clean_name(&text) });
-            c.close = true;
-        }
+        naming.input.push(NameInput::Button(logic::NamingButton::Save));
         return;
     }
-    if let (Some(field_key), Some(Shown::Naming(open))) = (logic::FieldKey::of(key), c.shown.as_mut()) {
-        open.field.key(field_key);
+    let Some(code) = horizon_client::keybinds::key_code(key) else { return };
+    use winit::keyboard::KeyCode;
+    let held = |keys: [KeyCode; 2]| keys.iter().any(|k| game.physical_keys.contains(k));
+    let shift = modifiers & 1 != 0 || held([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let alt = modifiers & 4 != 0 || held([KeyCode::AltLeft, KeyCode::AltRight]);
+    let control = game.has_control_down_with_quirk();
+    let letter = key.strip_prefix("key.keyboard.").filter(|s| s.len() == 1).and_then(|s| s.chars().next());
+    if let Some(shortcut) = horizon_client::clipboard::edit_shortcut(letter, control, shift, alt) {
+        naming.input.push(NameInput::Shortcut(shortcut));
+    } else if code != KeyCode::KeyA {
+        naming.input.push(NameInput::Key(code, control, shift));
     }
 }
 
@@ -1194,12 +1233,15 @@ pub(super) fn on_screen_char_typed_pre(
     canceled: &mut bool,
 ) {
     let _ = modifiers;
-    if *canceled || shown_on(game, screen).is_none() {
+    if *canceled || screen.id != "mod" || !screen_open(game) {
         return;
     }
-    *canceled = true;
-    if let Some(Shown::Naming(open)) = client().shown.as_mut() {
-        open.field.type_char(c);
+    let mut client = client();
+    *canceled |= client.shown.is_some();
+    if let Some(Shown::Naming(naming)) = client.shown.as_mut()
+        && game.types_text() && horizon_client::clipboard::is_allowed_chat_character(c)
+    {
+        naming.input.push(NameInput::Character(c));
     }
 }
 
@@ -1249,13 +1291,15 @@ pub(super) fn on_screen_render_post(
     batch: &mut horizon_client::hud::HudBatch,
     screen: &horizon_client::mod_api::NativeScreenView<'_>,
 ) {
-    let Some(shown) = shown_on(game, screen) else {
+    if screen.id != "mod" || !screen_open(game) {
         return;
-    };
+    }
+    let mut client = client();
+    let Some(shown) = client.shown.as_mut() else { return };
     let (width, height) = logic::window_size(screen.rect);
     game.native_fill(batch, screen.rect, logic::DIM_COLOR);
     match shown {
-        Shown::Naming(naming) => draw_naming(game, batch, screen.mouse, width, height, &naming),
+        Shown::Naming(naming) => draw_naming(game, batch, screen.mouse, width, height, naming),
         Shown::List(list) => draw_list(game, batch, screen.mouse, width, height, &list),
     }
 }
@@ -1266,7 +1310,7 @@ fn draw_naming(
     mouse: [f32; 2],
     width: i32,
     height: i32,
-    naming: &Naming,
+    naming: &mut Naming,
 ) {
     let editing = naming.existing.is_some();
     let layout = logic::naming_layout(width, height, editing);
@@ -1274,24 +1318,9 @@ fn draw_naming(
     draw_centered(game, batch, &translated(title, &[]), layout.center_x, layout.title_y, logic::TEXT_COLOR);
     let subtitle = if naming.bed { logic::KEY_SCREEN_BED } else { logic::KEY_SCREEN_LODESTONE };
     draw_centered(game, batch, &translated(subtitle, &[]), layout.center_x, layout.subtitle_y, logic::NOTE_COLOR);
-    // The name field (vanilla `EditBox`, focused).
-    let field = layout.field;
-    game.native_fill(batch, field.map(|v| v as f32), 0xFF00_0000);
-    game.native_gui_nine_slice(batch, "gui/sprites/widget/text_field_highlighted", field.map(|v| v as f32), 0xFFFF_FFFF);
-    let text = naming.field.text();
-    let text_x = field[0] + 4;
-    let text_y = field[1] + (field[3] - 8) / 2;
-    draw_text(game, batch, &text, [text_x, text_y], logic::FIELD_TEXT);
-    let blink = naming.opened.elapsed().as_millis() / logic::CARET_BLINK_MS % 2 == 0;
-    if blink {
-        let caret_x = text_x as f32 + game.native_text_width(&naming.field.before_caret());
-        if naming.field.caret() >= naming.field.len() {
-            game.native_text(batch, "_", [caret_x, text_y as f32], logic::FIELD_TEXT, true);
-        } else {
-            game.native_fill(batch, [caret_x, (text_y - 1) as f32, 1.0, 10.0], logic::CARET_COLOR);
-        }
-    }
-    let active = logic::save_active(editing, naming.used, naming.max, &text);
+    naming.place_field(layout.field);
+    naming.field.draw(batch, &game.gui.atlas, None);
+    let active = logic::save_active(editing, naming.used, naming.max, &naming.field.value);
     for (kind, rect) in &layout.buttons {
         let (label, on) = match kind {
             logic::NamingButton::Save => (translated(logic::KEY_SCREEN_SAVE, &[]), active),

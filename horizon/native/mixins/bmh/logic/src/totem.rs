@@ -7,7 +7,6 @@
 // The module `bmh_totem.rs` reads the game and carries out the answers of this file.
 
 use crate::ids;
-use crate::respawn::BYPASSES_INVULNERABILITY;
 
 // ---------------------------------------------------------------------------------------------
 // T2, T3, T4: the save from death
@@ -38,111 +37,9 @@ pub const SAVE_EFFECTS: [SaveEffect; 3] = [
     SaveEffect { id: "minecraft:fire_resistance", amplifier: 0, duration: 800 },
 ];
 
-/// The sound of the save. Vanilla plays it with entity event 35 (`ClientPacketListener.handleEntityEvent`,
-/// `SoundEvents.TOTEM_USE`, volume 1.0, pitch 1.0). GAPS T4 ships the sound and the particles only.
-pub const SAVE_SOUND: &str = "minecraft:item.totem.use";
-
-/// The sound volume and pitch of the save (vanilla `playLocalSound(..., 1.0F, 1.0F, false)`).
-pub const SAVE_SOUND_VOLUME: f32 = 1.0;
-pub const SAVE_SOUND_PITCH: f32 = 1.0;
-
-/// How many `totem_of_undying` particles the save sends. Vanilla runs a 30 tick emitter of 16
-/// particles a tick; the mod sends one burst (GAPS T4, a chosen number, not a Java value).
-pub const SAVE_PARTICLES: i32 = 100;
-
-/// The half spread of the burst around the middle of the player, and its speed (chosen numbers).
-pub const SAVE_PARTICLE_SPREAD: [f64; 3] = [0.3, 0.9, 0.3];
-pub const SAVE_PARTICLE_SPEED: f64 = 0.5;
-
-/// The burst starts about the middle of the body: the feet plus this height (a player is 1.8 high).
-pub const SAVE_PARTICLE_HEIGHT: f64 = 0.9;
-
-/// True when the Totem of Eternity can save a player from this damage. Damage that bypasses
-/// invulnerability (the void, `/kill`) still kills, as with vanilla's totem
-/// (A_LivingEntityTotemMixin.java:41, `!source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)`). The
-/// game gives only the damage type, so the list of the tag is written in `respawn.rs`.
-pub fn can_save_from(damage_type: &str) -> bool {
-    !BYPASSES_INVULNERABILITY.contains(&damage_type)
-}
-
 /// True for the id of a Totem of Eternity (`instanceof TotemOfEternityItem`).
 pub fn is_totem(item: &str) -> bool {
     item == ids::TOTEM_OF_ETERNITY
-}
-
-/// What the module knows of a player from his last tick: which entity he is, and whether he
-/// carried a Totem of Eternity. A death hook has only an entity id and cannot read a stack, so the
-/// answer comes from this note (GAPS T2, verify-2 row 1a).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Carrier {
-    uuid: u128,
-    entity: u32,
-    has_totem: bool,
-}
-
-/// The book of saves: who carries a totem, and which saves wait for their swap.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct SaveBook {
-    carriers: Vec<Carrier>,
-    pending: Vec<u128>,
-}
-
-impl SaveBook {
-    pub const fn new() -> SaveBook {
-        SaveBook { carriers: Vec::new(), pending: Vec::new() }
-    }
-
-    /// Notes what a player tick saw: the entity id of the player and whether he carries a Totem of
-    /// Eternity. An entity id of 0 or less is not known and never matches a death.
-    pub fn note(&mut self, uuid: u128, entity: i32, has_totem: bool) {
-        let entity = u32::try_from(entity).unwrap_or(0);
-        match self.carriers.iter_mut().find(|c| c.uuid == uuid) {
-            Some(carrier) => {
-                carrier.entity = entity;
-                carrier.has_totem = has_totem;
-            }
-            None => self.carriers.push(Carrier { uuid, entity, has_totem }),
-        }
-    }
-
-    /// A player is about to die from `damage_type`. True when the totem saves him: the module cancels
-    /// the death and swaps the totem at his next tick. A second death before the swap is a real
-    /// death: the first save spent the totem (TotemOfEternityHandler.java:30-41 swaps at once).
-    pub fn on_death(&mut self, entity: u32, damage_type: &str) -> bool {
-        let Some(carrier) = self.carriers.iter_mut().find(|c| c.entity == entity && entity != 0) else {
-            return false;
-        };
-        let uuid = carrier.uuid;
-        if self.pending.contains(&uuid) {
-            self.pending.retain(|p| *p != uuid);
-            return false;
-        }
-        if !carrier.has_totem || !can_save_from(damage_type) {
-            return false;
-        }
-        carrier.has_totem = false;
-        self.pending.push(uuid);
-        true
-    }
-
-    /// True once when a save of this player waits for its swap. The swap runs in his next tick.
-    pub fn take_pending(&mut self, uuid: u128) -> bool {
-        let waiting = self.pending.contains(&uuid);
-        self.pending.retain(|p| *p != uuid);
-        waiting
-    }
-
-    /// Forgets a player (he left the world).
-    pub fn forget(&mut self, uuid: u128) {
-        self.carriers.retain(|c| c.uuid != uuid);
-        self.pending.retain(|p| *p != uuid);
-    }
-
-    /// Forgets everyone (the world changed).
-    pub fn clear(&mut self) {
-        self.carriers.clear();
-        self.pending.clear();
-    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -171,26 +68,6 @@ pub fn extra_slots(totem_slots: &[i32]) -> &[i32] {
 /// rule says and whatever the game mode is).
 pub fn refuses_pickup<'a>(item: &str, carried: impl IntoIterator<Item = &'a str>) -> bool {
     is_totem(item) && carried.into_iter().any(is_totem)
-}
-
-/// The slots of a container whose totem must leave (I_SlotTotemMixin.java:23-29 and
-/// TotemOfEternityHandler.holdsAnotherTotem, done after the fact). `before` are the slots that held a
-/// totem when the player opened the container; `now` are the slots that hold one. The Java mod
-/// refuses a totem that would join another one. A totem in a slot of `before` was already there. A
-/// totem in another slot is new: it leaves when another totem stays. If no totem was there before,
-/// the first new one stays. A pair that was already in the container is not touched. `now` is in
-/// slot order. The answer is in slot order too.
-pub fn container_extras(before: &[usize], now: &[usize]) -> Vec<usize> {
-    let mut stays = now.iter().any(|slot| before.contains(slot));
-    let mut leave = Vec::new();
-    for slot in now.iter().filter(|slot| !before.contains(slot)) {
-        if stays {
-            leave.push(*slot);
-        } else {
-            stays = true;
-        }
-    }
-    leave
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -365,108 +242,12 @@ pub fn anvil_case(left: &str, right: Option<&str>) -> Option<Anvil> {
 }
 
 // ---------------------------------------------------------------------------------------------
-// T2: the save from a hand (route A, docs/horizon/solutions/totem-save.md)
-// ---------------------------------------------------------------------------------------------
-
-/// The Totem of Undying. Java lets vanilla's hand check run first (A_LivingEntityTotemMixin.java:46),
-/// so a Totem of Undying in a hand saves before the Totem of Eternity.
-pub const TOTEM_OF_UNDYING: &str = "minecraft:totem_of_undying";
-
-/// The off hand in the numbering of `native_carried_stack`.
-pub const CARRIED_OFF_HAND: i32 = -106;
-
-/// The off hand in the numbering of `native_set_inventory_slot` (`NativeInventoryKind::Player`).
-pub const INVENTORY_OFF_HAND: usize = 40;
-
-/// What the mod does when Horizon's own hand check saves a player. The game spends the main hand
-/// when it has `death_protection`, else the off hand (`Game::apply_totem`, game/totem.rs:86-93).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HandSave {
-    /// No Totem of Eternity is spent: nothing to do.
-    Nothing,
-    /// The main hand holds a Totem of Eternity and the off hand a Totem of Undying. The mod swaps
-    /// the two hands before the use-up, so the Totem of Undying saves first, as in Java. After the
-    /// tick, the Totem of Eternity goes back to the main hand.
-    Swap,
-    /// The game spends the Totem of Eternity of this hand. After the tick, the Dormant Totem goes in
-    /// the emptied slot. `carried` is the slot for `native_carried_stack`, `inventory` the slot for
-    /// `native_set_inventory_slot`.
-    Eternity { carried: i32, inventory: usize },
-}
-
-/// The answer for the two hands of a player that the game saves. `main` and `off` are the item ids
-/// of the hands (None when empty). `selected` is the selected hotbar slot (0 to 8). Only the Totem
-/// of Undying and the Totem of Eternity carry `death_protection` in this mod.
-/// Each argument names a hand stack with an effective death protection component.
-pub fn hand_save(main: Option<&str>, off: Option<&str>, selected: u8) -> HandSave {
-    match (main, off) {
-        (Some(item), _) if !is_totem(item) => HandSave::Nothing,
-        (Some(m), Some(TOTEM_OF_UNDYING)) if is_totem(m) => HandSave::Swap,
-        (Some(m), _) if is_totem(m) => HandSave::Eternity {
-            carried: i32::from(selected),
-            inventory: usize::from(selected),
-        },
-        (_, Some(o)) if is_totem(o) => HandSave::Eternity {
-            carried: CARRIED_OFF_HAND,
-            inventory: INVENTORY_OFF_HAND,
-        },
-        _ => HandSave::Nothing,
-    }
-}
-
-// ---------------------------------------------------------------------------------------------
-// T5: the Totem of Undying without Fire Resistance
-// ---------------------------------------------------------------------------------------------
-
-/// The effect that the Totem of Undying loses (A_LivingEntityTotemMixin.java:30,
-/// `player.removeEffect(MobEffects.FIRE_RESISTANCE)`). `bmh_totem_world.rs` writes the same id: its
-/// crate cannot reach this one, and the test below pins the value.
+/// The player loses Fire Resistance after a vanilla hand protector saves them.
 pub const UNDYING_LOSES: &str = "minecraft:fire_resistance";
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn hand_save_undying_in_the_main_hand_saves_first() {
-        let t = Some(ids::TOTEM_OF_ETERNITY);
-        assert_eq!(hand_save(Some(TOTEM_OF_UNDYING), t, 3), HandSave::Nothing);
-        assert_eq!(hand_save(Some(TOTEM_OF_UNDYING), None, 3), HandSave::Nothing);
-    }
-
-    #[test]
-    fn hand_save_swaps_when_the_undying_is_in_the_off_hand() {
-        assert_eq!(
-            hand_save(Some(ids::TOTEM_OF_ETERNITY), Some(TOTEM_OF_UNDYING), 2),
-            HandSave::Swap
-        );
-    }
-
-    #[test]
-    fn hand_save_spends_the_eternity_of_the_main_hand() {
-        assert_eq!(
-            hand_save(Some(ids::TOTEM_OF_ETERNITY), None, 4),
-            HandSave::Eternity { carried: 4, inventory: 4 }
-        );
-        assert_eq!(
-            hand_save(Some(ids::TOTEM_OF_ETERNITY), Some("minecraft:shield"), 8),
-            HandSave::Eternity { carried: 8, inventory: 8 }
-        );
-    }
-
-    #[test]
-    fn hand_save_spends_the_eternity_of_the_off_hand() {
-        let off = HandSave::Eternity { carried: -106, inventory: 40 };
-        assert_eq!(hand_save(None, Some(ids::TOTEM_OF_ETERNITY), 0), off);
-        assert_eq!(hand_save(Some("other:protector"), Some(ids::TOTEM_OF_ETERNITY), 0), HandSave::Nothing);
-    }
-
-    #[test]
-    fn hand_save_leaves_other_hands_alone() {
-        assert_eq!(hand_save(None, Some(TOTEM_OF_UNDYING), 0), HandSave::Nothing);
-        assert_eq!(hand_save(Some(ids::SLEEPING_TOTEM), None, 0), HandSave::Nothing);
-        assert_eq!(hand_save(None, None, 0), HandSave::Nothing);
-    }
 
     #[test]
     fn the_save_effects_are_the_java_ones() {
@@ -483,97 +264,6 @@ mod tests {
         assert_eq!(SAVE_EFFECTS[2].id, UNDYING_LOSES);
         assert_eq!(SAVE_HEALTH, 1.0);
         assert_eq!(SAVED_ADVANCEMENT, "eternity/saved");
-    }
-
-    #[test]
-    fn damage_that_bypasses_invulnerability_is_not_saved() {
-        assert!(!can_save_from("minecraft:out_of_world"));
-        assert!(!can_save_from("minecraft:generic_kill"));
-        assert!(can_save_from("minecraft:generic"));
-        assert!(can_save_from("minecraft:player_attack"));
-        assert!(can_save_from("minecraft:fall"));
-    }
-
-    #[test]
-    fn a_player_with_a_totem_is_saved_once() {
-        let mut book = SaveBook::new();
-        book.note(7, 42, true);
-        assert!(book.on_death(42, "minecraft:generic"));
-        // The swap has not run: a second death is a real death and clears the wait.
-        assert!(!book.on_death(42, "minecraft:generic"));
-        assert!(!book.take_pending(7));
-    }
-
-    #[test]
-    fn the_swap_runs_once() {
-        let mut book = SaveBook::new();
-        book.note(7, 42, true);
-        assert!(book.on_death(42, "minecraft:fall"));
-        assert!(book.take_pending(7));
-        assert!(!book.take_pending(7));
-        // The next tick sees the Dormant Totem: no more save.
-        book.note(7, 42, false);
-        assert!(!book.on_death(42, "minecraft:fall"));
-    }
-
-    #[test]
-    fn no_totem_no_save() {
-        let mut book = SaveBook::new();
-        book.note(7, 42, false);
-        assert!(!book.on_death(42, "minecraft:generic"));
-        assert!(!book.take_pending(7));
-    }
-
-    #[test]
-    fn an_unknown_entity_or_zero_is_never_saved() {
-        let mut book = SaveBook::new();
-        book.note(7, 42, true);
-        book.note(8, 0, true);
-        book.note(9, -3, true);
-        assert!(!book.on_death(43, "minecraft:generic"));
-        assert!(!book.on_death(0, "minecraft:generic"));
-    }
-
-    #[test]
-    fn the_void_and_kill_still_kill() {
-        let mut book = SaveBook::new();
-        book.note(7, 42, true);
-        assert!(!book.on_death(42, "minecraft:out_of_world"));
-        assert!(!book.on_death(42, "minecraft:generic_kill"));
-        // The totem is not spent.
-        assert!(book.on_death(42, "minecraft:generic"));
-    }
-
-    #[test]
-    fn a_new_entity_id_replaces_the_old_one() {
-        let mut book = SaveBook::new();
-        book.note(7, 42, true);
-        book.note(7, 55, true);
-        assert!(!book.on_death(42, "minecraft:generic"));
-        assert!(book.on_death(55, "minecraft:generic"));
-    }
-
-    #[test]
-    fn forgetting_a_player_drops_his_wait() {
-        let mut book = SaveBook::new();
-        book.note(7, 42, true);
-        assert!(book.on_death(42, "minecraft:generic"));
-        book.forget(7);
-        assert!(!book.take_pending(7));
-        assert!(!book.on_death(42, "minecraft:generic"));
-        book.note(7, 42, true);
-        book.clear();
-        assert!(!book.on_death(42, "minecraft:generic"));
-    }
-
-    #[test]
-    fn two_players_are_kept_apart() {
-        let mut book = SaveBook::new();
-        book.note(1, 10, true);
-        book.note(2, 20, true);
-        assert!(book.on_death(20, "minecraft:generic"));
-        assert!(!book.take_pending(1));
-        assert!(book.take_pending(2));
     }
 
     #[test]
@@ -602,25 +292,6 @@ mod tests {
         assert!(!refuses_pickup(ids::TOTEM_OF_ETERNITY, [ids::SLEEPING_TOTEM]));
         assert!(!refuses_pickup(ids::SLEEPING_TOTEM, [ids::SLEEPING_TOTEM]));
         assert!(!refuses_pickup("minecraft:stick", [ids::TOTEM_OF_ETERNITY]));
-    }
-
-    #[test]
-    fn a_new_totem_leaves_a_container_that_has_one() {
-        // One totem at slot 4 when opened, a second placed at slot 1: the new one leaves.
-        assert_eq!(container_extras(&[4], &[1, 4]), [1]);
-        // Nothing before, two now: the first stays.
-        assert_eq!(container_extras(&[], &[2, 8]), [8]);
-        // One totem only, new or moved: it stays.
-        assert_eq!(container_extras(&[], &[5]), Vec::<usize>::new());
-        assert_eq!(container_extras(&[4], &[6]), Vec::<usize>::new());
-        // A pair that was there before is not touched.
-        assert_eq!(container_extras(&[1, 2], &[1, 2]), Vec::<usize>::new());
-        // A pair that was there and a third one: the third leaves.
-        assert_eq!(container_extras(&[1, 2], &[1, 2, 3]), [3]);
-        // Three new ones with none before: the first stays.
-        assert_eq!(container_extras(&[], &[0, 1, 2]), [1, 2]);
-        // Nothing now.
-        assert!(container_extras(&[3], &[]).is_empty());
     }
 
     #[test]
@@ -720,10 +391,4 @@ mod tests {
         assert_eq!(ETERNAL_TOOL_MAX_DAMAGE, 33_000);
     }
 
-    #[test]
-    fn the_sound_is_the_vanilla_totem_sound() {
-        assert_eq!(SAVE_SOUND, "minecraft:item.totem.use");
-        assert_eq!((SAVE_SOUND_VOLUME, SAVE_SOUND_PITCH), (1.0, 1.0));
-        assert!(SAVE_PARTICLES > 0);
-    }
 }

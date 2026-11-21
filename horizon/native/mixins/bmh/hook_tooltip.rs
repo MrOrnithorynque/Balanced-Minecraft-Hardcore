@@ -8,6 +8,7 @@ fn bmh_hook_tooltip(
         return;
     }
     crate::game::bmh_totem::on_tooltip(game, stack, lines);
+    crate::game::bmh_eternal::on_tooltip(game, stack, lines);
     crate::game::bmh_tools::on_tooltip(game, stack, lines);
     crate::game::bmh_amulet::on_tooltip(game, stack, lines);
 }

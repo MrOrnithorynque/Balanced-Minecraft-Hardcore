@@ -15,10 +15,6 @@ use crate::contract::{AmuletPoint, AmuletReading};
 /// The item.
 pub const AMULET: &str = crate::ids::NAVIGATOR_AMULET;
 
-/// The block the needle aims at (horizon/content/NOTES.md, "The amulet needle"). The world module
-/// `bmh_amulet_world.rs` cannot reach this crate and writes the same values.
-pub const NEEDLE_TARGET: (&str, [i32; 3]) = ("minecraft:overworld", [0, 64, -30_000_000]);
-
 /// The colour of the starlight line and of the charge bar (NavigatorAmuletItem.java:41).
 pub const STARLIGHT_COLOR: u32 = 0xB5_8CFF;
 
@@ -845,13 +841,6 @@ pub const DIM_COLOR: u32 = 0x8000_0000;
 /// Vanilla button text: white when active, grey when not (`AbstractButton`).
 pub const BUTTON_TEXT: u32 = 0xFF_FFFF;
 pub const BUTTON_TEXT_INACTIVE: u32 = 0xA0_A0A0;
-/// Vanilla `EditBox` text colour.
-pub const FIELD_TEXT: u32 = 0xE0_E0E0;
-/// Vanilla `EditBox` caret colour inside the text.
-pub const CARET_COLOR: u32 = 0xFFD0_D0D0;
-/// The caret blinks every 300 ms (vanilla `EditBox`).
-pub const CARET_BLINK_MS: u128 = 300;
-
 /// The window size in whole GUI pixels (Java `Screen.width`, `height`).
 pub fn window_size(rect: [f32; 4]) -> (i32, i32) {
     (rect[2].ceil() as i32, rect[3].ceil() as i32)
@@ -931,41 +920,6 @@ pub fn count_line(editing: bool, used: i32, max: i32) -> (&'static str, Vec<i32>
     }
 }
 
-/// The name field of the naming screen: a line editor written by hand (GAPS.md A6), with vanilla
-/// `EditBox` rules for what it takes (`StringUtil.isAllowedChatCharacter`) and a cap of 24 UTF-16 units
-/// (`setMaxLength`). No selection and no clipboard.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct TextField {
-    chars: Vec<char>,
-    caret: usize,
-}
-
-/// A key that the field reads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FieldKey {
-    Backspace,
-    Delete,
-    Left,
-    Right,
-    Home,
-    End,
-}
-
-impl FieldKey {
-    /// The field key of a vanilla key name, or None.
-    pub fn of(key: &str) -> Option<FieldKey> {
-        match key {
-            "key.keyboard.backspace" | "key.keyboard.keypad.backspace" => Some(FieldKey::Backspace),
-            "key.keyboard.delete" => Some(FieldKey::Delete),
-            "key.keyboard.left" => Some(FieldKey::Left),
-            "key.keyboard.right" => Some(FieldKey::Right),
-            "key.keyboard.home" => Some(FieldKey::Home),
-            "key.keyboard.end" => Some(FieldKey::End),
-            _ => None,
-        }
-    }
-}
-
 /// True for Enter and the keypad Enter (`KeyEvent.isConfirmation`).
 pub fn is_confirmation(key: &str) -> bool {
     matches!(key, "key.keyboard.enter" | "key.keyboard.keypad.enter")
@@ -976,104 +930,10 @@ pub fn is_escape(key: &str) -> bool {
     key == "key.keyboard.escape"
 }
 
-/// Vanilla `StringUtil.isAllowedChatCharacter`: no section sign, nothing under a space, no DEL.
-pub fn allowed_char(c: char) -> bool {
-    c != '\u{a7}' && c >= ' ' && c != '\u{7f}'
-}
-
-impl TextField {
-    /// A field that holds `text`, cut to the cap, with the caret at the end (`EditBox.setValue`).
-    pub fn with_text(text: &str) -> TextField {
-        let mut field = TextField::default();
-        for c in text.chars() {
-            if field.units() + c.len_utf16() > MAX_NAME_LENGTH {
-                break;
-            }
-            field.chars.push(c);
-        }
-        field.caret = field.chars.len();
-        field
-    }
-
-    /// The text.
-    pub fn text(&self) -> String {
-        self.chars.iter().collect()
-    }
-
-    /// The caret, in characters from the start.
-    pub fn caret(&self) -> usize {
-        self.caret
-    }
-
-    /// The text before the caret.
-    pub fn before_caret(&self) -> String {
-        self.chars.iter().take(self.caret).collect()
-    }
-
-    fn units(&self) -> usize {
-        self.chars.iter().map(|c| c.len_utf16()).sum()
-    }
-
-    /// Types one character at the caret, when it is allowed and the cap leaves room.
-    pub fn type_char(&mut self, c: char) -> bool {
-        if !allowed_char(c) || self.units() + c.len_utf16() > MAX_NAME_LENGTH {
-            return false;
-        }
-        let at = self.caret.min(self.chars.len());
-        self.chars.insert(at, c);
-        self.caret = at + 1;
-        true
-    }
-
-    /// Applies one key.
-    pub fn key(&mut self, key: FieldKey) {
-        let len = self.chars.len();
-        self.caret = self.caret.min(len);
-        match key {
-            FieldKey::Backspace if self.caret > 0 => {
-                self.caret -= 1;
-                self.chars.remove(self.caret);
-            }
-            FieldKey::Delete if self.caret < len => {
-                self.chars.remove(self.caret);
-            }
-            FieldKey::Left => self.caret = self.caret.saturating_sub(1),
-            FieldKey::Right => self.caret = (self.caret + 1).min(len),
-            FieldKey::Home => self.caret = 0,
-            FieldKey::End => self.caret = len,
-            FieldKey::Backspace | FieldKey::Delete => {}
-        }
-    }
-
-    /// Puts the caret where a click lands: `widths[i]` is the width of the first `i` characters, and `x`
-    /// is the click from the start of the text.
-    pub fn click(&mut self, widths: &[f32], x: f32) {
-        let mut best = 0;
-        let mut distance = f32::MAX;
-        for (i, w) in widths.iter().enumerate().take(self.chars.len() + 1) {
-            let d = (w - x).abs();
-            if d < distance {
-                distance = d;
-                best = i;
-            }
-        }
-        self.caret = best;
-    }
-
-    /// The number of characters, for the widths of `click`.
-    pub fn len(&self) -> usize {
-        self.chars.len()
-    }
-
-    /// True when the field holds no character.
-    pub fn is_empty(&self) -> bool {
-        self.chars.is_empty()
-    }
-
-    /// The first `count` characters.
-    pub fn prefix(&self, count: usize) -> String {
-        self.chars.iter().take(count).collect()
-    }
+/// Fit replacement text to the 24 UTF-16 units in a Java point name.
+pub fn fit_name_insert(value: &str, selection: &str, insert: &str) -> String {
+    let kept = utf16_len(value).saturating_sub(utf16_len(selection));
+    cut_utf16(insert, MAX_NAME_LENGTH.saturating_sub(kept))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1589,51 +1449,13 @@ mod tests {
     }
 
     #[test]
-    fn the_text_field_edits_like_an_edit_box() {
-        let mut f = TextField::with_text("Hom");
-        assert_eq!((f.text(), f.caret()), ("Hom".to_owned(), 3));
-        assert!(f.type_char('e'));
-        assert!(!f.type_char('\u{a7}') && !f.type_char('\n') && !f.type_char('\u{7f}'));
-        f.key(FieldKey::Home);
-        assert!(f.type_char('>'));
-        assert_eq!(f.text(), ">Home");
-        f.key(FieldKey::Delete);
-        assert_eq!(f.text(), ">ome");
-        f.key(FieldKey::End);
-        f.key(FieldKey::Backspace);
-        f.key(FieldKey::Left);
-        f.key(FieldKey::Left);
-        assert_eq!((f.text(), f.caret(), f.before_caret()), (">om".to_owned(), 1, ">".to_owned()));
-        for _ in 0..10 {
-            f.key(FieldKey::Backspace);
-        }
-        assert_eq!((f.text(), f.caret()), ("om".to_owned(), 0));
-        f.key(FieldKey::Right);
-        f.key(FieldKey::Right);
-        f.key(FieldKey::Right);
-        assert_eq!(f.caret(), 2);
-        // The cap: 24 units.
-        let mut full = TextField::with_text(&"y".repeat(30));
-        assert_eq!(full.len(), 24);
-        assert!(!full.type_char('z'));
-        full.key(FieldKey::Backspace);
-        assert!(!full.type_char('\u{1F31F}'));
-        assert!(full.type_char('z'));
-        assert_eq!(FieldKey::of("key.keyboard.left"), Some(FieldKey::Left));
-        assert_eq!(FieldKey::of("key.keyboard.a"), None);
+    fn the_name_field_counts_utf16_units_after_replacing_the_selection() {
+        let value = "a".repeat(23);
+        assert_eq!(fit_name_insert(&value, "", "🌟b"), "");
+        assert_eq!(fit_name_insert(&value, "a", "🌟b"), "🌟");
+        assert_eq!(fit_name_insert(&"🌟".repeat(12), "🌟", "abc"), "ab");
         assert!(is_confirmation("key.keyboard.keypad.enter") && !is_confirmation("key.keyboard.space"));
         assert!(is_escape("key.keyboard.escape"));
-    }
-
-    #[test]
-    fn a_click_puts_the_caret_at_the_nearest_gap() {
-        let mut f = TextField::with_text("abc");
-        f.click(&[0.0, 6.0, 12.0, 18.0], 7.0);
-        assert_eq!(f.caret(), 1);
-        f.click(&[0.0, 6.0, 12.0, 18.0], 100.0);
-        assert_eq!(f.caret(), 3);
-        assert_eq!(f.prefix(2), "ab");
-        assert!(!f.is_empty() && TextField::default().is_empty());
     }
 
     #[test]

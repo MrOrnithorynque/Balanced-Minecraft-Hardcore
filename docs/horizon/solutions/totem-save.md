@@ -4,8 +4,16 @@ Session `gap-totem-save` (branch `claude/gap-totem-save-d5104c`, base `5da909a`)
 Nightly tree at `~/Library/Caches/bmh-horizon/horizon-mods/native/target/horizon/fdc87aec.../crates`. Paths below are
 relative to `crates/`.
 
-Status: route A is built and passes in the game (2026-11-19, section 6). Checks `t1` to `t5`, `t11` (off hand) and
-`t12` (Totem of Undying first) are green. A Totem of Eternity outside the hands still does not save (`t13`, section 5).
+## Current implementation
+
+The native BMH bundle now registers four mixins on the pinned Horizon build through `horizon-mixin.toml`. All four target methods in `horizon-client/src/game/totem.rs`.
+
+- `update_totem_ready` checks the acting player's inventory if vanilla found no hand protector. Horizon still performs the damage, shield and damage-tag checks.
+- `apply_totem` checks the live inventory when the lethal hit spent that protection. It puts a Dormant Totem in the first active totem's slot. It restores one health point, replaces the effects, awards the use statistic and the BMH advancement, and posts the item interaction game event. The original caller broadcasts entity event 35.
+- `death_effects` removes Fire Resistance after a player's vanilla hand protection applies its own effects. Mob effects use Horizon's original component reader.
+- `find_totem` selects the client animation item in Java order. Vanilla checks the hands first. The fallback checks for an active BMH totem in the inventory, then for a Dormant Totem in a hand from the moon ritual.
+
+The BMH item has no intrinsic death protection component. A mob cannot save itself with an ordinary Totem of Eternity. Any vanilla or custom hand item with an effective death protection component has priority for a player. The tests for this route are in section `t` of `horizon/tools/test-slice.sh`. The following sections record the earlier hand-only implementation and its runs.
 
 ## 1. The real root cause (new)
 

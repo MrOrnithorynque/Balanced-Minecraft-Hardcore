@@ -63,7 +63,7 @@ enum Effect {
     /// The puff of a fail: `own` for the player, `others` for the rest.
     Puff { dimension: String, player: u128, own: [f64; 3], others: [f64; 3] },
     /// The wake: the totem animation, which Horizon cannot show (GAPS.md T4), as a sound and particles.
-    Woken { dimension: String, at: [f64; 3] },
+    Woken { dimension: String, entity: i32, at: [f64; 3] },
     /// The advancement of the wake.
     Award { name: String },
 }
@@ -283,22 +283,14 @@ pub(super) fn on_server_tick(
                     );
                 }
             }
-            Effect::Woken { dimension, at } => {
-                let sound = logic::ANIMATION_SOUND;
-                hear(game, &online, &dimension, at, sound.id, sound.volume, sound.pitch);
-                let burst = ParticleOptions::simple(ParticleType::TotemOfUndying);
-                let centre = [at[0], at[1] + 1.0, at[2]];
-                for viewer in online.iter().filter(|p| p.dimension == dimension) {
-                    game.native_send_particles_to(
-                        viewer.uuid,
-                        &burst,
-                        None,
-                        centre,
-                        [logic::ANIMATION_SPREAD; 3],
-                        logic::ANIMATION_SPEED,
-                        logic::ANIMATION_PARTICLES,
-                        false,
-                    );
+            Effect::Woken { dimension, entity, at } => {
+                use horizon_protocol::packets::play::{Clientbound, EntityEvent};
+                for viewer in online.iter().filter(|p| p.dimension == dimension
+                    && logic::distance_squared(p.position, at) <= 128.0 * 128.0)
+                {
+                    game.native_send(viewer.uuid, Clientbound::EntityEvent(EntityEvent {
+                        id: entity, event: crate::game::totem::TOTEM_EVENT,
+                    }));
                 }
             }
             Effect::Award { name } => {
@@ -524,6 +516,7 @@ pub(super) fn on_living_entity_use_item_finish(
         return;
     }
     *result = Some(ItemStack::new(logic::WOKEN_ITEM, 1));
+    game.award_stat("used", &stack.item, 1);
     tell(game, me.uuid, logic::KEY_WOKEN);
     {
         let mut s = server();
@@ -535,7 +528,7 @@ pub(super) fn on_living_entity_use_item_finish(
             volume: logic::WOKEN_SOUND.volume,
             pitch: logic::WOKEN_SOUND.pitch,
         });
-        s.effects.push(Effect::Woken { dimension: me.dimension.clone(), at: me.position });
+        s.effects.push(Effect::Woken { dimension: me.dimension.clone(), entity: me.entity_id, at: me.position });
     }
     log::info!(
         "[BalancedMcHardcoreMain] Moon ritual done: the totem of {} is awake, aimed {:.1} degrees from the moon, {} levels left",

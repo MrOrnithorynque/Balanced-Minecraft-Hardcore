@@ -20,12 +20,12 @@ All stats come from `common/src/main/java/github/mrornithorynque/bmh/init/ItemIn
 | `bmh:eternal_pickaxe` | IT:37-45 (damage 7.0 :40, speed -2.0 :41), TIER:20-21, `items/EternalPickaxeItem.java`:19 | `minecraft:netherite_pickaxe` | as the axe with damage +7.0, speed -2.0 and `#minecraft:mineable/pickaxe`. |
 | `bmh:eternal_bundle` | IT:19-25 (stack 1 :22, empty `BUNDLE_CONTENTS` :23, fire :24, EPIC :25), `items/EternalBundleItem.java`:44 (weight 64, as vanilla) | `minecraft:bundle` | fire. The empty `bundle_contents` is the template's default. |
 | `bmh:navigator_amulet` | IT:57-61 (stack 1 :60, COMMON :61), `items/NavigatorAmuletItem.java`:36-50 (no durability, no enchantment) | `minecraft:compass` | None. The default `lodestone_tracker` was removed (the game refuses it, see the needle section). The compass has no durability and no enchantability, so the amulet has none. |
-| `bmh:totem_of_eternity` | IT:63-68 (stack 1 :65, fire :66, EPIC :67), `items/TotemOfEternityItem.java`:26 (`isFoil` true) | `minecraft:echo_shard` | fire, `enchantment_glint_override` true, `death_protection` (the three save effects of `TotemOfEternityHandler.java`:44-46). |
+| `bmh:totem_of_eternity` | IT:63-68 (stack 1 :65, fire :66, EPIC :67), `items/TotemOfEternityItem.java`:26 (`isFoil` true) | `minecraft:echo_shard` | fire, `enchantment_glint_override` true. The native mod implements the player save. |
 | `bmh:sleeping_totem` | IT:74-79 (stack 1 :77, fire :78, EPIC :79), `items/DormantTotemOfEternityItem.java`:69 (glint only during the ritual: code) | `minecraft:echo_shard` | fire. No glint. |
 | `bmh:dormant_totem` (Hollow Totem) | IT:83-89 (stack 1 :86, fire :87, RARE :88) | `minecraft:echo_shard` | fire. |
 | `bmh:echo_heart` | IT:91-97 (stack 1 :94, fire :95, RARE :96) | `minecraft:echo_shard` | fire. |
 
-Why `echo_shard` for the plain items: it has no behaviour and no special component. A copy of `totem_of_undying` would also bring the totem's own behaviour. The Totem of Eternity adds `death_protection` on purpose (GAPS T2, `docs/horizon/solutions/totem-save.md`): Horizon then saves the player when the totem is in a hand, and the mod puts the Dormant Totem in its slot. Why `compass` for the amulet: it is the vanilla item that owns the needle component.
+Why `echo_shard` for the plain items: it has no behaviour and no special component. A copy of `totem_of_undying` would also bring the totem's own behaviour. The native mod checks the player inventory for the Totem of Eternity. Mobs use only the death protection of their own hand items. Why `compass` for the amulet: it is the vanilla item that owns the needle component.
 
 ### The amulet needle (data only, tracker still missing)
 
@@ -33,9 +33,7 @@ The Java needle is the client item property `bmh:north` (`client/AmuletCompass.j
 
 The first run in the game (2026-11-17) refused the item file's default `minecraft:lodestone_tracker`: "mod bmh content not loaded: bmh:navigator_amulet: minecraft:lodestone_tracker is not a known component type". The loader (`horizon-client/src/mod_content.rs`, `patch_components`) accepts a component type only when some vanilla item in `items.json` has it by default or when it is a Horizon custom component. No vanilla item has a default tracker. So the key is gone from `data/bmh/horizon/item/navigator_amulet.json`, and the game now loads the mod.
 
-What the needle shows now: `item_model.rs` `compass()` reads the stack's `lodestone_tracker`. With none, the target is empty and the needle spins at random (the "no target" state, as a vanilla compass in the wrong dimension). So the amulet looks alive but does not point north.
-
-What a native area must do: set the tracker at run time, with the same value as before (dimension `minecraft:overworld`, pos [0, 64, -30000000], `tracked` false). The hook `native/mixins/bmh/hook_modify_default_components.rs` (which calls `bmh_amulet_world`) is the place. Difference from Java: Java aims at the block 1.0E6 north of the holder, the data aims at a fixed block. The error is 0.04 degrees at x = 20000.
+The native model hook reads the position of the amulet's owner. In the Overworld it uses the block center one million blocks due north, with the model's own compass wobble. Other dimensions use the game's spinning needle. The model needs no saved lodestone target.
 
 ## Files changed after the copy
 
@@ -55,7 +53,7 @@ Nothing else was edited. In particular the lang files keep `%%` in `tooltip.bmh.
 
 ## Open questions
 
-1. SETTLED by the game (2026-11-17): `minecraft:lodestone_tracker` is refused in a content item. The amulet has no default tracker; the native hook must set it (see the needle section).
+1. SETTLED by the game (2026-11-17): `minecraft:lodestone_tracker` is refused in a content item. The amulet has no default tracker; the native model hook computes north from the owner.
 2. The netherite templates carry the block transformer component (axe stripping) and the `weapon` component. Not checked: the prepared `items.json` is not in the Horizon repository.
 3. The exact 26.3 shape of `tool` (`default_mining_speed`, `damage_per_block`, `can_destroy_blocks_in_creative`) is written from the 26.1 codec. The checker does not read it.
 4. `minecraft:compass` as a template (open: no click on a lodestone was tried): if Horizon ties "use on a lodestone" to the compass id, the amulet might not get it (that is wanted). If it ties it to the component, a click on a lodestone could retarget the needle. Test in game.

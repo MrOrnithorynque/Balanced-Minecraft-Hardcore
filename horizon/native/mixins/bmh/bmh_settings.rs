@@ -657,16 +657,19 @@ pub(super) fn on_settings(
         let label = Text::tr(logic::KEY_STEP, &[&logic::sign(*raise), &name, &value]);
         buttons.push(label.plain());
     }
+    buttons.push(Text::translate("bmh.config.edit", &[]).plain());
 }
 
 // S4: a click on a stepper button of the BMH page. The new values go to the config file at once and
 // to the cache. The game reads the file again within a second and gives the same values back.
 pub(super) fn on_settings_click(game: &mut crate::game::Game<'_>, mod_id: &str, button: usize) {
-    let _ = game;
     if mod_id != crate::game::bmh::ID {
         return;
     }
     let Some((field, raise)) = logic::button(button) else {
+        if button == logic::buttons().len() {
+            crate::game::dialogs::bmh_config_editor::open(game, *lock(&COMMON_CONFIG));
+        }
         return;
     };
     let current = *lock(&COMMON_CONFIG);
@@ -674,10 +677,15 @@ pub(super) fn on_settings_click(game: &mut crate::game::Game<'_>, mod_id: &str, 
     if next == current {
         return;
     }
-    *lock(&COMMON_CONFIG) = next;
-    let written = config_path()
-        .and_then(|path| std::fs::write(path, logic::config_text(next)).map_err(|error| error.to_string()));
-    if let Err(error) = written {
+    if let Err(error) = save_config(next) {
         log::warn!("[BalancedMcHardcoreMain] The config file is not saved: {error}");
     }
+}
+
+/// Apply the values after the local config file accepts them.
+pub(in crate::game) fn save_config(next: Config) -> Result<(), String> {
+    let path = config_path()?;
+    std::fs::write(path, logic::config_text(next)).map_err(|error| error.to_string())?;
+    *lock(&COMMON_CONFIG) = next;
+    Ok(())
 }

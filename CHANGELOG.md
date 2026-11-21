@@ -4,6 +4,19 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+### Horizon 26.3
+
+- A Totem of Eternity saves you from any carried slot. It becomes dormant in that slot. A Totem of Undying in your hand still saves you first.
+- Placing a second Totem of Eternity in the same chest, vehicle or other standard storage fails immediately.
+- Eternal tools keep the Curse of Vanishing after death. Survival deaths also apply wear when Keep Inventory is enabled.
+- Dropped Eternal Items survive damage from fire, lightning and explosions.
+- Exile uses the current world spawn if your bed is obstructed. A successful respawn from a Nether anchor uses one charge.
+- The Eternal Sword can echo after a hit on a player. The falling axe hit also works against players.
+- The Dormant Totem glints while it charges. A successful moon ritual plays the totem animation and counts towards your item-use statistics.
+- The Eternal Bundle blocks forbidden items before they enter. It displays its fullness and counts each successful use.
+- The Navigator's Amulet points north across the Overworld. The world spawn reading updates when the spawn moves.
+- You can select, cut and paste text in the amulet's point name field. BMH settings also accept exact values for both respawn distances and the point limit.
+
 Coming home after an exile now has a moment of its own, and BMH has an advancement tab.
 
 ![Home: the title you see when you get back near your home after a distant respawn](https://raw.githubusercontent.com/MrOrnithorynque/Balanced-Minecraft-Hardcore/main/resources/showcase/homecoming_title.gif)

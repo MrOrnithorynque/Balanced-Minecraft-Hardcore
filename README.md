@@ -69,7 +69,7 @@ Eternal Items stay with you after you die. Each death costs the Eternal tools 7%
   <img src="resources/showcase/eternal_items.png" alt="The five Eternal Items" width="640">
 </p>
 
-Dropped Eternal Items have an extended lifetime. Cactus and explosions can still damage them on Horizon.
+Dropped Eternal Items stay on the ground and resist damage, including cactus, lightning and explosions.
 
 ### Totem of Undying
 
@@ -93,7 +93,7 @@ The heart of every Eternal Item, made in three steps:
 
 The awakened totem glows like an enchanted item. It is the smithing template of the Eternal tools and the core of the Eternal Bundle.
 
-Hold the awakened totem in either hand. It saves you once and gives Fire Resistance. A Totem of Undying in the other hand takes priority.
+Carry the awakened totem anywhere in your inventory. On a fatal hit it saves you and becomes dormant in the same slot. A Totem of Undying held in either hand takes priority.
 
 After it saves you, it falls asleep: it becomes a **Dormant Totem of Eternal Life**. The Dormant Totem cannot save you, but it is still an Eternal Item: it stays with you when you die. Only the moon can wake it. At night, under open sky, hold use with the Dormant Totem and look at the moon. For 15 seconds your levels drain, 30 levels in all, while a chime climbs and the totem trembles more and more, and then the totem is awake again. The ritual must be done in one go: if you let go, look away, get hurt, lose the moon or run out of levels, the totem stays asleep and the levels already drained are gone.
 
@@ -156,5 +156,5 @@ Use `/bmh rule` to list the six rules. Operators can change a rule for the curre
 For example, `/bmh rule display_text_on_respawn false` hides the respawn text.
 The mod stores the values in the world's `bmh/rules.txt`.
 
-The [Horizon compatibility notes](docs/horizon/GAPS.md) describe differences from the Java mod.
+The [gameplay comparison](docs/horizon/PARITY.md) lists the features checked against Java and the remaining differences.
 The feature images above show the Java edition.

@@ -168,8 +168,8 @@ def run(args, data, evidence, facts):
         tables = list((game / ".horizon-cache/mod-content").glob("*/items.json"))
         checked(len(tables) == 1, f"Expected one freshly assembled mod content root, found {len(tables)}")
         items = json.loads(tables[0].read_bytes())
-        protector = items["bmh:totem_of_eternity"]["minecraft:death_protection"]
-        checked(bool(protector["death_effects"]), "Packaged totem lacks death protection in the loaded registry")
+        totem = items["bmh:totem_of_eternity"]
+        checked("minecraft:death_protection" not in totem, "The BMH totem would protect mobs that hold it")
         facts["loaded_item"] = "bmh:totem_of_eternity"
         facts["set"] = command(f"bmh rule {RULE} false", rf"bmh:{RULE} (?:is now set to|has been updated to):? false\b")
         checked(not rules(rulefile)[RULE], "Dedicated console command did not write the world rule")

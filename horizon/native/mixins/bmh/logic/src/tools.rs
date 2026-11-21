@@ -47,39 +47,39 @@ pub const TOOL_MINING_SPEED: f32 = 15.0;
 
 /// `EternalWear.isWornOut`: the tool is at its last point of durability (EternalWear.java:39-42,
 /// `getDamageValue() >= getMaxDamage() - 1`).
-pub fn is_worn_out(damage: u32) -> bool {
-    damage >= MAX_DAMAGE - 1
+pub fn is_worn_out(damage: u32, max_damage: u32) -> bool {
+    damage >= max_damage.saturating_sub(1)
 }
 
 /// `EternalWear.capDamage`: the wear that a use may add, never more than what leaves the last point
 /// (EternalWear.java:48-55). A tool at or past its last point gets 0 or less, which leaves it whole.
-pub fn cap_damage(damage: u32, amount: i32) -> i32 {
-    let room = i64::from(MAX_DAMAGE) - 1 - i64::from(damage);
+pub fn cap_damage(damage: u32, amount: i32, max_damage: u32) -> i32 {
+    let room = i64::from(max_damage.saturating_sub(1)) - i64::from(damage);
     let room = i32::try_from(room).unwrap_or(i32::MIN);
     amount.min(room)
 }
 
 /// `EternalWear.wear`: removes `percentage` of the durability, down to the last point
 /// (EternalWear.java:58-67). None when the percentage is outside 0 to 100 (Java throws).
-pub fn wear(damage: u32, percentage: u32) -> Option<u32> {
+pub fn wear(damage: u32, percentage: u32, max_damage: u32) -> Option<u32> {
     if percentage > 100 {
         return None;
     }
     // Java: `(int) (getMaxDamage() * (percentage / 100.0))`, in double.
-    let removed = (f64::from(MAX_DAMAGE) * (f64::from(percentage) / 100.0)) as u32;
-    Some(damage.saturating_add(removed).min(MAX_DAMAGE - 1))
+    let removed = (f64::from(max_damage) * (f64::from(percentage) / 100.0)) as u32;
+    Some(damage.saturating_add(removed).min(max_damage.saturating_sub(1)))
 }
 
 /// C12: the damage of an Eternal tool after one death (KeepItemAfterDeath.java:41-46).
-pub fn death_wear(damage: u32) -> u32 {
+pub fn death_wear(damage: u32, max_damage: u32) -> u32 {
     // 7 is inside 0 to 100, so `wear` always answers.
-    wear(damage, DEATH_WEAR_PERCENT).unwrap_or(damage)
+    wear(damage, DEATH_WEAR_PERCENT, max_damage).unwrap_or(damage)
 }
 
 /// E2: the damage that a tool at or past its last point goes back to. Java reaches the same state at
 /// the next wear: `capDamage` gives a negative amount, and `hurtAndBreak` adds it (EternalWear.java:45-47).
-pub fn restore_last_point(damage: u32) -> u32 {
-    damage.min(MAX_DAMAGE - 1)
+pub fn restore_last_point(damage: u32, max_damage: u32) -> u32 {
+    damage.min(max_damage.saturating_sub(1))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -122,11 +122,11 @@ pub struct Line {
 /// The lines that an Eternal tool adds after its name, in the Java order: the ability line (red
 /// "worn out" in its place when the tool is worn out), the heavy line, the death wear line
 /// (EternalSwordItem.java:26-33). Empty for any other item.
-pub fn tooltip_lines(item: &str, damage: u32) -> Vec<Line> {
+pub fn tooltip_lines(item: &str, damage: u32, max_damage: u32) -> Vec<Line> {
     let Some(tool) = tool_of(item) else {
         return Vec::new();
     };
-    let first = if is_worn_out(damage) {
+    let first = if is_worn_out(damage, max_damage) {
         Line { key: KEY_WORN_OUT, color: RED }
     } else {
         Line { key: ability_key(tool), color: DARK_AQUA }
@@ -846,56 +846,58 @@ mod tests {
 
     #[test]
     fn a_tool_is_worn_out_at_its_last_point() {
-        assert!(!is_worn_out(0));
-        assert!(!is_worn_out(32_998));
-        assert!(is_worn_out(32_999));
-        assert!(is_worn_out(33_000));
+        assert!(!is_worn_out(0, MAX_DAMAGE));
+        assert!(!is_worn_out(32_998, MAX_DAMAGE));
+        assert!(is_worn_out(32_999, MAX_DAMAGE));
+        assert!(is_worn_out(33_000, MAX_DAMAGE));
     }
 
     #[test]
     fn a_use_never_takes_the_last_point() {
-        assert_eq!(cap_damage(0, 1), 1);
-        assert_eq!(cap_damage(32_990, 20), 9);
+        assert_eq!(cap_damage(0, 1, MAX_DAMAGE), 1);
+        assert_eq!(cap_damage(32_990, 20, MAX_DAMAGE), 9);
         // At the last point the room is 0: the tool stays whole.
-        assert_eq!(cap_damage(32_999, 1), 0);
+        assert_eq!(cap_damage(32_999, 1, MAX_DAMAGE), 0);
         // Past it (an older version of the mod): negative, the tool gets its last point back.
-        assert_eq!(cap_damage(33_000, 1), -1);
-        assert_eq!(cap_damage(40_000, 1), -7001);
+        assert_eq!(cap_damage(33_000, 1, MAX_DAMAGE), -1);
+        assert_eq!(cap_damage(40_000, 1, MAX_DAMAGE), -7001);
         // A smaller wear passes.
-        assert_eq!(cap_damage(100, -3), -3);
+        assert_eq!(cap_damage(100, -3, MAX_DAMAGE), -3);
     }
 
     #[test]
     fn seven_percent_of_33000_is_2310() {
-        assert_eq!(wear(0, 7), Some(2310));
-        assert_eq!(death_wear(0), 2310);
-        assert_eq!(death_wear(10_000), 12_310);
+        assert_eq!(wear(0, 7, MAX_DAMAGE), Some(2310));
+        assert_eq!(death_wear(0, MAX_DAMAGE), 2310);
+        assert_eq!(death_wear(10_000, MAX_DAMAGE), 12_310);
         // Down to the last point, never past it.
-        assert_eq!(death_wear(31_000), 32_999);
-        assert_eq!(death_wear(32_999), 32_999);
-        assert_eq!(death_wear(33_000), 32_999);
+        assert_eq!(death_wear(31_000, MAX_DAMAGE), 32_999);
+        assert_eq!(death_wear(32_999, MAX_DAMAGE), 32_999);
+        assert_eq!(death_wear(33_000, MAX_DAMAGE), 32_999);
     }
 
     #[test]
     fn a_percentage_outside_0_to_100_is_refused() {
-        assert_eq!(wear(0, 101), None);
-        assert_eq!(wear(5, 0), Some(5));
-        assert_eq!(wear(0, 100), Some(32_999));
-        assert_eq!(wear(0, 50), Some(16_500));
+        assert_eq!(death_wear(0, 100), 7);
+        assert_eq!(death_wear(98, 100), 99);
+        assert_eq!(wear(0, 101, MAX_DAMAGE), None);
+        assert_eq!(wear(5, 0, MAX_DAMAGE), Some(5));
+        assert_eq!(wear(0, 100, MAX_DAMAGE), Some(32_999));
+        assert_eq!(wear(0, 50, MAX_DAMAGE), Some(16_500));
     }
 
     #[test]
     fn the_last_point_comes_back() {
-        assert_eq!(restore_last_point(33_000), 32_999);
-        assert_eq!(restore_last_point(32_999), 32_999);
-        assert_eq!(restore_last_point(5), 5);
+        assert_eq!(restore_last_point(33_000, MAX_DAMAGE), 32_999);
+        assert_eq!(restore_last_point(32_999, MAX_DAMAGE), 32_999);
+        assert_eq!(restore_last_point(5, MAX_DAMAGE), 5);
     }
 
     // ---- tooltip and bar ----
 
     #[test]
     fn a_fresh_tool_names_its_ability_then_heavy_then_death_wear() {
-        let lines = tooltip_lines("bmh:eternal_sword", 0);
+        let lines = tooltip_lines("bmh:eternal_sword", 0, MAX_DAMAGE);
         assert_eq!(
             lines,
             vec![
@@ -904,13 +906,13 @@ mod tests {
                 Line { key: "tooltip.bmh.death_wear", color: 0xAAAAAA },
             ]
         );
-        assert_eq!(tooltip_lines("bmh:eternal_axe", 1)[0].key, "tooltip.bmh.ability.eternal_axe");
-        assert_eq!(tooltip_lines("bmh:eternal_pickaxe", 1)[0].key, "tooltip.bmh.ability.eternal_pickaxe");
+        assert_eq!(tooltip_lines("bmh:eternal_axe", 1, MAX_DAMAGE)[0].key, "tooltip.bmh.ability.eternal_axe");
+        assert_eq!(tooltip_lines("bmh:eternal_pickaxe", 1, MAX_DAMAGE)[0].key, "tooltip.bmh.ability.eternal_pickaxe");
     }
 
     #[test]
     fn a_worn_out_tool_shows_a_red_line_in_place_of_its_ability() {
-        let lines = tooltip_lines("bmh:eternal_axe", 32_999);
+        let lines = tooltip_lines("bmh:eternal_axe", 32_999, MAX_DAMAGE);
         assert_eq!(lines[0], Line { key: "tooltip.bmh.worn_out", color: 0xFF5555 });
         assert_eq!(lines.len(), 3);
         assert_eq!(lines[1].key, KEY_HEAVY);
@@ -919,8 +921,8 @@ mod tests {
 
     #[test]
     fn other_items_get_no_line() {
-        assert!(tooltip_lines("bmh:eternal_bundle", 0).is_empty());
-        assert!(tooltip_lines("minecraft:stick", 0).is_empty());
+        assert!(tooltip_lines("bmh:eternal_bundle", 0, MAX_DAMAGE).is_empty());
+        assert!(tooltip_lines("minecraft:stick", 0, MAX_DAMAGE).is_empty());
     }
 
     #[test]

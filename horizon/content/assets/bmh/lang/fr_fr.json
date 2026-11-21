@@ -21,6 +21,7 @@
     "bmh.homecoming.subtitle.one_night": "%s blocs et 1 nuit depuis votre départ",
     "bmh.homecoming.subtitle.no_nights": "%s blocs depuis votre départ",
 
+    "bmh.config.edit": "Modifier les valeurs exactes",
     "bmh.config.title": "Balanced Minecraft Hardcore",
     "bmh.config.minDistanceFromBed": "Distance de réapparition minimale (%s à %s blocs)",
     "bmh.config.maxDistanceFromBed": "Distance de réapparition maximale (%s à %s blocs)",

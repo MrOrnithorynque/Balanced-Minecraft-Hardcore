@@ -563,3 +563,20 @@ All 172 distinct in-game checks passed against the ZIP across isolated worlds. T
 
 The active totem saves from either hand. Manual placement of a second active totem is corrected after the click. A fast close or concurrent placement can bypass that correction.
 See [the compatibility matrix](GAPS.md) for the other differences. Sound quality and controller or split-screen play still need a person.
+
+
+## Step 17. Gameplay parity update (2026-11-21)
+
+The same BMH 1.9.0 package includes the native mod and the content pack for Horizon 26.3. The native build uses Horizon `fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca`.
+
+A lethal hit now spends the active totem in its inventory slot. A held vanilla protector can take precedence. The LAN test confirms the same save for a guest with both hands occupied. Storage checks proposed insertions and leaves a refused stack in its source slot or on the cursor.
+
+An active Nether anchor now loses one charge on either respawn route. If a bed disappears or an anchor is drained while the player is dead, the host clears the point and BMH restarts the search around the world spawn. The early vanilla transition is still possible with immediate respawn.
+
+The optimized native build and the content check passed. There are 342 passing Rust tests and 10 passing placement and bundle probes on the compiled engine. Two builds of the distribution produce the same ZIP. Its SHA-256 is `75e48be8105bf6a6c5c2bb4b473a05e8c21e522d87d2dd3800f0a2711c839891`.
+
+The in-game checks use the packaged content with the native game built from the same sources. The suite passed 221 distinct gameplay checks across 17 groups. One check, `w5`, did not start the journey during the early-click capture. The screenshots verify other respawn and input paths.
+
+The dedicated fixture passed three boots. It verifies packaged item registration, config correction, console rules, persistence and import from a Java world.
+
+The local evidence is in `~/Library/Caches/bmh-horizon/scratch/parity-26.3-1795124753687/`. The file `final-summary.log` lists all groups. The corrected runs are `race-fixed`, `boat-final`, `lan-fixed`, `hardcore-home-final` and `tools-final`. They use the same package and optimized binaries as the initial groups. The [comparison with Java](PARITY.md) records the remaining differences.

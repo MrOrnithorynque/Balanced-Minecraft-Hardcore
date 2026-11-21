@@ -10,7 +10,6 @@
 // - `CLIENT`: the glows that the server told this window, and the server's mineable answers (E4).
 // - `bmh_tools_lib` (horizon-client-lib): the blocks of fall that the smashes took, for `living_fall`.
 
-use bmh_logic::contract::Rule;
 use bmh_logic::eternal::PLAYER_SOUND_SOURCE;
 use bmh_logic::tools as logic;
 use bmh_logic::wire::{TOOLS_CHANNEL, ToolsSignal};
@@ -27,10 +26,6 @@ use std::time::{Duration, Instant};
 const OVERWORLD: &str = bmh_logic::respawn::OVERWORLD;
 /// The off hand, by `native_inventory_tick`'s numbers.
 const OFF_HAND_SLOT: i32 = -106;
-/// Java tests `GameType.SURVIVAL` only (KeepItemAfterDeath.java:38).
-const SURVIVAL: i32 = bmh_logic::eternal::SURVIVAL;
-/// The entity type of a player.
-const PLAYER: &str = "minecraft:player";
 /// The interval between checks for expired glows.
 const SWEEP_TICKS: i64 = 100;
 /// The most mineable answers the server remembers as sent. Past it, no answer is sent: the client then
@@ -180,43 +175,11 @@ fn center_of(game: &crate::game::Game<'_>, id: u32) -> Option<([f64; 3], f64)> {
 }
 
 // ---------------------------------------------------------------------------------------------
-// C12: the 7 percent death wear
-// ---------------------------------------------------------------------------------------------
-
-// C12: take the 7 percent death wear from each Eternal tool in the drops (KeepItemAfterDeath.java:36-52).
-// This runs before the eternal area takes the stacks out of `drops` (HOOKS.md, `loot_drops`).
-pub(super) fn on_loot_drops(
-    game: &mut crate::game::Game<'_>,
-    context: &horizon_client::mod_api::NativeLootDrops<'_>,
-    drops: &mut Vec<ItemStack>,
-) {
-    // A player's own death: the entity is the player and no loot table rolled.
-    let Some((_, PLAYER)) = context.entity else {
-        return;
-    };
-    let Some(player) = context.player.filter(|_| context.table.is_empty()) else {
-        return;
-    };
-    if !drops.iter().any(|stack| stack.count > 0 && logic::tool_of(&stack.item).is_some()) {
-        return;
-    }
-    // The dying player's state is swapped in. Where it is not, the game mode is taken as survival.
-    let survival = game
-        .native_acting_player()
-        .filter(|me| me.uuid == player)
-        .is_none_or(|me| me.game_mode == SURVIVAL);
-    if !survival || !crate::game::bmh_settings::rule(game, Rule::DamageEternalItemWhenDead) {
-        return;
-    }
-    for stack in drops.iter_mut() {
-        if stack.count > 0 && logic::tool_of(&stack.item).is_some() {
-            stack.damage = logic::death_wear(stack.damage);
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------------------------
 // E2: the tools never break
+// The component can override a tool's default durability.
+pub(super) fn max_damage(stack: &ItemStack) -> u32 {
+    horizon_client::item_render::cit::stack_max_damage(stack, logic::MAX_DAMAGE)
+}
 // ---------------------------------------------------------------------------------------------
 
 // E2: cap the damage so an Eternal tool keeps its last point (EternalWear.java:48-55, L_ItemStackWearMixin).
@@ -240,10 +203,10 @@ pub(super) fn on_item_damaged(
     let damage = slots.into_iter().find_map(|slot| {
         game.native_carried_stack(slot)
             .filter(|stack| stack.count > 0 && &*stack.item == item)
-            .map(|stack| stack.damage)
+            .map(|stack| (stack.damage, max_damage(stack)))
     });
-    if let Some(damage) = damage {
-        *amount = logic::cap_damage(damage, *amount);
+    if let Some((damage, limit)) = damage {
+        *amount = logic::cap_damage(damage, *amount, limit);
     }
 }
 
@@ -256,7 +219,7 @@ pub(super) fn on_inventory_tick(game: &mut crate::game::Game<'_>, slot: i32, sel
     if stack.count == 0 || logic::tool_of(&stack.item).is_none() {
         return;
     }
-    stack.damage = logic::restore_last_point(stack.damage);
+    stack.damage = logic::restore_last_point(stack.damage, max_damage(stack));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -264,7 +227,7 @@ pub(super) fn on_inventory_tick(game: &mut crate::game::Game<'_>, slot: i32, sel
 // ---------------------------------------------------------------------------------------------
 
 // Capture the main target and the strength before the server resets the attack cooldown.
-pub(super) fn on_attack_entity(game: &mut crate::game::Game<'_>, victim: i32, kind: &str, canceled: bool) {
+pub(super) fn on_attack_entity(game: &mut crate::game::Game<'_>, victim: i32, _kind: &str, canceled: bool) {
     ATTACK.set(None);
     if canceled || !game.native_on(crate::game::bmh::ID) {
         return;
@@ -279,12 +242,12 @@ pub(super) fn on_attack_entity(game: &mut crate::game::Game<'_>, victim: i32, ki
     let Some(tool) = logic::tool_of(&weapon.item) else {
         return;
     };
-    let swing = if logic::is_worn_out(weapon.damage) {
+    let swing = if logic::is_worn_out(weapon.damage, max_damage(&weapon)) {
         Swing::Worn
     } else {
         match tool {
-            logic::Tool::Sword if kind != PLAYER => Swing::Sword { strength: game.attack_strength_scale() },
-            logic::Tool::Axe if kind != PLAYER => {
+            logic::Tool::Sword => Swing::Sword { strength: game.attack_strength_scale() },
+            logic::Tool::Axe => {
                 let distance = server().falls.get(&me.uuid).map_or(0.0, |f| f.fall.distance());
                 let multiplier = logic::smash_multiplier(distance);
                 if multiplier <= 1.0 {
@@ -339,48 +302,74 @@ pub(super) fn on_hurt_enemy(
     let Ok(victim) = i32::try_from(entity) else {
         return;
     };
-    let hit = {
-        let mut s = server();
-        match s.hits.get(&me.uuid).copied() {
-            Some(Hit::Sword { victim: v, .. } | Hit::Smash { victim: v, .. }) if v == victim => {
-                s.hits.remove(&me.uuid)
-            }
-            _ => None,
+    let Some(hit) = take_hit(me.uuid, victim) else { return };
+    let Some((center, height)) = center_of(game, entity) else { return };
+    finish_hit(game, me.uuid, me.entity_id, &me.name, entity, center, height, hit);
+}
+
+fn take_hit(attacker: u128, victim: i32) -> Option<Hit> {
+    let mut s = server();
+    match s.hits.get(&attacker) {
+        Some(Hit::Sword { victim: id, .. } | Hit::Smash { victim: id, .. }) if *id == victim => {
+            s.hits.remove(&attacker)
         }
-    };
-    let Some(hit) = hit else {
-        return;
-    };
-    let Some((center, height)) = center_of(game, entity) else {
-        return;
-    };
+        _ => None,
+    }
+}
+
+/// The successful PvP path runs outside the attacker swap. The victim's pose supplies its height.
+pub(super) fn on_pvp_hit(
+    game: &mut crate::game::Game<'_>,
+    attacker: &horizon_client::lan::guest::Guest,
+    victim: &horizon_client::lan::guest::Guest,
+) {
+    let Some(hit) = take_hit(attacker.uuid, victim.entity_id) else { return };
+    let Ok(id) = u32::try_from(victim.entity_id) else { return };
+    let [x, y, z] = victim.position;
+    let height = f64::from(victim.dimensions().height);
+    let center = [x, y + height * 0.5, z];
+    finish_hit(game, attacker.uuid, attacker.entity_id, &attacker.name, id, center, height, hit);
+}
+
+fn finish_hit(
+    game: &mut crate::game::Game<'_>,
+    attacker: u128,
+    attacker_entity: i32,
+    name: &str,
+    entity: u32,
+    center: [f64; 3],
+    height: f64,
+    hit: Hit,
+) {
     match hit {
         Hit::Sword { damage, strength, .. } => {
             let now = game_time(game).unwrap_or_default();
             let mut s = server();
-            let queue = s.echoes.entry(me.uuid).or_default();
-            logic::queue_echo(queue, &me.dimension, entity, center, damage, strength, now);
+            let queue = s.echoes.entry(attacker).or_default();
+            logic::queue_echo(queue, game.dim.id(), entity, center, damage, strength, now);
         }
-        Hit::Smash { multiplier, .. } => smash(game, &me, center, height, multiplier),
+        Hit::Smash { multiplier, .. } => smash(game, attacker, attacker_entity, name, center, height, multiplier),
     }
 }
 
 // E8: the effects of a smash that landed (AxeSmashHandler.java:57-82).
 fn smash(
     game: &mut crate::game::Game<'_>,
-    me: &horizon_client::mod_api::NativeServerPlayer,
+    attacker: u128,
+    attacker_entity: i32,
+    name: &str,
     center: [f64; 3],
     height: f64,
     multiplier: f32,
 ) {
     log::debug!(
         "[BalancedMcHardcoreMain] Smash: {} hits x{multiplier}",
-        me.name
+        name
     );
-    queue_award(me.uuid, &me.name, logic::AWARD_SMASH);
+    queue_award(attacker, name, logic::AWARD_SMASH);
     // Half the fall distance, about half the fall damage: the landing loses what the smash took.
-    let removed = server().falls.get_mut(&me.uuid).map_or(0.0, |falling| falling.fall.halve());
-    if let Ok(player) = u32::try_from(me.entity_id) {
+    let removed = server().falls.get_mut(&attacker).map_or(0.0, |falling| falling.fall.halve());
+    if let Ok(player) = u32::try_from(attacker_entity) {
         horizon_client_lib::bmh_tools_lib::add_softening(player, removed);
     }
     // The sounds and particles are at the target: its feet (the centre less half its height).
@@ -670,12 +659,12 @@ pub(super) fn on_destroy_block(
     let tool = game
         .native_carried_stack(i32::from(me.selected_slot))
         .filter(|stack| stack.count > 0)
-        .map(|stack| (logic::tool_of(&stack.item), stack.damage));
+        .map(|stack| (logic::tool_of(&stack.item), stack.damage, max_damage(stack)));
     // The Eternal Pickaxe, not worn out.
-    let Some((Some(logic::Tool::Pickaxe), damage)) = tool else {
+    let Some((Some(logic::Tool::Pickaxe), damage, limit)) = tool else {
         return;
     };
-    if logic::is_worn_out(damage) {
+    if logic::is_worn_out(damage, limit) {
         return;
     }
     let broken = game.native_block(pos);
@@ -837,7 +826,7 @@ pub(super) fn on_break_speed(game: &crate::game::Game<'_>, pos: [i32; 3], speed:
         }
         Err(_) => client().mineable.get(tool, &block),
     };
-    if !logic::is_worn_out(stack.damage) {
+    if !logic::is_worn_out(stack.damage, max_damage(&stack)) {
         return;
     }
     *speed = logic::worn_break_speed(*speed, mineable, stack.enchantment_level(logic::EFFICIENCY));
@@ -868,7 +857,7 @@ pub(super) fn on_tooltip(
     lines: &mut Vec<(Text, u32)>,
 ) {
     let _ = game;
-    let added = logic::tooltip_lines(&stack.item, stack.damage);
+    let added = logic::tooltip_lines(&stack.item, stack.damage, max_damage(stack));
     if added.is_empty() {
         return;
     }

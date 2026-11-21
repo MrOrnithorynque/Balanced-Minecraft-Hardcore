@@ -213,17 +213,6 @@ pub fn extra_life(item: &str, current: i32) -> i32 {
     if is_eternal(item) { current.max(EXTRA_LIFE_TICKS) } else { current }
 }
 
-/// The health of an Eternal Item on the ground, in the `Health` short of its entity data. Java
-/// ignores all damage (G_ItemEntityMixin.java:26-40, `hurtServer` and `hurtClient` return false).
-/// Horizon has no hook for the damage of an item entity: explosions take health away, so the
-/// health is the largest short (GAPS.md E10: about 6500 blasts).
-pub const ITEM_HEALTH: i16 = i16::MAX;
-
-/// The health to give to a new item on the ground. None for an item that is not Eternal.
-pub fn item_health(item: &str) -> Option<i16> {
-    is_eternal(item).then_some(ITEM_HEALTH)
-}
-
 // ---------------------------------------------------------------------------------------------
 // E12: the Eternal Bundle (EternalBundleItem.java)
 // ---------------------------------------------------------------------------------------------
@@ -660,13 +649,6 @@ mod tests {
         assert_eq!(extra_life(ETERNAL_AXE, 40000), 40000);
         assert_eq!(extra_life("minecraft:dirt", 0), 0);
         assert_eq!(extra_life(NAVIGATOR_AMULET, 0), 0);
-    }
-
-    #[test]
-    fn an_eternal_item_on_the_ground_gets_the_largest_health_short() {
-        assert_eq!(item_health(ETERNAL_BUNDLE), Some(32767));
-        assert_eq!(item_health(DORMANT_TOTEM), None);
-        assert_eq!(item_health("minecraft:dirt"), None);
     }
 
     // ---- E12 ----

@@ -1,5 +1,7 @@
 # BMH on Horizon: architecture
 
+The 26.3 parity update uses the official mixin build for player protection, container placement, the Eternal Bundle, death drops, dropped item damage and the charging totem model. The declarations live in the [native mod manifest](../../horizon/native/mixins/bmh/horizon-mixin.toml). The launcher builds a separate instance from the pinned source.
+
 This file is the contract of the Horizon port. Every agent that writes code for it reads it first.
 The evidence for each choice is in `docs/horizon/audit/` (five audits, five verifications, audit 6) and in
 `docs/horizon/GAPS.md`.
@@ -27,7 +29,7 @@ The evidence for each choice is in `docs/horizon/audit/` (five audits, five veri
 | D5 | The six BMH game rules become world settings of the mod: `/bmh rule <name> [true|false]`, saved with the world. Player chat also accepts the six names through a `/gamerule bmh:<name>` alias. | Horizon's game rule table is a `const` (audit 1 row 4, verify-5 G4). This is a real difference from the Java mod. |
 | D6 | The server and the client talk through mod messages (`net_send_to_player`, `net_from_server`, `net_send_to_server`, `net_from_client`), never through title packets. | Horizon has a channel. The Java trick existed because BMH had none. |
 | D7 | The server decides. The client draws and asks. A client request (a point name, a respawn that waited) is checked on the server as the Java command was. | Same trust rule as the Java mod. |
-| D8 | No injection into the game's own functions (tier X) in the first version, except where a feature has no other way and the list in GAPS.md says so. | Each such injection ties the mod to one commit for good. A hook point becomes stable once Horizon stamps it. |
+| D8 | BMH uses published hook points where they cover the required behavior. The BMH package declares the remaining injections in its [mixin manifest](../../horizon/native/mixins/bmh/horizon-mixin.toml). | The launcher applies these declarations to the pinned revision in the modded instance. BMH owns the declarations and helper code. |
 
 ## Folders
 

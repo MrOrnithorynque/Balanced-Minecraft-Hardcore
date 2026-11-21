@@ -28,17 +28,15 @@ All signatures, paths and line numbers come from the Horizon Nightly of 2026-11-
     `native_window()` is false. The use hooks say so in their doc ("change the world only on the server
     (`native_window` is false there)", native_hooks.rs:8050-8051).
   - An answer that the hook hands back (`use_duration`'s `duration`, the `canceled` flag and `duration` of the use
-    hooks, `anvil_update`'s `output`, `xp_cost` and `material_cost`, `modify_default_components`'s `components`)
+    hooks, `anvil_update`'s `output`, `xp_cost` and `material_cost`)
     must be the same on both sides. Compute it from the values the hook gives and from state that both sides have
     (the stack, the config), never from a `SERVER_*` static alone.
   - Keep the client's own state in `CLIENT_*` statics and the server's in `SERVER_*` statics (ARCHITECTURE.md,
     State). Pick the static with `native_window()`.
   - The `both` hooks are: `register_configs`, `config_loading`, `config_reloading`, `use_duration`,
     `living_entity_use_item_start`, `living_entity_use_item_tick`, `living_entity_use_item_stop`, `on_use_tick`,
-    `release_using`, `anvil_update`, `living_fall`, `modify_default_components`.
-  - `living_fall` and `modify_default_components` have no `Game`, so they cannot call `native_window()` and cannot
-    tell the sides apart. Their area gives the same answer on both sides: `modify_default_components` answers
-    from the item id alone, and `living_fall` answers only from values that both sides have for that entity.
+    `release_using`, `anvil_update`, `living_fall`.
+  - `living_fall` uses the fall distance recorded by the game for that entity.
 - The API column gives the number in the hook's doc comment in the Nightly (`API n`, or `n.` at its end). The
   highest stamped number among the wired hooks is 410 (`gui_render_post`), so `compatibility.json` has
   `"hooks": 410`. The Nightly's `NATIVE_HOOKS_API` is 411.
@@ -52,16 +50,8 @@ These wired hooks have no `Game`, so their helper cannot check `native_on`:
 | `living_incoming_damage` | an associated function with no `self` ("the game is in the middle of the hit") | `bmh_respawn.rs`, `bmh_tools.rs` and `bmh_ritual.rs` |
 | `living_fall` | a free function of the client library (`horizon_client_lib::landing`) | `bmh_tools_lib.rs`, a `pub` module in `crates/horizon-client/src/client_lib.rs` |
 | `world_drawn`, `render_needs` | free functions of `horizon-client-render` | `bmh_sky_render.rs`, a `pub` module in `crates/horizon-client-render/src/lib.rs` |
-| `modify_default_components` | a free function of `horizon-world` | `bmh_totem_world.rs` and `bmh_amulet_world.rs`, `pub` modules in `crates/horizon-world/src/lib.rs` |
 
-Rule for these hooks: the area acts only on state that a gated hook (one that checked `native_on`) wrote. With the
-mod off, that state stays empty, so the hook does nothing. `modify_default_components` is the exception: its doc
-asks for the same answer each time, and the launcher leaves a mod that is off out of its next build.
-
-A module in another crate cannot call the game module (the dependency goes the other way) and cannot use
-`bmh_logic` (the `[[crate]]` is a dependency of `horizon-client` only). The game side reaches it by its crate path:
-`horizon_client_lib::bmh_tools_lib`, `horizon_client_render::bmh_sky_render`, `horizon_world::bmh_totem_world`,
-`horizon_world::bmh_amulet_world`. Its owner makes a function `pub` when the game side needs it.
+The game side supplies the enabled state to the library hooks for placement and ground item protection. The compass resolver handles only the Navigator's Amulet. See the pinned targets in the [native manifest](../../horizon/native/mixins/bmh/horizon-mixin.toml).
 
 ## Wired hooks
 
@@ -70,12 +60,11 @@ A module in another crate cannot call the game module (the dependency goes the o
 | `mods` | `horizon_client::game::native_hooks::Game<'_>::native_mods` (crates/horizon-client/src/game/native_hooks.rs:3246) | `&mut self, mods: &mut Vec<NativeMod>` | client | stamped, no API number in its doc comment | bmh (`bmh::row`) | The row in Options > Mods. No `native_on` check: the row shows when the mod is off, so the player can turn it on again. |
 | `player_respawn_position` | `horizon_client::game::native_hooks::Game<'_>::native_player_respawn_position` (crates/horizon-client/src/game/native_hooks.rs:7317) | `&mut self, player: u128, name: &str, dimension: &mut String, pos: &mut [f64; 3], yaw: &mut f32, pitch: &mut f32` | server | pending (fragment player_respawn_position.json) | respawn | One area. |
 | `living_death` | `horizon_client::game::native_hooks::Game<'_>::native_living_death` (crates/horizon-client/src/game/native_hooks.rs:6567) | `&mut self, entity: u32, kind: &str, damage_type: &str, attacker: u32, cancel: &mut bool` | server | 392 | totem, respawn | The totem decides first whether the player dies. The departure signal goes last and only for a real death (Java: `announceJourney` at `Priority.LOWEST`, a revived player must not see the journey). |
-| `loot_drops` | `horizon_client::game::native_hooks::Game<'_>::native_loot_drops` (crates/horizon-client/src/game/native_hooks.rs:8951) | `&mut self, context: &NativeLootDrops<'_>, drops: &mut Vec<ItemStack>` | server | 75 (player inventory: 405) | respawn, tools, eternal | Respawn counts the Eternal Items while they are still in the drops (Java: `measureRespawnDistance` at `Priority.HIGHEST`). Tools wears them while they are still there. Eternal takes them out last (Java: `keepEternalItems` at the normal priority). |
+| `drop_inventory` | `horizon_client::game::Game::drop_inventory` | dying player inventory | server | pinned mixin | eternal, respawn | Count and wear Eternal Items before vanilla applies inventory and curse rules. Restore the items at respawn. |
 | `player_died` | `horizon_client::game::native_hooks::Game<'_>::native_player_died` (crates/horizon-client/src/game/native_hooks.rs:8704) | `&mut self, player: u128, cause: Option<&str>` | server | 40 | respawn, tools | No shared state. Tools clears its per-player state of the body (echoes, hit, attack strength, held item, fall), added in the tools fix round 1. |
 | `player_tick` | `horizon_client::game::native_hooks::Game<'_>::native_player_tick` (crates/horizon-client/src/game/native_hooks.rs:2791) | `&mut self` | server | 31 | respawn, totem, tools | No shared state: the order of ARCHITECTURE.md. |
 | `player_respawned` | `horizon_client::game::native_hooks::Game<'_>::native_player_respawned` (crates/horizon-client/src/game/native_hooks.rs:8459) | `&mut self, player: u128, name: &str` | server | 115 | eternal, respawn, homecoming (`on_exile`) | Java: `giveBackEternalItems` at the normal priority, then `playRespawnEffects` at `Priority.LOWEST`, which ends with `HomecomingHandler.onExile`. The record needs the exile center that respawn reads first: `bmh_respawn::on_player_respawned` gives back `Option<bmh_logic::contract::Exile>`, and the helper calls `bmh_homecoming::on_exile(game, player, &exile)` only when it is `Some` (section "Contracts" below). |
 | `player_logged_out` | `horizon_client::game::native_hooks::Game<'_>::native_player_logged_out` (crates/horizon-client/src/game/native_hooks.rs:8451) | `&mut self, player: u128, name: &str` | server | 57 | respawn, totem, ritual, tools, amulet, homecoming | Cleanup only (ARCHITECTURE.md, State). No order. |
-| `player_totem` | `horizon_client::game::native_hooks::Game<'_>::native_player_totem` (crates/horizon-client/src/game/native_hooks.rs:8908) | `&mut self, player: u128, name: &str` | server | 182 | totem | One area. Called by `Game::apply_totem` (game/totem.rs:71-73) before the game spends the hand, with the player swapped in. Totem swaps the hands for the Totem of Undying first, or records the slot of the Totem of Eternity; its `server_tick` end puts the Dormant Totem there (GAPS T2, route A, docs/horizon/solutions/totem-save.md). |
 | `server_tick` | `horizon_client::game::native_hooks::Game<'_>::native_server_tick` (crates/horizon-client/src/game/native_hooks.rs:2571) | `&mut self, context: &NativeLifecycleContext, phase: ServerTickPhase` | server | 4 | respawn, homecoming (`on_exile`), settings, homecoming, eternal, totem, ritual, tools | The order of ARCHITECTURE.md. Each area acts on one phase. Respawn gives back the exiles of the early respawns whose search ended in this tick (`bmh_respawn::on_server_tick` returns `Vec<(u128, Exile)>`): it moved each player to the landing with `native_teleport_player` (pending fragment `teleport_player.json`) and ran the arrival steps, and the helper hands each exile to `bmh_homecoming::on_exile` before homecoming's own tick, as `player_respawned` does (journey fix round 1, script n5). |
 | `living_incoming_damage` | `horizon_client::game::native_hooks::Game<'_>::native_living_incoming_damage` (crates/horizon-client/src/game/native_hooks.rs:9202) | `entity: i32, kind: &str, damage_type: &str, causing: i32, direct: i32, amount: &mut f32, canceled: &mut bool` | server | 50 | respawn, tools, ritual | Respawn can cancel the damage. Tools change the primary hit. Ritual observes the result. |
 | `difficulty_changed` | `horizon_client::game::native_hooks::Game<'_>::native_difficulty_changed` (crates/horizon-client/src/game/native_hooks.rs:8412) | `&mut self, from: &str, to: &str` | server | 159 | respawn | One area. |
@@ -111,12 +100,11 @@ A module in another crate cannot call the game module (the dependency goes the o
 | `destroy_block` | `horizon_client::game::native_hooks::Game<'_>::native_destroy_block` (crates/horizon-client/src/game/native_hooks.rs:8244) | `&mut self, pos: [i32; 3], state: BlockStateId, canceled: &mut bool` | server | 14 | tools | One area. |
 | `living_fall` | `horizon_client_lib::landing::native_living_fall` (crates/horizon-client/src/landing.rs:32) | `entity: u32, kind: &str, distance: &mut f64, multiplier: &mut f32, cancel: &mut bool` | both | 357 | tools | One area. The hook is in the client library, which has no `Game`: module `bmh_tools_lib` there. No `native_on` check: it acts only on falls that `player_tick` (gated) recorded. |
 | `item_expire` | `horizon_client::game::native_hooks::Game<'_>::native_item_expire` (crates/horizon-client/src/game/native_hooks.rs:9002) | `&mut self, entity: u32, stack: &ItemStack, extra_life: &mut i32` | server | 325 | eternal | One area. |
-| `item_spawn` | `horizon_client::game::native_hooks::Game<'_>::native_item_spawn` (crates/horizon-client/src/game/native_hooks.rs:5967) | `&mut self, entity: u32, item: &str, count: i32, pos: [f64; 3]` | server | 234 | eternal | One area. |
 | `use_item` | `horizon_client::game::native_hooks::Game<'_>::native_use_item` (crates/horizon-client/src/game/native_hooks.rs:8004) | `&mut self, stack: &ItemStack, claimed: &mut bool` | server | 13 | eternal, amulet | Each area tests its own item. No order. |
 | `use_item_on` | `horizon_client::game::native_hooks::Game<'_>::native_use_item_on` (crates/horizon-client/src/game/native_hooks.rs:7963) | `&mut self, stack: &ItemStack, pos: [i32; 3], face: [i32; 3], claimed: &mut bool` | server | 13 | amulet | One area. |
 | `interaction_key` | `horizon_client::game::native_hooks::Game<'_>::native_interaction_key` (crates/horizon-client/src/game/native_hooks.rs:2882) | `&mut self, button: i32, key_mapping: &str, hand: Hand, swing_hand: &mut bool, canceled: &mut bool` | client | 138 | amulet | One area. |
 | `player_toggle_sneak` | `horizon_client::game::native_hooks::Game<'_>::native_player_toggle_sneak` (crates/horizon-client/src/game/native_hooks.rs:4521) | `&mut self, player: u128, name: &str, sneaking: bool` | server | 351 | amulet | One area. |
-| `spawn_change` | `horizon_client::game::native_hooks::Game<'_>::native_spawn_change` (crates/horizon-client/src/game/native_hooks.rs:6323) | `&mut self, pos: [i32; 3], angle: [f32; 2]` | server | 244 | respawn, amulet | No shared state: each area keeps its own copy of the world spawn (respawn: the centre of an exile with no bed). |
+| `spawn_change` | `horizon_client::game::native_hooks::Game<'_>::native_spawn_change` (crates/horizon-client/src/game/native_hooks.rs:6323) | `&mut self, pos: [i32; 3], angle: [f32; 2]` | server | 244 | respawn | Invalidate searches centered on the previous world spawn. Both the amulet and respawn read the server's live spawn. |
 | `level_tick_post` | `horizon_client::game::native_hooks::Game<'_>::native_level_tick_post` (crates/horizon-client/src/game/native_hooks.rs:2583) | `&mut self, dimension: &str` | server | 23 | respawn, amulet, homecoming | No shared state. Called after each level's tick pass with that level in place (`enter_level`, levels.rs:528-560), so the landing search reads that level's blocks and `/playsound` reaches its players. The amulet runs its queued `advancement grant` and chime lines here: `run_command` refuses inside a player's hook, where the amulet decides them. It also brings the points of a Java world to each player who is on (`native_player_compound` gives the loaded record only here, with no player swapped in). Homecoming does the same for the `bmh_homecoming` record of a Java world, and runs the bell lines for the other players near a homecoming (`/playsound` reaches only the players of the level in place). |
 | `player_spawn_point_set` | `horizon_client::game::native_hooks::Game<'_>::native_player_spawn_point_set` (crates/horizon-client/src/game/native_hooks.rs:5120) | `&mut self, player: u128, name: &str, dimension: &str, pos: [i32; 3], cause: &str, cancel: &mut bool` | server | 277 | respawn | One area. Respawn only listens (it never sets `cancel`): it keeps each player's respawn point for the search at death. |
 | `use_duration` | `horizon_client::game::native_hooks::Game<'_>::native_use_duration` (crates/horizon-client/src/game/native_hooks.rs:8018) | `&self, stack: &ItemStack, duration: &mut i32` | both | 90 | ritual | One area. |
@@ -127,21 +115,16 @@ A module in another crate cannot call the game module (the dependency goes the o
 | `on_use_tick` | `horizon_client::game::native_hooks::Game<'_>::native_on_use_tick` (crates/horizon-client/src/game/native_hooks.rs:8144) | `&mut self, stack: &ItemStack, entity: Option<i32>, remaining: i32` | both | 131 | ritual | One area. |
 | `release_using` | `horizon_client::game::native_hooks::Game<'_>::native_release_using` (crates/horizon-client/src/game/native_hooks.rs:8229) | `&mut self, stack: &ItemStack, entity: Option<i32>, time_left: i32, used: &mut bool` | both | 131 | ritual | One area. |
 | `render_hand_pose` | `horizon_client::game::native_hooks::Game<'_>::native_render_hand_pose` (crates/horizon-client/src/game/native_hooks.rs:3055) | `&self, hand: Hand, stack: Option<&ItemStack>, partial: f32, swing: f32, equip: f32, x: &mut f32, y: &mut f32, z: &mut f32, pitch: &mut f32, yaw: &mut f32, roll: &mut f32, scale: &mut f32` | client | 369 | ritual | One area. |
-| `modify_default_components` | `horizon_world::item_defaults::native_modify_default_components` (crates/horizon-world/src/item_defaults.rs:77) | `item: &str, components: &mut Map<String, Value>` | both | 79 | totem, amulet | Each area changes its own item. No order. The hook is in horizon-world, which has no `Game`: modules `bmh_totem_world` and `bmh_amulet_world` there. No `native_on` check: the doc asks for the same answer each time, and the launcher leaves a mod that is off out of its next build. |
 | `tooltip` | `horizon_client::game::native_hooks::Game<'_>::native_tooltip` (crates/horizon-client/src/game/native_hooks.rs:7882) | `&self, stack: &ItemStack, lines: &mut Vec<(Text, u32)>` | client | 12 | totem, tools, amulet | Each area adds lines for its own items. No order. |
 | `item_bar` | `horizon_client::game::native_hooks::Game<'_>::native_item_bar` (crates/horizon-client/src/game/native_hooks.rs:7939) | `&self, stack: &ItemStack, bar: &mut Option<(i32, u32)>` | client | 60 | tools, amulet | Each area sets the bar of its own items. No order. |
 | `item_decorations` | `horizon_client::game::native_hooks::Game<'_>::native_item_decorations` (crates/horizon-client/src/game/native_hooks.rs:7947) | `&self, stack: &ItemStack, x: f32, y: f32, batch: &mut HudBatch` | client | 89 | amulet | The amulet draws the white cooldown sweep on its icon after the game's own decorations (GAPS.md A4). The timer comes from `AmuletSignal::Cooldown`. |
-| `inventory_click` | `Game::native_inventory_click` | `game, player, window` | server | pending | totem | Record the affected window. The player tick checks its contents after the click. |
-| `inventory_drag` | `Game::native_inventory_drag` | `game, player, window` | server | pending | totem | Record the affected window after a drag request. |
 | `totem_transfer` | `horizon_client::game::machines::Game::add_item` | `game, view, stack` | server | pinned game method | totem | Return the original stack when the destination already holds a Totem of Eternity. |
-| `player_container_open` | `horizon_client::game::native_hooks::Game<'_>::native_player_container_open` (crates/horizon-client/src/game/native_hooks.rs:8559) | `&mut self, player: u128, name: &str, dimension: &str, menu: &str, pos: Option<[i32; 3]>` | server | 152 | totem | One area. |
-| `player_container_close` | `horizon_client::game::native_hooks::Game<'_>::native_player_container_close` (crates/horizon-client/src/game/native_hooks.rs:8587) | `&mut self, player: u128, name: &str, dimension: &str, menu: &str, pos: Option<[i32; 3]>` | server | 152 | totem | One area. |
 | `anvil_update` | `horizon_client::game::native_hooks::Game<'_>::native_anvil_update` (crates/horizon-client/src/game/native_hooks.rs:6067) | `&mut self, player: u128, name: &str, left: &ItemStack, right: Option<&ItemStack>, item_name: Option<&str>, vanilla_output: Option<&ItemStack>, vanilla_xp_cost: i32, vanilla_material_cost: i32, output: &mut Option<ItemStack>, xp_cost: &mut i32, material_cost: &mut i32, canceled: &mut bool` | both | pending (fragment anvil_update.json) | totem | One area (ARCHITECTURE.md gives the anvil to the totem area). |
 | `world_primitives` | `horizon_client::game::native_hooks::Game<'_>::native_world_primitives` (crates/horizon-client/src/game/native_hooks.rs:2982) | `&self, partial: f32, camera: [f64; 3], primitives: &mut WorldPrimitives` | client | pending (fragment world_primitives.json) | tools | One area. |
 
 | `break_speed` | `horizon_client::game::native_hooks::Game<'_>::native_break_speed` (crates/horizon-client/src/game/native_hooks.rs:2768) | `&self, pos: [i32; 3], state: BlockStateId, original: f32, speed: &mut f32` (the helper binds `game`, `pos` and `speed`) | both | pending (fragment break_speed.json) | tools | One area. Added by the tools area (E4, the stone speed of a worn out tool). The Nightly's dig speed ignores a `minecraft:tool` patch on a stack, so a stack patch cannot do this. |
 
-Counts: 67 hooks. 63 stamped, 4 pending (`player_respawn_position`, `anvil_update`, `world_primitives`, `break_speed`).
+The [mod manifest](../../horizon/native/mixins/bmh/horizon-mixin.toml) gives the exact targets and arguments. Pinned mixins handle death protection, placement on both sides, bundle clicks, ground damage and the ritual model.
 
 ## Contracts
 
@@ -202,20 +185,18 @@ The content mod is shared by every area. Each file has one owner:
 | `assets/bmh/sounds.json`, `assets/bmh/sounds/` | journey | Respawn and homecoming play the events that exist (`bmh:bell_sfx`, `bmh:end`) and do not edit these files. |
 | All other files: `advancement/root.json`, the `inventory_changed` advancements, items, models, textures, recipes, tags, `data/bmh/horizon/`, `horizon-mod.toml`, `NOTES.md` | integrator | |
 
-## Hooks GAPS.md names that are not wired, and why
+## Injections for gameplay behavior outside the hook catalog
 
-| Name | GAPS rows | Why it is not wired |
-|---|---|---|
-| `server_packet` (pending, `tools/native-hook-fragments/server_packet.json`, native_hooks.rs:7554) | C4 (option) | GAPS marks it as an option of the C4 route. C4 ships at N without it: the client holds the death screen, and the server says "ready" by a mod message. |
-| `Game::guest_respawn` (lan_actions.rs:3892) | C4 | Tier X: a function of the game, not a hook point (decision D8). |
-| `Game.level.hardcore` read (save.rs:3733, field `hardcore`) | C5 | Tier X (decision D8). The substitute reads `hardcore` from `level.dat` with the `world_dir` helper. |
-| `Game::update_totem_ready`, `apply_totem`, `find_totem` (totem.rs:52, :66, :178) | T4 | Tier X (decision D8). The game plays its save animation for the protector it consumes from a hand. |
-| hand light (frame_geometry.rs) | T8 | Tier X (decision D8). The substitute is `render_hand_pose`, which is wired. |
-| `has_foil` (horizon-assets item_model.rs:1175) | T10 | Tier X (decision D8). The substitute shows no glint while the ritual charges. |
-| `dropper_insert` | T13 | Tier X (decision D8). No function of that name in the Nightly (searched `fn dropper_insert` in every crate). |
-| `Game::world_spawn_position` | A2 | Tier X (decision D8). No function of that name in the Nightly (searched `fn world_spawn_position`); GAPS names the field `level.world_spawn` instead. The substitute reads `level.dat` and listens to `spawn_change`, which is wired. |
-| `Game::attack_mob` (game.rs:11976) | E7 | The mod reads the actual strength at the existing `attack_entity` hook before the game resets it. |
-| `start_mod_use` | T15 | Not a hook point: an internal method of `Game` (item_use.rs:94) that consumes the click when `use_duration` answers above 0. T15 uses `use_duration`, which is wired. |
+The [mixin manifest](../../horizon/native/mixins/bmh/horizon-mixin.toml) names the exact functions and bindings under decision D8. The current [gameplay comparison](PARITY.md) records the remaining limits.
+
+| Area | Where the package acts |
+|---|---|
+| Respawn | Read the live spawn and Hardcore state. Observe the host's saved-point resolution before moving an early respawn. |
+| Totem save | Extend the lethal player's ready check, spend the selected inventory stack and expose the active stack to the animation. Adapt the vanilla effects for players. |
+| Inventory | Check placement in standard client and server storage steps. Apply the Eternal Bundle's secondary click before either stack changes. |
+| Eternal Items | Retain stacks before the death-drop processing, including Keep Inventory. Ignore damage to dropped Eternal Items and preserve explosion push. |
+| Ritual and amulet | Select the charging foil and the true-north model. Use Horizon's EditBox for names and the options dialog. |
+| Tool abilities | Run the PvP continuation after an accepted hit. |
 
 The helpers of GAPS.md section 4 (`run_command`, `carried_stack`, `net_send_to_player`, `level_difficulty` and so
 on) are functions that a module calls. They need no injection, so they are not in the tables above.

@@ -12,7 +12,7 @@
     "item.bmh.sleeping_totem": "Dormant Totem of Eternal Life",
     "item.bmh.echo_heart": "Echo Heart",
     "tooltip.bmh.eternity": "Eternity",
-    "tooltip.bmh.totem_of_eternity_save": "Hold in either hand to survive a fatal hit. The totem then falls dormant.",
+    "tooltip.bmh.totem_of_eternity_save": "Saves you from death once from your inventory, then falls dormant",
     "tooltip.bmh.heavy_with_eternity": "Heavy with eternity: you wake farther while you carry it",
     "tooltip.bmh.death_wear": "Loses 7%% of its durability per death",
     "tooltip.bmh.worn_out": "Worn out: weak, no ability",
@@ -79,6 +79,8 @@
     "bmh.homecoming.subtitle.one_night": "%s blocks and 1 night since you left",
     "bmh.homecoming.subtitle.no_nights": "%s blocks since you left",
 
+    "bmh.config.edit": "Edit exact values",
+    "bmh.config.writeError": "Could not save the config file.",
     "bmh.config.title": "Balanced Minecraft Hardcore",
     "bmh.config.minDistanceFromBed": "Minimum respawn distance (%s to %s blocks)",
     "bmh.config.maxDistanceFromBed": "Maximum respawn distance (%s to %s blocks)",

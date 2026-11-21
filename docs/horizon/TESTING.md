@@ -81,7 +81,21 @@ The test boots a temporary world three times. It checks the installed item, conf
 Use `--only abilities` to check all three Eternal tools. The tests measure enemy health, read earned advancements and compare the Echo Sense outline before and after expiry.
 Use `--only z` for containers and transfers, `--only t` for death protection, and `--only rules,o,cooldown` for the world rules, world creation button and amulet HUD.
 
-## The checks of test-slice.sh
+## Current gameplay checks
+
+| Scenario | Coverage |
+|---|---|
+| `t` and `z` | Inventory death protection with both hands occupied, protector priority, death bypasses, both anvil result takes, and immediate storage refusal. |
+| `respawnpoints,anchor,respawnrace` | A valid or blocked bed, an active Nether anchor, and a point that changes between death and respawn. The immediate path checks that the charged anchor loses one charge. |
+| `r,abilities,x,ground` | Death wear with Keep Inventory or Vanishing, damage and dug blocks, both PvP abilities on a LAN guest, and damage immunity for drops with an ordinary item as a control. |
+| `s,p,bundlebar` | Ritual, item-use counters, retained items and bundle contents, click refusal, and the empty, partial and full bar. |
+| `q,l,needle` | Point editing, exact settings and the six original buttons, and the needle at the world center and 20 million blocks east or west. |
+| `hardcoredeath,homeawards` | A real Hardcore death, the tenth-death and 30,000-block thresholds, and return to a named home. |
+| `v,w,n,cooldown` | Spyglass labels, black frames, blocked input, immediate respawn, and the cooldown sweep. Some checks compare screenshots. |
+
+Run `homeawards` and `respawnrace` explicitly. The ordinary point editing test uses keyboard selection. The optional `BMH_TEST_CLIPBOARD=1` check also uses the system clipboard.
+
+## Baseline checks
 
 | Check | What it does | A PASS proves | It does not prove |
 |---|---|---|---|

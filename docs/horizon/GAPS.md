@@ -1,5 +1,7 @@
 # BMH on Horizon 26.3: the gap list
 
+This document records the original feasibility decisions. The current [gameplay comparison](PARITY.md) includes the inventory save, container placement and other changes since that assessment.
+
 Inputs: the five feasibility audits (`audit/1-respawn-server.md` to `audit/5-platform.md`), their verifications (`audit/verify-1.md` to `audit/verify-5.md`), the single-player owner audit (`audit/6-single-player-owner.md`) and `horizon/content/NOTES.md`. Where two documents disagree, this file read the Horizon source and decided. The decisions are in "Settled disagreements" at the end.
 
 Short names. `v1` to `v5` = `audit/verify-1.md` to `verify-5.md`, followed by the row id. `a1` to `a6` = the audits. `NOTES` = `horizon/content/NOTES.md`. `H` = the Horizon clone (main b880384691b88d317553067109d28e785990bda3). `G/` = `H/crates/horizon-client/src/game/`. `tag` = the Nightly source `nightly-source/2026-11-08-fdc87ae` (commit fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca). Line numbers are main's unless the text says `tag`.
