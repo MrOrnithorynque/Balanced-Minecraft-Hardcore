@@ -1,0 +1,13 @@
+id = "bmh"
+name = "Balanced Minecraft Hardcore"
+version = "1.9.0"
+description = "Death sends you on a distant respawn. Keep your Eternal Items and find your way home."
+authors = ["MrOrnithorynque"]
+license = "Apache-2.0"
+api = "0.2"
+side = "both"
+capabilities = ["registries"]
+
+[native]
+game = "26.3"
+horizon = "2b77287de099c9316278ba7ac4d83590fdb7ef30"
