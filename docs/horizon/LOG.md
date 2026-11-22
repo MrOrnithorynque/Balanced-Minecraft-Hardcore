@@ -580,3 +580,18 @@ The in-game checks use the packaged content with the native game built from the 
 The dedicated fixture passed three boots. It verifies packaged item registration, config correction, console rules, persistence and import from a Java world.
 
 The local evidence is in `~/Library/Caches/bmh-horizon/scratch/parity-26.3-1795124753687/`. The file `final-summary.log` lists all groups. The corrected runs are `race-fixed`, `boat-final`, `lan-fixed`, `hardcore-home-final` and `tools-final`. They use the same package and optimized binaries as the initial groups. The [comparison with Java](PARITY.md) records the remaining differences.
+
+
+## Step 18. Dedicated multiplayer checks (2026-11-22)
+
+The BMH 1.9.0 package from `4bfa306` passed four gameplay checks on a dedicated Horizon server. Two Horizon client processes joined with distinct offline profiles on loopback.
+
+The inventory totem saved the victim from a 100-point hit. The sword and shield stayed in hand. Slot 9 became dormant, and the server and client both reported that the victim survived with the three effects.
+
+The worn sword hit for 5.5 points. The fresh sword hit for 11 and the echo reduced a husk's health from 20 to 14.588. With PvP disabled, the player target and the husk kept their health. The axe hit for 18 on the ground and a falling hit killed the full-health victim. Echo Strike and Smash both granted their advancements.
+
+The two players saved different names for the same lodestone. Each received only their own named point in the reading, with two charges left. The server refused a point save without an amulet. It also refused both rule commands at permission level 0, accepted both at level 2, and refused the next change after de-op.
+
+The first PvP fixture read the echo target immediately after the main hit. The runner now waits for the delayed hit. The three existing dedicated startup checks also passed after the runner changes.
+
+Run the replay with `horizon/tools/test-dedicated.py --multiplayer`. The local logs and result are in `~/Library/Caches/bmh-horizon/scratch/dedicated-mp.ccIxxd/runs/dedicated-4tstuprn/`.

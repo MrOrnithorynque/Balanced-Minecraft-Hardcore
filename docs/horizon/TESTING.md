@@ -78,6 +78,15 @@ python3 horizon/tools/test-dedicated.py --package horizon/build/bmh-1.9.0-horizo
 
 The test boots a temporary world three times. It checks the installed item, config correction, console commands, rule persistence and import from a Java world. Use `--out <folder>` to keep the logs.
 
+Add `--multiplayer` to run two Horizon clients against one dedicated server. The fixture installs the same package on all three processes and binds the server to loopback. It uses a temporary world, two allowlisted offline profiles and no public listener.
+
+| Check | Pass condition |
+|---|---|
+| Pocket totem | A fatal hit replaces slot 9 with the Dormant Totem. The player keeps both held items and gets the three effects. |
+| PvP | Fresh and worn swords deal 11 and 5.5 points. Echo Strike damages a second target and grants its advancement. PvP off blocks both hits. The grounded axe deals 18 points and the falling axe lands a fatal Smash. |
+| Amulet | A player without the amulet cannot save a point. The two players name their own points through the screen and the command, then read only their own point. |
+| Permissions | Level 0 cannot change rules through either command. Level 2 can use both commands. The server refuses the next change after de-op. |
+
 Use `--only abilities` to check all three Eternal tools. The tests measure enemy health, read earned advancements and compare the Echo Sense outline before and after expiry.
 Use `--only z` for containers and transfers, `--only t` for death protection, and `--only rules,o,cooldown` for the world rules, world creation button and amulet HUD.
 
