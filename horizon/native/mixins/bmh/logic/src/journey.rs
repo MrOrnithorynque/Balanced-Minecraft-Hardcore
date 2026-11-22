@@ -7,7 +7,7 @@
 // mixin/F_LocalPlayerRespawnMixin.java, F_MinecraftOverlayMixin.java, F_GuiTitleMixin.java,
 // handlers/JourneySignal.java.
 
-use crate::wire::JourneySignal;
+use super::wire::JourneySignal;
 
 // The timeline, in milliseconds. FADE_OUT counts from the start, the others from the moment the
 // screen is black.
@@ -1026,7 +1026,7 @@ impl Journey {
                 self.ambient_played = true;
                 // JourneyOverlay.java:282-285, `SoundInit.RESPAWN_SOUND` at 0.3.
                 commands.sounds.push(Sound {
-                    id: crate::respawn::RESPAWN_SOUND,
+                    id: super::respawn::RESPAWN_SOUND,
                     volume: 0.3,
                     pitch: 1.0,
                 });
@@ -1061,7 +1061,7 @@ impl Journey {
         if self.dissolve_start.is_some_and(|start| now - start >= DISSOLVE) {
             // JourneyOverlay.java:305-308, `SoundInit.BELL_SOUND` at 1.0.
             commands.sounds.push(Sound {
-                id: crate::respawn::BELL_SOUND,
+                id: super::respawn::BELL_SOUND,
                 volume: 1.0,
                 pitch: 1.0,
             });
@@ -1929,9 +1929,9 @@ mod tests {
         let sent: Vec<i64> = all.iter().filter(|(_, c)| c.send_respawn).map(|(t, _)| *t).collect();
         assert_eq!(sent, [608]);
         let ids: Vec<&str> = all.iter().flat_map(|(_, c)| c.sounds.iter().map(|s| s.id)).collect();
-        assert_eq!(ids.first(), Some(&crate::respawn::RESPAWN_SOUND));
+        assert_eq!(ids.first(), Some(&super::super::respawn::RESPAWN_SOUND));
         assert_eq!(ids.iter().filter(|id| **id == CHIME_SOUND).count(), SEGMENTS);
-        assert_eq!(ids[ids.len() - 3..], [RESONATE_SOUND, BREAK_SOUND, crate::respawn::BELL_SOUND]);
+        assert_eq!(ids[ids.len() - 3..], [RESONATE_SOUND, BREAK_SOUND, super::super::respawn::BELL_SOUND]);
         // The message starts at 3001 ms and lasts 2400 ms: the dissolve waits for it.
         let release = all.iter().find(|(_, c)| c.release).map(|(t, _)| *t);
         let message_end = 3001 + MESSAGE_IN + MESSAGE_HOLD + MESSAGE_OUT;

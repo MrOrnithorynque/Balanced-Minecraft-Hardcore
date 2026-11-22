@@ -1,7 +1,7 @@
 // The byte layout of mod messages (integrator).
 // Every mod message lives in this file (docs/horizon/ARCHITECTURE.md): its
 // channel, its tag bytes, its encode and decode, and a round-trip test. The
-// channel of an area is "bmh:<area>" (`crate::ids::channel`).
+// channel of an area is "bmh:<area>" (`super::ids::channel`).
 // The messages between two areas (journey and respawn) are below now. An area
 // that needs a message of its own (the Echo Sense glow, the amulet screens)
 // adds it here as an integrator change, in a section with the area's name,
@@ -466,7 +466,7 @@ pub enum SkySignal {
     /// u32 for `spawn`, a u32 line count, then an f32 azimuth and a name for
     /// each line. A name that `names` lacks is written as "", as the Java
     /// client reads it (StarReadingRenderer.java:203).
-    Reading(crate::contract::AmuletReading),
+    Reading(super::contract::AmuletReading),
 }
 
 impl SkySignal {
@@ -513,7 +513,7 @@ impl SkySignal {
                     azimuths.push(r.f32()?);
                     names.push(r.str()?.to_owned());
                 }
-                Self::Reading(crate::contract::AmuletReading { azimuths, names, spawn, time })
+                Self::Reading(super::contract::AmuletReading { azimuths, names, spawn, time })
             }
             _ => return None,
         };
@@ -521,7 +521,7 @@ impl SkySignal {
     }
 }
 
-use crate::tools::Tool;
+use super::tools::Tool;
 
 // ---------------------------------------------------------------------------------------------
 // The message of Echo Sense (decision D6: the server draws nothing, the client does)
@@ -618,7 +618,7 @@ mod tests {
     use super::*;
 
     fn every_sky_signal() -> Vec<SkySignal> {
-        use crate::contract::AmuletReading;
+        use super::super::contract::AmuletReading;
         vec![
             SkySignal::Reading(AmuletReading { azimuths: vec![], names: vec![], spawn: None, time: 0 }),
             SkySignal::Reading(AmuletReading {
@@ -652,7 +652,7 @@ mod tests {
 
     #[test]
     fn the_sky_tag_and_layout_are_fixed_and_bad_input_gives_none() {
-        use crate::contract::AmuletReading;
+        use super::super::contract::AmuletReading;
         let one = SkySignal::Reading(AmuletReading {
             azimuths: vec![90.0],
             names: vec!["A".to_owned()],
@@ -669,12 +669,12 @@ mod tests {
         let mut w = Writer::new();
         w.u8(1).i64(0).bool(false).u32(u32::MAX);
         assert_eq!(SkySignal::decode(w.bytes()), None);
-        assert_eq!(SKY_CHANNEL, crate::ids::channel("sky"));
+        assert_eq!(SKY_CHANNEL, super::super::ids::channel("sky"));
     }
 
     #[test]
     fn a_reading_is_cut_and_its_missing_names_are_empty() {
-        use crate::contract::AmuletReading;
+        use super::super::contract::AmuletReading;
         let long = SkySignal::Reading(AmuletReading {
             azimuths: vec![10.0; MAX_READING_LINES + 4],
             names: vec!["p".to_owned()],
@@ -748,7 +748,7 @@ mod tests {
         let points = vec![("p".to_owned(), [0, 0, 0]); MAX_LIST_POINTS + 3];
         let cut = AmuletSignal::decode(&AmuletSignal::List { max: 5, points }.encode());
         assert!(matches!(cut, Some(AmuletSignal::List { points, .. }) if points.len() == MAX_LIST_POINTS));
-        assert_eq!(AMULET_CHANNEL, crate::ids::channel("amulet"));
+        assert_eq!(AMULET_CHANNEL, super::super::ids::channel("amulet"));
     }
 
     fn every_signal() -> Vec<JourneySignal> {
@@ -816,8 +816,8 @@ mod tests {
 
     #[test]
     fn the_channels_follow_the_area_names() {
-        assert_eq!(JOURNEY_CHANNEL, crate::ids::channel("journey"));
-        assert_eq!(RESPAWN_CHANNEL, crate::ids::channel("respawn"));
+        assert_eq!(JOURNEY_CHANNEL, super::super::ids::channel("journey"));
+        assert_eq!(RESPAWN_CHANNEL, super::super::ids::channel("respawn"));
     }
 
     fn sample() -> Vec<u8> {
@@ -1014,6 +1014,6 @@ mod tests {
 
     #[test]
     fn the_channel_is_bmh_tools() {
-        assert_eq!(TOOLS_CHANNEL, crate::ids::channel("tools"));
+        assert_eq!(TOOLS_CHANNEL, super::super::ids::channel("tools"));
     }
 }

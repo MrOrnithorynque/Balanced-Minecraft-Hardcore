@@ -6,7 +6,7 @@
 // Java reference: handlers/RespawnPositionHandler, RespawnSearch, RespawnEffectHandler, JourneySignal,
 // BmhAdvancements, mixin/F_ServerPlayerJourneyMixin.
 
-use crate::contract::Config;
+use super::contract::Config;
 
 /// The cap of the "easy life" factor (RespawnPositionHandler.java:40, `MAX_EASY_LIFE`).
 pub const MAX_EASY_LIFE: i32 = 9;
@@ -513,7 +513,7 @@ pub fn someone_hears(block: [i32; 3], others: impl IntoIterator<Item = [f64; 3]>
 
 /// The Eternal Items among item ids, one per slot (RespawnPositionHandler.java:228-233).
 pub fn count_eternal<'a>(ids: impl IntoIterator<Item = &'a str>) -> i32 {
-    let count = ids.into_iter().filter(|id| crate::ids::is_eternal(id)).count();
+    let count = ids.into_iter().filter(|id| super::ids::is_eternal(id)).count();
     i32::try_from(count).unwrap_or(i32::MAX)
 }
 

@@ -3,8 +3,8 @@
 // the nights, the title and subtitle keys, the two advancements and the bell command.
 // The game side is `bmh_homecoming.rs`; nothing here knows a game type.
 
-use crate::contract::{AmuletPoint, Exile};
-use crate::respawn::{BELL_SOUND, BELL_VOLUME, FAR_AWAY_BLOCKS, OVERWORLD, SOUND_RANGE, is_command_name};
+use super::contract::{AmuletPoint, Exile};
+use super::respawn::{BELL_SOUND, BELL_VOLUME, FAR_AWAY_BLOCKS, OVERWORLD, SOUND_RANGE, is_command_name};
 
 /// A player is home within this horizontal distance of a home, in blocks (HomecomingHandler.java:49).
 pub const RADIUS: i32 = 24;

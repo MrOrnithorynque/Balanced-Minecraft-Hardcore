@@ -5,8 +5,8 @@
 // Java reference: handlers/MoonRitualHandler, items/DormantTotemOfEternityItem, client/RitualHandRenderer,
 // client/RitualParticles, handlers/AmuletReading.skyHiddenReason (shared with the amulet).
 
-use crate::amulet::{Sky, hidden_reason};
-use crate::ids;
+use super::amulet::{Sky, hidden_reason};
+use super::ids;
 
 // ---------------------------------------------------------------------------------------------
 // Ids, numbers, texts and sounds

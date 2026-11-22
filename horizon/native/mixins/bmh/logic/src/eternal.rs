@@ -5,7 +5,7 @@
 // items/EternalBundleItem, mixin/G_ItemEntityMixin. Log: docs/horizon/log/eternal.md.
 // This file knows no game type. The module `bmh_eternal.rs` reads the game and carries out the answers.
 
-use crate::ids::{ETERNAL_BUNDLE, TOTEM_OF_ETERNITY, is_eternal};
+use super::ids::{ETERNAL_BUNDLE, TOTEM_OF_ETERNITY, is_eternal};
 
 /// Game mode 0 is survival (`NativeServerPlayer.game_mode`). Adventure is not survival:
 /// Java tests `GameType.SURVIVAL` only (EternalItemHandler.java:82, DisableDebugInfo.java:45).
@@ -405,7 +405,7 @@ pub fn current_rule(read: Option<bool>, last_set: Option<bool>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ids::{
+    use super::super::ids::{
         DORMANT_TOTEM, ECHO_HEART, ETERNAL_AXE, ETERNAL_PICKAXE, ETERNAL_SWORD, NAVIGATOR_AMULET,
         SLEEPING_TOTEM,
     };
@@ -655,7 +655,7 @@ mod tests {
 
     #[test]
     fn the_bundle_refuses_eternal_items_and_ender_chests() {
-        for id in crate::ids::ETERNAL_ITEMS {
+        for id in super::super::ids::ETERNAL_ITEMS {
             assert!(bundle_refuses(id), "{id}");
         }
         assert!(bundle_refuses("minecraft:ender_chest"));

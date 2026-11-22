@@ -6,7 +6,7 @@
 // Java reference: utilities/BMHGameRules, utilities/BMHConfigLimits, neoforge/NeoForgeConfig,
 // client/config/ConfigScreen, mixin/CreateWorldGameTabMixin, mixin/N_SavedDataGameRulesMixin.
 
-use crate::contract::{Config, Rule};
+use super::contract::{Config, Rule};
 
 // ---------------------------------------------------------------------------------------------
 // The six world rules (S1)

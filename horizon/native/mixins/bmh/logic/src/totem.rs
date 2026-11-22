@@ -6,7 +6,7 @@
 // mixin/B_AnvilMenuMixin, mixin/I_*, items/TotemOfEternityItem, items/HintItem.
 // The module `bmh_totem.rs` reads the game and carries out the answers of this file.
 
-use crate::ids;
+use super::ids;
 
 // ---------------------------------------------------------------------------------------------
 // T2, T3, T4: the save from death

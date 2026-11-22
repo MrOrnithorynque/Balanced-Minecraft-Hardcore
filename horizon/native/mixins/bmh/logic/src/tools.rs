@@ -4,7 +4,7 @@
 // Java reference: handlers/EternalWear, EchoStrikeHandler, AxeSmashHandler, EchoSenseHandler,
 // items/EternalTooltips, items/Eternal*Item, mixin/E_*, mixin/L_*.
 
-use crate::ids::{ETERNAL_AXE, ETERNAL_PICKAXE, ETERNAL_SWORD};
+use super::ids::{ETERNAL_AXE, ETERNAL_PICKAXE, ETERNAL_SWORD};
 use std::collections::BTreeMap;
 
 // ---------------------------------------------------------------------------------------------

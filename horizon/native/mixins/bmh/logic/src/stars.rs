@@ -7,7 +7,7 @@
 // Every value here is plain data. The game module (bmh_sky.rs) reads the clock, the weather and the camera,
 // and draws what this file answers.
 
-use crate::contract::AmuletReading;
+use super::contract::AmuletReading;
 use std::sync::OnceLock;
 
 // ---------------------------------------------------------------------------------------------------------

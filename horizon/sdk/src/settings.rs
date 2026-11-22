@@ -3,8 +3,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use bmh_logic::contract::{Config as Values, Rule};
-use bmh_logic::settings::{self as logic, RuleCommand, Rules};
+use crate::logic::contract::{Config as Values, Rule};
+use crate::logic::settings::{self as logic, RuleCommand, Rules};
 use mod_api::{
     Command, CommandArgumentValue, Config, ConfigFile, ConfigKind, ConfigPath, Flow, HostSide,
     PlayerCommandEvent, RegisterCommandsEvent, RegisterConfigsEvent, RunModCommandEvent,
@@ -13,6 +13,21 @@ use mod_api::{
 
 static WORLD_RULES: Mutex<Option<(PathBuf, Rules)>> = Mutex::new(None);
 static SERVER_CONFIG: Mutex<Values> = Mutex::new(Values::DEFAULT);
+
+pub(super) fn config() -> Values {
+    *SERVER_CONFIG.lock().unwrap_or_else(|error| error.into_inner())
+}
+
+pub(super) fn rule(host: &dyn ServerHost, rule: Rule) -> bool {
+    let path = host.world_dir().map(|world| rules_path(&world));
+    WORLD_RULES
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .as_ref()
+        .filter(|(current, _)| Some(current.as_path()) == path.as_deref())
+        .map_or(Rules::DEFAULT, |(_, rules)| *rules)
+        .get(rule)
+}
 
 fn rules_path(world: &Path) -> PathBuf {
     world.join(logic::WORLD_FOLDER).join(logic::RULES_FILE)

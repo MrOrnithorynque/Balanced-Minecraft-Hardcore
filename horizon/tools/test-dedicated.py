@@ -28,7 +28,13 @@ def checked(condition, message):
         raise RuntimeError(message)
 
 
-def install(package, game):
+def install(package, game, binary):
+    if package.suffix == ".hmod":
+        # The launcher stages the native library and its content beside the executable.
+        provenance = json.loads(binary.with_name("native-mods.json").read_text())
+        checked(any(mod["id"] == "bmh" for mod in provenance["mods"]),
+                "The Horizon executable has no staged BMH native mod")
+        return
     with zipfile.ZipFile(package) as z:
         for name in ("horizon-mods/bmh.hmod", "horizon-native-mods/bmh.hnmod"):
             dest = game / name
@@ -160,7 +166,7 @@ def prepare_server(args, data):
     game = data / "game"
     for d in (game, data / "home", data / "tmp", game / "config"):
         d.mkdir()
-    install(args.package, game)
+    install(args.package, game, args.binary)
     (game / "eula.txt").write_text("eula=true\n")
     return game
 
@@ -220,7 +226,7 @@ def eventually(read, ok, message, timeout=8):
 def connect(args, data, evidence, address, name):
     game = data / name
     game.mkdir()
-    install(args.package, game)
+    install(args.package, game, args.binary)
     with tempfile.TemporaryDirectory(prefix="bmh-client-") as local:
         sock = Path(local) / "ctl.sock"
         ctl = args.binary.with_name("horizon-ctl" + args.binary.suffix)

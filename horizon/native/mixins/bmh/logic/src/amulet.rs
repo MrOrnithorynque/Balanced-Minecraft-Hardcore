@@ -6,14 +6,14 @@
 // handlers/AmuletPointCommand, handlers/AmuletPointSignal, client/amulet/PointScreen,
 // client/amulet/PointListScreen, client/amulet/PointSignal.
 
-use crate::contract::{AmuletPoint, AmuletReading};
+use super::contract::{AmuletPoint, AmuletReading};
 
 // ---------------------------------------------------------------------------------------------
 // Ids, texts and sounds
 // ---------------------------------------------------------------------------------------------
 
 /// The item.
-pub const AMULET: &str = crate::ids::NAVIGATOR_AMULET;
+pub const AMULET: &str = super::ids::NAVIGATOR_AMULET;
 
 /// The colour of the starlight line and of the charge bar (NavigatorAmuletItem.java:41).
 pub const STARLIGHT_COLOR: u32 = 0xB5_8CFF;
@@ -817,7 +817,7 @@ fn rest_after_words(line: &str, count: usize) -> &str {
 /// everyone in 16 blocks; the player who acts hears it from `play_sound_to`). None for a name that is not
 /// a player name.
 pub fn chime_command(name: &str, at: [f64; 3], pitch: f32) -> Option<String> {
-    crate::respawn::is_command_name(name).then(|| {
+    super::respawn::is_command_name(name).then(|| {
         let [x, y, z] = at;
         format!("playsound {CHIME_SOUND} {CHIME_CATEGORY} @a[name=!{name}] {x} {y} {z} {CHIME_VOLUME} {pitch}")
     })

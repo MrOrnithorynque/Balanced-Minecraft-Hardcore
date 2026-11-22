@@ -7,4 +7,3 @@ publish = false
 
 [dependencies]
 horizon-mod-api = { path = ".horizon/sdk/api/crates/horizon-mod-api" }
-bmh_logic = { path = "logic" }
