@@ -4,6 +4,8 @@ All notable changes to Balanced Minecraft Hardcore. One list for every Minecraft
 
 ## [Unreleased]
 
+- Horizon builds use the current native SDK and install from one `.hmod` file.
+
 ### Horizon 26.3
 
 - A Totem of Eternity saves you from any carried slot. It becomes dormant in that slot. A Totem of Undying in your hand still saves you first.

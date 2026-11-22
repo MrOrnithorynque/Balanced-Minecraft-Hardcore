@@ -83,9 +83,14 @@ def boot(args, data, evidence, number, max_players=1):
         "white-list=true\nop-permission-level=2\n"
         f"simulation-distance=3\nmax-players={max_players}\nlevel-name=smoke\nserver-port={p}\n")
     env = process_env(home, data / "tmp")
-    cmd = [str(args.binary), "--resources", str(args.resources), "--game-dir", str(game),
-           "--home", str(home), "--dedicated", "--nogui", "--port", str(p),
-           "--world", "smoke", "--universe", str(game / "worlds")]
+    if args.launcher:
+        env["HORIZON_LAUNCHER_HOME"] = str(args.bin_dir.resolve().parent.parent)
+        cmd = [str(args.launcher.resolve()), "server", "--dir", str(game),
+               "--version", args.bin_dir.resolve().name]
+    else:
+        cmd = [str(args.binary), "--resources", str(args.resources), "--game-dir", str(game),
+               "--home", str(home), "--dedicated", "--nogui", "--port", str(p),
+               "--world", "smoke", "--universe", str(game / "worlds")]
     log = evidence / f"boot-{number}.log"
     deadline = time.monotonic() + args.boot_timeout
     with log.open("wb") as output:
@@ -171,11 +176,15 @@ def prepare_server(args, data):
     return game
 
 
+def world_path(args, game):
+    return (game if args.launcher else game / "worlds") / "smoke"
+
+
 def run(args, data, evidence, facts):
     game = prepare_server(args, data)
     conf = game / "config/bmh-common.toml"
     conf.write_text("minDistanceFromBed = 12000\nmaxDistanceFromBed = 70000\nmaxAmuletPoints = 99\n")
-    world = game / "worlds/smoke"
+    world = world_path(args, game)
     rulefile = world / "bmh/rules.txt"
     with boot(args, data, evidence, 1) as (command, _):
         facts["initial_query"] = query(command, RULE, "true")
@@ -239,16 +248,18 @@ def connect(args, data, evidence, address, name):
                 stdout=log, stderr=subprocess.STDOUT,
             )
 
-        def call(*action):
-            result = subprocess.run([ctl, "--socket", sock, "--timeout", "8", *map(str, action)],
-                                    capture_output=True, text=True, timeout=10)
+        def call(*action, timeout=8):
+            result = subprocess.run(
+                [ctl, "--socket", sock, "--timeout", str(timeout), *map(str, action)],
+                capture_output=True, text=True, timeout=timeout + 2,
+            )
             checked(result.returncode == 0, f"{name} {action}: {result.stdout or result.stderr}")
             return json.loads(result.stdout)
 
         try:
             eventually(lambda: sock.is_socket() or proc.poll() is not None, bool, f"{name} control socket", 35)
             checked(proc.poll() is None, f"{name} failed to start. See {evidence / (name + '.log')}")
-            eventually(lambda: call("state")["screen"], lambda screen: screen == "playing",
+            eventually(lambda: call("state", timeout=30)["screen"], lambda screen: screen == "playing",
                        f"{name} did not join {address}", 45)
             yield call
         finally:
@@ -445,7 +456,7 @@ def multiplayer(args, data, evidence, facts):
         command("fill -5 179 -5 7 179 7 minecraft:stone", "Successfully filled")
         command("tp guard 0.5 180 0.5", "Teleported guard")
         command("tp miner 2.5 180 0.5", "Teleported miner")
-        rulefile = game / "worlds/smoke/bmh/rules.txt"
+        rulefile = world_path(args, game) / "bmh/rules.txt"
         for name, test, params in (
             ("permissions", permission_checks, (command, guard, miner, rulefile, game / "ops.json")),
             ("pocket_totem", pocket_totem, (command, guard)),
@@ -466,6 +477,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ("package", "bin-dir", "resources"):
         parser.add_argument("--" + key, type=Path, required=True)
+    parser.add_argument("--launcher", type=Path, help="Launch the server from a managed build")
     parser.add_argument("--multiplayer", action="store_true", help="Run the two-client gameplay checks")
     parser.add_argument("--out", type=Path, help="Keep logs and results in a new directory under OUT")
     parser.add_argument("--boot-timeout", type=int, default=240, help="Maximum seconds per boot")

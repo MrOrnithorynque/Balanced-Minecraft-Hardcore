@@ -3,8 +3,8 @@ use std::sync::{Mutex, OnceLock};
 
 use crate::logic::{ids, respawn, totem};
 use mod_api::{
-    ActiveEffect, Flow, Identifier, ItemStack, LivingDeathEvent,
-    LivingUseTotemEvent, ServerHost, StatType,
+    ActiveEffect, Flow, Identifier, ItemStack, LivingDeathEvent, LivingUseTotemEvent, ServerHost,
+    StatType,
 };
 
 use crate::respawn::player_by_entity;
@@ -19,13 +19,15 @@ struct Pending {
 static PENDING: OnceLock<Mutex<Pending>> = OnceLock::new();
 
 fn pending() -> std::sync::MutexGuard<'static, Pending> {
-    PENDING.get_or_init(Mutex::default).lock().unwrap_or_else(|error| error.into_inner())
+    PENDING
+        .get_or_init(Mutex::default)
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
 }
 
 pub(super) fn reset() {
     *pending() = Pending::default();
 }
-
 
 pub(super) fn on_death(host: &mut dyn ServerHost, event: &LivingDeathEvent<'_>) -> Flow {
     if event.kind != "minecraft:player" || bypasses_protection(host, event.source.damage_type) {
@@ -82,7 +84,9 @@ pub(super) fn on_death(host: &mut dyn ServerHost, event: &LivingDeathEvent<'_>) 
         }
     }
     player.award_stat(host, StatType::Used, ids::TOTEM_OF_ETERNITY, 1);
-    player.entity().game_event(host, "minecraft:item_interact_finish");
+    player
+        .entity()
+        .game_event(host, "minecraft:item_interact_finish");
     player.entity().broadcast_event(host, 35);
     if let Some(name) = player.name(host) {
         eprintln!("[BMH] The Totem of Eternity saved {name} and is now dormant");
@@ -93,7 +97,9 @@ pub(super) fn on_death(host: &mut dyn ServerHost, event: &LivingDeathEvent<'_>) 
 
 pub(super) fn inspect_hand(event: &LivingUseTotemEvent<'_>) {
     if event.kind == "minecraft:player" {
-        pending().hand.insert(event.entity, event.item == "minecraft:totem_of_undying");
+        pending()
+            .hand
+            .insert(event.entity, event.item == "minecraft:totem_of_undying");
     }
 }
 
@@ -111,10 +117,14 @@ pub(super) fn end_tick(host: &mut dyn ServerHost) {
     let (saves, undying) = {
         let mut pending = pending();
         pending.hand.clear();
-        (std::mem::take(&mut pending.saves), std::mem::take(&mut pending.undying))
+        (
+            std::mem::take(&mut pending.saves),
+            std::mem::take(&mut pending.undying),
+        )
     };
     for uuid in saves {
-        if let Some(command) = host.player(uuid)
+        if let Some(command) = host
+            .player(uuid)
             .and_then(|player| player.name(host))
             .and_then(|name| respawn::award_command(&name, totem::SAVED_ADVANCEMENT))
         {
@@ -123,12 +133,14 @@ pub(super) fn end_tick(host: &mut dyn ServerHost) {
     }
     if let Some(fire_resistance) = host.effect_key("minecraft:fire_resistance") {
         for uuid in undying {
-            if let Some(living) = host.player(uuid).and_then(|player| host.living(player.entity())) {
+            if let Some(living) = host
+                .player(uuid)
+                .and_then(|player| host.living(player.entity()))
+            {
                 living.remove_effect(host, fire_resistance);
             }
         }
     }
-
 }
 
 fn bypasses_protection(host: &dyn ServerHost, damage_type: &str) -> bool {

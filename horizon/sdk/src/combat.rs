@@ -127,11 +127,15 @@ pub(super) fn on_attack(host: &dyn ServerHost, event: &AttackEntityEvent<'_>) {
         Swing::Worn
     } else {
         match tool {
-            tools::Tool::Sword => Swing::Sword {
-                strength: player.attack_strength_scale(host, 0.5).unwrap_or_default(),
-            },
+            tools::Tool::Sword => {
+                let strength = player.attack_strength_scale(host, 0.5);
+                Swing::Sword {
+                    strength: strength.unwrap_or_default(),
+                }
+            }
             tools::Tool::Axe => {
-                let multiplier = tools::smash_multiplier(track_fall(host, player));
+                let distance = track_fall(host, player);
+                let multiplier = tools::smash_multiplier(distance);
                 if multiplier <= 1.0 {
                     return;
                 }
@@ -197,27 +201,36 @@ pub(super) fn incoming_damage(event: &mut LivingIncomingDamageEvent<'_>) {
 }
 
 pub(super) fn damage_post(event: &LivingDamagePostEvent<'_>) {
-    if !is_melee(event.source) {
+    if !is_melee_result(event.source) {
         return;
     }
     let source = event.source.causing;
+    let damage = event.container.health_damage();
     with_state(|state| {
         if state
             .applied
             .get(&source)
             .is_some_and(|hit| hit.attack.target == event.entity)
             && let Some(hit) = state.applied.remove(&source)
-            && event.container.health_damage() > 0.0
+            && damage > 0.0
         {
             state.landed.push(hit);
         }
     });
 }
 
+fn is_player_attack(source: &mod_api::HurtSource<'_>) -> bool {
+    source.damage_type == tools::ECHO_DAMAGE_TYPE && source.causing != 0
+}
+
 fn is_melee(source: &mod_api::HurtSource<'_>) -> bool {
-    source.damage_type == tools::ECHO_DAMAGE_TYPE
-        && source.causing != 0
-        && source.direct == source.causing
+    is_player_attack(source) && source.direct == source.causing
+}
+
+fn is_melee_result(source: &mod_api::HurtSource<'_>) -> bool {
+    // The player damage-post hook can omit the direct entity for a melee hit.
+    // The matching incoming record already identifies the melee attacker.
+    is_player_attack(source) && (source.direct == 0 || source.direct == source.causing)
 }
 
 pub(super) fn track_fall(host: &dyn ServerHost, player: PlayerRef) -> f64 {
@@ -256,22 +269,34 @@ pub(super) fn tick(host: &mut dyn ServerHost) {
     for hit in landed {
         finish_hit(host, hit);
     }
+}
 
+pub(super) fn level_tick(host: &mut dyn ServerHost, level: LevelRef) {
+    if with_state(|state| state.echoes.is_empty()) {
+        return;
+    }
+    let (Some(now), Some(dimension)) = (level.game_time(host), level.dimension().id(host)) else {
+        return;
+    };
+
+    // Entity searches require the level that the server is currently ticking.
     for player in host.players().server_players() {
-        let Some(level) = player.level(host) else {
+        if player.level(host) != Some(level) {
             continue;
-        };
-        let Some(now) = level.game_time(host) else {
-            continue;
-        };
+        }
+        let uuid = player.uuid();
         let due = with_state(|state| {
-            let Some(queue) = state.echoes.get_mut(&player.uuid()) else {
+            let Some(queue) = state.echoes.get_mut(&uuid) else {
                 return Vec::new();
             };
-            tools::take_due(queue, now)
+            let due = tools::take_due(queue, now);
+            if queue.is_empty() {
+                state.echoes.remove(&uuid);
+            }
+            due
         });
         for echo in due {
-            if level.dimension().id(host).as_deref() == Some(echo.dimension.as_str()) {
+            if dimension == echo.dimension {
                 deliver_echo(host, player, level, echo);
             }
         }
@@ -300,7 +325,7 @@ fn finish_hit(host: &mut dyn ServerHost, hit: Applied) {
                     hit.damage,
                     strength,
                     now,
-                );
+                )
             });
         }
         Swing::Smash { multiplier } => {
@@ -353,8 +378,8 @@ fn deliver_echo(
         .unwrap_or(echo.origin);
     let min = origin.map(|value| value - tools::RANGE);
     let max = origin.map(|value| value + tools::RANGE);
-    let candidates: Vec<_> = level
-        .entities_in(host, min, max)
+    let nearby = level.entities_in(host, min, max);
+    let candidates: Vec<_> = nearby
         .unwrap_or_default()
         .into_iter()
         .filter(|entity| {
@@ -383,14 +408,14 @@ fn deliver_echo(
     };
 
     let attacker = player.entity();
-    if victim.hurt(
+    let hurt = victim.hurt(
         host,
         tools::ECHO_DAMAGE_TYPE,
         echo.damage,
         Some(attacker),
         Some(attacker),
-    ) != Some(true)
-    {
+    );
+    if hurt != Some(true) {
         return;
     }
     if let Some(particles) = PARTICLES.get() {
@@ -630,5 +655,34 @@ impl ItemPart for ToolPart {
         if let Some((width, _)) = event.bar {
             *width = tools::bar_width(*width);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn melee_result_can_omit_its_direct_attacker() {
+        let source = mod_api::HurtSource {
+            damage_type: tools::ECHO_DAMAGE_TYPE,
+            causing: 119,
+            direct: 0,
+            position: None,
+        };
+        assert!(!is_melee(&source));
+        assert!(is_melee_result(&source));
+
+        let other_direct = mod_api::HurtSource {
+            direct: 1,
+            ..source
+        };
+        assert!(!is_melee_result(&other_direct));
+
+        let no_attacker = mod_api::HurtSource {
+            causing: 0,
+            ..source
+        };
+        assert!(!is_melee_result(&no_attacker));
     }
 }

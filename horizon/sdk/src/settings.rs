@@ -15,7 +15,9 @@ static WORLD_RULES: Mutex<Option<(PathBuf, Rules)>> = Mutex::new(None);
 static SERVER_CONFIG: Mutex<Values> = Mutex::new(Values::DEFAULT);
 
 pub(super) fn config() -> Values {
-    *SERVER_CONFIG.lock().unwrap_or_else(|error| error.into_inner())
+    *SERVER_CONFIG
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
 }
 
 pub(super) fn rule(host: &dyn ServerHost, rule: Rule) -> bool {
@@ -146,18 +148,18 @@ pub(super) fn run_command(host: &mut dyn ServerHost, event: &RunModCommandEvent<
     Flow::Cancel
 }
 
-pub(super) fn rule_alias(host: &dyn ServerHost, event: &mut PlayerCommandEvent<'_>) -> Flow {
-    let Some(line) = logic::gamerule_line_to_bmh(event.command) else {
+pub(super) fn player_command(host: &dyn ServerHost, event: &mut PlayerCommandEvent<'_>) -> Flow {
+    let alias = logic::gamerule_line_to_bmh(event.command);
+    let command = logic::parse_rule_command(alias.as_deref().unwrap_or(event.command));
+    if matches!(command, RuleCommand::NotMine) {
         return Flow::Continue;
-    };
+    }
     let allowed = host
         .player(event.player)
         .and_then(|player| player.permission_level(host))
         .is_some_and(logic::may_run_rule);
     if allowed {
-        event
-            .replies
-            .extend(command_result(host, logic::parse_rule_command(&line)));
+        event.replies.extend(command_result(host, command));
     } else {
         let mut denial = Text::translate("command.unknown.command", vec![]);
         denial.style.color = Some(String::from("red"));

@@ -5,10 +5,12 @@ use crate::logic::contract::{Exile, Rule};
 use crate::logic::respawn::{self as logic, Blocks, SearchWorld};
 use mod_api::{
     GameMode, Heightmap, LevelRef, LivingDeathEvent, PlayerRef, PlayerRespawnPositionEvent,
-    RandomSource, Registrar, ServerHost, SoundSource, StatType, TicketController, TicketOwner, ValidateTicketsEvent,
+    RandomSource, Registrar, ServerHost, SoundSource, StatType, TicketController, TicketOwner,
+    ValidateTicketsEvent,
 };
 
-use crate::settings;
+use crate::logic::wire::JourneySignal;
+use crate::{journey, settings};
 
 static CONTROLLER: OnceLock<TicketController> = OnceLock::new();
 static STATE: OnceLock<Mutex<State>> = OnceLock::new();
@@ -28,6 +30,8 @@ struct Pending {
     search: logic::Search,
     ticks: u32,
     early: bool,
+    departure_sent: bool,
+    ready_sent: bool,
 }
 
 struct Release {
@@ -75,9 +79,10 @@ pub(super) fn record_inventory(host: &dyn ServerHost, event: &LivingDeathEvent<'
         return;
     };
     let items = player.inventory_slots(host).unwrap_or_default();
-    let count = items.iter().filter(|(_, stack)| {
-        crate::logic::ids::is_eternal(&stack.item().id(host))
-    }).count();
+    let count = items
+        .iter()
+        .filter(|(_, stack)| crate::logic::ids::is_eternal(&stack.item().id(host)))
+        .count();
     state().deaths.insert(player.uuid(), count as i32);
 }
 
@@ -98,7 +103,10 @@ pub(super) fn on_player_died(host: &mut dyn ServerHost, uuid: u128) {
     let Some(spawn) = overworld.respawn_data(host) else {
         return;
     };
-    let difficulty = overworld.difficulty(host).and_then(logic::difficulty_id).unwrap_or(2);
+    let difficulty = overworld
+        .difficulty(host)
+        .and_then(logic::difficulty_id)
+        .unwrap_or(2);
     let distance = logic::distance(settings::config(), count, difficulty);
     let point = respawn_point(host, player);
     let (dimension, center) = point
@@ -107,13 +115,18 @@ pub(super) fn on_player_died(host: &mut dyn ServerHost, uuid: u128) {
             (point.dimension.as_str(), point.pos)
         });
     let search = new_search(dimension, center, distance);
-    state().searches.insert(uuid, Pending {
-        point,
-        distance,
-        search,
-        ticks: 0,
-        early: false,
-    });
+    state().searches.insert(
+        uuid,
+        Pending {
+            point,
+            distance,
+            search,
+            ticks: 0,
+            early: false,
+            departure_sent: false,
+            ready_sent: false,
+        },
+    );
 }
 
 fn new_search(dimension: &str, center: [i32; 3], distance: i32) -> logic::Search {
@@ -158,34 +171,65 @@ impl Blocks for LevelReads<'_> {
             };
         };
         let base = pos.map(f64::from);
-        let boxes = self.level.collision_boxes(self.host, [
-            base[0], base[1], base[2], base[0] + 1.0, base[1] + 1.0, base[2] + 1.0,
-        ]).unwrap_or_default();
-        let boxes = boxes.into_iter().map(|bounds| [
-            bounds[0] - base[0], bounds[1] - base[1], bounds[2] - base[2],
-            bounds[3] - base[0], bounds[4] - base[1], bounds[5] - base[2],
-        ]).collect();
+        let boxes = self
+            .level
+            .collision_boxes(
+                self.host,
+                [
+                    base[0],
+                    base[1],
+                    base[2],
+                    base[0] + 1.0,
+                    base[1] + 1.0,
+                    base[2] + 1.0,
+                ],
+            )
+            .unwrap_or_default();
+        let boxes = boxes
+            .into_iter()
+            .map(|bounds| {
+                [
+                    bounds[0] - base[0],
+                    bounds[1] - base[1],
+                    bounds[2] - base[2],
+                    bounds[3] - base[0],
+                    bounds[4] - base[1],
+                    bounds[5] - base[2],
+                ]
+            })
+            .collect();
         logic::BlockInfo {
             name: block.id(self.host),
-            waterlogged: self.level.block_property(self.host, pos, "waterlogged").as_deref()
+            waterlogged: self
+                .level
+                .block_property(self.host, pos, "waterlogged")
+                .as_deref()
                 == Some("true"),
             boxes,
         }
     }
 
     fn surface(&mut self, x: i32, z: i32) -> Option<i32> {
-        self.host.surface_heights(self.dimension, &[(x, z)], Heightmap::MotionBlockingNoLeaves)
-            .ok()?.first().copied().flatten()
+        self.host
+            .surface_heights(self.dimension, &[(x, z)], Heightmap::MotionBlockingNoLeaves)
+            .ok()?
+            .first()
+            .copied()
+            .flatten()
     }
 }
 
 impl SearchWorld for LevelReads<'_> {
     fn random(&mut self) -> f64 {
-        self.level.with_random(self.host, |random| random.next_double()).unwrap_or(0.0)
+        self.level
+            .with_random(self.host, |random| random.next_double())
+            .unwrap_or(0.0)
     }
 
     fn inside_border(&mut self, x: i32, z: i32) -> bool {
-        self.level.world_border(self.host).is_none_or(|border| logic::inside_border(border, x, z))
+        self.level
+            .world_border(self.host)
+            .is_none_or(|border| logic::inside_border(border, x, z))
     }
 
     fn hold(&mut self, chunk: [i32; 2]) {
@@ -214,7 +258,9 @@ pub(super) fn on_level_tick(host: &mut dyn ServerHost, level: LevelRef) {
     let Some(dimension) = level.dimension().id(host) else {
         return;
     };
-    let players: Vec<_> = state().searches.iter()
+    let players: Vec<_> = state()
+        .searches
+        .iter()
         .filter(|(_, pending)| pending.search.dimension == dimension)
         .map(|(&player, _)| player)
         .collect();
@@ -222,23 +268,47 @@ pub(super) fn on_level_tick(host: &mut dyn ServerHost, level: LevelRef) {
         let Some(mut pending) = state().searches.remove(&uuid) else {
             continue;
         };
-        let mut world = LevelReads { host, level, player: uuid, dimension: &dimension };
+        if !pending.departure_sent
+            && let Some(player) = host.player(uuid)
+        {
+            journey::send(host, player, JourneySignal::Departure);
+            pending.departure_sent = true;
+        }
+        let mut world = LevelReads {
+            host,
+            level,
+            player: uuid,
+            dimension: &dimension,
+        };
         pending.ticks = pending.ticks.saturating_add(1);
         if logic::timed_out(pending.ticks) && !pending.search.is_finished() {
             pending.search.fail(&mut world);
         } else {
             pending.search.advance(&mut world);
         }
+        if pending.search.is_finished()
+            && !pending.ready_sent
+            && let Some(player) = host.player(uuid)
+        {
+            journey::send(host, player, JourneySignal::Ready);
+            pending.ready_sent = true;
+        }
         if pending.search.is_finished() && pending.early {
             if let (Some(player), Some(feet)) = (host.player(uuid), pending.search.result()) {
                 let moved = player.entity().teleport_to_level(
-                    host, &dimension, logic::bottom_center(feet), None,
+                    host,
+                    &dimension,
+                    logic::bottom_center(feet),
+                    None,
                 );
                 if moved {
                     record_arrival(player, &pending);
                 } else {
                     release_search(host, uuid, &pending);
+                    journey::send(host, player, JourneySignal::Arrival { name: None });
                 }
+            } else if let Some(player) = host.player(uuid) {
+                journey::send(host, player, JourneySignal::Arrival { name: None });
             }
         } else {
             state().searches.insert(uuid, pending);
@@ -255,13 +325,20 @@ pub(super) fn on_position(host: &mut dyn ServerHost, event: &mut PlayerRespawnPo
         || !settings::rule(host, Rule::RandomDeathSpawnPoint)
     {
         release_search(host, uuid, &pending);
+        if pending.departure_sent {
+            journey::send(host, event.player, JourneySignal::Ready);
+            journey::send(host, event.player, JourneySignal::Arrival { name: None });
+        }
         return;
     }
     let dimension = event.original_level.key().id();
     let center = if event.missing_respawn_block || pending.point.is_none() {
         host.level(dimension)
             .and_then(|level| level.respawn_data(host))
-            .map_or_else(|| logic::block_of(event.original_position), |point| point.pos)
+            .map_or_else(
+                || logic::block_of(event.original_position),
+                |point| point.pos,
+            )
     } else if let Some(point) = respawn_point(host, event.player) {
         point.pos
     } else {
@@ -279,16 +356,21 @@ pub(super) fn on_position(host: &mut dyn ServerHost, event: &mut PlayerRespawnPo
     } else if !pending.search.is_finished() {
         pending.early = true;
         state().searches.insert(uuid, pending);
+    } else if pending.departure_sent {
+        journey::send(host, event.player, JourneySignal::Arrival { name: None });
     }
 }
 
 fn record_arrival(player: PlayerRef, pending: &Pending) {
     let mut state = state();
-    state.arrivals.insert(player.uuid(), Exile {
-        dimension: pending.search.dimension.clone(),
-        center: pending.search.center,
-        distance: pending.search.distance,
-    });
+    state.arrivals.insert(
+        player.uuid(),
+        Exile {
+            dimension: pending.search.dimension.clone(),
+            center: pending.search.center,
+            distance: pending.search.distance,
+        },
+    );
     state.shields.start(player.entity().id() as i32);
     if let Some(chunk) = pending.search.landing_chunk() {
         state.releases.push(Release {
@@ -341,12 +423,29 @@ fn arrive(host: &mut dyn ServerHost, player: PlayerRef, exile: &Exile) {
         return;
     };
     crate::homecoming::arrived(host, player, exile);
+    let journey_name = settings::rule(host, Rule::DisplayTextOnRespawn).then(|| name.clone());
+    journey::send(host, player, JourneySignal::Arrival { name: journey_name });
     eprintln!("[BMH] {name} respawned {} blocks from home", exile.distance);
-    player.play_sound(host, logic::RESPAWN_SOUND, SoundSource::Players, 1.0, logic::SOUND_PITCH);
+    player.play_sound(
+        host,
+        logic::RESPAWN_SOUND,
+        SoundSource::Players,
+        1.0,
+        logic::SOUND_PITCH,
+    );
     if let Some((level, pos)) = player.level(host).zip(player.entity().position(host)) {
-        level.play_sound(host, logic::BELL_SOUND, pos, SoundSource::Players, logic::BELL_VOLUME, logic::SOUND_PITCH);
+        level.play_sound(
+            host,
+            logic::BELL_SOUND,
+            pos,
+            SoundSource::Players,
+            logic::BELL_VOLUME,
+            logic::SOUND_PITCH,
+        );
     }
-    let deaths = player.stat(host, StatType::Custom, "minecraft:deaths").unwrap_or(0);
+    let deaths = player
+        .stat(host, StatType::Custom, "minecraft:deaths")
+        .unwrap_or(0);
     for award in logic::journey_awards(deaths, exile.distance) {
         if let Some(command) = logic::award_command(&name, award) {
             host.commands().run_command(&command);
@@ -356,7 +455,11 @@ fn arrive(host: &mut dyn ServerHost, player: PlayerRef, exile: &Exile) {
 
 fn release_search(host: &mut dyn ServerHost, player: u128, pending: &Pending) {
     if let Some(level) = host.level(&pending.search.dimension) {
-        if let Some(chunk) = pending.search.held_chunk().or_else(|| pending.search.landing_chunk()) {
+        if let Some(chunk) = pending
+            .search
+            .held_chunk()
+            .or_else(|| pending.search.landing_chunk())
+        {
             ticket(host, level, player, chunk, false);
         }
     }
@@ -379,4 +482,8 @@ pub(super) fn logout(host: &mut dyn ServerHost, player: u128) {
 
 pub(super) fn blocks_damage(entity: i32, damage_type: &str) -> bool {
     state().shields.blocks(entity, damage_type)
+}
+
+pub(super) fn awaiting_respawn(player: u128) -> bool {
+    state().searches.contains_key(&player)
 }

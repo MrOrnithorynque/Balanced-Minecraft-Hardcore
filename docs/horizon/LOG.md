@@ -595,3 +595,23 @@ The two players saved different names for the same lodestone. Each received only
 The first PvP fixture read the echo target immediately after the main hit. The runner now waits for the delayed hit. The three existing dedicated startup checks also passed after the runner changes.
 
 Run the replay with `horizon/tools/test-dedicated.py --multiplayer`. The local logs and result are in `~/Library/Caches/bmh-horizon/scratch/dedicated-mp.ccIxxd/runs/dedicated-4tstuprn/`.
+
+## Step 19. Native SDK package (2026-11-22)
+
+The SDK port builds one BMH 1.9.0 package for Horizon 26.3. The pin is
+`2b77287de099c9316278ba7ac4d83590fdb7ef30`. The build uses typed hooks and keeps the item IDs.
+The launcher compiled the source from the checked package with its published SDK and Rust 1.99.1.
+
+All 343 Rust tests passed. The dedicated test ran with two Horizon clients and passed permissions,
+the pocket totem, the amulet, and PvP. The Echo Strike and Smash advancements both passed.
+The chest refused a second totem by shift-click and accepted it when empty.
+The Respawn button started the journey, and the player landed about 5,000 blocks away.
+Returning to the exile center granted the homecoming advancement.
+
+The package is `horizon/build/bmh-1.9.0-horizon-26.3.hmod`.
+Its SHA-256 is `349abd3dfdd1a6727fb785e1f92b1395fa611f4362ca5d8569945d18f8f18286`.
+The local evidence is under `~/Library/Caches/bmh-horizon/scratch/sdk-migration.Rj6UJ3/`.
+See `package-validation/dedicated-0h6qpyr6/result.json`, `extra-gameplay-package/result.json`,
+and `sdk-test-final.log`.
+
+[The SDK build guide](SDK.md) gives the build and test commands and lists the known differences.

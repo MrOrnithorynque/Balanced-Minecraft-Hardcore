@@ -1,12 +1,14 @@
 use mod_api::{
-    EntityJoinLevelEvent, LoopContext, ItemStackedOnOtherEvent,
-    BlockDropsEvent, ClientHost, LevelHost, SubmitCustomGeometryEvent, AnvilUpdateEvent, PlayerBreakSpeedEvent, LivingDropsEvent, PlayerRespawnedEvent, AttackEntityEvent, ItemExpireEvent, ItemSpawnEvent, PlayerTickPostEvent, ServerStoppedEvent,
-    ConfigLoadingEvent, ConfigReloadingEvent, Flow, Hooks, HostSide, LevelLoadEvent,
-    LevelRandomHost, LevelTickPostEvent, LivingDeathEvent, LivingIncomingDamageEvent, LivingUseTotemEvent,
-    ItemPickedUpEvent, PlayerTotemEvent, PlayerBedLeaveEvent,
-    PlayerCommandEvent, PlayerDiedEvent, PlayerLoggedOutEvent, PlayerRespawnPositionEvent,
+    AnvilUpdateEvent, AttackEntityEvent, BlockDropsEvent, ClientHost, ConfigLoadingEvent,
+    ConfigReloadingEvent, EntityJoinLevelEvent, Flow, Hooks, HostSide, ItemExpireEvent,
+    ItemPickedUpEvent, ItemSpawnEvent, ItemStackedOnOtherEvent, LevelHost, LevelLoadEvent,
+    LevelRandomHost, LevelTickPostEvent, LivingDeathEvent, LivingDropsEvent,
+    LivingIncomingDamageEvent, LivingUseTotemEvent, LoopContext, PlayerBedLeaveEvent,
+    PlayerBreakSpeedEvent, PlayerCommandEvent, PlayerDiedEvent, PlayerLoggedOutEvent,
+    PlayerRespawnPositionEvent, PlayerRespawnedEvent, PlayerTickPostEvent, PlayerTotemEvent,
     RegisterCommandsEvent, RegisterConfigsEvent, Registrar, RegistrationContext,
-    RunModCommandEvent, ServerHost, ServerTickEvent, ServerTickPhase, ValidateTicketsEvent,
+    RunModCommandEvent, ServerHost, ServerStoppedEvent, ServerTickEvent, ServerTickPhase,
+    SubmitCustomGeometryEvent, ValidateTicketsEvent,
 };
 
 // The same logic also runs as a separate test crate.
@@ -17,6 +19,7 @@ mod logic;
 mod amulet;
 mod combat;
 mod homecoming;
+mod journey;
 mod respawn;
 mod ritual;
 mod settings;
@@ -32,6 +35,7 @@ struct Bmh;
 impl Hooks for Bmh {
     fn register(&self, registrar: &mut dyn Registrar, _context: &RegistrationContext) {
         respawn::register(registrar);
+        journey::register(registrar);
         combat::register(registrar);
         amulet::register(registrar);
         ritual::register(registrar);
@@ -95,6 +99,7 @@ impl Hooks for Bmh {
     fn level_tick_post(&self, host: HostSide<'_>, event: &mut LevelTickPostEvent) {
         if let HostSide::Server(host) = host {
             respawn::on_level_tick(host, event.level);
+            combat::level_tick(host, event.level);
             if host.level("minecraft:overworld") == Some(event.level) {
                 amulet::award_points(host);
             }
@@ -121,58 +126,148 @@ impl Hooks for Bmh {
 
     fn server_tick(&self, host: &mut dyn ServerHost, event: &mut ServerTickEvent<'_>) {
         ritual::server_tick(host, event);
-        if matches!(event.phase, ServerTickPhase::ServerTickEnd { world_running: true }) {
+        if matches!(
+            event.phase,
+            ServerTickPhase::ServerTickEnd {
+                world_running: true
+            }
+        ) {
+            journey::server_tick(host);
             respawn::end_tick(host);
             totem::end_tick(host);
             combat::tick(host);
         }
     }
 
-    fn client_tick_post(&self, host: &mut dyn mod_api::ClientHost, _event: &mut mod_api::ClientTickPostEvent) {
+    fn client_tick_post(
+        &self,
+        host: &mut dyn mod_api::ClientHost,
+        _event: &mut mod_api::ClientTickPostEvent,
+    ) {
         amulet::client::tick(host);
     }
 
-    fn client_level_unload(&self, _host: &mut dyn mod_api::ClientHost, _event: &mut mod_api::ClientLevelUnloadEvent<'_>) {
+    fn client_level_unload(
+        &self,
+        _host: &mut dyn mod_api::ClientHost,
+        _event: &mut mod_api::ClientLevelUnloadEvent<'_>,
+    ) {
         amulet::client::unload();
     }
 
-    fn screen_render_post(&self, host: &dyn mod_api::ClientHost, event: &mut mod_api::ScreenRenderPostEvent<'_>) {
+    fn screen_render_post(
+        &self,
+        host: &dyn mod_api::ClientHost,
+        event: &mut mod_api::ScreenRenderPostEvent<'_>,
+    ) {
         amulet::client::screen(host, event);
     }
 
-    fn screen_mouse_button_pressed_pre(&self, host: &dyn mod_api::ClientHost, event: &mut mod_api::ScreenMouseButtonPressedPreEvent<'_>) -> Flow {
+    fn screen_mouse_button_pressed_pre(
+        &self,
+        host: &dyn mod_api::ClientHost,
+        event: &mut mod_api::ScreenMouseButtonPressedPreEvent<'_>,
+    ) -> Flow {
+        if matches!(journey::click(host, event), Flow::Cancel) {
+            return Flow::Cancel;
+        }
         amulet::client::click(host, event)
     }
 
-    fn screen_mouse_button_released_pre(&self, host: &dyn mod_api::ClientHost, event: &mut mod_api::ScreenMouseButtonReleasedPreEvent<'_>) -> Flow {
+    fn screen_mouse_button_released_pre(
+        &self,
+        host: &dyn mod_api::ClientHost,
+        event: &mut mod_api::ScreenMouseButtonReleasedPreEvent<'_>,
+    ) -> Flow {
+        if journey::owned_hold(host, event.screen.id) {
+            return Flow::Cancel;
+        }
         amulet::client::release(host, event)
     }
 
-    fn screen_mouse_dragged_pre(&self, host: &dyn mod_api::ClientHost, event: &mut mod_api::ScreenMouseDraggedPreEvent<'_>) -> Flow {
+    fn screen_mouse_dragged_pre(
+        &self,
+        host: &dyn mod_api::ClientHost,
+        event: &mut mod_api::ScreenMouseDraggedPreEvent<'_>,
+    ) -> Flow {
+        if journey::owned_hold(host, event.screen.id) {
+            return Flow::Cancel;
+        }
         amulet::client::drag(host, event)
     }
 
-    fn screen_key_pressed_pre(&self, host: &dyn mod_api::ClientHost, event: &mut mod_api::ScreenKeyPressedPreEvent<'_>) -> Flow {
+    fn screen_key_pressed_pre(
+        &self,
+        host: &dyn mod_api::ClientHost,
+        event: &mut mod_api::ScreenKeyPressedPreEvent<'_>,
+    ) -> Flow {
+        if matches!(journey::key(host, event), Flow::Cancel) {
+            return Flow::Cancel;
+        }
         amulet::client::key(host, event)
     }
 
-    fn screen_char_typed_pre(&self, host: &dyn mod_api::ClientHost, event: &mut mod_api::ScreenCharTypedPreEvent<'_>) -> Flow {
+    fn screen_char_typed_pre(
+        &self,
+        host: &dyn mod_api::ClientHost,
+        event: &mut mod_api::ScreenCharTypedPreEvent<'_>,
+    ) -> Flow {
+        if journey::owned_hold(host, event.screen.id) {
+            return Flow::Cancel;
+        }
         amulet::client::character(host, event)
     }
 
-    fn render_level_stage(&self, host: &dyn mod_api::ClientHost, event: &mut mod_api::RenderLevelStageEvent<'_>) {
+    fn render_level_stage(
+        &self,
+        host: &dyn mod_api::ClientHost,
+        event: &mut mod_api::RenderLevelStageEvent<'_>,
+    ) {
         amulet::client::draw_sky(host, event);
     }
 
-    fn gui_render_post(&self, host: &dyn mod_api::ClientHost, event: &mut mod_api::GuiRenderPostEvent<'_>) {
+    fn gui_render_post(
+        &self,
+        host: &dyn mod_api::ClientHost,
+        event: &mut mod_api::GuiRenderPostEvent<'_>,
+    ) {
         amulet::client::spyglass(host, event);
+        journey::draw(host, event.batch);
     }
 
-    fn register_range_select_item_model_property(&self, _context: &mod_api::RegistrationContext, event: &mut mod_api::RegisterRangeSelectItemModelPropertyEvent<'_>) {
+    fn render_frame_pre(
+        &self,
+        host: &mut dyn ClientHost,
+        _event: &mut mod_api::RenderFramePreEvent,
+    ) {
+        journey::frame(host);
+    }
+
+    fn client_disconnecting(
+        &self,
+        _host: &dyn ClientHost,
+        _event: &mut mod_api::ClientDisconnectingEvent,
+    ) {
+        journey::disconnect();
+    }
+
+    fn music(&self, _host: &dyn ClientHost, event: &mut mod_api::MusicEvent<'_>) {
+        journey::music(event);
+    }
+
+    fn register_range_select_item_model_property(
+        &self,
+        _context: &mod_api::RegistrationContext,
+        event: &mut mod_api::RegisterRangeSelectItemModelPropertyEvent<'_>,
+    ) {
         event.properties.push(amulet::client::NORTH.into());
     }
 
-    fn item_model_range_property(&self, host: &dyn mod_api::ClientHost, event: &mut mod_api::ItemModelRangePropertyEvent<'_>) {
+    fn item_model_range_property(
+        &self,
+        host: &dyn mod_api::ClientHost,
+        event: &mut mod_api::ItemModelRangePropertyEvent<'_>,
+    ) {
         amulet::client::compass(host, event);
     }
 
@@ -191,38 +286,52 @@ impl Hooks for Bmh {
     }
 
     fn living_entity_use_item_start(
-        &self, host: HostSide, event: &mut mod_api::LivingEntityUseItemStartEvent<'_>,
+        &self,
+        host: HostSide,
+        event: &mut mod_api::LivingEntityUseItemStartEvent<'_>,
     ) -> Flow {
         ritual::start(host, event)
     }
 
     fn living_entity_use_item_tick(
-        &self, host: HostSide, event: &mut mod_api::LivingEntityUseItemTickEvent<'_>,
+        &self,
+        host: HostSide,
+        event: &mut mod_api::LivingEntityUseItemTickEvent<'_>,
     ) -> Flow {
         ritual::tick(host, event)
     }
 
     fn living_entity_use_item_stop(
-        &self, host: HostSide, event: &mut mod_api::LivingEntityUseItemStopEvent<'_>,
+        &self,
+        host: HostSide,
+        event: &mut mod_api::LivingEntityUseItemStopEvent<'_>,
     ) -> Flow {
         ritual::stop(host, event);
         Flow::Continue
     }
 
     fn living_entity_use_item_finish(
-        &self, host: HostSide, event: &mut mod_api::LivingEntityUseItemFinishEvent<'_>,
+        &self,
+        host: HostSide,
+        event: &mut mod_api::LivingEntityUseItemFinishEvent<'_>,
     ) {
         ritual::finish(host, event);
     }
 
     fn living_damage_post(
-        &self, _host: &mut dyn mod_api::LevelRandomHost, event: &mut mod_api::LivingDamagePostEvent<'_>,
+        &self,
+        _host: &mut dyn mod_api::LevelRandomHost,
+        event: &mut mod_api::LivingDamagePostEvent<'_>,
     ) {
         ritual::damage_post(event);
         combat::damage_post(event);
     }
 
-    fn render_hand(&self, host: &dyn mod_api::ClientHost, event: &mut mod_api::RenderHandEvent<'_, '_>) -> Flow {
+    fn render_hand(
+        &self,
+        host: &dyn mod_api::ClientHost,
+        event: &mut mod_api::RenderHandEvent<'_, '_>,
+    ) -> Flow {
         ritual::render_hand(host, event)
     }
 
@@ -269,7 +378,11 @@ impl Hooks for Bmh {
         Flow::Continue
     }
 
-    fn submit_custom_geometry(&self, host: &dyn ClientHost, event: &mut SubmitCustomGeometryEvent<'_>) {
+    fn submit_custom_geometry(
+        &self,
+        host: &dyn ClientHost,
+        event: &mut SubmitCustomGeometryEvent<'_>,
+    ) {
         combat::ore::draw(host, event);
     }
 
@@ -311,7 +424,7 @@ impl Hooks for Bmh {
         host: &mut dyn ServerHost,
         event: &mut PlayerCommandEvent<'_>,
     ) -> Flow {
-        settings::rule_alias(host, event)
+        settings::player_command(host, event)
     }
 
     fn level_load(&self, host: &mut dyn ServerHost, event: &mut LevelLoadEvent<'_>) {
